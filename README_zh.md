@@ -1,21 +1,15 @@
-<div align="center">
-  <video src="./public/video/transmagent.mp4" data-canonical-src="./public/video/transmagent.mp4" controls="controls" muted="muted" class="d-block rounded-bottom-2 border-top width-fit" style="max-height:640px; min-height: 200px"></video>
-</div>
+<video src="https://github.com/TOSTRING-Z/transmagent/raw/refs/heads/main/public/video/transmagent.mp4" data-canonical-src="https://github.com/TOSTRING-Z/transmagent/raw/refs/heads/main/public/video/transmagent.mp4" controls="controls" muted="muted" class="d-block rounded-bottom-2 border-top width-fit" style="max-height:640px; min-height: 200px"></video>
 
 [English](README.md) | 中文
 
 **TransMAgent** 是一款跨平台的多智能体转录调控分析系统，支持 **Windows、macOS 与 Linux**。它集成**增强记忆机制**、**多智能体协作体系**、**MCP 工具服务**、**虚拟化安全执行环境**以及**大规模转录调控数据库**，为生物信息学研究人员提供一体化的智能化转录调控分析平台。
 
-<div align="center">
-
-  [![GitHub](https://img.shields.io/badge/GitHub-Repository-blue?logo=github)](https://github.com/TOSTRING-Z/TransMAgent)
-  [![HuggingFace](https://img.shields.io/badge/HuggingFace-Model-yellow?logo=huggingface)](https://huggingface.co/tostring/Qwen3-SFT-GRPO-8B)
-  [![Paper](https://img.shields.io/badge/Paper-PDF-red?logo=googlescholar)](https://github.com/TOSTRING-Z/TransMAgent)
-  [![Documentation](https://img.shields.io/badge/Docs-Documentation-green?logo=readthedocs)](https://github.com/TOSTRING-Z/TransMAgent)
-  [![Docker](https://img.shields.io/badge/Docker-Image-blue?logo=docker)](https://github.com/TOSTRING-Z/TransMAgent)
-  [![License](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE)
-
-</div>
+[![GitHub](https://img.shields.io/badge/GitHub-Repository-blue?logo=github)](https://github.com/TOSTRING-Z/TransMAgent)
+[![HuggingFace](https://img.shields.io/badge/HuggingFace-Model-yellow?logo=huggingface)](https://huggingface.co/tostring/Qwen3-SFT-GRPO-8B)
+[![Paper](https://img.shields.io/badge/Paper-PDF-red?logo=googlescholar)](https://github.com/TOSTRING-Z/TransMAgent)
+[![Documentation](https://img.shields.io/badge/Docs-Documentation-green?logo=readthedocs)](https://github.com/TOSTRING-Z/TransMAgent)
+[![Docker](https://img.shields.io/badge/Docker-Image-blue?logo=docker)](https://github.com/TOSTRING-Z/TransMAgent)
+[![License](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE)
 
 
 ## ✨ 核心特性

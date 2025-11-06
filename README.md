@@ -1,4 +1,4 @@
-<video src="./public/video/transmagent.mp4" data-canonical-src="./public/video/transmagent.mp4" controls="controls" muted="muted" class="d-block rounded-bottom-2 border-top width-fit" style="max-height:640px; min-height: 200px"></video>
+<video src="https://github.com/TOSTRING-Z/transmagent/raw/refs/heads/main/public/video/transmagent.mp4" data-canonical-src="https://github.com/TOSTRING-Z/transmagent/raw/refs/heads/main/public/video/transmagent.mp4" controls="controls" muted="muted" class="d-block rounded-bottom-2 border-top width-fit" style="max-height:640px; min-height: 200px"></video>
 
 English | [中文](README_zh.md)
 
