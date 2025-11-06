@@ -1,0 +1,196 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+    <meta charset="UTF-8">
+    <title>Log</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            margin: 0;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+        }
+
+        .alert-content {
+            padding: 15px 50px 15px 15px;
+            border-radius: 8px;
+            margin-bottom: 0;
+            display: flex;
+            align-items: center;
+            transition: all 0.3s ease;
+            position: relative;
+        }
+
+        .alert-content.log {
+            border-left: 4px solid #3498db;
+            background-color: #e8f4fc;
+        }
+
+        .alert-content.error {
+            border-left: 4px solid #e74c3c;
+            background-color: #fdeaea;
+        }
+
+        .alert-content.warning {
+            border-left: 4px solid #f39c12;
+            background-color: #fef5e7;
+        }
+
+        .alert-content.success {
+            border-left: 4px solid #2ecc71;
+            background-color: #eafaf1;
+        }
+
+        .alert-icon {
+            width: 40px;
+            height: 40px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            margin-right: 15px;
+            flex-shrink: 0;
+        }
+
+        .log .alert-icon {
+            background-color: #3498db;
+            color: white;
+        }
+
+        .error .alert-icon {
+            background-color: #e74c3c;
+            color: white;
+        }
+
+        .warning .alert-icon {
+            background-color: #f39c12;
+            color: white;
+        }
+
+        .success .alert-icon {
+            background-color: #2ecc71;
+            color: white;
+        }
+
+        .alert-text {
+            flex: 1;
+            text-align: left;
+            font-size: 16px;
+            line-height: 1.5;
+        }
+
+        .close-btn {
+            position: absolute;
+            top: 21px;
+            right: 15px;
+            width: 30px;
+            height: 30px;
+            background: rgba(0, 0, 0, 0.1);
+            color: #666;
+            border: none;
+            border-radius: 50%;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: all 0.3s ease;
+            font-size: 18px;
+            font-weight: bold;
+        }
+
+        .close-btn:hover {
+            background: rgba(0, 0, 0, 0.2);
+            color: #333;
+            transform: scale(1.1);
+        }
+
+        @keyframes fadeIn {
+            from {
+                opacity: 0;
+                transform: translateY(-20px);
+            }
+
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+    </style>
+    <link rel="stylesheet" href="css/fontawesome-free/css/all.min.css" />
+</head>
+
+<body>
+    <div class="alert-content log" id="contentArea">
+        <div class="alert-icon">
+            <i class="fas fa-info-circle"></i>
+        </div>
+        <div class="alert-text">默认内容</div>
+        <button class="close-btn" id="closeBtn" title="关闭">
+            <i class="fas fa-times"></i>
+        </button>
+    </div>
+</body>
+<script>
+    const { ipcRenderer } = require('electron')
+    // 接收内容设置
+    ipcRenderer.on('show-log', (event, { type, content }) => {
+        showMessage(type, content);
+    });
+
+    // 关闭按钮事件
+    document.getElementById('closeBtn').addEventListener('click', () => {
+        ipcRenderer.send('close-clicked');
+    });
+
+
+    // 显示消息函数
+    function showMessage(type, content) {
+        const contentArea = document.getElementById('contentArea');
+
+        // 移除所有类型类
+        contentArea.classList.remove('log', 'error', 'warning', 'success');
+
+        // 添加对应的类型类
+        contentArea.classList.add(type);
+
+        // 更新图标和内容
+        const icon = contentArea.querySelector('.alert-icon i');
+        const text = contentArea.querySelector('.alert-text');
+
+        // 根据类型设置图标
+        switch (type) {
+            case "log":
+                icon.className = "fas fa-info-circle";
+                break;
+            case "error":
+                icon.className = "fas fa-exclamation-triangle";
+                break;
+            case "warning":
+                icon.className = "fas fa-exclamation-circle";
+                break;
+            case "success":
+                icon.className = "fas fa-check-circle";
+                break;
+            default:
+                icon.className = "fas fa-info-circle";
+        }
+
+        text.textContent = content;
+
+        // 添加动画效果
+        contentArea.style.transform = 'scale(0.95)';
+        setTimeout(() => {
+            contentArea.style.transform = 'scale(1)';
+        }, 150);
+    }
+</script>
+
+</html>

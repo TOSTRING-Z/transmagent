@@ -1,0 +1,46 @@
+{
+  "plugins": {
+    "cli_execute": {
+      "params": {
+        "cli_prompt": "/app/cli_prompt.md",
+        "bashrc": "/root/.bashrc",
+        "delay_time": 5,
+        "threshold": 10000
+      },
+      "enabled": true
+    },
+    "display_file": {
+      "enabled": true
+    }
+  },
+  "mcp_server": {
+    "biotools": {
+      "url": "http://172.27.0.3:3001/biotools",
+      "disabled": false
+    }
+  },
+  "tool_call": {
+    "memory_length": 20,
+    "mcp_timeout": 6000,
+    "extra_prompt": "/app/extra_prompt.md",
+    "tmpdir": "/tmp",
+    "language": "english",
+    "system_type": "linux",
+    "system_platform": "debian12",
+    "system_arch": "x86_64",
+    "ssh_config": {
+      "host": "127.0.0.1",
+      "port": 3002,
+      "username": "root",
+      "password": "password"
+    },
+    "llm_parmas": {
+      "max_tokens": 4000,
+      "temperature": 0.5,
+      "stream": true,
+      "response_format": {
+        "type": "json_object"
+      }
+    }
+  }
+}

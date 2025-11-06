@@ -1,0 +1,50 @@
+{
+  "plugins": {
+    "browser_client": {
+      "enabled": true
+    },
+    "fetch_search": {
+      "enabled": true
+    },
+    "fetch_url": {
+      "enabled": true
+    },
+    "python_execute": {
+      "enabled": true
+    },
+    "analyze_code": {
+      "enabled": true
+    },
+    "search_files": {
+      "enabled": true
+    },
+    "list_files": {
+      "enabled": true
+    },
+    "write_to_file": {
+      "enabled": true
+    },
+    "replace_in_file": {
+      "enabled": true
+    },
+    "error_solution_search": {
+      "enabled": true
+    },
+    "cli_execute": {
+      "enabled": false
+    },
+    "display_file": {
+      "enabled": true
+    }
+  },
+  "mcp_server": {
+    "biotools": {
+      "disabled": true
+    }
+  },
+  "tool_call": {
+    "ssh_config": {
+      "enabled": false
+    }
+  }
+}

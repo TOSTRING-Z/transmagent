@@ -1,0 +1,124 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+  <meta charset="UTF-8" />
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; 
+           script-src 'self' https://cdnjs.cloudflare.com 'unsafe-inline'; 
+           style-src 'self' https://cdnjs.cloudflare.com 'unsafe-inline'; 
+           font-src https://cdnjs.cloudflare.com file:; 
+           img-src 'self' data:;" />
+  <title>TransAgent - Transcriptional Regulation Analysis Agent</title>
+  <link rel="stylesheet" href="css/output.css" />
+  <link rel="stylesheet" href="css/atom-one-light.min.css" />
+  <link rel="stylesheet" href="css/fontawesome-free/css/all.min.css" />
+  <link rel="stylesheet" href="css/index.css" />
+  <link rel="stylesheet" href="css/jsoneditor/jsoneditor.min.css" />
+  <link rel="stylesheet" href="css/katex.min.css" />
+  <script src="js/katex.min.js"></script>
+  <script src="js/marked.umd.js"></script>
+  <script src="js/masked_high_light.js"></script>
+  <script src="js/index.umd.js"></script>
+  <script src="js/highlight.min.js"></script>
+  <script src="js/jsoneditor.min.js"></script>
+  <script src="js/mermaid.min.js"></script>
+  <script src="js/pdf.min.js"></script>
+  <style>
+    body {
+      margin: 0;
+      font-family: Arial, sans-serif;
+      background-color: #f9f9f9;
+      color: #333;
+      display: flex;
+      flex-direction: column;
+      border: #333 solid 1px;
+    }
+
+    /* 自定义标题栏 */
+    .title-bar {
+      -webkit-app-region: drag;
+      /* 允许拖动 */
+      font-size: medium;
+      height: 30px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 0 10px;
+      -webkit-user-select: none;
+      /* Safari */
+      -moz-user-select: none;
+      /* Firefox */
+      -ms-user-select: none;
+      /* IE10+/Edge */
+      user-select: none;
+      /* Standard */
+    }
+
+    /* 窗口控制按钮 */
+    .window-controls {
+      display: flex;
+      -webkit-app-region: no-drag;
+      /* 禁止拖动干扰按钮点击 */
+    }
+
+    .window-btn {
+      width: 12px;
+      height: 12px;
+      border-radius: 50%;
+      margin-left: 8px;
+      cursor: pointer;
+    }
+
+    .close-btn {
+      background: #ff5e57;
+    }
+
+    .minimize-btn {
+      background: #ffbb2e;
+    }
+
+    /* 内容区域 */
+    .content {
+      padding: 15px;
+      width: 100%;
+    }
+
+    #top_div {
+      flex-grow: 1;
+      overflow-y: auto;
+      background-color: var(--bg);
+      height: calc(100vh - 60px);
+    }
+  </style>
+</head>
+
+<body>
+  <!-- 自定义标题栏 -->
+  <div class="title-bar">
+    <div class="title"><i class="fas fa-robot"></i> <b id="info-name">SubAgent</b></div>
+    <div class="window-controls">
+      <div class="window-btn minimize-btn" id="minimize-btn"></div>
+      <div class="window-btn close-btn" id="close-btn"></div>
+    </div>
+  </div>
+
+  <!-- 内容区域 -->
+  <div class="content">
+
+    <textarea id="content" hidden></textarea>
+
+    <div class="container-fluid flex">
+      <div class="w-full flex-grow">
+        <!-- Chat messages -->
+        <div class="overflow-y-auto" id="top_div">
+          <div class="p-4 flex flex-col space-y-4" id="messages"></div>
+          <div class="space-x-2 items-start" id="pause"></div>
+        </div>
+      </div>
+    </div>
+  </div>
+</body>
+
+<script src="./js/subagent.js"></script>
+
+</html>

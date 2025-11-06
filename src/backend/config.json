@@ -1,0 +1,190 @@
+{
+  "memory_length": 10,
+  "retry_time": 10,
+  "icon_time": 5,
+  "history_path": null,
+  "webserver": {
+    "port": 3005
+  },
+  "short_cut": "CommandOrControl+Shift+Space",
+  "backend_url": "http://www.licpathway.net/transmagent_web",
+  "info_template": "Step: {step}, id: {id}, memory_id: {memory_id}, Call: {model}, Version: {version}, Output:\n\n```json\n{output_format}\n```\n\n",
+  "llm_params": {
+    "stream": true
+  },
+  "func_status": {
+    "react": true,
+    "markdown": true,
+    "clip": false,
+    "text": false,
+    "del": false
+  },
+  "default": {
+    "model": "deepseek",
+    "version": "deepseek-chat",
+    "plugin": "baidu_translate",
+    "auto_optimization": "auto_optimization"
+  },
+  "models": {
+    "ollama": {
+      "api_url": "http://localhost:11434/api/chat",
+      "versions": [
+        "deepseek-coder-v2",
+        {
+          "version": "gemma3:12b",
+          "vision": [
+            "image"
+          ],
+          "ollama": true
+        }
+      ]
+    },
+    "vllm": {
+      "api_url": "http://127.0.0.1:8060/v1/chat/completions",
+      "api_key": "token-tostring-qwen3-coder-lora",
+      "versions": [
+        {
+          "version": "/root/private_data/transagent/model/qwen-coder-lora-s2-30b",
+          "llm_params": {
+            "stream": true,
+            "chat_template_kwargs": {
+              "enable_thinking": false
+            }
+          }
+        }
+      ]
+    },
+    "deepseek": {
+      "api_url": "https://api.deepseek.com/chat/completions",
+      "api_key": "",
+      "versions": [
+        {
+          "version": "deepseek-chat"
+        }
+      ]
+    }
+  },
+  "plugins": {
+    "auto_optimization": {
+      "params": {
+        "retry_time": 3,
+        "url": "http://127.0.0.1:3004/predict"
+      },
+      "show": false
+    },
+    "baidu_translate": {
+      "show": true
+    },
+    "browser_client": {
+      "enabled": false
+    },
+    "fetch_search": {
+      "params": {
+        "searcher_type": "DuckDuckGoSearch",
+        "api_key": null,
+        "region": "zh-CN"
+      },
+      "enabled": false
+    },
+    "fetch_url": {
+      "enabled": false
+    },
+    "python_execute": {
+      "params": {
+        "python_bin": "python",
+        "timeout": 3600,
+        "delay_time": 5,
+        "show": true,
+        "threshold": 5000
+      },
+      "enabled": false
+    },
+    "analyze_code": {
+      "enabled": false
+    },
+    "search_files": {
+      "enabled": false
+    },
+    "list_files": {
+      "params": {
+        "threshold": 50
+      },
+      "enabled": false
+    },
+    "write_to_file": {
+      "enabled": false
+    },
+    "replace_in_file": {
+      "enabled": false
+    },
+    "error_solution_search": {
+      "enabled": false
+    },
+    "update_tool": {
+      "enabled": false
+    },
+    "cli_execute": {
+      "params": {
+        "bashrc": "/root/.bashrc",
+        "show": true,
+        "delay_time": 5,
+        "timeout": 3600,
+        "max_lines": 40,
+        "max_chars_per_line": 200
+      },
+      "enabled": true
+    },
+    "display_file": {
+      "params": {
+        "local_path": null
+      },
+      "enabled": true
+    }
+  },
+  "mcp_server": {
+    "biotools": {
+      "url": "http://0.0.0.0:3001/biotools",
+      "disabled": false
+    }
+  },
+  "tool_call": {
+    "memory_length": 40,
+    "long_memory_length": 100,
+    "mcp_timeout": 60,
+    "extra_prompt": null,
+    "cli_prompt": null,
+    "subagent": true,
+    "subagent_llm_init": false,
+    "env_message": true,
+    "max_thinking_repetitions": 3,
+    "repetitions_delay_empty": 2,
+    "tmpdir": "/tmp",
+    "language": "english",
+    "system_type": "linux",
+    "system_platform": "debian12",
+    "system_arch": "x86_64",
+    "ssh_config": {
+      "host": "127.0.0.1",
+      "port": 3002,
+      "username": "root",
+      "password": "password",
+      "enabled": true
+    },
+    "llm_params": {
+      "stream": true,
+      "response_format": {
+        "type": "json_object"
+      }
+    }
+  },
+  "chain_call": [
+    {
+      "end": true
+    }
+  ],
+  "extra": [
+    {
+      "type": "system-prompt"
+    }
+  ]
+}

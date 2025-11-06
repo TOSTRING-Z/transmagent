@@ -1,0 +1,646 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>AI Model Management</title>
+  <link rel="stylesheet" href="css/output.css" />
+  <link rel="stylesheet" href="css/atom-one-light.min.css" />
+  <link rel="stylesheet" href="css/fontawesome-free/css/all.min.css" />
+  <link rel="stylesheet" href="css/index.css" />
+  <style>
+    :root {
+      --primary: #4361ee;
+      --danger: #e63946;
+      --success: #2a9d8f;
+      --dark: #2b2d42;
+      --light: #f8f9fa;
+      --gray: #6c757d;
+      --border: #dee2e6;
+    }
+
+    body {
+      margin: 0;
+      font-family: Arial, sans-serif;
+      background-color: #f9f9f9;
+      color: #333;
+      display: flex;
+      flex-direction: column;
+      border: #333 solid 1px;
+    }
+
+    /* 自定义标题栏 */
+    .title-bar {
+      -webkit-app-region: drag;
+      /* 允许拖动 */
+      height: 30px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 0 10px;
+      -webkit-user-select: none;
+      /* Safari */
+      -moz-user-select: none;
+      /* Firefox */
+      -ms-user-select: none;
+      /* IE10+/Edge */
+      user-select: none;
+      /* Standard */
+    }
+
+    /* 窗口控制按钮 */
+    .window-controls {
+      display: flex;
+      -webkit-app-region: no-drag;
+      /* 禁止拖动干扰按钮点击 */
+    }
+
+    .window-btn {
+      width: 12px;
+      height: 12px;
+      border-radius: 50%;
+      margin-left: 8px;
+      cursor: pointer;
+    }
+
+    /* 内容区域 */
+    .content {
+      padding: 15px;
+      width: 100%;
+      height: calc(100vh - 30px);
+      overflow: auto;
+    }
+
+    .close-btn {
+      background: #ff5e57;
+    }
+
+    .minimize-btn {
+      background: #ffbb2e;
+    }
+
+    header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 30px;
+      padding-bottom: 15px;
+      border-bottom: 1px solid var(--border);
+    }
+
+    h1 {
+      color: var(--dark);
+      font-weight: 600;
+    }
+
+    .btn {
+      padding: 10px 20px;
+      border: none;
+      border-radius: 6px;
+      cursor: pointer;
+      font-weight: 500;
+      transition: all 0.3s ease;
+    }
+
+    .btn-primary {
+      background-color: var(--primary);
+      color: white;
+    }
+
+    .btn-primary:hover {
+      background-color: #3651d3;
+    }
+
+    .models-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+      gap: 20px;
+    }
+
+    .model-card {
+      background: white;
+      border-radius: 10px;
+      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
+      padding: 20px;
+      transition: transform 0.3s ease;
+    }
+
+    .model-card:hover {
+      transform: translateY(-5px);
+    }
+
+    .model-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 15px;
+    }
+
+    .model-name {
+      font-weight: 600;
+      font-size: 18px;
+      color: var(--dark);
+    }
+
+    .model-provider {
+      background-color: #eef2ff;
+      color: var(--primary);
+      padding: 4px 10px;
+      border-radius: 20px;
+      font-size: 12px;
+      font-weight: 500;
+    }
+
+    .model-details {
+      margin-bottom: 15px;
+    }
+
+    .model-detail {
+      display: flex;
+      margin-bottom: 8px;
+      font-size: 14px;
+      word-break: break-all;
+    }
+
+    .detail-label {
+      font-weight: 500;
+      min-width: 100px;
+      color: var(--gray);
+    }
+
+    .model-actions {
+      display: flex;
+      gap: 10px;
+    }
+
+    .btn-icon {
+      padding: 6px 10px;
+      border-radius: 6px;
+      font-size: 14px;
+    }
+
+    .btn-edit {
+      background-color: #e8f4fd;
+      color: var(--primary);
+    }
+
+    .btn-delete {
+      background-color: #feeceb;
+      color: var(--danger);
+    }
+
+    /* 模态框样式 */
+    .config-modal {
+      display: none;
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      background-color: rgba(0, 0, 0, 0.5);
+      z-index: 1000;
+      align-items: center;
+      justify-content: center;
+      backdrop-filter: blur(3px);
+    }
+
+    .config-content {
+      background-color: white;
+      width: 90%;
+      max-width: 600px;
+      padding: 25px;
+      box-shadow: 0 10px 30px rgba(0, 0, 0, 0.15);
+      max-height: 90vh;
+      overflow-y: auto;
+    }
+
+    .config-content h2 {
+      margin-bottom: 20px;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+
+    .form-group {
+      margin-bottom: 20px;
+    }
+
+    .form-row {
+      margin-bottom: 15px;
+    }
+
+    .form-row label {
+      display: block;
+      margin-bottom: 6px;
+      font-weight: 500;
+      color: var(--dark);
+    }
+
+    .form-row input,
+    .form-row textarea,
+    .form-row select {
+      width: 100%;
+      padding: 12px;
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      font-family: inherit;
+      font-size: 15px;
+    }
+
+    .form-row textarea {
+      resize: vertical;
+      min-height: 100px;
+    }
+
+    .muted {
+      color: var(--gray);
+      font-size: 13px;
+    }
+
+    .modal-actions {
+      display: flex;
+      justify-content: flex-end;
+      gap: 10px;
+      margin-top: 20px;
+    }
+
+    .dialog-btn {
+      padding: 10px 20px;
+      border-radius: 6px;
+      cursor: pointer;
+      font-weight: 500;
+      border: 1px solid var(--border);
+      background: white;
+      transition: all 0.2s ease;
+    }
+
+    .dialog-confirm {
+      background-color: var(--primary);
+      color: white;
+      border: none;
+    }
+
+    .dialog-btn:hover {
+      opacity: 0.9;
+    }
+
+    .empty-state {
+      text-align: center;
+      padding: 40px 20px;
+      color: var(--gray);
+    }
+
+    .empty-state i {
+      font-size: 48px;
+      margin-bottom: 15px;
+      color: #d0d7de;
+    }
+
+    .bottom_div {
+      background: #f9f9f9;
+      padding: 15px;
+      border: none;
+    }
+
+    /* 新增样式 */
+    .checkbox-container {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .checkbox-container input[type="checkbox"] {
+      width: auto;
+      margin: 0;
+    }
+
+    .feature-tag {
+      display: inline-block;
+      padding: 4px 8px;
+      border-radius: 4px;
+      font-size: 12px;
+      font-weight: 500;
+      margin-right: 6px;
+    }
+
+    .llm-tag {
+      background-color: #fdeac0;
+      color: #d29119;
+    }
+
+    .vision-tag {
+      background-color: #e8f4fd;
+      color: #1976d2;
+    }
+
+    .ollama-tag {
+      background-color: #e8f5e9;
+      color: #2e7d32;
+    }
+  </style>
+</head>
+
+<body>
+  <!-- 自定义标题栏 -->
+  <div class="title-bar">
+    <div class="title"><i class="fas fa-robot"></i> AI Model Management</div>
+    <div class="window-controls">
+      <div class="window-btn minimize-btn" id="minimize-btn"></div>
+      <div class="window-btn close-btn" id="close-btn"></div>
+    </div>
+  </div>
+
+  <!-- 内容区域 -->
+  <div class="content">
+    <div class="models-grid" id="models-container">
+      <!-- 模型卡片将通过JavaScript动态生成 -->
+      <div class="empty-state">
+        <i class="fas fa-inbox"></i>
+        <h3>No Model Configuration Available</h3>
+        <p>Click the "Add Model" button to start adding models</p>
+      </div>
+    </div>
+  </div>
+
+  <div class="bottom_div">
+    <button class="btn btn-primary" onclick="showAddModel()">
+      <i class="fas fa-plus"></i> Add Model
+    </button>
+  </div>
+
+  <!-- 添加/编辑模型模态框 -->
+  <div class="config-modal" id="m-add-model" onclick="hideConfig()">
+    <div class="config-content" onclick="event.stopPropagation()">
+      <h2 style="color: var(--primary); margin-bottom: 20px;">
+        <i class="fas fa-plus-circle"></i> Add / Edit Model
+      </h2>
+
+      <div class="form-group">
+        <div class="form-row">
+          <label>Model Name (provider):</label>
+          <input type="text" id="model-name" placeholder="e.g. openai">
+        </div>
+        <div class="form-row">
+          <small class="muted">Model name should be the provider (openai, anthropic, etc.).</small>
+        </div>
+
+        <div class="form-row">
+          <label>API Url:</label>
+          <input type="text" id="model-api-url" placeholder="https://api.example.com/v1">
+        </div>
+
+        <div class="form-row">
+          <label>API Key:</label>
+          <input type="text" id="model-api-key" placeholder="sk-...">
+        </div>
+
+        <div class="form-row">
+          <label>Params (JSON):</label>
+          <textarea id="model-params" rows="4" placeholder='{"temperature":0.7,"max_tokens":1024}'></textarea>
+        </div>
+
+        <div class="form-row">
+          <label>Version (model id):</label>
+          <input type="text" id="model-version" placeholder="e.g. gpt-4o">
+        </div>
+        <div class="form-row">
+          <small class="muted">Version corresponds to the specific model id provided by the provider (for example:
+            gpt-4o).</small>
+        </div>
+
+        <div class="form-row">
+          <label>Vision Capabilities:</label>
+          <select id="model-vision">
+            <option value="false">No Vision Support</option>
+            <option value="true">Has Vision Support</option>
+          </select>
+        </div>
+        <div class="form-row">
+          <small class="muted">Whether this model supports image processing capabilities.</small>
+        </div>
+
+        <div class="form-row">
+          <label>Ollama Model:</label>
+          <select id="model-ollama">
+            <option value="false">Not an Ollama Model</option>
+            <option value="true">Ollama Model</option>
+          </select>
+        </div>
+        <div class="form-row">
+          <small class="muted">Whether this model is running through Ollama.</small>
+        </div>
+      </div>
+
+      <div class="modal-actions">
+        <button class="dialog-btn" onclick="hideConfig()">Cancel</button>
+        <button class="dialog-btn dialog-confirm" id="btn_save_model" onclick="saveModel()">Save Model</button>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    // 窗口控制逻辑
+    const { ipcRenderer } = require('electron')
+
+    document.getElementById('minimize-btn').addEventListener('click', () => {
+      ipcRenderer.send('minimize-window')
+    })
+
+    document.getElementById('close-btn').addEventListener('click', () => {
+      ipcRenderer.send('close-window')
+    })
+
+    // 存储模型数据
+    let models = [];
+    let editingModelId = null;
+
+    // 初始化函数
+    function init() {
+      loadModels();
+      // 假设从Electron后端获取数据
+      ipcRenderer.invoke('get-models').then(data => {
+        models = data;
+        renderModels();
+      });
+    }
+
+    // 显示添加模型模态框
+    function showAddModel() {
+      editingModelId = null;
+      clearForm();
+      document.getElementById('m-add-model').style.display = 'flex';
+    }
+
+    // 显示编辑模型模态框
+    function showEditModel(id) {
+      const model = models.find(m => m.id === id);
+      if (model) {
+        editingModelId = id;
+        document.getElementById('model-name').value = model.name || '';
+        document.getElementById('model-api-url').value = model.api_url || '';
+        document.getElementById('model-api-key').value = model.api_key || '';
+        document.getElementById('model-params').value = model.params ? JSON.stringify(model.params, null, 2) : '';
+        document.getElementById('model-version').value = model.version || '';
+        document.getElementById('model-vision').value = model.vision ? 'true' : 'false';
+        document.getElementById('model-ollama').value = model.ollama ? 'true' : 'false';
+        document.getElementById('m-add-model').style.display = 'flex';
+      }
+    }
+
+    // 隐藏模态框
+    function hideConfig() {
+      document.getElementById('m-add-model').style.display = 'none';
+    }
+
+    // 清空表单
+    function clearForm() {
+      document.getElementById('model-name').value = '';
+      document.getElementById('model-api-url').value = '';
+      document.getElementById('model-api-key').value = '';
+      document.getElementById('model-params').value = '';
+      document.getElementById('model-version').value = '';
+      document.getElementById('model-vision').value = 'false';
+      document.getElementById('model-ollama').value = 'false';
+    }
+
+    // 保存模型
+    function saveModel() {
+      const name = document.getElementById('model-name').value.trim();
+      const api_url = document.getElementById('model-api-url').value.trim();
+      const api_key = document.getElementById('model-api-key').value.trim();
+      const paramsText = document.getElementById('model-params').value.trim();
+      const version = document.getElementById('model-version').value.trim();
+      const vision = document.getElementById('model-vision').value === 'true';
+      const ollama = document.getElementById('model-ollama').value === 'true';
+
+      // 基本验证
+      if (!name) {
+        alert('Model name cannot be empty');
+        return;
+      }
+
+      let params = {};
+      if (paramsText) {
+        try {
+          params = JSON.parse(paramsText);
+        } catch (e) {
+          alert('Parameters must be in valid JSON format');
+          return;
+        }
+      }
+
+      const modelData = {
+        name,
+        api_url,
+        api_key,
+        params,
+        version,
+        vision,
+        ollama
+      };
+
+      // 如果是编辑模式
+      if (editingModelId !== null) {
+        modelData.id = editingModelId;
+        // 调用Electron更新模型
+        ipcRenderer.invoke('save-model', modelData).then(() => {
+          hideConfig();
+          loadModels();
+        });
+      } else {
+        // 调用Electron添加模型
+        ipcRenderer.invoke('save-model', modelData).then(() => {
+          hideConfig();
+          loadModels();
+        });
+      }
+
+      hideConfig();
+      renderModels();
+    }
+
+    // 删除模型
+    function deleteModel(id) {
+      if (confirm('Are you sure you want to delete this model? This action cannot be undone.')) {
+        // 调用Electron删除模型
+        ipcRenderer.invoke('delete-model', id).then(() => {
+          loadModels();
+        });
+        renderModels();
+      }
+    }
+
+    // 从Electron加载模型列表
+    function loadModels() {
+      // 实际使用时取消注释
+      ipcRenderer.invoke('get-models').then(data => {
+        models = data;
+        renderModels();
+      });
+      // ];
+
+      renderModels();
+    }
+
+    // 渲染模型列表
+    function renderModels() {
+      const container = document.getElementById('models-container');
+
+      if (models.length === 0) {
+        container.innerHTML = `
+          <div class="empty-state">
+            <i class="fas fa-inbox"></i>
+            <h3>No Model Configuration Available</h3>
+            <p>Click the "Add Model" button to start adding models</p>
+          </div>
+        `;
+        return;
+      }
+
+      container.innerHTML = models.map(model => `
+        <div class="model-card">
+          <div class="model-header">
+            <div class="model-name">${model.name}</div>
+            <div class="model-provider">${model.version}</div>
+          </div>
+          <div class="model-details">
+            <div class="model-detail">
+              <span class="detail-label">API URL:</span>
+              <span>${model.api_url}</span>
+            </div>
+            <div class="model-detail">
+              <span class="detail-label">API Key:</span>
+              <span>${model?.api_key ? model.api_key?.substring(0, 5) + "******" : "None"}</span>
+            </div>
+            <div class="model-detail">
+              <span class="detail-label">Parameters:</span>
+              <span>${model?.params ? JSON.stringify(model?.params) : "None"}</span>
+            </div>
+            <div class="model-detail">
+              <span class="detail-label">Features:</span>
+              <span>
+                <span class="feature-tag llm-tag">LLM</span>
+                ${model.vision ? '<span class="feature-tag vision-tag">Vision</span>' : ''}
+                ${model.ollama ? '<span class="feature-tag ollama-tag">Ollama</span>' : ''}
+              </span>
+            </div>
+          </div>
+          <div class="model-actions">
+            <button class="btn btn-icon btn-edit" onclick="showEditModel('${model.id}')">
+              <i class="fas fa-edit"></i> Edit
+            </button>
+            <button class="btn btn-icon btn-delete" onclick="deleteModel('${model.id}')">
+              <i class="fas fa-trash"></i> Delete
+            </button>
+          </div>
+        </div>
+      `).join('');
+    }
+
+    // 初始化
+    document.addEventListener('DOMContentLoaded', init);
+  </script>
+</body>
+
+</html>
