@@ -922,6 +922,19 @@ const options = {
   async: true
 };
 
+// Override function
+function preprocess(src) {
+  // 转换行内公式 \( \epsilon \) -> $ \epsilon $
+  src = src.replace(/\\\(([^]+?)\\\)/g, (match, content) => `$${content}$`);
+  
+  // 转换块级公式 \[ \epsilon \] -> $$ \epsilon $$
+  src = src.replace(/\\\[([^]+?)\\\]/g, (match, content) => `\n$$${content}$$\n`);
+  
+  return src;
+}
+
+marked.use({ hooks: { preprocess } });
+
 marked.use(globalThis.markedKatex(options));
 marked.use({ walkTokens, renderer, async: true, extensions: [think] });
 
