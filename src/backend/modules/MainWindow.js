@@ -858,6 +858,7 @@ class MainWindow extends Window {
                                     this.tool_call.init_var();
                                     this.tool_call.load_message(result.filePaths[0]);
                                     this.tool_call.setHistory();
+                                    this.window.webContents.send('set-chat', this.llm_service.chat);
                                 }
                             }).catch(err => {
                                 console.error(err);

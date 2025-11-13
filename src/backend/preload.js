@@ -32,6 +32,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
   handleSelectChat: (callback) => ipcRenderer.on('select-chat', (_event, chat) => callback(chat)),
   delChat: (id) => ipcRenderer.send('del-chat', id),
   loadChat: (id) => ipcRenderer.invoke('load-chat', id),
+  handleSetChat: (callback) => ipcRenderer.on('set-chat', (_event, chat) => callback(chat)),
   renameChat: (data) => ipcRenderer.send('rename-chat', data),
   getConfig: () => ipcRenderer.invoke('get-config-main'),
   setConfig: (config) => ipcRenderer.invoke('set-config-main', config),

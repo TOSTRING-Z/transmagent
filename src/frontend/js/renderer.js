@@ -926,10 +926,10 @@ const options = {
 function preprocess(src) {
   // 转换行内公式 \( \epsilon \) -> $ \epsilon $
   src = src.replace(/\\\(([^]+?)\\\)/g, (match, content) => `$${content}$`);
-  
+
   // 转换块级公式 \[ \epsilon \] -> $$ \epsilon $$
   src = src.replace(/\\\[([^]+?)\\\]/g, (match, content) => `\n$$${content}$$\n`);
-  
+
   return src;
 }
 
@@ -1349,6 +1349,20 @@ async function selectChat(chatId) {
 
 window.electronAPI.handleSelectChat(async (chat) => {
   await selectChat(chat.id);
+})
+
+window.electronAPI.handleSetChat(async (chat) => {
+  const items = history_list.getElementsByClassName("history-item");
+  [...items].forEach(item_ => {
+    if (item_.id == global.chat.id)
+      item_.getElementsByClassName("history-text")[0].innerText = chat.name;
+  });
+  global.chat = chat;
+  toggleMode(global.chat.mode);
+  system_prompt.value = global.chat.system_prompt;
+  tokens.innerText = global.chat.tokens;
+  seconds.innerText = global.chat.seconds.toFixed(1);
+
 })
 
 // 删除聊天

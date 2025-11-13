@@ -93,12 +93,17 @@ class LLMService {
                 fs.mkdirSync(path.dirname(filePath), { recursive: true });
             }
 
-            fs.writeFile(filePath, JSON.stringify(this.messages.map(message => {
-                if (!message?.memory_id && message.role == "assistant") {
-                    message.memory_id = message.id;
-                }
-                return message;
-            }), null, 2), err => {
+            const data = {
+                messages: this.messages.map(message => {
+                    if (!message?.memory_id && message.role == "assistant") {
+                        message.memory_id = message.id;
+                    }
+                    return message;
+                }),
+                chat: this.chat
+            };
+
+            fs.writeFile(filePath, JSON.stringify(data, null, 2), err => {
                 if (err) {
                     console.log(err.message);
                     return;
@@ -115,8 +120,15 @@ class LLMService {
             if (!fs.existsSync(filePath)) {
                 return [];
             }
-            const data = fs.readFileSync(filePath, "utf-8");
-            this.messages = utils.parseJsonContent(data) || [];
+            const data = utils.parseJsonContent(fs.readFileSync(filePath, "utf-8"));
+            // 旧版兼容
+            if (Array.isArray(data)) {
+                this.messages = data || [];
+                this.chat = this.getChatInit();
+            } else if (data?.messages && data?.chat) {
+                this.messages = data.messages;
+                this.chat =  {...data.chat, id: this.chat.id}
+            }
             return this.messages.filter(message => message.show);
         } catch (error) {
             console.log(error);
