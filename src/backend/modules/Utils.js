@@ -44,8 +44,7 @@ class Utils {
 
             return await response.json();
         } catch (error) {
-            console.error('sendData Error sending data:', error);
-            throw error;
+            console.log('sendData Error sending data:', error.message);
         }
     }
 

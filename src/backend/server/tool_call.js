@@ -416,13 +416,14 @@ ${!this.prompt_args.subagent && this.environment_details.mode !== this.modes.FLA
 - **Completion**: Use \`enter_idle_state\` to show results
 
 ## 📋 Planning Mode
-- **Can only use**: \`plan_mode_response\` + query tools
+- **Can only use**: \`plan_mode_response\` + read tools
 - **Purpose**: Information gathering & solution design
 - **Workflow**:
   1. Collect context and requirements
-  2. Develop detailed plan
-  3. Get user approval
-  4. Switch to execution/auto mode
+  2. View file/directory contents as needed
+  3. Develop detailed plan
+  4. Get user approval
+  5. Switch to execution/auto mode
 
 ## Mode Switching
 - To Planning: Stop current tasks, start planning

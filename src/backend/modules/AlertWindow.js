@@ -20,7 +20,7 @@ class AlertWindow extends Window {
 
         const display = screen.getPrimaryDisplay();
         let x = Math.round((display.workAreaSize.width - this.width) / 2);
-        let y = 0;
+        let y = 20;
 
         if (this.windows) {
             this.windows.setPosition(x, y);
