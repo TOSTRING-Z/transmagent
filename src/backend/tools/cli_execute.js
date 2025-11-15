@@ -141,7 +141,9 @@ function main(params) {
                     terminalWindow.show();
                 }
             });
-
+            terminalWindow.on('ready-to-show', () => {
+                // terminalWindow.webContents.openDevTools();
+            });
             terminalWindow.on('closed', () => {
                 terminalWindow = null;
             });

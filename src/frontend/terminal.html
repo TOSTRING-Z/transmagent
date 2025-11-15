@@ -6,12 +6,17 @@
     <title>Python Terminal</title>
     <link rel="stylesheet" href="css/xterm.css" />
     <style>
+        :root {
+            --tw-bg-opacity: 0;
+        }
+
         body {
             margin: 0;
             padding: 0;
             background: #2d3436;
             color: white;
             font-family: Arial;
+            overflow: hidden;
         }
 
         /* 自定义标题栏 */
@@ -59,25 +64,21 @@
 
         /* 内容区域 */
         .content {
-            padding: 0px;
-            width: 100%;
-            height: calc(100vh - 30px);
-            overflow: auto;
+            margin: 10px;
+            display: flex;
+            height: calc(100vh - 40px);
+            justify-content: center;
         }
 
         #terminal {
-            width: 100%;
+            width: 780px;
             height: 100%;
-            padding: 20px;
+            padding: 0px;
             box-sizing: border-box;
             max-width: 1200px;
             margin: 0 auto;
-        }
-
-        @media (max-width: 768px) {
-            #terminal {
-                padding: 10px;
-            }
+            position: relative;
+            overflow: auto;
         }
 
         .xterm {
@@ -91,6 +92,45 @@
 
         .xterm-screen {
             background-color: #1a1a1a !important;
+        }
+
+        /* Scrollbar styles */
+        ::-webkit-scrollbar {
+            width: 4px;
+            height: 4px;
+        }
+
+        ::-webkit-scrollbar-track {
+            background-color: rgb(241 245 249);
+            transition: background-color 0.3s;
+        }
+
+        ::-webkit-scrollbar-thumb {
+            background-color: rgb(203 213 225);
+            border-radius: 10px;
+            transition: background-color 0.3s;
+        }
+
+        .xterm-viewport::-webkit-scrollbar-track {
+            background-color: transparent
+        }
+
+        .xterm-viewport::-webkit-scrollbar-thumb {
+            background-color: transparent
+        }
+
+        /* 默认隐藏滚动条，仅在容器 hover 时显示 */
+        #terminal::-webkit-scrollbar-track {
+            background-color: rgb(241 245 249 / var(--tw-bg-opacity, 0));
+        }
+
+        #terminal::-webkit-scrollbar-thumb {
+            background-color: rgb(203 213 225 / var(--tw-bg-opacity, 0));
+        }
+
+        /* 当容器 hover 时，将 --tw-bg-opacity 改为 1 来显示滚动条 */
+        #terminal:hover {
+            --tw-bg-opacity: 1;
         }
     </style>
 </head>
