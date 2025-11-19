@@ -80,17 +80,17 @@ function main(params) {
                 }
             });
 
-            let output = null;
-            let error = null;
+            let output = "";
+            let error = "";
 
             child.stdout.on('data', (data) => {
-                output = data.toString();
-                terminalWindow.webContents.send('terminal-data', output);
+                output += data.toString();
+                terminalWindow?.webContents.send('terminal-data', data.toString());
             });
 
             child.stderr.on('data', (data) => {
-                error = data.toString();
-                terminalWindow.webContents.send('terminal-data', error);
+                error += data.toString();
+                terminalWindow?.webContents.send('terminal-data', data.toString());
             });
 
             child.on('close', (code) => {

@@ -105,7 +105,7 @@ class ToolCall extends ReActAgent {
           };
         }
       },
-      "complete_subtasks": {
+      "record_subtasks": {
         func: ({ subtask_ids, status, reflection, options }) => {
           if (!Array.isArray(subtask_ids)) {
             subtask_ids = [subtask_ids];
@@ -171,13 +171,13 @@ ${this.prompt_args.todolist && this.environment_details.mode !== this.modes.FLAS
 When handling complex tasks, the following steps should be followed:
 1. ${this.prompt_args.agent_mode === "multagent" ? "Use workflow_planner to obtain the tool list and task process." : "Analyze user tasks and design workflow steps using Mermaid syntax."}
 2. Break down the task into smaller subtasks and use the \`add_subtasks\` tool to add them.
-3. Immediately call the \`complete_subtasks\` tool after completing each subtask-this step is critical for:
+3. Immediately call the \`record_subtasks\` tool after completing each subtask-this step is critical for:
    - Maintaining task continuity
    - Preventing memory oversights
    - Ensuring no step is accidentally skipped
    - Creating traceable progress records
    - Reflect on the current task
-4. Do not proceed to the next subtask without confirming completion via \`complete_subtasks\`` : ""}
+4. Do not proceed to the next subtask without confirming completion via \`record_subtasks\`` : ""}
 ${!this.prompt_args.subagent && this.prompt_args.todolist && this.environment_details.mode !== this.modes.FLASH ? "5. The final subtask of all task breakdowns must be: **Summarize workflow steps using Mermaid syntax.**." : this.prompt_args.agent_mode === "multagent" ? "**Important**: Before executing any task, you should use workflow_planner to obtain the tool list and task process." : ""}
 
 ====
@@ -226,8 +226,8 @@ Usage Example:
   }}
 }}
 
-## complete_subtasks
-Description: Mark subtask(s) as completed and conduct reflections
+## record_subtasks
+Description: Record the completion status and reflection content of subtasks.
 
 Parameters:
 - subtask_ids: (Required) A single task ID or an array of subtask IDs to be marked as completed
@@ -237,15 +237,15 @@ ${this.environment_details.mode === this.modes.ACT ? `- options: (Required) Prov
 
 Usage Example:
 {{
-  "thinking": "The project architecture design is completed. These subtasks need to be marked as done.",
-  "tool": "complete_subtasks",
+  "thinking": "[Thinking process]",
+  "tool": "record_subtasks",
   "params": {{
     "subtask_ids": [
       0, 
       1,
       ...
     ],
-    "status": [true/false],
+    "status": [boolean or string],
     "reflection": "Reflection content"${this.environment_details.mode === this.modes.ACT ? `,
     "options": [
       "Option 1",
@@ -442,11 +442,11 @@ ${!this.prompt_args.subagent && this.environment_details.mode !== this.modes.FLA
 - Task Processing:
   Analyze → Break down → Create subtasks (using \`add_subtasks\`)
 - Subtask Execution:
-  Execution Loop (Thinking→Action→Observation) → Mark complete (using \`complete_subtasks\`)
+  Execution Loop (Thinking→Action→Observation) → Mark complete (using \`record_subtasks\`)
 
 ## 3. Core Tools
 - \`add_subtasks\`: When task requires >3 steps  
-- \`complete_subtasks\`: Mandatory after each milestone  
+- \`record_subtasks\`: Mandatory after each milestone  
 
 ## 4. Completion Criteria
 ✓ All subtasks marked complete  
@@ -680,7 +680,7 @@ ${this.prompt_args.todolist ? `
         case "add_subtasks":
           this.window.webContents.send('stream-data', { id: data.id, memory_id: this.memory_id, content: `\`\`\`json\n${JSON.stringify(output, null, 2)}\n\`\`\`\n\n` });
           break;
-        case "complete_subtasks":
+        case "record_subtasks":
           this.window.webContents.send('stream-data', { id: data.id, memory_id: this.memory_id, content: `\`\`\`json\n${JSON.stringify(output, null, 2)}\n\`\`\`\n\n` });
           break;
         default:
