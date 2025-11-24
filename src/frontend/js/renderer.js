@@ -328,6 +328,7 @@ let system_message = `<div class="relative space-y-2 space-x-2" data-role="syste
   <div class="message-actions">
     <i class="far fa-copy copy action-btn" title="copy"></i>
     <i class="far fa-trash-alt delete action-btn" title="delete"></i>
+    <i class="fa-solid fa-file-zipper compression action-btn" title="compression"></i>
     <i class="fas fa-toggle-off toggle action-btn" title="toggle"></i>
     <i class="fas fa-thumbs-up thumbs-up action-btn" title="thumbs up"></i>
     <i class="fas fa-thumbs-down thumbs-down action-btn" title="thumbs down"></i>
@@ -612,6 +613,27 @@ async function delete_message(id) {
 
   });
 }
+
+async function compression_message(id) {
+  let elements = document.querySelectorAll(`[data-id="${id}"]`);
+  let { compression_content } = await window.electronAPI.compressionMessage({ id });
+  elements.forEach(async function (message_element) {
+    message_element.remove();
+  });
+  let messageSystem = await system_message.formatMessage({
+    "icon": getIcon(false),
+    "id": id,
+    "message": compression_content
+  }, "system");
+  messages.appendChild(messageSystem);
+  addEventStop(messageSystem);
+  // 移除thinking
+  const thinking = messageSystem.getElementsByClassName("thinking")[0];
+  thinking.remove();
+  const message_content = messageSystem.getElementsByClassName('message')[0];
+  menuEvent(messageSystem, message_content, false);
+}
+
 async function thumbMessage(up, down, data) {
   let thumb = await window.electronAPI.thumbMessage(data);
   if (thumb === 1) {
@@ -666,12 +688,14 @@ async function delete_memory(memory_id) {
 function menuEvent(messageSystem, message_content, is_plugin) {
   const copy = messageSystem.getElementsByClassName("copy")[0];
   const del = messageSystem.getElementsByClassName("delete")[0];
+  const compression = messageSystem.getElementsByClassName("compression")[0];
   const toggle = messageSystem.getElementsByClassName("toggle")[0];
   const thumbs_up = messageSystem.getElementsByClassName("thumbs-up")[0];
   const thumbs_down = messageSystem.getElementsByClassName("thumbs-down")[0];
   copy.classList.add("active");
   del.classList.add("active");
   if (!is_plugin) {
+    compression.classList.add("active");
     toggle.classList.add("active");
     thumbs_up.classList.add("active");
     thumbs_down.classList.add("active");
@@ -690,6 +714,10 @@ function menuEvent(messageSystem, message_content, is_plugin) {
   })
   toggle.addEventListener("click", () => {
     messageSystem.classList.toggle("message_toggle");
+  })
+  compression.addEventListener("click", () => {
+    messageSystem.classList.toggle("message_compression");
+    compression_message(messageSystem.dataset.id);
   })
   thumbMessage(thumbs_up, thumbs_down, { id: messageSystem.dataset.id, thumb: 0 });
   thumbs_up.addEventListener("click", () => {

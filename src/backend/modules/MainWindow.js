@@ -358,6 +358,13 @@ class MainWindow extends Window {
             }
         })
 
+        ipcMain.handle("compression-message", async (_event, data) => {
+            let compression_content = await this.tool_call.compression_message({ ...data });
+            this.tool_call.setHistory();
+            console.log(`compression id: ${data.id}, compression_content: ${compression_content}`)
+            return { compression_content: compression_content };
+        })
+
         ipcMain.handle("toggle-message", async (_event, data) => {
             let message_len = await this.llm_service.toggleMessage({ ...data, del_mode: !!this.funcItems.del.statu });
             this.tool_call.setHistory();

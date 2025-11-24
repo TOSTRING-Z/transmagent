@@ -278,6 +278,78 @@ class ReActAgent {
         this.window?.webContents.send('delete-memory', ids);
     }
 
+    async compression_message({ id }) {
+        try {
+            const will_compress_messages = this.llm_service.getMessages().filter(message => message.id == id);
+            if (will_compress_messages.length > 0) {
+                // 将所有同 id 的消息合并成一段文本，然后一次性交由大模型压缩为一条记录
+                const llm_service = new LLMService();
+                const react_agent = new ReActAgent(this.plugins, llm_service);
+                let combined_content = will_compress_messages.map(msg => msg.content).join("\n\n");
+                const prompt = `You are an intelligent assistant skilled at compressing and summarizing contextual content into detailed documents. Please ensure the generated documents are comprehensive and clear, accurately reflecting the original content.`;
+                const query = `# context
+                \`\`\`text
+                ${combined_content}
+                \`\`\`
+                Please compress the above context into a detailed document. 
+                Requirements: use concise language while retaining all essential information.
+                please generate the compressed document:`;
+                const data = react_agent.getDataDefault({ prompt, query, params: { ...utils.getConfig("llm_params"), temperature: 0.3 } });
+                const result = await react_agent.llmCall(data);
+                if (result) {
+                    // 保留第一条 user 消息，生成一条压缩后的 assistant 记录并插入在其后
+                    const firstMsg = will_compress_messages[0];
+                    const preservedUser = will_compress_messages.find(m => m.role === 'user');
+
+                    const compressed_message = {
+                        ...firstMsg,
+                        content: result,
+                        role: "assistant",
+                        react: false,
+                        memory_id: preservedUser?.memory_id ?? firstMsg.memory_id
+                    };
+
+                    // 从全量消息中移除所有相同 id 的消息，但保留第一条 user 消息（如果存在），并在其后插入压缩记录
+                    let allMessages = this.llm_service.messages || this.llm_service.getMessages();
+                    const originalFirstIndex = allMessages.findIndex(m => m.id == id);
+
+                    const newMessages = [];
+                    let keptUser = false;
+                    for (let i = 0; i < allMessages.length; i++) {
+                        const m = allMessages[i];
+                        if (m.id != id) {
+                            newMessages.push(m);
+                        } else {
+                            if (!keptUser && m.role === 'user') {
+                                newMessages.push(m);
+                                keptUser = true;
+                            }
+                            // 其他同 id 的消息跳过（即被压缩/移除）
+                        }
+                    }
+
+                    if (keptUser) {
+                        // 将压缩后的记录插入到保留的 user 消息之后
+                        const insertPos = newMessages.findIndex(m => m.id == id && m.role === 'user');
+                        newMessages.splice(insertPos + 1, 0, compressed_message);
+                    } else {
+                        // 回退：在原先第一条出现的位置插入压缩记录
+                        const insertPos = originalFirstIndex === -1 ? newMessages.length : originalFirstIndex;
+                        newMessages.splice(insertPos, 0, compressed_message);
+                    }
+
+                    this.llm_service.messages = newMessages;
+
+                    console.log(`Compression success for id: ${id}`);
+                    return result;
+                }
+            }
+        } catch (error) {
+            console.log(`Compression failed for id: ${id}, Error: ${error}`);
+            return null;
+        }
+    }
+
     async setChatName(_data) {
         if (_data?.is_plugin) {
             // 如果是插件调用
