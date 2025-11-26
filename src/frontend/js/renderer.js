@@ -576,7 +576,7 @@ async function delete_message(id) {
   let elements = document.querySelectorAll(`[data-id="${id}"]`);
   elements.forEach(async function (message_element) {
     if (message_element.classList.contains('message_del')) {
-      let { del_mode } = await window.electronAPI.toggleMessage({ id, del: false });
+      let { del_mode } = await window.electronAPI.toggleMessage({ id: parseInt(id), del: false });
       if (del_mode) {
         message_element.remove();
       }
@@ -614,24 +614,42 @@ async function delete_message(id) {
   });
 }
 
+let compression_tasks = {};
+
 async function compression_message(id) {
   let elements = document.querySelectorAll(`[data-id="${id}"]`);
-  let { compression_content } = await window.electronAPI.compressionMessage({ id });
+  showLog('log', `Compressing message (id: ${id})...`);
+  compression_tasks[id] = true;
+  if (submit.classList.contains('running') == false) {
+    submit.classList.add('running');
+  }
+  let { compression_content } = await window.electronAPI.compressionMessage({ id: parseInt(id) });
+  showLog('success', `Message compressed (id: ${id}).`);
+  let keptUser = false;
   elements.forEach(async function (message_element) {
-    message_element.remove();
+    if (!keptUser) {
+      keptUser = true;
+      let messageSystem = await system_message.formatMessage({
+        "icon": getIcon(false),
+        "id": id,
+        "message": compression_content
+      }, "system");
+      addEventStop(messageSystem);
+      // 移除thinking
+      const thinking = messageSystem.getElementsByClassName("thinking")[0];
+      thinking.remove();
+      const message_content = messageSystem.getElementsByClassName('message')[0];
+      menuEvent(messageSystem, message_content, false);
+      message_element.parentElement.insertBefore(messageSystem, message_element.nextSibling);
+      delete compression_tasks[id];
+      if (Object.keys(compression_tasks).length == 0) {
+        submit.classList.remove('running');
+      }
+    }
+    else {
+      message_element.remove();
+    }
   });
-  let messageSystem = await system_message.formatMessage({
-    "icon": getIcon(false),
-    "id": id,
-    "message": compression_content
-  }, "system");
-  messages.appendChild(messageSystem);
-  addEventStop(messageSystem);
-  // 移除thinking
-  const thinking = messageSystem.getElementsByClassName("thinking")[0];
-  thinking.remove();
-  const message_content = messageSystem.getElementsByClassName('message')[0];
-  menuEvent(messageSystem, message_content, false);
 }
 
 async function thumbMessage(up, down, data) {

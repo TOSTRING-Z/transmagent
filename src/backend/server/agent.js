@@ -295,8 +295,9 @@ class ReActAgent {
                 Requirements: use concise language while retaining all essential information.
                 please generate the compressed document:`;
                 const data = react_agent.getDataDefault({ prompt, query, params: { ...utils.getConfig("llm_params"), temperature: 0.3 } });
-                const result = await react_agent.llmCall(data);
+                let result = await react_agent.llmCall(data);
                 if (result) {
+                    result = "The user compressed the execution process of the current task. The compressed document is as follows:\n\n---\n\n" + result.trim();
                     // 保留第一条 user 消息，生成一条压缩后的 assistant 记录并插入在其后
                     const firstMsg = will_compress_messages[0];
                     const preservedUser = will_compress_messages.find(m => m.role === 'user');
