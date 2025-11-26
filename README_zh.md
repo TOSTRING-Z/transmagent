@@ -16,6 +16,14 @@ https://github.com/user-attachments/assets/e4129a29-6cd4-4026-8d6f-9838135712a1
 [![License](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE)
 
 
+## 最近更新
+
+### 更新记录
+
+- 2025-11-26 — 新增：上下文压缩
+  - 概述：在子任务处理流程中新增“上下文压缩”选项，自动精简历史对话与中间结果，降低上下文长度和内存占用。  
+  - 效果：提升长会话与复杂任务的稳定性与执行效率，减少模型调用时的冗余信息。 
+
 ## ✨ 核心特性
 
 ### :clipboard: 工作执行流

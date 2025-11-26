@@ -16,7 +16,13 @@ English | [中文](README_zh.md)
 [![Documentation](https://img.shields.io/badge/Docs-Documentation-green?logo=readthedocs)](https://github.com/TOSTRING-Z/TransMAgent)
 [![Docker](https://img.shields.io/badge/Docker-Image-blue?logo=docker)](https://github.com/TOSTRING-Z/TransMAgent)
 [![License](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE)
+## Recent Updates
 
+### Update Log
+
+- 2025-11-26 — New: Context Compression
+  - Overview: Added a "Context Compression" option in the subtask processing flow to automatically streamline historical dialogues and intermediate results, reducing context length and memory usage.  
+  - Effect: Enhances stability and execution efficiency for long conversations and complex tasks, minimizing redundant information during model calls.
 
 ## ✨ Core Features
 
