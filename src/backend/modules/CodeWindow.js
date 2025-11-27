@@ -1,5 +1,7 @@
 const { Window } = require("./Window");
 const { utils } = require('./globals');
+const { ReActAgent } = require('../server/agent');
+const { LLMService } = require('../server/llm_service');
 
 const { BrowserWindow, ipcMain } = require('electron');
 
@@ -18,9 +20,9 @@ class CodeWindow extends Window {
             this.window = new BrowserWindow({
                 width: 800,
                 height: 600,
-                frame: false, // 隐藏默认标题栏和边框
+                frame: false, // 取消默认标题栏和边框
                 transparent: true, // 可选：实现透明效果
-                resizable: true, // 允许调整窗口大小
+                resizable: true, // 允许改变窗口大小
                 webPreferences: {
                     nodeIntegration: true,
                     contextIsolation: false
@@ -63,7 +65,7 @@ class CodeWindow extends Window {
     }
 
     setup() {
-        // 读取文件
+        // 获取文件
         ipcMain.handle('get-file', (file_path) => {
             return utils.getFile(file_path);
         });
@@ -78,6 +80,65 @@ class CodeWindow extends Window {
         // 获取API信息（api_key, api_url）
         ipcMain.handle('get-apis', () => {
             
+        });
+
+        // 代码补全
+        ipcMain.handle('code-completion', async (event, { prefix, suffix, isMidWord }) => {
+            try {
+                const llm_service = new LLMService();
+                const react_agent = new ReActAgent({}, llm_service);
+                
+                const prompt = "你是一个代码补全引擎。如果光标在单词中间，仅补全后缀。如果光标在行尾，补全逻辑。直接输出代码，无Markdown。";
+                const query = `[Context]:\n${prefix}<CURSOR>\n${suffix}`;
+                
+                const requestData = {
+                    prompt,
+                    query,
+                    model: "deepseek-chat",
+                    params: {
+                        max_tokens: 30,
+                        stop: isMidWord ? ["\n", " "] : ["\n\n"]
+                    }
+                };
+
+                const data = react_agent.getDataDefault(requestData);
+                // 确保 model 被正确设置
+                data.model = "deepseek-chat";
+                
+                const result = await react_agent.llmCall(data);
+                return result;
+            } catch (e) {
+                console.error("Code completion error:", e);
+                return { error: e.message };
+            }
+        });
+
+        // 代码重构分析
+        ipcMain.handle('code-refactor', async (event, code) => {
+            try {
+                const llm_service = new LLMService();
+                const react_agent = new ReActAgent({}, llm_service);
+
+                const prompt = `你是一个严格的 Code Linter。找出逻辑错误。返回 JSON: {"errors": [{"text": "错误代码", "fix": "修正代码"}]}`;
+                
+                const requestData = {
+                    prompt,
+                    query: code,
+                    model: "deepseek-chat",
+                    params: {
+                        response_format: { type: "json_object" }
+                    }
+                };
+
+                const data = react_agent.getDataDefault(requestData);
+                data.model = "deepseek-chat";
+
+                const result = await react_agent.llmCall(data);
+                return result;
+            } catch (e) {
+                console.error("Code refactor error:", e);
+                return { error: e.message };
+            }
         });
     }
 

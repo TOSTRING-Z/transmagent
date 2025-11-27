@@ -81,8 +81,7 @@
 </div>
 
 <script>
-    const API_URL = 'https://api.deepseek.com/chat/completions';
-    const API_KEY = 'sk-92f1044fa83a4eb9a26985e3fe2a7a24'; // 请替换为你的 Key
+    const { ipcRenderer } = require('electron');
 
     let editor;
     let isDark = true;
@@ -188,21 +187,8 @@
         loadingWidget = editor.setBookmark(cursor, { widget: spin, insertLeft: true });
 
         try {
-            const res = await fetch(API_URL, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${API_KEY}` },
-                body: JSON.stringify({
-                    model: "deepseek-chat",
-                    messages: [
-                        { role: "system", content: "你是一个代码补全引擎。如果光标在单词中间，仅补全后缀。如果光标在行尾，补全逻辑。直接输出代码，无Markdown。" },
-                        { role: "user", content: `[Context]:\n${prefix}<CURSOR>\n${suffix}` }
-                    ],
-                    max_tokens: 30,
-                    stop: isMidWord ? ["\n", " "] : ["\n\n"]
-                })
-            });
-
-            const data = await res.json();
+            const data = await ipcRenderer.invoke('code-completion', { prefix, suffix, isMidWord });
+            if (data.error) throw new Error(data.error);
             let text = data.choices?.[0]?.message?.content || "";
             text = text.replace(/```javascript|```/g, ""); // 清洗
 
@@ -263,20 +249,8 @@
         statusEl.textContent = "Analyzing structure...";
 
         try {
-            const response = await fetch(API_URL, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${API_KEY}` },
-                body: JSON.stringify({
-                    model: "deepseek-chat",
-                    messages: [
-                        { role: "system", content: `你是一个严格的 Code Linter。找出逻辑错误。返回 JSON: {"errors": [{"text": "错误代码", "fix": "修正代码"}]}` },
-                        { role: "user", content: code }
-                    ],
-                    response_format: { type: "json_object" }
-                })
-            });
-
-            const data = await response.json();
+            const data = await ipcRenderer.invoke('code-refactor', code);
+            if (data.error) throw new Error(data.error);
             const content = JSON.parse(data.choices?.[0]?.message?.content || "{}");
             let errors = (content.errors || []).filter(item => {
                 const original = item.text.replace(/\s+/g, '');
@@ -339,7 +313,7 @@
     }
 
     // File Management Logic
-    const { ipcRenderer } = require('electron');
+    
     const fs = require('fs');
     let currentFilePath = null;
 
