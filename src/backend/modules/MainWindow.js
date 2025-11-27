@@ -236,6 +236,11 @@ class MainWindow extends Window {
     }
 
     setup() {
+        ipcMain.on('open-code-editor', (event, filePath) => {
+            if (this.windowManager.codeWindow) {
+                this.windowManager.codeWindow.openFile(filePath);
+            }
+        });
 
         ipcMain.handle('get-file-path', async () => {
             return new Promise((resolve, rejects) => {

@@ -1,6 +1,5 @@
 const { Window } = require("./Window");
 const { utils } = require('./globals');
-const { Plugins } = require('./Plugins');
 
 const { BrowserWindow, ipcMain } = require('electron');
 
@@ -17,7 +16,7 @@ class CodeWindow extends Window {
             this.window.focus();
         } else {
             this.window = new BrowserWindow({
-                width: 600,
+                width: 800,
                 height: 600,
                 frame: false, // 隐藏默认标题栏和边框
                 transparent: true, // 可选：实现透明效果
@@ -34,12 +33,25 @@ class CodeWindow extends Window {
             })
 
             ipcMain.on('minimize-window', () => {
-                BrowserWindow.getFocusedWindow().minimize()
+                const win = BrowserWindow.getFocusedWindow();
+                if (win) win.minimize();
             })
 
             ipcMain.on('close-window', () => {
-                BrowserWindow.getFocusedWindow().close()
+                const win = BrowserWindow.getFocusedWindow();
+                if (win) win.close();
             })
+        }
+    }
+
+    openFile(filePath) {
+        this.create();
+        if (this.window.isLoading()) {
+            this.window.webContents.once('did-finish-load', () => {
+                this.window.webContents.send('open-file', filePath);
+            });
+        } else {
+            this.window.webContents.send('open-file', filePath);
         }
     }
 

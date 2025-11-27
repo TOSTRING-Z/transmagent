@@ -337,6 +337,43 @@
         });
         activeRefactorItems = [];
     }
+
+    // File Management Logic
+    const { ipcRenderer } = require('electron');
+    const fs = require('fs');
+    let currentFilePath = null;
+
+    ipcRenderer.on('open-file', (event, filePath) => {
+        console.log('Opening file:', filePath);
+        currentFilePath = filePath;
+        fs.readFile(filePath, 'utf-8', (err, content) => {
+            if (err) {
+                console.error('Failed to read file:', err);
+                statusEl.textContent = 'Error opening file';
+                return;
+            }
+            editor.setValue(content);
+            statusEl.textContent = `Opened: ${filePath}`;
+        });
+    });
+
+    // Save on Ctrl+S / Cmd+S
+    document.addEventListener('keydown', (e) => {
+        if ((e.ctrlKey || e.metaKey) && e.key === 's') {
+            e.preventDefault();
+            if (currentFilePath) {
+                fs.writeFile(currentFilePath, editor.getValue(), 'utf-8', (err) => {
+                    if (err) {
+                        console.error('Failed to save file:', err);
+                        statusEl.textContent = 'Error saving file';
+                    } else {
+                        statusEl.textContent = `Saved: ${currentFilePath}`;
+                        setTimeout(() => statusEl.textContent = 'Ready', 2000);
+                    }
+                });
+            }
+        }
+    });
 </script>
 </body>
 </html>

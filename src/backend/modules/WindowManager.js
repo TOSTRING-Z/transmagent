@@ -5,6 +5,7 @@ const { OverlayWindow } = require("./OverlayWindow");
 const { ConfigWindow } = require("./ConfigWindow");
 const { ModelWindow } = require("./ModelWindow");
 const { SubAgentWindow } = require("./SubAgentWindow");
+const { CodeWindow } = require("./CodeWindow");
 
 class WindowManager {
     constructor() {
@@ -16,6 +17,7 @@ class WindowManager {
             this.configWindow = new ConfigWindow(this);
             this.modelWindow = new ModelWindow(this);
             this.subAgentWindow = new SubAgentWindow(this);
+            this.codeWindow = new CodeWindow(this);
             WindowManager.instance = this;
         }
         return WindowManager.instance;
@@ -28,6 +30,7 @@ class WindowManager {
         this.iconWindow.destroy();
         this.alertWindow.destroy();
         this.subAgentWindow.destroy();
+        this.codeWindow.destroy();
     }
 }
 
