@@ -287,7 +287,7 @@
                     <h1>DeepSeek IDE</h1>
                     <div class="badge-group">
                         <span>补全: <span class="key-badge">自动触发 / Tab</span></span>
-                        <span>重构: <span class="key-badge">闲置 2s 触发</span></span>
+                        <span>重构: <span class="key-badge">闲置 5s 触发</span></span>
                     </div>
                 </div>
                 <button class="theme-btn" onclick="toggleTheme()">切换主题</button>
@@ -417,7 +417,7 @@
                 refactorTimer = setTimeout(() => {
                     lastAnalyzedContent = editor.getValue().trim();
                     runRefactorAnalysis(editor);
-                }, 2000); // 2秒后检查错误
+                }, 5000); // 5秒后检查错误
             }
 
             // 新增：光标移动时清除补全
@@ -456,10 +456,10 @@
             loadingWidget = editor.setBookmark(cursor, { widget: spin, insertLeft: true });
 
             try {
-                // 2. 引入超时机制 (例如 5秒超时)
+                // 2. 引入超时机制 (例如 10秒超时)
                 let text = await withTimeout(
                     ipcRenderer.invoke('code-completion', { prefix, suffix, isMidWord }), 
-                    5000 
+                    10000 
                 );
 
                 // 3. 关键修复：检查 ID 是否过期
@@ -538,10 +538,10 @@
             statusEl.textContent = "Analyzing structure...";
 
             try {
-                // 1. 引入超时机制 (重构通常较慢，给 15秒)
+                // 1. 引入超时机制 (重构通常较慢，给 20秒)
                 let text = await withTimeout(
                     ipcRenderer.invoke('code-refactor', code),
-                    15000
+                    20000
                 );
 
                 // 这里虽然不需要像补全那样严格的 ID 校验（因为是针对全文），

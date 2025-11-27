@@ -103,7 +103,7 @@ class CodeWindow extends Window {
                 const llm_service = new LLMService();
                 const react_agent = new ReActAgent({}, llm_service);
 
-                const prompt = "你是一个代码/文本补全引擎。如果光标在单词中间，仅补全后缀。如果光标在行尾，补全逻辑。直接输出代码，无Markdown。如果不需要补全，返回空字符串。";
+                const prompt = "你是一个代码/文本补全引擎。如果光标在单词中间，仅补全后缀。如果光标在行尾，补全逻辑。直接输出代码，无Markdown。如果不需要补全，返回空字符串。只输出部分补全然后截断（例如 1-2 行或不超过 80 个字符），以便后续请求继续生成。";
                 const query = `[Context]:\n${prefix}<CURSOR>\n${suffix}`;
 
                 const requestData = {
