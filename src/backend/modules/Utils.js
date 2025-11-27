@@ -128,6 +128,21 @@ class Utils {
         return path.join(__dirname, '..', name);
     }
 
+    getFile(file_path) {
+        if (fs.existsSync(file_path)) {
+            const content = fs.readFileSync(file_path, 'utf-8');
+            return content;
+        } else {
+            return null;
+        }
+    }
+
+    setFile(content, file_path = null) {
+        const configPath = file_path || this.getDefault(this.config);
+        fs.writeFileSync(configPath, content); // 美化输出
+        return true;
+    }
+
     getConfig(key = null, config_name = null) {
         const sysConfigFilePath = this.getSystem();
         const configFilePath = this.getDefault(config_name || this.config);
