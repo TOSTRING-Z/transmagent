@@ -103,7 +103,7 @@ class CodeWindow extends Window {
                 const llm_service = new LLMService();
                 const react_agent = new ReActAgent({}, llm_service);
 
-                const prompt = "你是一个代码补全引擎。如果光标在单词中间，仅补全后缀。如果光标在行尾，补全逻辑。直接输出代码，无Markdown。";
+                const prompt = "你是一个代码/文本补全引擎。如果光标在单词中间，仅补全后缀。如果光标在行尾，补全逻辑。直接输出代码，无Markdown。如果不需要补全，返回空字符串。";
                 const query = `[Context]:\n${prefix}<CURSOR>\n${suffix}`;
 
                 const requestData = {
@@ -132,7 +132,7 @@ class CodeWindow extends Window {
                 const llm_service = new LLMService();
                 const react_agent = new ReActAgent({}, llm_service);
 
-                const prompt = `你是一个严格的 Code Linter。找出逻辑错误。返回 JSON: {"errors": [{"text": "错误代码", "fix": "修正代码"}]}`;
+                const prompt = `你是一个严格的 Code Linter。找出逻辑错误。返回 JSON: {"errors": [{"text": "错误代码", "fix": "修正代码"}]}。 如果没有错误，返回 {"errors": []}。不要添加多余说明。`;
 
                 const requestData = {
                     prompt,

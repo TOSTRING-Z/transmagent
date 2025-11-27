@@ -337,6 +337,8 @@
 
         const statusEl = document.getElementById("status-bar");
 
+        let isComposing = false; // 标记是否正在输入中文
+
         window.onload = function () {
             editor = CodeMirror.fromTextArea(document.getElementById("code-editor"), {
                 mode: "javascript",
@@ -354,48 +356,69 @@
 
             lastAnalyzedContent = editor.getValue().trim();
 
-            // --- 核心逻辑修改：监听输入 ---
-            editor.on("change", (cm, change) => {
+            // --- 1. 输入法(IME) 事件监听 ---
+            
+            editor.on("compositionStart", () => {
+                isComposing = true;
+                // 开始打拼音时，清理界面干扰
+                clearRefactorUI();
+                clearCompletion();
+            });
 
-                // 1. 过滤掉 AI 自动操作（补全 或 修复）
-                // 如果是 AI 触发的修改，我们保持现有的 Widget 不动，或者由具体逻辑自己处理
+            editor.on("compositionEnd", () => {
+                isComposing = false;
+                // 【关键修复】中文上屏后，立即强制触发补全
+                // 这样即使 change 事件被拦截，补全也能运行
+                triggerCompletionDebounce();
+                triggerRefactorDebounce();
+            });
+
+            // --- 2. 通用内容变更监听 ---
+            
+            editor.on("change", (cm, change) => {
+                // A. 过滤 AI 自动操作
                 if (change.origin === "ai-completion" || change.origin === "ai-fix") {
+                    if (change.origin === "ai-completion") statusEl.textContent = "Completion Applied";
+                    // 清除定时器防止重复分析，但不清除 Widget
                     clearTimeout(refactorTimer);
                     clearTimeout(completionTimer);
-                    if (change.origin === "ai-completion") statusEl.textContent = "Completion Applied";
                     return;
                 }
 
-                // 2. 【新增功能】用户手动输入/删除/粘贴/加载新内容
-                // 代码已变更，之前的行号和内容位置可能都变了，旧的修复框不再有效，立即清除
+                // B. 用户手动操作：立即清理旧 UI
                 clearRefactorUI();
-
-                // 3. 常规清理逻辑
-                clearTimeout(refactorTimer);
-                clearTimeout(completionTimer);
-                
-                // 如果不是加载文件(setValue)，则清除补全的幽灵文本
                 if (change.origin !== "setValue") clearCompletion();
 
-                const currentContent = cm.getValue().trim();
-                if (currentContent === lastAnalyzedContent) return;
+                // C. 如果正在打拼音，彻底忽略，不进行任何定时器设置
+                if (isComposing) return;
 
-                // --- 任务 A: 自动触发补全 (快) ---
-                if (change.origin === "+input") {
-                    completionTimer = setTimeout(() => {
-                        runCompletion();
-                    }, 600); 
+                // D. 触发逻辑
+                // 只要不是“删除”操作，也不是“自动操作”，就触发补全
+                // 这涵盖了：打字(+input)、粘贴(paste)、中文上屏(可能无origin)
+                if (change.origin !== "+delete") {
+                    triggerCompletionDebounce();
                 }
 
-                // --- 任务 B: 自动触发重构 (慢) ---
-                // 用户停止输入后，重新计时准备分析新代码
-                refactorTimer = setTimeout(() => {
-                    lastAnalyzedContent = currentContent;
-                    // 注意：这里不需要再调 clearRefactorUI()，因为上面第2步已经清除了
-                    // 这里主要是为了运行新的分析
-                    runRefactorAnalysis(cm);
-                }, 2000); 
+                // E. 触发重构检查
+                triggerRefactorDebounce();
             });
+            
+            // --- 封装定时器逻辑，避免重复代码 ---
+            
+            function triggerCompletionDebounce() {
+                clearTimeout(completionTimer);
+                completionTimer = setTimeout(() => {
+                    runCompletion();
+                }, 600); // 0.6秒后补全
+            }
+
+            function triggerRefactorDebounce() {
+                clearTimeout(refactorTimer);
+                refactorTimer = setTimeout(() => {
+                    lastAnalyzedContent = editor.getValue().trim();
+                    runRefactorAnalysis(editor);
+                }, 2000); // 2秒后检查错误
+            }
 
             // 新增：光标移动时清除补全
             editor.on("cursorActivity", () => {
