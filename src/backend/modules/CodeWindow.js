@@ -18,7 +18,7 @@ class CodeWindow extends Window {
             this.window.focus();
         } else {
             this.window = new BrowserWindow({
-                width: 1600,
+                width: 800,
                 height: 700,
                 frame: false, // 取消默认标题栏和边框
                 transparent: true, // 可选：实现透明效果
