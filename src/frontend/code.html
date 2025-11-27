@@ -284,7 +284,6 @@
         <div class="app-container">
             <div class="header">
                 <div>
-                    <h1>DeepSeek IDE</h1>
                     <div class="badge-group">
                         <span>补全: <span class="key-badge">自动触发 / Tab</span></span>
                         <span>重构: <span class="key-badge">闲置 5s 触发</span></span>
@@ -309,7 +308,16 @@
     </div>
 
     <script>
-        const { ipcRenderer } = require('electron');
+        // 窗口控制逻辑
+        const { ipcRenderer } = require('electron')
+
+        document.getElementById('minimize-btn').addEventListener('click', () => {
+            ipcRenderer.send('minimize-window')
+        })
+
+        document.getElementById('close-btn').addEventListener('click', () => {
+            ipcRenderer.send('close-window')
+        })
 
         let editor;
         let isDark = true;
@@ -374,29 +382,37 @@
             });
 
             // --- 2. 通用内容变更监听 ---
-            
             editor.on("change", (cm, change) => {
                 // A. 过滤 AI 自动操作
                 if (change.origin === "ai-completion" || change.origin === "ai-fix") {
                     if (change.origin === "ai-completion") statusEl.textContent = "Completion Applied";
-                    // 清除定时器防止重复分析，但不清除 Widget
                     clearTimeout(refactorTimer);
                     clearTimeout(completionTimer);
                     return;
                 }
 
+                // 【修复点 1】：如果是 setValue (初始化、打开文件)，直接清理并返回，不触发补全
+                if (change.origin === "setValue") {
+                    clearRefactorUI();
+                    clearCompletion();
+                    return;
+                }
+
                 // B. 用户手动操作：立即清理旧 UI
                 clearRefactorUI();
-                if (change.origin !== "setValue") clearCompletion();
+                clearCompletion(); // 只要有变动就清理旧的补全建议
 
-                // C. 如果正在打拼音，彻底忽略，不进行任何定时器设置
+                // C. 如果正在打拼音，彻底忽略
                 if (isComposing) return;
-
-                // D. 触发逻辑
-                // 只要不是“删除”操作，也不是“自动操作”，就触发补全
-                // 这涵盖了：打字(+input)、粘贴(paste)、中文上屏(可能无origin)
-                if (change.origin !== "+delete") {
-                    triggerCompletionDebounce();
+                
+                // D. 触发逻辑 【修改了这里】
+                // 排除 "删除" 和 "初始化赋值(setValue)"
+                // 并且检查当前编辑器如果不为空才触发
+                if (change.origin !== "+delete" && change.origin !== "setValue") {
+                    // 简单检查：如果是完全空白的文件，也不要触发
+                    if (cm.getValue().trim().length > 0) {
+                        triggerCompletionDebounce();
+                    }
                 }
 
                 // E. 触发重构检查
@@ -439,11 +455,26 @@
             // 如果正在补全，不要直接 return，而是取消上一次状态（视情况而定），
             // 这里为了简单，我们使用 Request ID 来废弃旧请求的结果
             isCompleting = true;
+
+            // 【新增优化】：如果当前行是空的，且文档内容极少，不进行补全（避免乱猜）
+            const currentLineContent = editor.getLine(editor.getCursor().line);
+            if (!currentLineContent.trim() && editor.getValue().length < 10) {
+                 isCompleting = false;
+                 return;
+            }
             
             // 1. 生成本次请求的唯一 ID
             const requestId = ++completionRequestId;
 
             const cursor = editor.getCursor();
+
+            // 【新增】获取光标前的所有内容，进行非空检查
+            // 如果光标前什么都没有（或者只有空格），直接停止，不请求 AI
+            const rawPrefix = editor.getRange({ line: 0, ch: 0 }, cursor);
+            if (!rawPrefix.trim()) {
+                return;
+            }
+
             const prefix = editor.getRange({ line: 0, ch: 0 }, cursor).slice(-1000);
             const suffix = editor.getRange(cursor, { line: editor.lineCount(), ch: 0 }).slice(0, 500);
             const isMidWord = /^[a-zA-Z0-9_]/.test(suffix);

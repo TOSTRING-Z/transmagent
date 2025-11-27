@@ -35,17 +35,15 @@ class CodeWindow extends Window {
             })
 
             this.window.on('ready-to-show', () => {
-                this.window.webContents.openDevTools();
+                // this.window.webContents.openDevTools();
             });
 
             ipcMain.on('minimize-window', () => {
-                const win = BrowserWindow.getFocusedWindow();
-                if (win) win.minimize();
+                this.window.minimize()
             })
 
             ipcMain.on('close-window', () => {
-                const win = BrowserWindow.getFocusedWindow();
-                if (win) win.close();
+                this.window.close()
             })
         }
     }
