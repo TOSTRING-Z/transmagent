@@ -242,6 +242,12 @@ class MainWindow extends Window {
             }
         });
 
+        ipcMain.on('open-code-editor-content', (event, content) => {
+            if (this.windowManager.codeWindow) {
+                this.windowManager.codeWindow.openContent(content);
+            }
+        });
+
         ipcMain.handle('get-file-path', async () => {
             return new Promise((resolve, rejects) => {
                 const lastDirectory = store.get('lastFileDirectory') || utils.getDefault("config.json");

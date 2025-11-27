@@ -18,8 +18,8 @@ class CodeWindow extends Window {
             this.window.focus();
         } else {
             this.window = new BrowserWindow({
-                width: 800,
-                height: 600,
+                width: 1600,
+                height: 700,
                 frame: false, // 取消默认标题栏和边框
                 transparent: true, // 可选：实现透明效果
                 resizable: true, // 允许改变窗口大小
@@ -33,6 +33,10 @@ class CodeWindow extends Window {
             this.window.on('closed', () => {
                 this.window = null;
             })
+
+            this.window.on('ready-to-show', () => {
+                this.window.webContents.openDevTools();
+            });
 
             ipcMain.on('minimize-window', () => {
                 const win = BrowserWindow.getFocusedWindow();
@@ -48,12 +52,23 @@ class CodeWindow extends Window {
 
     openFile(filePath) {
         this.create();
-        if (this.window.isLoading()) {
+        if (this.window.webContents.isLoading()) {
             this.window.webContents.once('did-finish-load', () => {
                 this.window.webContents.send('open-file', filePath);
             });
         } else {
             this.window.webContents.send('open-file', filePath);
+        }
+    }
+
+    openContent(content) {
+        this.create();
+        if (this.window.webContents.isLoading()) {
+            this.window.webContents.once('did-finish-load', () => {
+                this.window.webContents.send('open-content', content);
+            });
+        } else {
+            this.window.webContents.send('open-content', content);
         }
     }
 
@@ -73,13 +88,13 @@ class CodeWindow extends Window {
         // 保存文件
         ipcMain.handle('set-file', (content, file_path) => {
             utils.setFile(content, file_path);
-            this.windowManager.alertWindow.show("success","file saved, restart to apply");
+            this.windowManager.alertWindow.show("success", "file saved, restart to apply");
             this.windowManager.mainWindow.restart(this.windowManager.mainWindow.window);
         });
 
         // 获取API信息（api_key, api_url）
         ipcMain.handle('get-apis', () => {
-            
+
         });
 
         // 代码补全
@@ -87,14 +102,13 @@ class CodeWindow extends Window {
             try {
                 const llm_service = new LLMService();
                 const react_agent = new ReActAgent({}, llm_service);
-                
+
                 const prompt = "你是一个代码补全引擎。如果光标在单词中间，仅补全后缀。如果光标在行尾，补全逻辑。直接输出代码，无Markdown。";
                 const query = `[Context]:\n${prefix}<CURSOR>\n${suffix}`;
-                
+
                 const requestData = {
                     prompt,
                     query,
-                    model: "deepseek-chat",
                     params: {
                         max_tokens: 30,
                         stop: isMidWord ? ["\n", " "] : ["\n\n"]
@@ -103,8 +117,7 @@ class CodeWindow extends Window {
 
                 const data = react_agent.getDataDefault(requestData);
                 // 确保 model 被正确设置
-                data.model = "deepseek-chat";
-                
+
                 const result = await react_agent.llmCall(data);
                 return result;
             } catch (e) {
@@ -120,18 +133,16 @@ class CodeWindow extends Window {
                 const react_agent = new ReActAgent({}, llm_service);
 
                 const prompt = `你是一个严格的 Code Linter。找出逻辑错误。返回 JSON: {"errors": [{"text": "错误代码", "fix": "修正代码"}]}`;
-                
+
                 const requestData = {
                     prompt,
                     query: code,
-                    model: "deepseek-chat",
                     params: {
                         response_format: { type: "json_object" }
                     }
                 };
 
                 const data = react_agent.getDataDefault(requestData);
-                data.model = "deepseek-chat";
 
                 const result = await react_agent.llmCall(data);
                 return result;

@@ -357,8 +357,8 @@ body {
 
 #input {
   flex-grow: 1;
-  margin: 2px;
-  padding: 0.4rem 2.5rem 0.4rem 0.4rem;
+  margin: 2px 3.5rem 2px 2px;
+  padding: 0.4rem 2rem 0.4rem 0.4rem;
   resize: none;
   background-color: var(--bg);
   outline: none;
@@ -366,6 +366,13 @@ body {
   white-space: pre-wrap;
   overflow-wrap: break-word;
   border: rgba(106, 111, 117, .09) solid 1px;
+}
+
+#expand_editor {
+  margin-right: 2rem;
+  position: absolute;
+  right: 30px;
+  bottom: 1px;
 }
 
 #submit {
@@ -419,6 +426,7 @@ body {
   0% {
     transform: rotate(0deg);
   }
+
   100% {
     transform: rotate(360deg);
   }
@@ -434,6 +442,7 @@ body {
   pointer-events: all;
   transition: opacity 0.2s;
 }
+
 #submit.success:hover {
   opacity: 1;
 }
@@ -580,6 +589,7 @@ body {
 .info-item .hljs {
   border: 0 !important;
 }
+
 .info-item .code-header {
   border-radius: 0 !important;
 }
@@ -947,7 +957,7 @@ body {
   white-space: nowrap;
 }
 
-.status-bar > span {
+.status-bar>span {
   display: flex;
   align-items: center;
   column-gap: 4px;

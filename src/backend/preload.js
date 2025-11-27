@@ -8,6 +8,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
   initInfo: (callback) => ipcRenderer.on('init-info', (_event, info) => callback(info)),
   setPrompt: (callback) => ipcRenderer.on('prompt', (_event, prompt) => callback(prompt)),
   handleLog: (callback) => ipcRenderer.on('log', (_event, log) => callback(log)),
+  send: (channel, data) => ipcRenderer.send(channel, data),
   handleMarkDownFormat: (callback) => ipcRenderer.on('markdown-format', (_event, markdown_statu) => callback(markdown_statu)),
   handleReactStatu: (callback) => ipcRenderer.on('react-statu', (_event, react_statu) => callback(react_statu)),
   queryText: (data) => ipcRenderer.invoke('query-text', data),

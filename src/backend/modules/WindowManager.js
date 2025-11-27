@@ -18,6 +18,7 @@ class WindowManager {
             this.modelWindow = new ModelWindow(this);
             this.subAgentWindow = new SubAgentWindow(this);
             this.codeWindow = new CodeWindow(this);
+            this.codeWindow.setup();
             WindowManager.instance = this;
         }
         return WindowManager.instance;

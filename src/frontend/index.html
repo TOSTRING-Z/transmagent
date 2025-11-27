@@ -211,6 +211,7 @@
           <div class="flex relative">
             <textarea class="flex-grow p-2 rounded-l-lg" rows="1" placeholder="User Prompt/Text" id="input"></textarea>
             <button class="p-2 text-white rounded-r-lg img-mode" id="submit"></button>
+            <button class="p-2 ml-1 text-gray-400 hover:text-white" id="expand_editor" title="Big Edit Mode"><i class="fas fa-expand"></i></button>
           </div>
           <div class="status-bar">
             <span><i class="fas fa-robot"></i> <span id="version">deepseek-chat</span></span>
@@ -224,6 +225,13 @@
       </div>
     </div>
   </div>
+
+<script>
+    document.getElementById('expand_editor').addEventListener('click', () => {
+        const content = document.getElementById('input').value;
+        window.electronAPI.send('open-code-editor-content', content);
+    });
+</script>
 </body>
 
 <script src="./js/renderer.js"></script>

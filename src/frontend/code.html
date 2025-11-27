@@ -1,72 +1,299 @@
 <!DOCTYPE html>
 <html lang="zh-CN" data-theme="dark">
+
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>DeepSeek IDE (智能交互版)</title>
-    
+    <title>Code IDE (智能交互版)</title>
+    <link rel="stylesheet" href="css/fontawesome-free/css/all.min.css" />
+
     <!-- CodeMirror 资源 -->
-    <link href="https://cdn.bootcdn.net/ajax/libs/codemirror/5.65.13/codemirror.min.css" rel="stylesheet">
-    <link href="https://cdn.bootcdn.net/ajax/libs/codemirror/5.65.13/theme/dracula.min.css" rel="stylesheet">
-    <link href="https://cdn.bootcdn.net/ajax/libs/codemirror/5.65.13/theme/neo.min.css" rel="stylesheet">
-    
-    <script src="https://cdn.bootcdn.net/ajax/libs/codemirror/5.65.13/codemirror.min.js"></script>
-    <script src="https://cdn.bootcdn.net/ajax/libs/codemirror/5.65.13/mode/javascript/javascript.min.js"></script>
-    <script src="https://cdn.bootcdn.net/ajax/libs/codemirror/5.65.13/addon/search/searchcursor.min.js"></script>
+    <link href="css/codemirror.min.css" rel="stylesheet">
+    <link href="css/dracula.min.css" rel="stylesheet">
+    <link href="css/neo.min.css" rel="stylesheet">
+
+    <script src="js/codemirror.min.js"></script>
+    <script src="js/javascript.min.js"></script>
+    <script src="js/searchcursor.min.js"></script>
 
     <style>
+        /* Scrollbar styles */
+        ::-webkit-scrollbar {
+            width: 4px;
+            height: 4px;
+        }
+
+        ::-webkit-scrollbar-track {
+            background-color: rgb(241 245 249);
+            transition: background-color 0.3s;
+        }
+
+        ::-webkit-scrollbar-thumb {
+            background-color: rgb(203 213 225);
+            border-radius: 10px;
+            transition: background-color 0.3s;
+        }
+
         /* --- 1. 设计系统 --- */
         :root {
-            --bg-body: #f5f5f5; --bg-card: #ffffff; --text-primary: #171717; --text-secondary: #888888;
-            --border-color: #eaeaea; --accent-color: #2563eb; --pill-bg: #2563eb; --pill-text: #ffffff;
-            --pill-hover: #1d4ed8; --connector-color: #2563eb; --ghost-text-color: #a3a3a3;
+            --bg-body: #f5f5f5;
+            --bg-card: #ffffff;
+            --text-primary: #171717;
+            --text-secondary: #888888;
+            --border-color: #eaeaea;
+            --accent-color: #2563eb;
+            --pill-bg: #2563eb;
+            --pill-text: #ffffff;
+            --pill-hover: #1d4ed8;
+            --connector-color: #2563eb;
+            --ghost-text-color: #a3a3a3;
             --error-bg: rgba(239, 68, 68, 0.1);
         }
+
         [data-theme="dark"] {
-            --bg-body: #0a0a0a; --bg-card: #171717; --text-primary: #ededed; --text-secondary: #666666;
-            --border-color: #333333; --accent-color: #3b82f6; --pill-bg: #3b82f6; --pill-text: #ffffff;
-            --pill-hover: #60a5fa; --connector-color: #3b82f6; --ghost-text-color: #6e7681;
+            --bg-body: #0a0a0a;
+            --bg-card: #171717;
+            --text-primary: #ededed;
+            --text-secondary: #666666;
+            --border-color: #333333;
+            --accent-color: #3b82f6;
+            --pill-bg: #3b82f6;
+            --pill-text: #ffffff;
+            --pill-hover: #60a5fa;
+            --connector-color: #3b82f6;
+            --ghost-text-color: #6e7681;
             --error-bg: rgba(248, 113, 113, 0.15);
         }
-        body { font-family: 'Inter', sans-serif; background-color: var(--bg-body); color: var(--text-primary); margin: 0; padding: 40px; display: flex; justify-content: center; }
-        .app-container { width: 100%; max-width: 900px; background: var(--bg-card); border: 1px solid var(--border-color); border-radius: 12px; padding: 30px; box-shadow: 0 10px 30px -10px rgba(0, 0, 0, 0.1); }
-        .header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 24px; border-bottom: 1px solid var(--border-color); padding-bottom: 20px; }
-        .header h1 { font-size: 20px; margin: 0; }
-        .badge-group { display: flex; gap: 8px; font-size: 12px; font-family: monospace; opacity: 0.8; margin-top: 5px; }
-        .key-badge { background: var(--border-color); padding: 2px 6px; border-radius: 4px; }
-        .theme-btn { background: transparent; border: 1px solid var(--border-color); color: var(--text-primary); padding: 6px 14px; border-radius: 6px; cursor: pointer; }
-        .CodeMirror { height: 500px; border-radius: 8px; border: 1px solid var(--border-color); font-family: 'JetBrains Mono', monospace; font-size: 14px; line-height: 1.6; }
-        
+
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: var(--bg-body);
+            color: var(--text-primary);
+            margin: 0;
+            display: flex;
+            justify-content: center;
+            flex-direction: column;
+            border: #333 solid 1px;
+            overflow-y: hidden;
+        }
+
+        /* 自定义标题栏 */
+        .title-bar {
+            -webkit-app-region: drag;
+            /* 允许拖动 */
+            font-size: medium;
+            height: 30px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 0 10px;
+            -webkit-user-select: none;
+            /* Safari */
+            -moz-user-select: none;
+            /* Firefox */
+            -ms-user-select: none;
+            /* IE10+/Edge */
+            user-select: none;
+            /* Standard */
+        }
+
+        /* 窗口控制按钮 */
+        .window-controls {
+            display: flex;
+            -webkit-app-region: no-drag;
+            /* 禁止拖动干扰按钮点击 */
+        }
+
+        .window-btn {
+            width: 12px;
+            height: 12px;
+            border-radius: 50%;
+            margin-left: 8px;
+            cursor: pointer;
+        }
+
+        .close-btn {
+            background: #ff5e57;
+        }
+
+        .minimize-btn {
+            background: #ffbb2e;
+        }
+
+        /* 内容区域 */
+        .content {
+            overflow-y: auto;
+            height: calc(100vh - 15px);
+        }
+
+        .app-container {
+            padding: 15px;
+            box-shadow: 0 10px 30px -10px rgba(0, 0, 0, 0.1);
+        }
+
+        .header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 24px;
+            border-bottom: 1px solid var(--border-color);
+            padding-bottom: 20px;
+        }
+
+        .header h1 {
+            font-size: 20px;
+            margin: 0;
+        }
+
+        .badge-group {
+            display: flex;
+            gap: 8px;
+            font-size: 12px;
+            font-family: monospace;
+            opacity: 0.8;
+            margin-top: 5px;
+        }
+
+        .key-badge {
+            background: var(--border-color);
+            padding: 2px 6px;
+            border-radius: 4px;
+        }
+
+        .theme-btn {
+            background: transparent;
+            border: 1px solid var(--border-color);
+            color: var(--text-primary);
+            padding: 6px 14px;
+            border-radius: 6px;
+            cursor: pointer;
+        }
+
+        .CodeMirror {
+            height: 500px;
+            border-radius: 8px;
+            border: 1px solid var(--border-color);
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 14px;
+            line-height: 1.6;
+        }
+
         /* 补全 Ghost Text */
-        .ghost-text { color: var(--ghost-text-color); opacity: 0.6; pointer-events: none; font-style: italic; }
-        .loading-spinner { display: inline-block; width: 10px; height: 10px; border: 2px solid var(--accent-color); border-top-color: transparent; border-radius: 50%; animation: spin 0.8s linear infinite; margin-left: 5px; }
-        @keyframes spin { to { transform: rotate(360deg); } }
+        .ghost-text {
+            color: var(--ghost-text-color);
+            opacity: 0.6;
+            pointer-events: none;
+            font-style: italic;
+        }
+
+        .loading-spinner {
+            display: inline-block;
+            width: 10px;
+            height: 10px;
+            border: 2px solid var(--accent-color);
+            border-top-color: transparent;
+            border-radius: 50%;
+            animation: spin 0.8s linear infinite;
+            margin-left: 5px;
+        }
+
+        @keyframes spin {
+            to {
+                transform: rotate(360deg);
+            }
+        }
+
+        .CodeMirror-scroll {
+            width: 100%;
+        }
 
         /* 重构 Widget */
-        .lint-highlight { background-color: var(--error-bg); border-bottom: 1px dashed var(--error-text); }
-        .widget-anchor { position: absolute; z-index: 1000; }
-        .suggestion-container { position: relative; top: 20px; left: -10px; }
-        .connector-line { position: absolute; top: -12px; left: 6px; width: 14px; height: 26px; border-left: 2px solid var(--connector-color); border-bottom: 2px solid var(--connector-color); border-bottom-left-radius: 8px; pointer-events: none; }
-        .suggestion-pill { position: absolute; top: 6px; left: 22px; background-color: var(--pill-bg); color: var(--pill-text); padding: 5px 12px; border-radius: 20px; font-size: 12px; font-weight: 600; cursor: pointer; box-shadow: 0 4px 12px rgba(0,0,0,0.15); display: flex; align-items: center; gap: 6px; white-space: nowrap; user-select: none; }
-        .suggestion-pill:hover { background-color: var(--pill-hover); transform: scale(1.02); }
-        #status-bar { margin-top: 15px; font-size: 13px; color: var(--text-secondary); height: 20px; }
+        .lint-highlight {
+            background-color: var(--error-bg);
+            border-bottom: 1px dashed var(--error-text);
+        }
+
+        .widget-anchor {
+            position: absolute;
+            z-index: 1000;
+        }
+
+        .suggestion-container {
+            position: relative;
+            top: 20px;
+            left: -10px;
+        }
+
+        .connector-line {
+            position: absolute;
+            top: -12px;
+            left: 6px;
+            width: 14px;
+            height: 26px;
+            border-left: 2px solid var(--connector-color);
+            border-bottom: 2px solid var(--connector-color);
+            border-bottom-left-radius: 8px;
+            pointer-events: none;
+        }
+
+        .suggestion-pill {
+            position: absolute;
+            top: 6px;
+            left: 22px;
+            background-color: var(--pill-bg);
+            color: var(--pill-text);
+            padding: 5px 12px;
+            border-radius: 20px;
+            font-size: 12px;
+            font-weight: 600;
+            cursor: pointer;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            white-space: nowrap;
+            user-select: none;
+        }
+
+        .suggestion-pill:hover {
+            background-color: var(--pill-hover);
+            transform: scale(1.02);
+        }
+
+        #status-bar {
+            margin-top: 15px;
+            font-size: 13px;
+            color: var(--text-secondary);
+            height: 20px;
+        }
     </style>
 </head>
-<body>
 
-<div class="app-container">
-    <div class="header">
-        <div>
-            <h1>DeepSeek IDE</h1>
-            <div class="badge-group">
-                <span>补全: <span class="key-badge">自动触发 / Tab</span></span>
-                <span>重构: <span class="key-badge">闲置 2s 触发</span></span>
-            </div>
+<body>
+    <!-- 自定义标题栏 -->
+    <div class="title-bar">
+        <div class="title"><i class="fas fa-code"></i> <b id="info-name">Code IDE</b></div>
+        <div class="window-controls">
+            <div class="window-btn minimize-btn" id="minimize-btn"></div>
+            <div class="window-btn close-btn" id="close-btn"></div>
         </div>
-        <button class="theme-btn" onclick="toggleTheme()">切换主题</button>
     </div>
 
-    <textarea id="code-editor" style="display: none;">
+    <!-- 内容区域 -->
+    <div class="content">
+        <div class="app-container">
+            <div class="header">
+                <div>
+                    <h1>DeepSeek IDE</h1>
+                    <div class="badge-group">
+                        <span>补全: <span class="key-badge">自动触发 / Tab</span></span>
+                        <span>重构: <span class="key-badge">闲置 2s 触发</span></span>
+                    </div>
+                </div>
+                <button class="theme-btn" onclick="toggleTheme()">切换主题</button>
+            </div>
+
+            <textarea id="code-editor" style="display: none;">
 // 1. 自动补全测试：
 // 试着输入 "fun"，等待 0.5秒，会出现 "ction..."，按 Tab 补全
 // 补全后，系统 *不会* 立即进行错误检查
@@ -77,277 +304,332 @@
 // var userName = "DeepSeek";
 // console.log(userNmae);
 </textarea>
-    <div id="status-bar">Ready</div>
-</div>
+            <div id="status-bar">Ready</div>
+        </div>
+    </div>
 
-<script>
-    const { ipcRenderer } = require('electron');
+    <script>
+        const { ipcRenderer } = require('electron');
 
-    let editor;
-    let isDark = true;
-    
-    // 定时器管理
-    let refactorTimer = null;   // 用于错误检查（慢）
-    let completionTimer = null; // 用于自动补全（快）
-    
-    let activeRefactorItems = []; 
-    let lastAnalyzedContent = "";
-
-    // 补全状态
-    let completionWidget = null;
-    let loadingWidget = null;
-    let currentPrediction = "";
-    let isCompleting = false;
-
-    const statusEl = document.getElementById("status-bar");
-
-    window.onload = function() {
-        editor = CodeMirror.fromTextArea(document.getElementById("code-editor"), {
-            mode: "javascript",
-            theme: "dracula",
-            lineNumbers: true,
-            indentUnit: 4,
-            extraKeys: {
-                "Tab": (cm) => {
-                    if (currentPrediction) acceptCompletion(cm);
-                    else cm.execCommand("defaultTab");
-                },
-                "Esc": () => clearCompletion()
-            }
-        });
-
-        lastAnalyzedContent = editor.getValue().trim();
-
-        // --- 核心逻辑修改：监听输入 ---
-        editor.on("change", (cm, change) => {
-            
-            // 1. 如果是 "Tab 补全" 触发的修改
-            if (change.origin === "ai-completion") {
-                // 关键点：用户刚刚按了 Tab，代码刚变好，不要触发错误检查
-                // 清除之前的定时器，保持状态为 "Ready"
-                clearTimeout(refactorTimer);
-                clearTimeout(completionTimer);
-                statusEl.textContent = "Completion Applied";
-                return;
-            }
-
-            // 2. 如果是 "点击修复按钮" 触发的修改
-            if (change.origin === "ai-fix") return;
-
-            // 3. 任何手动输入，先清除所有定时器
-            clearTimeout(refactorTimer);
-            clearTimeout(completionTimer);
-            
-            // 清除旧的 UI
-            if (change.origin !== "setValue") clearCompletion();
-            // 注意：打字时可以先保留错误提示，等重新分析后再刷新，或者立即清除看体验
-            // 这里选择稍微延迟清除错误，或者在 runRefactorAnalysis 里清除
-
-            const currentContent = cm.getValue().trim();
-            if (currentContent === lastAnalyzedContent) return;
-
-            // --- 任务 A: 自动触发补全 (快) ---
-            // 只有输入（+input）才触发，删除不触发
-            if (change.origin === "+input") {
-                completionTimer = setTimeout(() => {
-                    runCompletion();
-                }, 600); // 0.6秒无操作触发补全
-            }
-
-            // --- 任务 B: 自动触发重构 (慢) ---
-            statusEl.textContent = "Typing...";
-            refactorTimer = setTimeout(() => {
-                // 只有内容真的变了才运行
-                lastAnalyzedContent = currentContent;
-                clearRefactorUI();
-                runRefactorAnalysis(cm);
-            }, 2000); // 2秒无操作触发检查
-        });
-
-        window.toggleTheme = function() {
-            isDark = !isDark;
-            document.documentElement.setAttribute('data-theme', isDark ? 'dark' : 'light');
-            editor.setOption('theme', isDark ? 'dracula' : 'neo');
+        let editor;
+        let isDark = true;
+        // --- 新增变量 ---
+        let completionRequestId = 0; // 用于追踪补全请求 ID
+        // --- 新增工具函数：超时控制 ---
+        const withTimeout = (promise, ms) => {
+            const timeout = new Promise((_, reject) =>
+                setTimeout(() => reject(new Error(`Timeout after ${ms}ms`)), ms)
+            );
+            return Promise.race([promise, timeout]);
         };
-    };
+        // 定时器管理
+        let refactorTimer = null;   // 用于错误检查（慢）
+        let completionTimer = null; // 用于自动补全（快）
 
-    // --- 补全逻辑 ---
-    async function runCompletion() {
-        if (isCompleting) return;
-        isCompleting = true;
+        let activeRefactorItems = [];
+        let lastAnalyzedContent = "";
 
-        const cursor = editor.getCursor();
-        const prefix = editor.getRange({line: 0, ch: 0}, cursor).slice(-1000);
-        const suffix = editor.getRange(cursor, {line: editor.lineCount(), ch: 0}).slice(0, 500);
-        
-        const isMidWord = /^[a-zA-Z0-9_]/.test(suffix);
+        // 补全状态
+        let completionWidget = null;
+        let loadingWidget = null;
+        let currentPrediction = "";
+        let isCompleting = false;
 
-        const spin = document.createElement("span");
-        spin.className = "loading-spinner";
-        loadingWidget = editor.setBookmark(cursor, { widget: spin, insertLeft: true });
+        const statusEl = document.getElementById("status-bar");
 
-        try {
-            const data = await ipcRenderer.invoke('code-completion', { prefix, suffix, isMidWord });
-            if (data.error) throw new Error(data.error);
-            let text = data.choices?.[0]?.message?.content || "";
-            text = text.replace(/```javascript|```/g, ""); // 清洗
-
-            // 后缀去重
-            if (text && suffix) {
-                const trimmedSuffix = suffix.trim();
-                for (let i = text.length; i > 0; i--) {
-                    if (trimmedSuffix.startsWith(text.slice(-i))) {
-                        text = text.slice(0, -i);
-                        break;
-                    }
+        window.onload = function () {
+            editor = CodeMirror.fromTextArea(document.getElementById("code-editor"), {
+                mode: "javascript",
+                theme: "dracula",
+                lineNumbers: true,
+                indentUnit: 4,
+                extraKeys: {
+                    "Tab": (cm) => {
+                        if (currentPrediction) acceptCompletion(cm);
+                        else cm.execCommand("defaultTab");
+                    },
+                    "Esc": () => clearCompletion()
                 }
-            }
-
-            if (loadingWidget) loadingWidget.clear();
-
-            if (text) {
-                currentPrediction = text;
-                const ghost = document.createElement("span");
-                ghost.className = "ghost-text";
-                ghost.innerText = text;
-                completionWidget = editor.setBookmark(cursor, { widget: ghost, insertLeft: true });
-                statusEl.textContent = "Press TAB to accept";
-            } else {
-                isCompleting = false;
-            }
-
-        } catch (e) {
-            console.error(e);
-            if (loadingWidget) loadingWidget.clear();
-            isCompleting = false;
-        }
-    }
-
-    // --- 核心修改：接受补全 ---
-    function acceptCompletion(cm) {
-        if (!currentPrediction) return;
-        const cursor = cm.getCursor();
-        
-        // 关键：传入第四个参数 "ai-completion" 作为 origin
-        // 这会被 change 监听器捕获，从而阻止触发 Refactor
-        cm.replaceRange(currentPrediction, cursor, cursor, "ai-completion");
-        
-        clearCompletion();
-    }
-
-    function clearCompletion() {
-        if (loadingWidget) { loadingWidget.clear(); loadingWidget = null; }
-        if (completionWidget) { completionWidget.clear(); completionWidget = null; }
-        currentPrediction = "";
-        isCompleting = false;
-    }
-
-    // --- 重构/检查逻辑 ---
-    async function runRefactorAnalysis(cm) {
-        const code = cm.getValue();
-        if (!code.trim()) return;
-        statusEl.textContent = "Analyzing structure...";
-
-        try {
-            const data = await ipcRenderer.invoke('code-refactor', code);
-            if (data.error) throw new Error(data.error);
-            const content = JSON.parse(data.choices?.[0]?.message?.content || "{}");
-            let errors = (content.errors || []).filter(item => {
-                const original = item.text.replace(/\s+/g, '');
-                const fixed = item.fix.replace(/\s+/g, '');
-                return original !== fixed && item.text.trim() !== "";
             });
 
-            statusEl.textContent = errors.length ? `${errors.length} issues found` : "Code looks good";
-            renderRefactorUI(cm, errors);
+            lastAnalyzedContent = editor.getValue().trim();
 
-        } catch (error) {
-            console.error(error);
-            statusEl.textContent = "Analysis Error";
-        }
-    }
+            // --- 核心逻辑修改：监听输入 ---
+            editor.on("change", (cm, change) => {
 
-    function renderRefactorUI(cm, errors) {
-        errors.forEach(item => {
-            const cursor = cm.getSearchCursor(item.text);
-            while (cursor.findNext()) {
-                const from = cursor.from();
-                const to = cursor.to();
-                createWidget(cm, from, to, item.fix);
+                // 1. 过滤掉 AI 自动操作（补全 或 修复）
+                // 如果是 AI 触发的修改，我们保持现有的 Widget 不动，或者由具体逻辑自己处理
+                if (change.origin === "ai-completion" || change.origin === "ai-fix") {
+                    clearTimeout(refactorTimer);
+                    clearTimeout(completionTimer);
+                    if (change.origin === "ai-completion") statusEl.textContent = "Completion Applied";
+                    return;
+                }
+
+                // 2. 【新增功能】用户手动输入/删除/粘贴/加载新内容
+                // 代码已变更，之前的行号和内容位置可能都变了，旧的修复框不再有效，立即清除
+                clearRefactorUI();
+
+                // 3. 常规清理逻辑
+                clearTimeout(refactorTimer);
+                clearTimeout(completionTimer);
+                
+                // 如果不是加载文件(setValue)，则清除补全的幽灵文本
+                if (change.origin !== "setValue") clearCompletion();
+
+                const currentContent = cm.getValue().trim();
+                if (currentContent === lastAnalyzedContent) return;
+
+                // --- 任务 A: 自动触发补全 (快) ---
+                if (change.origin === "+input") {
+                    completionTimer = setTimeout(() => {
+                        runCompletion();
+                    }, 600); 
+                }
+
+                // --- 任务 B: 自动触发重构 (慢) ---
+                // 用户停止输入后，重新计时准备分析新代码
+                refactorTimer = setTimeout(() => {
+                    lastAnalyzedContent = currentContent;
+                    // 注意：这里不需要再调 clearRefactorUI()，因为上面第2步已经清除了
+                    // 这里主要是为了运行新的分析
+                    runRefactorAnalysis(cm);
+                }, 2000); 
+            });
+
+            // 新增：光标移动时清除补全
+            editor.on("cursorActivity", () => {
+                if (completionWidget || loadingWidget) {
+                    clearCompletion();
+                }
+            });
+
+            window.toggleTheme = function () {
+                isDark = !isDark;
+                document.documentElement.setAttribute('data-theme', isDark ? 'dark' : 'light');
+                editor.setOption('theme', isDark ? 'dracula' : 'neo');
+            };
+        };
+
+        // --- 修改后的补全逻辑 ---
+        async function runCompletion() {
+            // 如果正在补全，不要直接 return，而是取消上一次状态（视情况而定），
+            // 这里为了简单，我们使用 Request ID 来废弃旧请求的结果
+            isCompleting = true;
+            
+            // 1. 生成本次请求的唯一 ID
+            const requestId = ++completionRequestId;
+
+            const cursor = editor.getCursor();
+            const prefix = editor.getRange({ line: 0, ch: 0 }, cursor).slice(-1000);
+            const suffix = editor.getRange(cursor, { line: editor.lineCount(), ch: 0 }).slice(0, 500);
+            const isMidWord = /^[a-zA-Z0-9_]/.test(suffix);
+
+            const spin = document.createElement("span");
+            spin.className = "loading-spinner";
+            
+            // 清除可能存在的旧 loading
+            if (loadingWidget) loadingWidget.clear();
+            loadingWidget = editor.setBookmark(cursor, { widget: spin, insertLeft: true });
+
+            try {
+                // 2. 引入超时机制 (例如 5秒超时)
+                let text = await withTimeout(
+                    ipcRenderer.invoke('code-completion', { prefix, suffix, isMidWord }), 
+                    5000 
+                );
+
+                // 3. 关键修复：检查 ID 是否过期
+                // 如果在等待期间用户移动了光标、删除了文字或触发了新补全，
+                // requestId 就不再等于 completionRequestId，此时必须丢弃结果，防止错位插入
+                if (requestId !== completionRequestId) {
+                    if (loadingWidget) loadingWidget.clear();
+                    return; 
+                }
+
+                if (!isCompleting) return; // 双重检查标志位
+                
+                text = text.replace(/^```[\w]*\n|```$/gm, ""); 
+
+                // 后缀去重逻辑 (保持不变)
+                if (text && suffix) {
+                    const trimmedSuffix = suffix.trim();
+                    for (let i = text.length; i > 0; i--) {
+                        if (trimmedSuffix.startsWith(text.slice(-i))) {
+                            text = text.slice(0, -i);
+                            break;
+                        }
+                    }
+                }
+
+                if (loadingWidget) loadingWidget.clear();
+
+                if (text) {
+                    currentPrediction = text;
+                    const ghost = document.createElement("span");
+                    ghost.className = "ghost-text";
+                    ghost.innerText = text;
+                    
+                    // 再次获取当前光标位置，确保 Widget 插入在最新位置 (虽然有 ID 保护，但这更安全)
+                    const currentCursor = editor.getCursor();
+                    completionWidget = editor.setBookmark(currentCursor, { widget: ghost, insertLeft: true });
+                    statusEl.textContent = "Press TAB to accept";
+                } else {
+                    isCompleting = false;
+                }
+
+            } catch (e) {
+                // 4. 处理超时或错误
+                console.log("Completion error or timeout:", e.message);
+                if (requestId === completionRequestId) {
+                    if (loadingWidget) loadingWidget.clear();
+                    isCompleting = false;
+                    statusEl.textContent = "Ready"; // 重置状态
+                }
             }
-        });
-    }
+        }
 
-    function createWidget(cm, from, to, fixText) {
-        const mark = cm.markText(from, to, { className: "lint-highlight" });
-        const widgetEl = document.createElement("div");
-        widgetEl.className = "widget-anchor";
-        widgetEl.innerHTML = `
+        // --- 核心修改：接受补全 ---
+        function acceptCompletion(cm) {
+            if (!currentPrediction) return;
+            const cursor = cm.getCursor();
+
+            // 关键：传入第四个参数 "ai-completion" 作为 origin
+            // 这会被 change 监听器捕获，从而阻止触发 Refactor
+            cm.replaceRange(currentPrediction, cursor, cursor, "ai-completion");
+
+            clearCompletion();
+        }
+
+        function clearCompletion() {
+            if (loadingWidget) { loadingWidget.clear(); loadingWidget = null; }
+            if (completionWidget) { completionWidget.clear(); completionWidget = null; }
+            currentPrediction = "";
+            isCompleting = false;
+        }
+
+        // --- 修改后的重构/检查逻辑 ---
+        async function runRefactorAnalysis(cm) {
+            const code = cm.getValue();
+            if (!code.trim()) return;
+            statusEl.textContent = "Analyzing structure...";
+
+            try {
+                // 1. 引入超时机制 (重构通常较慢，给 15秒)
+                let text = await withTimeout(
+                    ipcRenderer.invoke('code-refactor', code),
+                    15000
+                );
+
+                // 这里虽然不需要像补全那样严格的 ID 校验（因为是针对全文），
+                // 但如果文档内容在这期间被大幅清空，校验一下长度也是好的。
+                if (cm.getValue().length === 0) return;
+
+                text = text.replace(/```json|```/g, ""); 
+                let errors = (JSON.parse(text)?.errors || []).filter(item => {
+                    const original = item.text.replace(/\s+/g, '');
+                    const fixed = item.fix.replace(/\s+/g, '');
+                    return original !== fixed && item.text.trim() !== "";
+                });
+
+                statusEl.textContent = errors.length ? `${errors.length} issues found` : "Code looks good";
+                renderRefactorUI(cm, errors);
+
+            } catch (error) {
+                console.log("Refactor error or timeout:", error.message);
+                statusEl.textContent = error.message.includes("Timeout") ? "Analysis Timeout" : "Analysis Error";
+            }
+        }
+
+        function renderRefactorUI(cm, errors) {
+            errors.forEach(item => {
+                const cursor = cm.getSearchCursor(item.text);
+                while (cursor.findNext()) {
+                    const from = cursor.from();
+                    const to = cursor.to();
+                    createWidget(cm, from, to, item.fix);
+                }
+            });
+        }
+
+        function createWidget(cm, from, to, fixText) {
+            const mark = cm.markText(from, to, { className: "lint-highlight" });
+            const widgetEl = document.createElement("div");
+            widgetEl.className = "widget-anchor";
+            widgetEl.innerHTML = `
             <div class="suggestion-container">
                 <div class="connector-line"></div>
                 <div class="suggestion-pill" title="Click to fix"><span>⚡ ${fixText}</span></div>
             </div>
         `;
-        const item = { mark, widget: widgetEl };
-        activeRefactorItems.push(item);
+            const item = { mark, widget: widgetEl };
+            activeRefactorItems.push(item);
 
-        widgetEl.querySelector(".suggestion-pill").addEventListener("mousedown", (e) => {
-            e.preventDefault(); e.stopPropagation();
-            // 这里 origin 为 ai-fix，也会被 change 监听器忽略
-            cm.replaceRange(fixText, from, to, "ai-fix");
-            
-            mark.clear();
-            if (widgetEl.parentNode) widgetEl.parentNode.removeChild(widgetEl);
-            activeRefactorItems = activeRefactorItems.filter(i => i !== item);
-            statusEl.textContent = "Fixed";
-        });
-        cm.addWidget(to, widgetEl, false);
-    }
+            widgetEl.querySelector(".suggestion-pill").addEventListener("mousedown", (e) => {
+                e.preventDefault(); e.stopPropagation();
+                // 这里 origin 为 ai-fix，也会被 change 监听器忽略
+                cm.replaceRange(fixText, from, to, "ai-fix");
 
-    function clearRefactorUI() {
-        activeRefactorItems.forEach(item => {
-            item.mark.clear();
-            if (item.widget.parentNode) item.widget.parentNode.removeChild(item.widget);
-        });
-        activeRefactorItems = [];
-    }
-
-    // File Management Logic
-    
-    const fs = require('fs');
-    let currentFilePath = null;
-
-    ipcRenderer.on('open-file', (event, filePath) => {
-        console.log('Opening file:', filePath);
-        currentFilePath = filePath;
-        fs.readFile(filePath, 'utf-8', (err, content) => {
-            if (err) {
-                console.error('Failed to read file:', err);
-                statusEl.textContent = 'Error opening file';
-                return;
-            }
-            editor.setValue(content);
-            statusEl.textContent = `Opened: ${filePath}`;
-        });
-    });
-
-    // Save on Ctrl+S / Cmd+S
-    document.addEventListener('keydown', (e) => {
-        if ((e.ctrlKey || e.metaKey) && e.key === 's') {
-            e.preventDefault();
-            if (currentFilePath) {
-                fs.writeFile(currentFilePath, editor.getValue(), 'utf-8', (err) => {
-                    if (err) {
-                        console.error('Failed to save file:', err);
-                        statusEl.textContent = 'Error saving file';
-                    } else {
-                        statusEl.textContent = `Saved: ${currentFilePath}`;
-                        setTimeout(() => statusEl.textContent = 'Ready', 2000);
-                    }
-                });
-            }
+                mark.clear();
+                if (widgetEl.parentNode) widgetEl.parentNode.removeChild(widgetEl);
+                activeRefactorItems = activeRefactorItems.filter(i => i !== item);
+                statusEl.textContent = "Fixed";
+            });
+            cm.addWidget(to, widgetEl, false);
         }
-    });
-</script>
+
+        function clearRefactorUI() {
+            activeRefactorItems.forEach(item => {
+                item.mark.clear();
+                if (item.widget.parentNode) item.widget.parentNode.removeChild(item.widget);
+            });
+            activeRefactorItems = [];
+        }
+
+        // File Management Logic
+
+        const fs = require('fs');
+        let currentFilePath = null;
+
+        ipcRenderer.on('open-file', (event, filePath) => {
+            console.log('Opening file:', filePath);
+            currentFilePath = filePath;
+            fs.readFile(filePath, 'utf-8', (err, content) => {
+                if (err) {
+                    console.log('Failed to read file:', err);
+                    statusEl.textContent = 'Error opening file';
+                    return;
+                }
+                editor.setValue(content);
+                statusEl.textContent = `Opened: ${filePath}`;
+            });
+        });
+
+        ipcRenderer.on('open-content', (event, content) => {
+            console.log('Opening content');
+            currentFilePath = null;
+            editor.setValue(content);
+            statusEl.textContent = 'Opened: Temporary Content';
+        });
+
+        // Save on Ctrl+S / Cmd+S
+        document.addEventListener('keydown', (e) => {
+            if ((e.ctrlKey || e.metaKey) && e.key === 's') {
+                e.preventDefault();
+                if (currentFilePath) {
+                    fs.writeFile(currentFilePath, editor.getValue(), 'utf-8', (err) => {
+                        if (err) {
+                            console.log('Failed to save file:', err);
+                            statusEl.textContent = 'Error saving file';
+                        } else {
+                            statusEl.textContent = `Saved: ${currentFilePath}`;
+                            setTimeout(() => statusEl.textContent = 'Ready', 2000);
+                        }
+                    });
+                }
+            }
+        });
+    </script>
 </body>
+
 </html>
