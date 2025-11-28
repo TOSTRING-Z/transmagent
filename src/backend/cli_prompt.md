@@ -6,6 +6,7 @@
 - bedtools: Software for genomic region analysis  
   - Input: `a.bed`, `b.bed`  
   - Output: `output.bed`  
+  - Use: `bedtools intersect -a a.bed -b b.bed > output.bed`
 
 - getfasta: Extract DNA sequences from a FASTA file using genomic coordinates  
   - Input: `genome.fa`, `regions.bed`

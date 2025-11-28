@@ -37,7 +37,7 @@ class CodeWindow extends Window {
             })
 
             this.window.on('ready-to-show', () => {
-                this.window.webContents.openDevTools();
+                // this.window.webContents.openDevTools();
             });
 
             ipcMain.on('minimize-window', () => {
@@ -151,7 +151,7 @@ class CodeWindow extends Window {
                 const llm_service = new LLMService();
                 const react_agent = new ReActAgent({}, llm_service);
 
-                const prompt = utils.getConfig("code")?.completion?.prompt || "你是一个代码/文本补全引擎。如果光标<CURSOR>在单词中间，仅补全后缀。如果光标在行尾，补全逻辑。直接输出代码，无Markdown。如果不需要补全，返回空字符串。你是一个代码补全工具。\n规则：\n1. 你的输出将被直接拼接到光标<CURSOR>后面。\n2. 严禁重复光标前的内容。\n3. 只输出补全部分，不要解释，不要使用 markdown 格式。\n4. 如果光标在行尾，通常只需要补全换行后的逻辑。\n5. 如果不需要补全，返回空字符串。";
+                const prompt = utils.getConfig("code")?.completion?.prompt || "You are a code/text completion engine. If the cursor <CURSOR> is in the middle of a word, only complete the suffix. If the cursor is at the end of a line, complete the logical continuation. Output code directly, no Markdown. If no completion is needed, return an empty string. You are a code completion tool.\nRules:\n1. Your output will be concatenated directly after the cursor <CURSOR>.\n2. Do not repeat any content that appears before the cursor.\n3. Output only the completion; do not explain and do not include any Markdown markers (e.g. ```).\n4. If the cursor is at the end of a line, usually only complete the logic following the newline.\n5. If no completion is needed, return an empty string.";
                 const query = `${prefix}<CURSOR>${suffix}`;
 
                 const requestData = {
@@ -179,7 +179,7 @@ class CodeWindow extends Window {
                 const llm_service = new LLMService();
                 const react_agent = new ReActAgent({}, llm_service);
 
-                const prompt = utils.getConfig("code")?.refactor?.prompt || `你是一个严格的 Code Linter。找出逻辑错误。返回 JSON: {"errors": [{"text": "错误代码", "fix": "修正代码"}]}。 如果没有错误，返回 {"errors": []}。不要添加多余说明。`;
+                const prompt = utils.getConfig("code")?.refactor?.prompt || `You are a strict code linter. Identify logical errors. Return JSON in the format: {"errors": [{"text": "erroneous_code", "fix": "fixed_code"}]}. If there are no errors, return {"errors": []}. Do not add any extra explanations.`;
 
                 const requestData = {
                     prompt,
@@ -206,9 +206,9 @@ class CodeWindow extends Window {
                 const llm_service = new LLMService();
                 const react_agent = new ReActAgent({}, llm_service);
 
-                const prompt = utils.getConfig("code")?.modify?.prompt || "你是一个智能代码助手。请根据用户的指令修改下面提供的代码片段。只返回修改后的代码，不要包含任何 Markdown 标记（如 ```），不要包含任何解释性文字。如果无需修改，原样返回。";
+                const prompt = utils.getConfig("code")?.modify?.prompt || "You are an intelligent code assistant. Modify the provided code snippet according to the user's instructions. Return only the modified code, do not include any Markdown markers (e.g. ```), and do not include any explanatory text. If no changes are needed, return the original code unchanged.";
                 
-                const query = `[代码片段开始]\n${selectedText}\n[代码片段结束]\n\n用户指令：${instruction}\n\n请修改上述代码：`;
+                const query = `[CODE START]\n${selectedText}\n[CODE END]\n\nUser instruction: ${instruction}\n\nPlease modify the code above:`;
 
                 const requestData = {
                     prompt,
