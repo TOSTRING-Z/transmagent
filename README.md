@@ -24,8 +24,8 @@ English | [中文](README_zh.md)
   - Overview: Added a "Context Compression" option in the subtask processing flow to automatically streamline historical dialogues and intermediate results, reducing context length and memory usage.  
   - Effect: Enhances stability and execution efficiency for long conversations and complex tasks, minimizing redundant information during model calls.
 - 2025-11-28 — New: Code IDE Mode
-  - Overview: Added a code editor mode that supports syntax highlighting, code completion, and debugging features to enhance the development experience.
-  - Effect: Allows users to write and test custom analysis scripts directly within the platform, improving the platform's flexibility and extensibility.
+  - Overview: Added code and text editor mode, supporting syntax highlighting, AI completion, AI refactoring, and AI conversational correction features.
+  - Effect: Provides a more intelligent code and process writing experience, assisting in the design of complex analysis workflows.
   
 ## ✨ Core Features
 
