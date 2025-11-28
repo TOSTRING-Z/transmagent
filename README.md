@@ -24,6 +24,11 @@ English | [中文](README_zh.md)
   - Overview: Added a "Context Compression" option in the subtask processing flow to automatically streamline historical dialogues and intermediate results, reducing context length and memory usage.  
   - Effect: Enhances stability and execution efficiency for long conversations and complex tasks, minimizing redundant information during model calls.
 - 2025-11-28 — New: Code IDE Mode
+
+<div align="center">
+  <img src="./public/img/code_ide.png" alt="Code IDE" width="600">
+</div>
+
   - Overview: Added code and text editor mode, supporting syntax highlighting, AI completion, AI refactoring, and AI conversational correction features.
   - Effect: Provides a more intelligent code and process writing experience, assisting in the design of complex analysis workflows.
   
@@ -201,13 +206,13 @@ To meet researchers' one-stop needs, we also integrate:
 - **TransAgent Mode Demo:**
 
 <div align="center">
-  <img src="./public/video/BixChat.gif" alt="TransAgent Demo" width="600">
+  <img src="./public/video/case1.gif" alt="TransAgent Demo" width="600">
 </div>
 
 - **MultAgent Mode Demo:**
 
 <div align="center">
-  <img src="./public/video/case.gif" alt="TransAgent Demo" width="600">
+  <img src="./public/video/case2.gif" alt="TransAgent Demo" width="600">
 </div>
 
 ## 📋 System Requirements

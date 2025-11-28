@@ -24,6 +24,11 @@ https://github.com/user-attachments/assets/e4129a29-6cd4-4026-8d6f-9838135712a1
   - 概述：在子任务处理流程中新增“上下文压缩”选项，自动精简历史对话与中间结果，降低上下文长度和内存占用。  
   - 效果：提升长会话与复杂任务的稳定性与执行效率，减少模型调用时的冗余信息。 
 - 2025-11-28 — 新增：Code IDE模式
+
+<div align="center">
+  <img src="./public/img/code_ide.png" alt="Code IDE" width="600">
+</div>
+
   - 概述：新增代码、文本编辑器模式，支持语法高亮、AI补全、AI重构、AI对话修正功能。
   - 效果：提供更智能的代码和流程编写体验，助力复杂分析流程设计。
 
@@ -203,13 +208,13 @@ TransMAgent 采用 **标准化任务处理架构**：
 - **TransAgent模式运行展示：**
 
 <div align="center">
-  <img src="./public/video/BixChat.gif" alt="TransAgent Demo" width="600">
+  <img src="./public/video/case1.gif" alt="TransAgent Demo" width="600">
 </div>
 
 - **MultAgent模式运行展示：**
 
 <div align="center">
-  <img src="./public/video/case.gif" alt="TransAgent Demo" width="600">
+  <img src="./public/video/case2.gif" alt="TransAgent Demo" width="600">
 </div>
 
 ## 📋 系统要求
