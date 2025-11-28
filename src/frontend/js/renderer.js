@@ -236,67 +236,71 @@ file_upload.addEventListener("click", async function (e) {
   }
 })
 
-const input_h = input.clientHeight;
+const input_h = input ? input.clientHeight : 40; // 默认高度，如果 input 未定义
+const minHeight = input_h;
+const maxHeight = input_h * 3;
 
 function autoResizeTextarea(textarea) {
-  textarea.style.height = null;
-  const inputHeight = Math.min(textarea.scrollHeight, input_h * 3);
-  textarea.style.height = inputHeight + "px";
-  top_div.style.height = window.innerHeight - bottom_div.clientHeight + "px"
+  if (!textarea) return; // 检查元素是否存在
+  textarea.style.height = 'auto';
+  const scrollHeight = textarea.scrollHeight;
+  const newHeight = Math.max(minHeight, Math.min(scrollHeight, maxHeight));
+  textarea.style.height = newHeight + "px";
+  // 更新 top_div 高度
+  if (top_div && bottom_div) {
+    top_div.style.height = (window.innerHeight - bottom_div.clientHeight) + "px";
+  }
 }
 
 function init_size() {
-  let system_prompt_height = system_prompt.clientHeight;
-  let input_height = input.clientHeight;
-  let bottom_div_height = bottom_div.clientHeight;
-  system_prompt.style.height = input_h + "px";
+  if (!input || !system_prompt || !top_div || !bottom_div) return; // 检查元素
+  // 简化高度计算：基于窗口高度和 bottom_div 高度
+  const bottomHeight = bottom_div.clientHeight;
+  top_div.style.height = (window.innerHeight - bottomHeight) + "px";
+  // 可选：重置输入框高度到初始值
   input.style.height = input_h + "px";
-  top_div.style.height = window.innerHeight - (bottom_div_height - system_prompt_height - input_height + (system_prompt_height ? 2 : 1) * input_h) + "px";
+  system_prompt.style.height = input_h + "px";
+}
+
+function handleInputEvent(e) {
+  autoResizeTextarea(e.target);
+  // 统一处理 submit 按钮状态
+  if (submit) {
+    if (e.target.value.trim() !== '') {
+      submit.classList.add('success');
+    } else {
+      submit.classList.remove('success');
+    }
+  }
 }
 
 document.addEventListener("DOMContentLoaded", function () {
-
+  // 初始化尺寸
+  init_size();
   autoResizeTextarea(input);
 
-  // Listen for input events, auto-adjust height
-  input.addEventListener("input", function () {
-    autoResizeTextarea(input);
-    if (this.value.trim() !== '') {
-      submit.classList.add('success');
-    } else {
-      submit.classList.remove('success');
-    }
-  });
-  input.addEventListener("change", function () {
-    autoResizeTextarea(input);
-    if (this.value.trim() !== '') {
-      submit.classList.add('success');
-    } else {
-      submit.classList.remove('success');
-    }
-  });
-  input.addEventListener("click", function () {
-    autoResizeTextarea(input);
-    if (this.value.trim() !== '') {
-      submit.classList.add('success');
-    } else {
-      submit.classList.remove('success');
-    }
-  })
+  // 监听 bottom_div 大小变化，自动调整 top_div 高度，解决启动时及动态变化导致的布局错位
+  if (bottom_div && top_div) {
+    const resizeObserver = new ResizeObserver(() => {
+      top_div.style.height = (window.innerHeight - bottom_div.clientHeight) + "px";
+    });
+    resizeObserver.observe(bottom_div);
+  }
 
-  system_prompt.addEventListener("input", function () {
-    autoResizeTextarea(system_prompt);
-  });
+  // 合并事件监听器：为 input 和 system_prompt 添加 input 和 click 事件
+  if (input) {
+    input.addEventListener("input", handleInputEvent);
+    input.addEventListener("click", handleInputEvent);
+  }
+  if (system_prompt) {
+    system_prompt.addEventListener("input", function() { autoResizeTextarea(system_prompt); });
+    system_prompt.addEventListener("click", function() { autoResizeTextarea(system_prompt); });
+  }
 
-  system_prompt.addEventListener("click", function () {
-    autoResizeTextarea(system_prompt);
-  })
-
-  // Add event listener for window resize event
+  // 窗口调整大小事件
   window.addEventListener("resize", function () {
     init_size();
   });
-
 
   loadOptions();
 });
@@ -1310,12 +1314,6 @@ document.addEventListener('keydown', function (event) {
   if (event.key === 'Escape') {
     hideConfig();
   }
-});
-
-// 动态交互效果
-document.querySelectorAll('.btn').forEach(btn => {
-  btn.addEventListener('mouseover', () => btn.style.transform = 'translateY(-2px)');
-  btn.addEventListener('mouseout', () => btn.style.transform = 'none');
 });
 
 // 侧边栏折叠

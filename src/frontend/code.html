@@ -14,6 +14,16 @@
 
     <script src="js/codemirror.min.js"></script>
     <script src="js/javascript.min.js"></script>
+    <script src="js/python.min.js"></script>
+    <script src="js/clike.min.js"></script>
+    <script src="js/r.min.js"></script>
+    <script src="js/xml.min.js"></script>
+    <script src="js/css.min.js"></script>
+    <script src="js/htmlmixed.min.js"></script>
+    <script src="js/markdown.min.js"></script>
+    <script src="js/php.min.js"></script>
+    <script src="js/ruby.min.js"></script>
+    <script src="js/shell.min.js"></script>
     <script src="js/searchcursor.min.js"></script>
 
     <style>
@@ -170,7 +180,7 @@
         }
 
         .CodeMirror {
-            height: 500px;
+            height: calc(100vh - 180px);
             border-radius: 8px;
             border: 1px solid var(--border-color);
             font-family: 'JetBrains Mono', monospace;
@@ -260,11 +270,291 @@
             transform: scale(1.02);
         }
 
+        .function {
+            display: flex;
+            gap: 10px;
+        }
+
         #status-bar {
             margin-top: 15px;
             font-size: 13px;
             color: var(--text-secondary);
             height: 20px;
+        }
+
+        /* 仿 VS Code 搜索框样式 */
+        .search-widget {
+            position: fixed;
+            top: 80px;
+            right: 16px;
+            width: 380px;
+            background-color: #252526;
+            color: #cccccc;
+            border-radius: 3px;
+            box-shadow: 0 4px 10px rgba(0, 0, 0, 0.4);
+            z-index: 10000;
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+            font-size: 13px;
+            border: 1px solid #454545;
+        }
+
+        .search-container {
+            padding: 6px;
+            display: flex;
+            flex-direction: column;
+            gap: 4px;
+        }
+
+        .search-row {
+            display: flex;
+            align-items: center;
+            gap: 4px;
+        }
+
+        /* 搜索框展开按钮样式 */
+        .toggle-btn {
+            background: none;
+            border: none;
+            color: #cccccc;
+            cursor: pointer;
+            padding: 4px 6px;
+            border-radius: 3px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            width: 20px;
+            height: 24px;
+            transition: all 0.2s ease;
+        }
+
+        .toggle-btn:hover {
+            background-color: #444;
+        }
+
+        .toggle-btn.expanded i {
+            transform: rotate(90deg);
+        }
+
+        .toggle-btn i {
+            font-size: 10px;
+            transition: transform 0.2s ease;
+        }
+
+        .input-wrapper {
+            position: relative;
+            flex: 1;
+            display: flex;
+            align-items: center;
+        }
+
+        .input-wrapper input {
+            width: 100%;
+            background-color: #3c3c3c;
+            border: 1px solid #3c3c3c;
+            color: #cccccc;
+            padding: 4px 60px 4px 6px;
+            /* 右侧留空给选项按钮 */
+            outline: none;
+            height: 24px;
+            box-sizing: border-box;
+            transition: all 0.2s ease;
+        }
+
+        .input-wrapper input:focus {
+            border-color: #007acc;
+            box-shadow: 0 0 0 2px rgba(0, 122, 204, 0.3);
+            background-color: #2a2a2a;
+        }
+
+        /* 搜索框高亮样式 */
+        .search-widget.active {
+            border-color: #007acc;
+            box-shadow: 0 0 0 2px rgba(0, 122, 204, 0.2), 0 4px 15px rgba(0, 0, 0, 0.5);
+        }
+
+        /* 选中文字动画效果 */
+        .input-wrapper input.has-selection {
+            background-color: #2d2d30;
+            border-color: #007acc;
+            animation: pulse-highlight 0.6s ease-in-out;
+        }
+
+        @keyframes pulse-highlight {
+            0% {
+                background-color: #2d2d30;
+                box-shadow: 0 0 0 0 rgba(0, 122, 204, 0.4);
+            }
+            50% {
+                background-color: #1e1e1e;
+                box-shadow: 0 0 0 4px rgba(0, 122, 204, 0.2);
+            }
+            100% {
+                background-color: #2d2d30;
+                box-shadow: 0 0 0 0 rgba(0, 122, 204, 0.4);
+            }
+        }
+
+        /* 搜索状态指示器 */
+        .search-status {
+            text-align: right;
+            font-size: 11px;
+            color: #888;
+            padding-right: 4px;
+            transition: color 0.3s ease;
+        }
+
+        .search-status.has-results {
+            color: #4ec9b0;
+            font-weight: 600;
+        }
+
+        .search-status.no-results {
+            color: #f48771;
+        }
+
+        .search-options {
+            position: absolute;
+            right: 2px;
+            display: flex;
+            gap: 1px;
+        }
+
+        .opt-btn {
+            cursor: pointer;
+            padding: 2px 4px;
+            font-size: 10px;
+            border-radius: 2px;
+            user-select: none;
+            color: #858585;
+        }
+
+        .opt-btn:hover {
+            background-color: #444;
+        }
+
+        .opt-btn.active {
+            background-color: #007acc22;
+            /* 选中底色 */
+            color: #007acc;
+            font-weight: bold;
+        }
+
+        .action-buttons button {
+            background: none;
+            border: none;
+            color: #cccccc;
+            cursor: pointer;
+            padding: 4px;
+            border-radius: 3px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            min-width: 24px;
+        }
+
+        .action-buttons button:hover {
+            background-color: #444;
+        }
+
+        .replace-actions button {
+            border: 1px solid #454545;
+            font-size: 11px;
+            padding: 2px 6px;
+        }
+
+        .search-status {
+            font-size: 11px;
+            color: #888;
+            padding: 0 8px;
+            min-width: 50px;
+            text-align: center;
+            white-space: nowrap;
+        }
+
+        .input-wrapper {
+            position: relative;
+            flex: 1;
+            display: flex;
+            align-items: center;
+        }
+
+        .action-buttons {
+            display: flex;
+            gap: 2px;
+        }
+
+        .action-buttons button {
+            background: none;
+            border: none;
+            color: #cccccc;
+            cursor: pointer;
+            padding: 4px;
+            border-radius: 3px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            min-width: 24px;
+            height: 24px;
+        }
+
+        /* AI Modify Widget */
+        .ai-modify-btn {
+            position: fixed;
+            width: 24px;
+            height: 24px;
+            background-color: var(--accent-color);
+            color: white;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            z-index: 99999;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.3);
+            font-size: 12px;
+            transition: transform 0.2s;
+        }
+
+        .ai-modify-btn:hover {
+            transform: scale(1.1);
+        }
+
+        .ai-modify-dialog {
+            position: fixed;
+            background-color: var(--bg-card);
+            border: 1px solid var(--border-color);
+            border-radius: 6px;
+            padding: 8px;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.3);
+            z-index: 100000;
+            display: flex;
+            gap: 8px;
+            width: 300px;
+            align-items: center;
+        }
+
+        .ai-modify-dialog input {
+            flex: 1;
+            background-color: var(--bg-body);
+            border: 1px solid var(--border-color);
+            color: var(--text-primary);
+            padding: 4px 8px;
+            border-radius: 4px;
+            outline: none;
+            font-size: 13px;
+        }
+        
+        .ai-modify-dialog button {
+            background: none;
+            border: none;
+            color: var(--accent-color);
+            cursor: pointer;
+            padding: 4px;
+            border-radius: 4px;
+        }
+
+        .ai-modify-dialog button:hover {
+            background-color: var(--border-color);
         }
     </style>
 </head>
@@ -279,17 +569,60 @@
         </div>
     </div>
 
+    <!-- 搜索/替换 浮窗组件 -->
+    <div id="search-widget" class="search-widget" style="display: none;">
+        <div class="search-container">
+            <!-- 第一行：查找 -->
+            <div class="search-row">
+                <!-- 左侧展开按钮 -->
+                <button id="toggle-replace" class="toggle-btn" title="Toggle Replace (Ctrl+H)">
+                    <i class="fas fa-chevron-right"></i>
+                </button>
+                <div class="input-wrapper">
+                    <input type="text" id="find-input" placeholder="Find">
+                    <div class="search-options">
+                        <span id="opt-case" class="opt-btn" title="Match Case (Alt+C)">Aa</span>
+                        <span id="opt-regex" class="opt-btn" title="Use Regular Expression (Alt+R)">.*</span>
+                        <span id="opt-fuzzy" class="opt-btn" title="Fuzzy Search">fz</span>
+                    </div>
+                </div>
+                <!-- 状态显示 -->
+                <div id="search-status" class="search-status">No results</div>
+                <div class="action-buttons">
+                    <button id="btn-next" title="Next Match (Enter)">▼</button>
+                    <button id="btn-prev" title="Previous Match (Shift+Enter)">▲</button>
+                    <button id="btn-close" title="Close (Esc)">✕</button>
+                </div>
+            </div>
+
+            <!-- 第二行：替换 (默认隐藏，Ctrl+H 显示) -->
+            <div id="replace-row" class="search-row" style="display: none;">
+                <div class="input-wrapper">
+                    <input type="text" id="replace-input" placeholder="Replace">
+                </div>
+                <div class="action-buttons replace-actions">
+                    <button id="btn-replace" title="Replace">Rep</button>
+                    <button id="btn-replace-all" title="Replace All">All</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
     <!-- 内容区域 -->
     <div class="content">
+
         <div class="app-container">
             <div class="header">
                 <div>
                     <div class="badge-group">
-                        <span>补全: <span class="key-badge">自动触发 / Tab</span></span>
-                        <span>重构: <span class="key-badge">闲置 5s 触发</span></span>
+                        <span>Completion: <span class="key-badge">Auto-trigger / Ctrl-Space / Tab</span></span>
+                        <span>Refactor: <span class="key-badge">Triggers after 5s idle</span></span>
                     </div>
                 </div>
-                <button class="theme-btn" onclick="toggleTheme()">切换主题</button>
+                <div class="function">
+                    <button class="theme-btn" onclick="openFile()">Open File</button>
+                    <button class="theme-btn" onclick="toggleTheme()">Toggle Theme</button>
+                </div>
             </div>
 
             <textarea id="code-editor" style="display: none;">
@@ -309,7 +642,7 @@
 
     <script>
         // 窗口控制逻辑
-        const { ipcRenderer } = require('electron')
+        const { ipcRenderer, webUtils } = require('electron')
 
         document.getElementById('minimize-btn').addEventListener('click', () => {
             ipcRenderer.send('minimize-window')
@@ -319,7 +652,61 @@
             ipcRenderer.send('close-window')
         })
 
-        let editor;
+        // 文件拖放支持 - 全局拦截
+        // 使用 capture: true 确保在 CodeMirror 之前捕获事件
+        document.addEventListener('dragover', (e) => {
+            e.preventDefault();
+            e.stopPropagation();
+        }, true);
+
+        document.addEventListener('drop', (e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            
+            const files = e.dataTransfer.files;
+            if (files.length > 0) {
+                const file = files[0];
+                
+                // 尝试获取文件路径，兼容不同版本的 Electron
+                let filePath = file.path;
+                
+                // 如果 file.path 无效，尝试使用 webUtils (Electron >= 12)
+                if (!filePath && webUtils && typeof webUtils.getPathForFile === 'function') {
+                    try {
+                        filePath = webUtils.getPathForFile(file);
+                    } catch (err) {
+                        console.error("Failed to get path from webUtils:", err);
+                    }
+                }
+
+                if (filePath) {
+                    ipcRenderer.invoke('open-dropped-file', filePath).then(result => {
+                        if (result.success) {
+                            console.log('文件拖放加载成功:', result.message);
+                        } else {
+                            console.error('文件拖放加载失败:', result.message);
+                        }
+                    }).catch(error => {
+                        console.error('文件拖放处理错误:', error);
+                    });
+                } else {
+                    console.error("无法获取文件路径，请检查 Electron 配置或版本。File object:", file);
+                }
+            }
+        }, true);
+
+        const code_config = {
+            completion: {
+                trigger_time: 2000,
+                timeout: 10000
+            },
+            refactor: {
+                trigger_time: 5000,
+                timeout: 20000
+            },
+            ...ipcRenderer.send('get-code-config')
+        };
+
         let isDark = true;
         // --- 新增变量 ---
         let completionRequestId = 0; // 用于追踪补全请求 ID
@@ -348,12 +735,64 @@
         let isComposing = false; // 标记是否正在输入中文
 
         window.onload = function () {
-            editor = CodeMirror.fromTextArea(document.getElementById("code-editor"), {
-                mode: "javascript",
+            // helper: simple language detection
+            function getModeFromFilename(path) {
+                if (!path) return null;
+                const m = path.split('.').pop().toLowerCase();
+                switch (m) {
+                    case 'js':
+                    case 'mjs':
+                    case 'cjs': return 'javascript';
+                    case 'ts': return 'text/typescript';
+                    case 'jsx': return 'jsx';
+                    case 'json': return 'application/json';
+                    case 'py': return 'python';
+                    case 'rb': return 'ruby';
+                    case 'java': return 'text/x-java';
+                    case 'php': return 'php';
+                    case 'html': return 'htmlmixed';
+                    case 'htm': return 'htmlmixed';
+                    case 'css': return 'css';
+                    case 'md': return 'markdown';
+                    case 'sh':
+                    case 'bash': return 'shell';
+                    case 'xml': return 'xml';
+                    case 'r': return 'r';
+                    default: return null;
+                }
+            }
+
+            function getModeFromContent(content) {
+                if (!content) return null;
+                const firstLine = content.split('\n', 1)[0] || '';
+                // shebang
+                if (/^#!.*\bpython\b/.test(firstLine)) return 'python';
+                if (/^#!.*\bnode\b/.test(firstLine) || /^#!.*\bjs\b/.test(firstLine)) return 'javascript';
+                // fenced code block
+                const fence = content.match(/^\s*```(\w+)/m);
+                if (fence && fence[1]) {
+                    const map = { js: 'javascript', javascript: 'javascript', jsx: 'jsx', ts: 'text/typescript', py: 'python', json: 'application/json', html: 'htmlmixed', css: 'css', md: 'markdown', sh: 'shell' };
+                    return map[fence[1].toLowerCase()] || fence[1].toLowerCase();
+                }
+                // simple heuristics
+                if (/\bfunction\s+\w+\(|=>/.test(content)) return 'javascript';
+                if (/^\s*def\s+\w+\(/m.test(content)) return 'python';
+                if (/^\s*<\!DOCTYPE|<html|<div|<meta /i.test(content)) return 'htmlmixed';
+                return null;
+            }
+
+            // 初始模式优先从 textarea 内容检测，其次回退到 javascript
+            const initialText = document.getElementById("code-editor").value || "";
+            const initialMode = getModeFromContent(initialText) || 'javascript';
+
+            window.editor = CodeMirror.fromTextArea(document.getElementById("code-editor"), {
                 theme: "dracula",
                 lineNumbers: true,
                 indentUnit: 4,
+                mode: initialMode,
                 extraKeys: {
+                    // 1. 触发补全
+                    "Ctrl-Space": () => runCompletion(),
                     "Tab": (cm) => {
                         if (currentPrediction) acceptCompletion(cm);
                         else cm.execCommand("defaultTab");
@@ -362,18 +801,29 @@
                 }
             });
 
-            lastAnalyzedContent = editor.getValue().trim();
+            // 当打开文件或外部传入内容时，尝试自动设置 mode
+            ipcRenderer.on('open-file', (event, filePath) => {
+                const mode = getModeFromFilename(filePath) || getModeFromContent(window.editor.getValue());
+                if (mode) window.editor.setOption('mode', mode);
+            });
+
+            ipcRenderer.on('open-content', (event, content) => {
+                const mode = getModeFromContent(content) || getModeFromContent(window.editor.getValue());
+                if (mode) window.editor.setOption('mode', mode);
+            });
+
+            lastAnalyzedContent = window.editor.getValue().trim();
 
             // --- 1. 输入法(IME) 事件监听 ---
-            
-            editor.on("compositionStart", () => {
+
+            window.editor.on("compositionStart", () => {
                 isComposing = true;
                 // 开始打拼音时，清理界面干扰
                 clearRefactorUI();
                 clearCompletion();
             });
 
-            editor.on("compositionEnd", () => {
+            window.editor.on("compositionEnd", () => {
                 isComposing = false;
                 // 【关键修复】中文上屏后，立即强制触发补全
                 // 这样即使 change 事件被拦截，补全也能运行
@@ -382,9 +832,9 @@
             });
 
             // --- 2. 通用内容变更监听 ---
-            editor.on("change", (cm, change) => {
-                // A. 过滤 AI 自动操作
-                if (change.origin === "ai-completion" || change.origin === "ai-fix") {
+            window.editor.on("change", (cm, change) => {
+                // A. 过滤 AI 自动操作及搜索替换
+                if (change.origin === "ai-completion" || change.origin === "ai-fix" || change.origin === "search-replace") {
                     if (change.origin === "ai-completion") statusEl.textContent = "Completion Applied";
                     clearTimeout(refactorTimer);
                     clearTimeout(completionTimer);
@@ -404,7 +854,7 @@
 
                 // C. 如果正在打拼音，彻底忽略
                 if (isComposing) return;
-                
+
                 // D. 触发逻辑 【修改了这里】
                 // 排除 "删除" 和 "初始化赋值(setValue)"
                 // 并且检查当前编辑器如果不为空才触发
@@ -418,37 +868,208 @@
                 // E. 触发重构检查
                 triggerRefactorDebounce();
             });
-            
+
             // --- 封装定时器逻辑，避免重复代码 ---
-            
+
             function triggerCompletionDebounce() {
                 clearTimeout(completionTimer);
                 completionTimer = setTimeout(() => {
                     runCompletion();
-                }, 600); // 0.6秒后补全
+                }, code_config.completion.trigger_time); // 2秒后补全
             }
 
             function triggerRefactorDebounce() {
                 clearTimeout(refactorTimer);
                 refactorTimer = setTimeout(() => {
-                    lastAnalyzedContent = editor.getValue().trim();
-                    runRefactorAnalysis(editor);
-                }, 5000); // 5秒后检查错误
+                    lastAnalyzedContent = window.editor.getValue().trim();
+                    runRefactorAnalysis(window.editor);
+                }, code_config.refactor.trigger_time); // 5秒后检查错误
             }
 
             // 新增：光标移动时清除补全
-            editor.on("cursorActivity", () => {
+            window.editor.on("cursorActivity", () => {
                 if (completionWidget || loadingWidget) {
                     clearCompletion();
                 }
             });
 
+            window.openFile = async function () {
+                const filePath = await ipcRenderer.invoke('open-file-dialog');
+                if (filePath) {
+                    ipcRenderer.send('open-file', filePath);
+                }
+            };
+
             window.toggleTheme = function () {
                 isDark = !isDark;
                 document.documentElement.setAttribute('data-theme', isDark ? 'dark' : 'light');
-                editor.setOption('theme', isDark ? 'dracula' : 'neo');
+                window.editor.setOption('theme', isDark ? 'dracula' : 'neo');
             };
+
+            if (typeof CodeMirrorSearchManager !== 'undefined') {
+                window.searchManager = new CodeMirrorSearchManager(window.editor);
+                console.log("Search Manager Initialized");
+            } else {
+                console.error("CodeMirrorSearchManager class not found");
+            }
+
+            initAIModifyFeature(window.editor);
         };
+
+        // --- AI 智能修改功能 ---
+        function initAIModifyFeature(cm) {
+            let modifyBtn = null;
+            let modifyDialog = null;
+            let currentSelectionRange = null;
+
+            function removeElement(el) {
+                if (el && el.parentNode) {
+                    el.parentNode.removeChild(el);
+                }
+            }
+
+            function clearWidgets() {
+                if (modifyBtn) { removeElement(modifyBtn); modifyBtn = null; }
+                if (modifyDialog) { removeElement(modifyDialog); modifyDialog = null; }
+            }
+
+            // 更新位置逻辑
+            function updatePosition() {
+                if (!currentSelectionRange) return;
+                const coords = cm.cursorCoords(currentSelectionRange.from, "window");
+                // 基础位置：光标左侧 28px
+                const top = coords.top - 2;
+                const left = coords.left - 28;
+
+                if (modifyBtn) {
+                    modifyBtn.style.top = top + "px";
+                    modifyBtn.style.left = left + "px";
+                }
+                if (modifyDialog) {
+                    modifyDialog.style.top = top + "px";
+                    modifyDialog.style.left = left + "px";
+                }
+            }
+
+            // 监听滚动，实时更新位置
+            cm.on("scroll", () => {
+                if (modifyBtn || modifyDialog) {
+                    updatePosition();
+                }
+            });
+
+            // 监听光标/选区变化
+            cm.on("cursorActivity", () => {
+                // 延时处理，确保选区稳定
+                setTimeout(() => {
+                    // 如果对话框已打开，不自动清除，除非选区消失
+                    if (modifyDialog) {
+                        if (cm.getSelection().length === 0) clearWidgets();
+                        return;
+                    }
+
+                    if (cm.getSelection().length > 0) {
+                        // 保存选区
+                        currentSelectionRange = {
+                            from: cm.getCursor("from"),
+                            to: cm.getCursor("to")
+                        };
+                        showModifyButton();
+                    } else {
+                        clearWidgets();
+                    }
+                }, 100);
+            });
+
+            cm.on("mousedown", (cm, e) => {
+                // 如果点击发生在编辑器内，且不是在我们的组件上（由于组件在body上，mousedown事件可能不会冒泡到editor，除非穿透）
+                // 这里简单策略：点击编辑器就清理，稍后 cursorActivity 会决定是否重新显示
+                if (modifyDialog) {
+                     // 检查点击目标是否是 dialog 内部
+                     // 由于 dialog 在 body 上，CodeMirror 的 mousedown 事件可能通过 document 捕获？
+                     // 不，editor.on("mousedown") 只响应编辑器区域。
+                     // 所以如果触发了这个事件，说明点击了编辑器背景，应该关闭 dialog。
+                     clearWidgets();
+                }
+            });
+
+            function showModifyButton() {
+                if (modifyBtn || modifyDialog) {
+                    if (modifyBtn) updatePosition();
+                    return;
+                }
+
+                modifyBtn = document.createElement("div");
+                modifyBtn.className = "ai-modify-btn";
+                modifyBtn.innerHTML = '<i class="fas fa-magic"></i>';
+                modifyBtn.title = "AI Modify";
+                
+                modifyBtn.onclick = (e) => {
+                    e.stopPropagation(); 
+                    showModifyDialog();
+                };
+
+                document.body.appendChild(modifyBtn);
+                updatePosition();
+            }
+
+            function showModifyDialog() {
+                if (modifyBtn) { removeElement(modifyBtn); modifyBtn = null; }
+
+                modifyDialog = document.createElement("div");
+                modifyDialog.className = "ai-modify-dialog";
+                
+                const input = document.createElement("input");
+                input.type = "text";
+                input.placeholder = "Ask AI to modify selection...";
+                
+                setTimeout(() => input.focus(), 50);
+
+                input.onkeydown = (e) => {
+                    if (e.key === 'Enter') submitBtn.click();
+                    if (e.key === 'Escape') {
+                         clearWidgets();
+                         cm.focus();
+                    }
+                    e.stopPropagation(); 
+                };
+
+                const submitBtn = document.createElement("button");
+                submitBtn.innerHTML = '<i class="fas fa-paper-plane"></i>';
+                submitBtn.title = "Submit";
+                submitBtn.onclick = async (e) => {
+                    e.stopPropagation();
+                    const instruction = input.value.trim();
+                    if (!instruction) return;
+
+                    const selectedText = cm.getRange(currentSelectionRange.from, currentSelectionRange.to);
+                    
+                    input.disabled = true;
+                    submitBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i>';
+
+                    try {
+                        const result = await ipcRenderer.invoke('code-modify', { selectedText, instruction });
+                        
+                        if (result && typeof result === 'string') {
+                            let cleanCode = result.replace(/^```[\w]*\n?|```$/gm, "");
+                            cm.replaceRange(cleanCode, currentSelectionRange.from, currentSelectionRange.to, "ai-modify");
+                        } else if (result.error) {
+                            alert("AI Modify Failed: " + result.error);
+                        }
+                    } catch (err) {
+                        console.error("AI Modify Exception:", err);
+                    } finally {
+                        clearWidgets();
+                        cm.focus();
+                    }
+                };
+
+                modifyDialog.appendChild(input);
+                modifyDialog.appendChild(submitBtn);
+                document.body.appendChild(modifyDialog);
+                updatePosition();
+            }
+        }
 
         // --- 修改后的补全逻辑 ---
         async function runCompletion() {
@@ -457,40 +1078,40 @@
             isCompleting = true;
 
             // 【新增优化】：如果当前行是空的，且文档内容极少，不进行补全（避免乱猜）
-            const currentLineContent = editor.getLine(editor.getCursor().line);
-            if (!currentLineContent.trim() && editor.getValue().length < 10) {
-                 isCompleting = false;
-                 return;
+            const currentLineContent = window.editor.getLine(window.editor.getCursor().line);
+            if (!currentLineContent.trim() && window.editor.getValue().length < 10) {
+                isCompleting = false;
+                return;
             }
-            
+
             // 1. 生成本次请求的唯一 ID
             const requestId = ++completionRequestId;
 
-            const cursor = editor.getCursor();
+            const cursor = window.editor.getCursor();
 
             // 【新增】获取光标前的所有内容，进行非空检查
             // 如果光标前什么都没有（或者只有空格），直接停止，不请求 AI
-            const rawPrefix = editor.getRange({ line: 0, ch: 0 }, cursor);
+            const rawPrefix = window.editor.getRange({ line: 0, ch: 0 }, cursor);
             if (!rawPrefix.trim()) {
                 return;
             }
 
-            const prefix = editor.getRange({ line: 0, ch: 0 }, cursor).slice(-1000);
-            const suffix = editor.getRange(cursor, { line: editor.lineCount(), ch: 0 }).slice(0, 500);
+            const prefix = window.editor.getRange({ line: 0, ch: 0 }, cursor).slice(-1000);
+            const suffix = window.editor.getRange(cursor, { line: window.editor.lineCount(), ch: 0 }).slice(0, 500);
             const isMidWord = /^[a-zA-Z0-9_]/.test(suffix);
 
             const spin = document.createElement("span");
             spin.className = "loading-spinner";
-            
+
             // 清除可能存在的旧 loading
             if (loadingWidget) loadingWidget.clear();
-            loadingWidget = editor.setBookmark(cursor, { widget: spin, insertLeft: true });
+            loadingWidget = window.editor.setBookmark(cursor, { widget: spin, insertLeft: true });
 
             try {
                 // 2. 引入超时机制 (例如 10秒超时)
                 let text = await withTimeout(
-                    ipcRenderer.invoke('code-completion', { prefix, suffix, isMidWord }), 
-                    10000 
+                    ipcRenderer.invoke('code-completion', { prefix, suffix, isMidWord }),
+                    code_config.completion.timeout
                 );
 
                 // 3. 关键修复：检查 ID 是否过期
@@ -498,12 +1119,12 @@
                 // requestId 就不再等于 completionRequestId，此时必须丢弃结果，防止错位插入
                 if (requestId !== completionRequestId) {
                     if (loadingWidget) loadingWidget.clear();
-                    return; 
+                    return;
                 }
 
                 if (!isCompleting) return; // 双重检查标志位
-                
-                text = text.replace(/^```[\w]*\n|```$/gm, ""); 
+
+                text = text.replace(/^```[\w]+|```$/gm, "");
 
                 // 后缀去重逻辑 (保持不变)
                 if (text && suffix) {
@@ -523,10 +1144,10 @@
                     const ghost = document.createElement("span");
                     ghost.className = "ghost-text";
                     ghost.innerText = text;
-                    
+
                     // 再次获取当前光标位置，确保 Widget 插入在最新位置 (虽然有 ID 保护，但这更安全)
-                    const currentCursor = editor.getCursor();
-                    completionWidget = editor.setBookmark(currentCursor, { widget: ghost, insertLeft: true });
+                    const currentCursor = window.editor.getCursor();
+                    completionWidget = window.editor.setBookmark(currentCursor, { widget: ghost, insertLeft: true });
                     statusEl.textContent = "Press TAB to accept";
                 } else {
                     isCompleting = false;
@@ -572,14 +1193,14 @@
                 // 1. 引入超时机制 (重构通常较慢，给 20秒)
                 let text = await withTimeout(
                     ipcRenderer.invoke('code-refactor', code),
-                    20000
+                    code_config.refactor.timeout
                 );
 
                 // 这里虽然不需要像补全那样严格的 ID 校验（因为是针对全文），
                 // 但如果文档内容在这期间被大幅清空，校验一下长度也是好的。
                 if (cm.getValue().length === 0) return;
 
-                text = text.replace(/```json|```/g, ""); 
+                text = text.replace(/```json|```/g, "");
                 let errors = (JSON.parse(text)?.errors || []).filter(item => {
                     const original = item.text.replace(/\s+/g, '');
                     const fixed = item.fix.replace(/\s+/g, '');
@@ -654,7 +1275,7 @@
                     statusEl.textContent = 'Error opening file';
                     return;
                 }
-                editor.setValue(content);
+                window.editor.setValue(content);
                 statusEl.textContent = `Opened: ${filePath}`;
             });
         });
@@ -662,7 +1283,7 @@
         ipcRenderer.on('open-content', (event, content) => {
             console.log('Opening content');
             currentFilePath = null;
-            editor.setValue(content);
+            window.editor.setValue(content);
             statusEl.textContent = 'Opened: Temporary Content';
         });
 
@@ -671,18 +1292,501 @@
             if ((e.ctrlKey || e.metaKey) && e.key === 's') {
                 e.preventDefault();
                 if (currentFilePath) {
-                    fs.writeFile(currentFilePath, editor.getValue(), 'utf-8', (err) => {
+                    fs.writeFile(currentFilePath, window.editor.getValue(), 'utf-8', (err) => {
                         if (err) {
                             console.log('Failed to save file:', err);
                             statusEl.textContent = 'Error saving file';
+                            ipcRenderer.send('show-log', { type: 'error', content: 'Save Error: ' + err.message });
                         } else {
                             statusEl.textContent = `Saved: ${currentFilePath}`;
+                            ipcRenderer.send('show-log', { type: 'success', content: `File saved: ${currentFilePath}` });
                             setTimeout(() => statusEl.textContent = 'Ready', 2000);
+                        }
+                    });
+                } else {
+                    // 保存为新文件
+                    e.preventDefault();
+                    ipcRenderer.invoke('save-as-dialog').then(filePath => {
+                        if (filePath) {
+                            fs.writeFile(filePath, window.editor.getValue(), 'utf-8', (err) => {
+                                if (err) {
+                                    console.log('Failed to save file:', err);
+                                    statusEl.textContent = 'Error saving file';
+                                    ipcRenderer.send('show-log', { type: 'error', content: 'Save Error: ' + err.message });
+                                } else {
+                                    currentFilePath = filePath;
+                                    statusEl.textContent = `Saved: ${currentFilePath}`;
+                                    ipcRenderer.send('show-log', { type: 'success', content: `File saved: ${currentFilePath}` });
+                                    setTimeout(() => statusEl.textContent = 'Ready', 2000);
+                                }
+                            });
                         }
                     });
                 }
             }
+
         });
+    </script>
+
+    <script>
+        class CodeMirrorSearchManager {
+            constructor(codeMirrorInstance) {
+                this.cm = codeMirrorInstance;
+                if (!this.cm || !this.cm.getSearchCursor) {
+                    console.log('CodeMirror instance not found or invalid');
+                    return;
+                }
+
+                // 绑定 UI 元素
+                this.widget = document.getElementById('search-widget');
+                this.findInput = document.getElementById('find-input');
+                this.replaceInput = document.getElementById('replace-input');
+                this.replaceRow = document.getElementById('replace-row');
+                this.statusEl = document.getElementById('search-status');
+
+                // 状态
+                this.state = {
+                    currentCursor: null, // CodeMirror 搜索游标
+                    useCase: false,
+                    useRegex: false,
+                    useFuzzy: false,
+                    query: '',
+                    totalMatches: 0,
+                    currentMatch: 0
+                };
+
+                // 搜索标记 (用于高亮所有匹配项)
+                this.searchMarks = [];
+                // 当前选中匹配项标记
+                this.currentMatchMark = null;
+
+                this.init();
+            }
+
+            init() {
+                // 1. 全局快捷键监听
+                const handleKeydown = (cm, event) => {
+                    if ((event.ctrlKey || event.metaKey) && !event.altKey) {
+                        if (event.key.toLowerCase() === 'f') {
+                            event.preventDefault();
+                            this.open('find');
+                            return true;
+                        }
+                        if (event.key.toLowerCase() === 'h') {
+                            event.preventDefault();
+                            this.open('replace');
+                            return true;
+                        }
+                    }
+                    if (event.key === 'Escape' && this.widget.style.display !== 'none') {
+                        event.preventDefault();
+                        this.close();
+                        return true;
+                    }
+                    return false;
+                };
+
+                // 注册快捷键处理器
+                this.cm.addKeyMap({
+                    'Ctrl-F': (cm) => { this.open('find'); },
+                    'Cmd-F': (cm) => { this.open('find'); },
+                    'Ctrl-H': (cm) => { 
+                        this.open('replace'); 
+                        // 确保替换框展开
+                        this.toggleReplace();
+                    },
+                    'Cmd-H': (cm) => { 
+                        this.open('replace');
+                        this.toggleReplace();
+                    },
+                    'Esc': (cm) => { this.close(); }
+                });
+
+                // 2. 输入框事件
+                this.findInput.addEventListener('input', () => this.performSearch());
+                this.findInput.addEventListener('keydown', (e) => {
+                    if (e.key === 'Enter') {
+                        if (e.shiftKey) this.navigate(-1);
+                        else this.navigate(1);
+                    }
+                });
+
+                // 【新增】展开按钮事件
+                document.getElementById('toggle-replace').onclick = () => this.toggleReplace();
+                
+                // 【修改】替换输入框的按键事件
+                this.replaceInput.addEventListener('keydown', (e) => {
+                    if (e.key === 'Enter') {
+                        this.replaceCurrent();
+                    }
+                });
+
+                // 3. 按钮点击事件
+                document.getElementById('btn-close').onclick = () => this.close();
+                document.getElementById('btn-next').onclick = () => this.navigate(1);
+                document.getElementById('btn-prev').onclick = () => this.navigate(-1);
+                document.getElementById('btn-replace').onclick = () => this.replaceCurrent();
+                document.getElementById('btn-replace-all').onclick = () => this.replaceAll();
+
+                // 4. 选项切换
+                this.bindToggle('opt-case', 'useCase');
+                this.bindToggle('opt-regex', 'useRegex');
+                this.bindToggle('opt-fuzzy', 'useFuzzy');
+
+                // 5. 编辑器内容变化时重新搜索
+                this.cm.on('change', () => {
+                    if (this.widget.style.display !== 'none' && this.state.query) {
+                        this.performSearch();
+                    }
+                });
+            }
+
+            bindToggle(id, prop) {
+                const el = document.getElementById(id);
+                el.onclick = () => {
+                    this.state[prop] = !this.state[prop];
+
+                    // 更新 UI 样式
+                    if (this.state[prop]) el.classList.add('active');
+                    else el.classList.remove('active');
+
+                    // 互斥逻辑：模糊搜索和正则搜索不能同时开启
+                    if (prop === 'useFuzzy' && this.state.useFuzzy) {
+                        this.state.useRegex = false;
+                        document.getElementById('opt-regex').classList.remove('active');
+                    }
+                    if (prop === 'useRegex' && this.state.useRegex) {
+                        this.state.useFuzzy = false;
+                        document.getElementById('opt-fuzzy').classList.remove('active');
+                    }
+
+                    this.performSearch();
+                };
+            }
+
+            open(mode) {
+                this.widget.style.display = 'block';
+                this.widget.classList.add('active');
+
+                const toggleBtn = document.getElementById('toggle-replace');
+                
+                if (mode === 'replace') {
+                    // 强制展开替换框
+                    this.replaceRow.style.display = 'flex';
+                    toggleBtn.classList.add('expanded');
+                    this.widget.style.width = '360px';
+                } else {
+                    // 查找模式：保持上次的状态
+                    const wasExpanded = toggleBtn.classList.contains('expanded');
+                    if (wasExpanded) {
+                        this.replaceRow.style.display = 'flex';
+                        this.widget.style.width = '360px';
+                    } else {
+                        this.replaceRow.style.display = 'none';
+                        this.widget.style.width = '320px';
+                    }
+                }
+
+                // 自动填入当前选中的文本
+                const selection = this.cm.getSelection();
+                if (selection && selection.indexOf('\n') === -1) {
+                    this.findInput.value = selection;
+                    // 添加选中文字的高亮效果
+                    this.findInput.classList.add('has-selection');
+                    // 2秒后移除高亮效果
+                    setTimeout(() => {
+                        this.findInput.classList.remove('has-selection');
+                    }, 2000);
+                }
+
+                this.findInput.focus();
+                this.findInput.select();
+                this.performSearch();
+            }
+
+            close() {
+                this.widget.style.display = 'none';
+                this.clearHighlights();
+                this.cm.focus();
+            }
+
+            // 切换替换框显示/隐藏
+            toggleReplace() {
+                const replaceRow = this.replaceRow;
+                const toggleBtn = document.getElementById('toggle-replace');
+                const icon = toggleBtn.querySelector('i');
+                
+                if (replaceRow.style.display === 'none') {
+                    // 展开替换框
+                    replaceRow.style.display = 'flex';
+                    toggleBtn.classList.add('expanded');
+                    this.widget.style.width = '360px'; // 展开时增加宽度
+                    
+                    // 焦点转移到替换输入框
+                    setTimeout(() => {
+                        this.replaceInput.focus();
+                    }, 100);
+                } else {
+                    // 收起替换框
+                    replaceRow.style.display = 'none';
+                    toggleBtn.classList.remove('expanded');
+                    this.widget.style.width = '320px'; // 恢复原宽度
+                    
+                    // 焦点回到查找输入框
+                    this.findInput.focus();
+                }
+            }
+
+            // 清除所有搜索高亮
+            clearHighlights() {
+                this.searchMarks.forEach(mark => mark.clear());
+                this.searchMarks = [];
+                
+                // 清除当前选中标记
+                if (this.currentMatchMark) {
+                    this.currentMatchMark.clear();
+                    this.currentMatchMark = null;
+                }
+            }
+
+            // 构建搜索查询
+            getSearchQuery(query) {
+                if (!query) return null;
+
+                if (this.state.useRegex) {
+                    try {
+                        return new RegExp(query, this.state.useCase ? 'g' : 'gi');
+                    } catch (e) {
+                        return null; // 正则表达式错误
+                    }
+                } else if (this.state.useFuzzy) {
+                    // 模糊搜索：将查询转换为正则模式
+                    const fuzzyPattern = query.split('').map(char => {
+                        return char.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+                    }).join('.*');
+                    try {
+                        return new RegExp(fuzzyPattern, this.state.useCase ? 'g' : 'gi');
+                    } catch (e) {
+                        return null;
+                    }
+                } else {
+                    // 普通文本搜索
+                    return query;
+                }
+            }
+
+            performSearch() {
+                const query = this.findInput.value.trim();
+                this.state.query = query;
+
+                // 清除之前的高亮
+                this.clearHighlights();
+
+                if (!query) {
+                    this.updateStatus(0, 0);
+                    return;
+                }
+
+                const searchQuery = this.getSearchQuery(query);
+                if (!searchQuery) {
+                    this.updateStatus(-1, 0); // 错误状态
+                    return;
+                }
+
+                // 1. 统计总数并添加高亮
+                let totalMatches = 0;
+                let cursor = this.cm.getSearchCursor(searchQuery, null, !this.state.useCase);
+                
+                while (cursor.findNext()) {
+                    totalMatches++;
+                    const mark = this.cm.markText(cursor.from(), cursor.to(), {
+                        className: 'cm-search-match'
+                    });
+                    this.searchMarks.push(mark);
+                }
+
+                // 2. 定位到第一个匹配项
+                if (totalMatches > 0) {
+                    this.state.currentCursor = this.cm.getSearchCursor(searchQuery, null, !this.state.useCase);
+                    this.state.currentCursor.findNext();
+                    this.highlightCurrent();
+                    this.updateStatus(totalMatches, 1);
+                } else {
+                    this.state.currentCursor = null;
+                    this.updateStatus(0, 0);
+                }
+            }
+
+            navigate(direction) {
+                if (!this.state.currentCursor || !this.state.query) return;
+
+                let found = false;
+
+                if (direction > 0) {
+                    found = this.state.currentCursor.findNext();
+                } else {
+                    found = this.state.currentCursor.findPrevious();
+                }
+
+                if (found) {
+                    this.highlightCurrent();
+
+                    // 计算当前是第几个匹配项
+                    const currentPos = this.state.currentCursor.from();
+                    let count = 1;
+                    let tempCursor = this.cm.getSearchCursor(
+                        this.getSearchQuery(this.state.query),
+                        null,
+                        !this.state.useCase
+                    );
+
+                    while (tempCursor.findNext()) {
+                        if (this.comparePositions(tempCursor.from(), currentPos) === 0) {
+                            break;
+                        }
+                        count++;
+                    }
+
+                    this.updateStatus(this.searchMarks.length + 1, count);
+                } else {
+                    // 循环搜索：到达末尾时回到开头，到达开头时跳到末尾
+                    if (direction > 0) {
+                        this.state.currentCursor = this.cm.getSearchCursor(
+                            this.getSearchQuery(this.state.query),
+                            { line: 0, ch: 0 },
+                            !this.state.useCase
+                        );
+                        this.state.currentCursor.findNext();
+                    } else {
+                        const lastLine = this.cm.lastLine();
+                        this.state.currentCursor = this.cm.getSearchCursor(
+                            this.getSearchQuery(this.state.query),
+                            { line: lastLine, ch: this.cm.getLine(lastLine).length },
+                            !this.state.useCase
+                        );
+                        this.state.currentCursor.findPrevious();
+                    }
+
+                    this.highlightCurrent();
+                    this.updateStatus(this.searchMarks.length + 1, direction > 0 ? 1 : this.searchMarks.length + 1);
+                }
+            }
+
+            highlightCurrent() {
+                if (!this.state.currentCursor) return;
+
+                // 清除之前的当前选中标记
+                if (this.currentMatchMark) {
+                    this.currentMatchMark.clear();
+                }
+
+                // 设置选中区域
+                this.cm.setSelection(this.state.currentCursor.from(), this.state.currentCursor.to());
+
+                // 添加当前选中匹配项的高亮
+                this.currentMatchMark = this.cm.markText(
+                    this.state.currentCursor.from(), 
+                    this.state.currentCursor.to(), 
+                    { 
+                        className: 'cm-search-current-match' 
+                    }
+                );
+
+                // 滚动到可见区域
+                this.cm.scrollIntoView(this.state.currentCursor.from(), {
+                    margin: 20
+                });
+            }
+
+            replaceCurrent() {
+                if (!this.state.currentCursor) return;
+
+                const replacement = this.replaceInput.value || "";
+                this.state.currentCursor.replace(replacement, "search-replace");
+
+                // 重新搜索以更新状态
+                this.performSearch();
+            }
+
+            replaceAll() {
+                if (!this.state.query) return;
+
+                const searchQuery = this.getSearchQuery(this.state.query);
+                if (!searchQuery) return;
+
+                const replacement = this.replaceInput.value || "";
+                let cursor = this.cm.getSearchCursor(searchQuery, null, !this.state.useCase);
+                let found = cursor.findNext();
+                let replaceCount = 0;
+
+                while (found) {
+                    cursor.replace(replacement, "search-replace");
+                    replaceCount++;
+                    found = cursor.findNext();
+                }
+
+                // 重新搜索以更新 UI
+                this.performSearch();
+
+                // 显示替换统计
+                this.statusEl.textContent = `Replaced ${replaceCount} occurrences`;
+            }
+
+            updateStatus(totalMatches, currentMatch) {
+                // 重置状态类
+                this.statusEl.classList.remove('has-results', 'no-results');
+                
+                if (totalMatches === -1) {
+                    this.statusEl.textContent = 'Invalid regex';
+                    this.statusEl.classList.add('no-results');
+                    this.findInput.style.borderColor = '#f48771';
+                } else if (totalMatches === 0) {
+                    this.statusEl.textContent = 'No results';
+                    this.statusEl.classList.add('no-results');
+                    this.findInput.style.borderColor = '#f48771';
+                } else {
+                    this.statusEl.textContent = `${currentMatch} of ${totalMatches}`;
+                    this.statusEl.classList.add('has-results');
+                    this.findInput.style.borderColor = '#3c3c3c';
+                }
+            }
+
+            // 比较两个位置是否相同
+            comparePositions(a, b) {
+                return a.line - b.line || a.ch - b.ch;
+            }
+        }
+
+        // 添加搜索匹配的高亮样式
+        const style = document.createElement('style');
+        style.textContent = `
+    .cm-search-match {
+        background-color: #515c6a;
+        border: 1px solid #6199ff2f;
+        border-radius: 2px;
+    }
+    
+    .cm-search-current-match {
+        background-color: #007acc !important;
+        border: 2px solid #4ec9b0 !important;
+        border-radius: 3px;
+        box-shadow: 0 0 8px rgba(0, 122, 204, 0.6);
+        animation: search-pulse 1.5s ease-in-out infinite;
+    }
+    
+    @keyframes search-pulse {
+        0% {
+            box-shadow: 0 0 8px rgba(0, 122, 204, 0.6);
+        }
+        50% {
+            box-shadow: 0 0 12px rgba(0, 122, 204, 0.8);
+        }
+        100% {
+            box-shadow: 0 0 8px rgba(0, 122, 204, 0.6);
+        }
+    }
+`;
+        document.head.appendChild(style);
     </script>
 </body>
 

@@ -177,6 +177,28 @@
       }
     }
   },
+  "code": {
+    "completion": {
+      "trigger_time": 2000,
+      "timeout": 10000,
+      "prompt": "你是一个代码补全工具。\n规则：\n1. 你的输出将被直接拼接到光标<CURSOR>后面。\n2. 严禁重复光标前的内容。\n3. 只输出部分补全内容（如2-3行），不要解释，不要使用 markdown 格式。\n4. 如果光标在行尾，通常只需要补全换行后的逻辑。\n5. 如果不需要补全，返回空字符串。",
+      "params": {
+        "max_tokens": 200,
+        "temperature": 0.2
+      }
+    },
+    "refactor": {
+      "trigger_time": 5000,
+      "timeout": 20000,
+      "prompt": "你是一个严格的 Code Linter。找出逻辑错误（最多 5 个）。返回 JSON: {\"errors\": [{\"text\": \"错误代码\", \"fix\": \"修正代码\"}]}。 如果没有错误，返回 {\"errors\": []}。不要添加多余说明。",
+      "params": {
+        "max_tokens": 500,
+        "response_format": {
+          "type": "json_object"
+        }
+      }
+    }
+  },
   "chain_call": [
     {
       "end": true

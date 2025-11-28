@@ -247,6 +247,31 @@ body {
   --tw-bg-opacity: 1;
 }
 
+/* 输入框默认隐藏滚动条，焦点或输入时显示 */
+#input::-webkit-scrollbar-track,
+#system_prompt::-webkit-scrollbar-track {
+  background-color: rgb(241 245 249 / var(--tw-bg-opacity, 0));
+}
+
+#input::-webkit-scrollbar-thumb,
+#system_prompt::-webkit-scrollbar-thumb {
+  background-color: rgb(203 213 225 / var(--tw-bg-opacity, 0));
+}
+
+#input:focus::-webkit-scrollbar-track,
+#system_prompt:focus::-webkit-scrollbar-track,
+#input:not(:empty)::-webkit-scrollbar-track,
+#system_prompt:not(:empty)::-webkit-scrollbar-track {
+  --tw-bg-opacity: 1;
+}
+
+#input:focus::-webkit-scrollbar-thumb,
+#system_prompt:focus::-webkit-scrollbar-thumb,
+#input:not(:empty)::-webkit-scrollbar-thumb,
+#system_prompt:not(:empty)::-webkit-scrollbar-thumb {
+  --tw-bg-opacity: 1;
+}
+
 /* css作用域 .transition 必须在 .sidebar 内部 */
 .sidebar:hover {
   --s-width: 4px;
@@ -372,7 +397,7 @@ body {
   margin-right: 2rem;
   position: absolute;
   right: 30px;
-  bottom: 1px;
+  bottom: 0px;
 }
 
 #submit {
@@ -680,6 +705,10 @@ body {
   /* Standard */
 }
 
+.btn:hover {
+  background-color: #f9f9f9;
+}
+
 .btn.active {
   background-color: #129124;
   color: white;
@@ -948,16 +977,34 @@ body {
 
 /* 状态信息 */
 .status-bar {
-  display: flex;
-  gap: 10px;
   margin-top: 10px;
   color: #666;
   font-size: 0.9em;
+}
+
+.status-bar-content {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 10px;
   overflow-x: auto;
   white-space: nowrap;
 }
 
-.status-bar>span {
+.status-left {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+  justify-content: center;
+}
+
+.status-right {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+}
+
+.status-left > span {
   display: flex;
   align-items: center;
   column-gap: 4px;

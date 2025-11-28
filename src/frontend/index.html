@@ -211,15 +211,21 @@
           <div class="flex relative">
             <textarea class="flex-grow p-2 rounded-l-lg" rows="1" placeholder="User Prompt/Text" id="input"></textarea>
             <button class="p-2 text-white rounded-r-lg img-mode" id="submit"></button>
-            <button class="p-2 ml-1 text-gray-400 hover:text-white" id="expand_editor" title="Big Edit Mode"><i class="fas fa-expand"></i></button>
+            <button class="p-2 ml-1 text-gray-400 hover:text-white" id="expand_editor" title="Code IDE Mode"><i class="fas fa-code"></i></button>
           </div>
           <div class="status-bar">
-            <span><i class="fas fa-robot"></i> <span id="version">deepseek-chat</span></span>
-            <span><i class="fas fa-hashtag"></i> <span id="tokens">0</span> tokens</span>
-            <span><i class="fas fa-clock"></i> <span id="seconds">0</span> s</span>
-            <div class="btn" id="auto_opt" hidden>Context auto-optimization</div>
-            <div class="btn" id="envs">Environment variables</div>
-            <div class="btn" id="tasks">Task list</div>
+            <div class="status-bar-content">
+              <div class="status-left">
+                <span><i class="fas fa-robot"></i> <span id="version">deepseek-chat</span></span>
+                <span><i class="fas fa-hashtag"></i> <span id="tokens">0</span> tokens</span>
+                <span><i class="fas fa-clock"></i> <span id="seconds">0</span> s</span>
+              </div>
+              <div class="status-right">
+                <div class="btn" id="auto_opt" hidden>Context Auto-Optimization</div>
+                <div class="btn" id="envs">Environment Variables</div>
+                <div class="btn" id="tasks">Task List</div>
+              </div>
+            </div>
           </div>
         </div>
       </div>
