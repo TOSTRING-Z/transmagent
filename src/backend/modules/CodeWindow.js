@@ -37,7 +37,7 @@ class CodeWindow extends Window {
             })
 
             this.window.on('ready-to-show', () => {
-                // this.window.webContents.openDevTools();
+                this.window.webContents.openDevTools();
             });
 
             ipcMain.on('minimize-window', () => {

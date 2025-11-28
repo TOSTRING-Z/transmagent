@@ -834,7 +834,7 @@
             // --- 2. 通用内容变更监听 ---
             window.editor.on("change", (cm, change) => {
                 // A. 过滤 AI 自动操作及搜索替换
-                if (change.origin === "ai-completion" || change.origin === "ai-fix" || change.origin === "search-replace") {
+                if (change.origin === "ai-completion" || change.origin === "ai-fix" || change.origin === "search-replace" || change.origin === "ai-modify") {
                     if (change.origin === "ai-completion") statusEl.textContent = "Completion Applied";
                     clearTimeout(refactorTimer);
                     clearTimeout(completionTimer);
@@ -960,25 +960,25 @@
 
             // 监听光标/选区变化
             cm.on("cursorActivity", () => {
-                // 延时处理，确保选区稳定
-                setTimeout(() => {
-                    // 如果对话框已打开，不自动清除，除非选区消失
-                    if (modifyDialog) {
-                        if (cm.getSelection().length === 0) clearWidgets();
-                        return;
-                    }
+                // 仅当选区消失时清理
+                if (cm.getSelection().length === 0) {
+                    clearWidgets();
+                }
+            });
 
+            // 监听鼠标抬起：选区完成后显示按钮
+            cm.getWrapperElement().addEventListener("mouseup", (e) => {
+                setTimeout(() => {
+                    if (modifyDialog) return;
+                    
                     if (cm.getSelection().length > 0) {
-                        // 保存选区
                         currentSelectionRange = {
                             from: cm.getCursor("from"),
                             to: cm.getCursor("to")
                         };
                         showModifyButton();
-                    } else {
-                        clearWidgets();
                     }
-                }, 100);
+                }, 10);
             });
 
             cm.on("mousedown", (cm, e) => {
