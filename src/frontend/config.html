@@ -153,18 +153,46 @@
 
     // 保存配置
     function showLog(log) {
-        const htmlString = `<div style="display: flex; pointer-events: none; height: 100%; width: 100%; justify-content: center; align-items: center; font-size: large; position: absolute;">
-                <b style="border: 2px solid #666; text-align: center; padding: 5px; background: white;">${log}</b>
-            </div>`;
-        const parser = new DOMParser();
-        const doc = parser.parseFromString(htmlString, 'text/html');
-        const newElement = doc.body.firstChild;
-        document.body.appendChild(newElement);
-        setInterval(() => { newElement.remove() }, 2000)
+        // Create an overlay container
+        const overlay = document.createElement('div');
+        overlay.style.position = 'fixed';
+        overlay.style.top = '0';
+        overlay.style.left = '0';
+        overlay.style.width = '100%';
+        overlay.style.height = '100%';
+        overlay.style.display = 'flex';
+        overlay.style.justifyContent = 'center';
+        overlay.style.alignItems = 'center';
+        overlay.style.pointerEvents = 'none';
+        overlay.style.zIndex = '9999';
+        overlay.style.backgroundColor = 'rgba(0, 0, 0, 0.1)';
+
+        // Create the log box
+        const box = document.createElement('div');
+        box.style.padding = '12px 24px';
+        box.style.background = 'rgba(255, 255, 255, 0.95)';
+        box.style.border = '2px solid #666';
+        box.style.borderRadius = '6px';
+        box.style.boxShadow = '0 4px 12px rgba(0, 0, 0, 0.2)';
+        box.style.fontSize = '1.2rem';
+        box.style.color = '#333';
+        box.style.textAlign = 'center';
+        box.style.maxWidth = '80%';
+        box.style.wordWrap = 'break-word';
+        box.innerText = log;
+
+        // Append elements
+        overlay.appendChild(box);
+        document.body.appendChild(overlay);
+
+        // Remove after 2 seconds
+        setTimeout(() => {
+            overlay.remove();
+        }, 2000);
     }
     document.getElementById('save-btn').addEventListener('click', async () => {
         const config = editor.get();
-        const statu = ipcRenderer.invoke('set-config', config);
+        const statu = await ipcRenderer.invoke('set-config', config);
         if (statu)
             showLog('Configuration saved!');
     });

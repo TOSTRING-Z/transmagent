@@ -14,7 +14,6 @@
   },
   "func_status": {
     "react": true,
-    "markdown": true,
     "clip": false,
     "text": false,
     "del": false
@@ -29,7 +28,8 @@
     "ollama": {
       "api_url": "http://localhost:11434/api/chat",
       "versions": [
-        "deepseek-coder-v2",
+        "gpt-oss:20b",
+        "qwen3-coder:30b",
         {
           "version": "gemma3:12b",
           "vision": [
@@ -179,7 +179,7 @@
   },
   "code": {
     "completion": {
-      "trigger_time": 2000,
+      "trigger_time": 1000,
       "timeout": 10000,
       "prompt": "You are a code/text completion engine. If the cursor <CURSOR> is in the middle of a word, only complete the suffix. If the cursor is at the end of a line, complete the logical continuation. Output code directly, no Markdown. If no completion is needed, return an empty string. You are a code completion tool.\nRules:\n1. Your output will be concatenated directly after the cursor <CURSOR>.\n2. Do not repeat any content that appears before the cursor.\n3. Output only the completion; do not explain and do not include any Markdown markers (e.g. ```).\n4. If the cursor is at the end of a line, usually only complete the logic following the newline.\n5. If no completion is needed, return an empty string.",
       "params": {
@@ -188,7 +188,7 @@
       }
     },
     "refactor": {
-      "trigger_time": 5000,
+      "trigger_time": 3000,
       "timeout": 20000,
       "prompt": "You are a strict code linter. Identify logical errors. Return JSON in the format: {\"errors\": [{\"text\": \"erroneous_code\", \"fix\": \"fixed_code\"}]}. If there are no errors, return {\"errors\": []}. Do not add any extra explanations.",
       "params": {

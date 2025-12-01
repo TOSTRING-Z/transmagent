@@ -1,0 +1,531 @@
+/* Scrollbar styles */
+::-webkit-scrollbar {
+    width: 4px;
+    height: 4px;
+}
+
+::-webkit-scrollbar-track {
+    background-color: rgb(241 245 249);
+    transition: background-color 0.3s;
+}
+
+::-webkit-scrollbar-thumb {
+    background-color: rgb(203 213 225);
+    border-radius: 10px;
+    transition: background-color 0.3s;
+}
+
+/* --- 1. 设计系统 --- */
+:root {
+    --bg-body: #f5f5f5;
+    --bg-card: #ffffff;
+    --text-primary: #171717;
+    --text-secondary: #888888;
+    --border-color: #eaeaea;
+    --accent-color: #2563eb;
+    --pill-bg: #2563eb;
+    --pill-text: #ffffff;
+    --pill-hover: #1d4ed8;
+    --connector-color: #2563eb;
+    --ghost-text-color: #a3a3a3;
+    --error-bg: rgba(239, 68, 68, 0.1);
+}
+
+[data-theme="dark"] {
+    --bg-body: #0a0a0a;
+    --bg-card: #171717;
+    --text-primary: #ededed;
+    --text-secondary: #666666;
+    --border-color: #333333;
+    --accent-color: #3b82f6;
+    --pill-bg: #3b82f6;
+    --pill-text: #ffffff;
+    --pill-hover: #60a5fa;
+    --connector-color: #3b82f6;
+    --ghost-text-color: #6e7681;
+    --error-bg: rgba(248, 113, 113, 0.15);
+}
+
+body {
+    font-family: 'Inter', sans-serif;
+    background-color: var(--bg-body);
+    color: var(--text-primary);
+    margin: 0;
+    display: flex;
+    justify-content: center;
+    flex-direction: column;
+    border: #333 solid 1px;
+    overflow-y: hidden;
+}
+
+/* 自定义标题栏 */
+.title-bar {
+    -webkit-app-region: drag;
+    /* 允许拖动 */
+    font-size: medium;
+    height: 30px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 0 10px;
+    -webkit-user-select: none;
+    /* Safari */
+    -moz-user-select: none;
+    /* Firefox */
+    -ms-user-select: none;
+    /* IE10+/Edge */
+    user-select: none;
+    /* Standard */
+}
+
+/* 窗口控制按钮 */
+.window-controls {
+    display: flex;
+    -webkit-app-region: no-drag;
+    /* 禁止拖动干扰按钮点击 */
+}
+
+.window-btn {
+    width: 12px;
+    height: 12px;
+    border-radius: 50%;
+    margin-left: 8px;
+    cursor: pointer;
+}
+
+.close-btn {
+    background: #ff5e57;
+}
+
+.minimize-btn {
+    background: #ffbb2e;
+}
+
+/* 内容区域 */
+.content {
+    overflow-y: auto;
+    height: calc(100vh - 15px);
+}
+
+.app-container {
+    padding: 15px;
+    box-shadow: 0 10px 30px -10px rgba(0, 0, 0, 0.1);
+}
+
+.header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 24px;
+    border-bottom: 1px solid var(--border-color);
+    padding-bottom: 20px;
+}
+
+.header h1 {
+    font-size: 20px;
+    margin: 0;
+}
+
+.badge-group {
+    display: flex;
+    gap: 8px;
+    font-size: 12px;
+    font-family: monospace;
+    opacity: 0.8;
+    margin-top: 5px;
+}
+
+.key-badge {
+    background: var(--border-color);
+    padding: 2px 6px;
+    border-radius: 4px;
+}
+
+.theme-btn {
+    background: transparent;
+    border: 1px solid var(--border-color);
+    color: var(--text-primary);
+    padding: 6px 14px;
+    border-radius: 6px;
+    cursor: pointer;
+}
+
+.CodeMirror {
+    height: calc(100vh - 180px);
+    border-radius: 8px;
+    border: 1px solid var(--border-color);
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 14px;
+    line-height: 1.6;
+}
+
+/* 补全 Ghost Text */
+.ghost-text {
+    color: var(--ghost-text-color);
+    opacity: 0.6;
+    pointer-events: none;
+    font-style: italic;
+}
+
+.loading-spinner {
+    display: inline-block;
+    width: 10px;
+    height: 10px;
+    border: 2px solid var(--accent-color);
+    border-top-color: transparent;
+    border-radius: 50%;
+    animation: spin 0.8s linear infinite;
+    margin-left: 5px;
+}
+
+@keyframes spin {
+    to {
+        transform: rotate(360deg);
+    }
+}
+
+.CodeMirror-scroll {
+    width: 100%;
+}
+
+/* 重构 Widget */
+.lint-highlight {
+    background-color: var(--error-bg);
+    border-bottom: 1px dashed var(--error-text);
+}
+
+.widget-anchor {
+    position: absolute;
+    z-index: 1000;
+}
+
+.suggestion-container {
+    position: relative;
+    top: 20px;
+    left: -10px;
+}
+
+.connector-line {
+    position: absolute;
+    top: -12px;
+    left: 6px;
+    width: 14px;
+    height: 26px;
+    border-left: 2px solid var(--connector-color);
+    border-bottom: 2px solid var(--connector-color);
+    border-bottom-left-radius: 8px;
+    pointer-events: none;
+}
+
+.suggestion-pill {
+    position: absolute;
+    top: 6px;
+    left: 22px;
+    background-color: var(--pill-bg);
+    color: var(--pill-text);
+    padding: 5px 12px;
+    border-radius: 20px;
+    font-size: 12px;
+    font-weight: 600;
+    cursor: pointer;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    white-space: nowrap;
+    user-select: none;
+}
+
+.suggestion-pill:hover {
+    background-color: var(--pill-hover);
+    transform: scale(1.02);
+}
+
+.function {
+    display: flex;
+    gap: 10px;
+}
+
+#status-bar {
+    margin-top: 15px;
+    font-size: 13px;
+    color: var(--text-secondary);
+    height: 20px;
+}
+
+/* 仿 VS Code 搜索框样式 */
+.search-widget {
+    position: fixed;
+    top: 80px;
+    right: 16px;
+    width: 380px;
+    background-color: #252526;
+    color: #cccccc;
+    border-radius: 3px;
+    box-shadow: 0 4px 10px rgba(0, 0, 0, 0.4);
+    z-index: 10000;
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    font-size: 13px;
+    border: 1px solid #454545;
+}
+
+.search-container {
+    padding: 6px;
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+}
+
+.search-row {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+}
+
+/* 搜索框展开按钮样式 */
+.toggle-btn {
+    background: none;
+    border: none;
+    color: #cccccc;
+    cursor: pointer;
+    padding: 4px 6px;
+    border-radius: 3px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 20px;
+    height: 24px;
+    transition: all 0.2s ease;
+}
+
+.toggle-btn:hover {
+    background-color: #444;
+}
+
+.toggle-btn.expanded i {
+    transform: rotate(90deg);
+}
+
+.toggle-btn i {
+    font-size: 10px;
+    transition: transform 0.2s ease;
+}
+
+.input-wrapper {
+    position: relative;
+    flex: 1;
+    display: flex;
+    align-items: center;
+}
+
+.input-wrapper input {
+    width: 100%;
+    background-color: #3c3c3c;
+    border: 1px solid #3c3c3c;
+    color: #cccccc;
+    padding: 4px 60px 4px 6px;
+    /* 右侧留空给选项按钮 */
+    outline: none;
+    height: 24px;
+    box-sizing: border-box;
+    transition: all 0.2s ease;
+}
+
+.input-wrapper input:focus {
+    border-color: #007acc;
+    box-shadow: 0 0 0 2px rgba(0, 122, 204, 0.3);
+    background-color: #2a2a2a;
+}
+
+/* 搜索框高亮样式 */
+.search-widget.active {
+    border-color: #007acc;
+    box-shadow: 0 0 0 2px rgba(0, 122, 204, 0.2), 0 4px 15px rgba(0, 0, 0, 0.5);
+}
+
+/* 选中文字动画效果 */
+.input-wrapper input.has-selection {
+    background-color: #2d2d30;
+    border-color: #007acc;
+    animation: pulse-highlight 0.6s ease-in-out;
+}
+
+@keyframes pulse-highlight {
+    0% {
+        background-color: #2d2d30;
+        box-shadow: 0 0 0 0 rgba(0, 122, 204, 0.4);
+    }
+
+    50% {
+        background-color: #1e1e1e;
+        box-shadow: 0 0 0 4px rgba(0, 122, 204, 0.2);
+    }
+
+    100% {
+        background-color: #2d2d30;
+        box-shadow: 0 0 0 0 rgba(0, 122, 204, 0.4);
+    }
+}
+
+/* 搜索状态指示器 */
+.search-status {
+    text-align: right;
+    font-size: 11px;
+    color: #888;
+    padding-right: 4px;
+    transition: color 0.3s ease;
+}
+
+.search-status.has-results {
+    color: #4ec9b0;
+    font-weight: 600;
+}
+
+.search-status.no-results {
+    color: #f48771;
+}
+
+.search-options {
+    position: absolute;
+    right: 2px;
+    display: flex;
+    gap: 1px;
+}
+
+.opt-btn {
+    cursor: pointer;
+    padding: 2px 4px;
+    font-size: 10px;
+    border-radius: 2px;
+    user-select: none;
+    color: #858585;
+}
+
+.opt-btn:hover {
+    background-color: #444;
+}
+
+.opt-btn.active {
+    background-color: #007acc22;
+    /* 选中底色 */
+    color: #007acc;
+    font-weight: bold;
+}
+
+.action-buttons button {
+    background: none;
+    border: none;
+    color: #cccccc;
+    cursor: pointer;
+    padding: 4px;
+    border-radius: 3px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    min-width: 24px;
+}
+
+.action-buttons button:hover {
+    background-color: #444;
+}
+
+.replace-actions button {
+    border: 1px solid #454545;
+    font-size: 11px;
+    padding: 2px 6px;
+}
+
+.search-status {
+    font-size: 11px;
+    color: #888;
+    padding: 0 8px;
+    min-width: 50px;
+    text-align: center;
+    white-space: nowrap;
+}
+
+.input-wrapper {
+    position: relative;
+    flex: 1;
+    display: flex;
+    align-items: center;
+}
+
+.action-buttons {
+    display: flex;
+    gap: 2px;
+}
+
+.action-buttons button {
+    background: none;
+    border: none;
+    color: #cccccc;
+    cursor: pointer;
+    padding: 4px;
+    border-radius: 3px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    min-width: 24px;
+    height: 24px;
+}
+
+/* AI Modify Widget */
+.ai-modify-btn {
+    position: fixed;
+    width: 24px;
+    height: 24px;
+    background-color: var(--accent-color);
+    color: white;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    z-index: 99999;
+    box-shadow: 0 2px 5px rgba(0, 0, 0, 0.3);
+    font-size: 12px;
+    transition: transform 0.2s;
+}
+
+.ai-modify-btn:hover {
+    transform: scale(1.1);
+}
+
+.ai-modify-dialog {
+    position: fixed;
+    background-color: var(--bg-card);
+    border: 1px solid var(--border-color);
+    border-radius: 6px;
+    padding: 8px;
+    box-shadow: 0 4px 15px rgba(0, 0, 0, 0.3);
+    z-index: 100000;
+    display: flex;
+    gap: 8px;
+    width: 300px;
+    align-items: center;
+}
+
+.ai-modify-dialog input {
+    flex: 1;
+    background-color: var(--bg-body);
+    border: 1px solid var(--border-color);
+    color: var(--text-primary);
+    padding: 4px 8px;
+    border-radius: 4px;
+    outline: none;
+    font-size: 13px;
+}
+
+.ai-modify-dialog button {
+    background: none;
+    border: none;
+    color: var(--accent-color);
+    cursor: pointer;
+    padding: 4px;
+    border-radius: 4px;
+}
+
+.ai-modify-dialog button:hover {
+    background-color: var(--border-color);
+}

@@ -148,8 +148,9 @@ class CodeWindow extends Window {
         // 代码补全
         ipcMain.handle('code-completion', async (event, { prefix, suffix, isMidWord }) => {
             try {
-                const llm_service = new LLMService();
-                const react_agent = new ReActAgent({}, llm_service);
+                this.llm_service_completion?.stopMessage();
+                this.llm_service_completion = new LLMService();
+                this.react_agent_completion = new ReActAgent({}, this.llm_service_completion);
 
                 const prompt = utils.getConfig("code")?.completion?.prompt || "You are a code/text completion engine. If the cursor <CURSOR> is in the middle of a word, only complete the suffix. If the cursor is at the end of a line, complete the logical continuation. Output code directly, no Markdown. If no completion is needed, return an empty string. You are a code completion tool.\nRules:\n1. Your output will be concatenated directly after the cursor <CURSOR>.\n2. Do not repeat any content that appears before the cursor.\n3. Output only the completion; do not explain and do not include any Markdown markers (e.g. ```).\n4. If the cursor is at the end of a line, usually only complete the logic following the newline.\n5. If no completion is needed, return an empty string.";
                 const query = `${prefix}<CURSOR>${suffix}`;
@@ -164,8 +165,8 @@ class CodeWindow extends Window {
                     }
                 };
 
-                const data = react_agent.getDataDefault(requestData);
-                const result = await react_agent.llmCall(data);
+                const data = this.react_agent_completion.getDataDefault(requestData);
+                const result = await this.react_agent_completion.llmCall(data);
                 return result;
             } catch (e) {
                 console.log("Code completion error:", e);
@@ -176,8 +177,9 @@ class CodeWindow extends Window {
         // 代码重构分析
         ipcMain.handle('code-refactor', async (event, code) => {
             try {
-                const llm_service = new LLMService();
-                const react_agent = new ReActAgent({}, llm_service);
+                this.llm_service_refactor?.stopMessage();
+                this.llm_service_refactor = new LLMService();
+                this.react_agent_refactor = new ReActAgent({}, this.llm_service_refactor);
 
                 const prompt = utils.getConfig("code")?.refactor?.prompt || `You are a strict code linter. Identify logical errors. Return JSON in the format: {"errors": [{"text": "erroneous_code", "fix": "fixed_code"}]}. If there are no errors, return {"errors": []}. Do not add any extra explanations.`;
 
@@ -190,9 +192,9 @@ class CodeWindow extends Window {
                     }
                 };
 
-                const data = react_agent.getDataDefault(requestData);
+                const data = this.react_agent_refactor.getDataDefault(requestData);
 
-                const result = await react_agent.llmCall(data);
+                const result = await this.react_agent_refactor.llmCall(data);
                 return result;
             } catch (e) {
                 console.log("Code refactor error:", e);
