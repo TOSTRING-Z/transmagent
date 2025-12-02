@@ -91,6 +91,7 @@
                 <div class="function">
                     <button class="theme-btn" onclick="openFile()">Open File</button>
                     <button class="theme-btn" onclick="toggleTheme()">Toggle Theme</button>
+                    <button class="theme-btn" onclick="autoDetectLanguage()">Auto Detect Language</button>
                 </div>
             </div>
 
@@ -193,6 +194,42 @@
 
         let isComposing = false; // 标记是否正在输入中文
 
+        // 内容语言检测函数
+        function getModeFromContent(content) {
+            if (!content) return null;
+            const firstLine = content.split('\n', 1)[0] || '';
+            // shebang
+            if (/^#!.*\bpython\b/.test(firstLine)) return 'python';
+            if (/^#!.*\bnode\b/.test(firstLine) || /^#!.*\bjs\b/.test(firstLine)) return 'javascript';
+            // fenced code block
+            const fence = content.match(/^\s*```(\w+)/m);
+            if (fence && fence[1]) {
+                const map = { js: 'javascript', javascript: 'javascript', jsx: 'jsx', ts: 'text/typescript', py: 'python', json: 'application/json', html: 'htmlmixed', css: 'css', md: 'markdown', sh: 'shell' };
+                return map[fence[1].toLowerCase()] || fence[1].toLowerCase();
+            }
+            // simple heuristics
+            if (/\bfunction\s+\w+\(|=>/.test(content)) return 'javascript';
+            if (/^\s*def\s+\w+\(/m.test(content)) return 'python';
+            if (/^\s*<\!DOCTYPE|<html|<div|<meta /i.test(content)) return 'htmlmixed';
+            return null;
+        }
+
+        // 自动推断语言函数
+        function autoDetectLanguage() {
+            if (!window.editor) {
+                statusEl.textContent = "Error: Editor not initialized";
+                return;
+            }
+            const content = window.editor.getValue();
+            let mode = getModeFromContent(content);
+            if (!mode) {
+                // 如果没有文件路径，尝试基于内容的其他检测
+                mode = "text/plain";
+            }
+            window.editor.setOption("mode", mode);
+            statusEl.textContent = `Language detected: ${mode}`;
+        }
+
         window.onload = function () {
             // helper: simple language detection
             function getModeFromFilename(path) {
@@ -219,25 +256,6 @@
                     case 'r': return 'r';
                     default: return null;
                 }
-            }
-
-            function getModeFromContent(content) {
-                if (!content) return null;
-                const firstLine = content.split('\n', 1)[0] || '';
-                // shebang
-                if (/^#!.*\bpython\b/.test(firstLine)) return 'python';
-                if (/^#!.*\bnode\b/.test(firstLine) || /^#!.*\bjs\b/.test(firstLine)) return 'javascript';
-                // fenced code block
-                const fence = content.match(/^\s*```(\w+)/m);
-                if (fence && fence[1]) {
-                    const map = { js: 'javascript', javascript: 'javascript', jsx: 'jsx', ts: 'text/typescript', py: 'python', json: 'application/json', html: 'htmlmixed', css: 'css', md: 'markdown', sh: 'shell' };
-                    return map[fence[1].toLowerCase()] || fence[1].toLowerCase();
-                }
-                // simple heuristics
-                if (/\bfunction\s+\w+\(|=>/.test(content)) return 'javascript';
-                if (/^\s*def\s+\w+\(/m.test(content)) return 'python';
-                if (/^\s*<\!DOCTYPE|<html|<div|<meta /i.test(content)) return 'htmlmixed';
-                return null;
             }
 
             // 初始模式优先从 textarea 内容检测，其次回退到 javascript
