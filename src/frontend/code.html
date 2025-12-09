@@ -195,8 +195,36 @@
         let isComposing = false; // 标记是否正在输入中文
 
         // 内容语言检测函数
-        function getModeFromContent(content) {
+        async function getModeFromContent(content) {
             if (!content) return null;
+            // 尝试使用LLM进行语言检测
+            try {
+                const response = await fetch('/api/detect-language', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ content: content })
+                });
+                if (response.ok) {
+                    const result = await response.json();
+                    if (result.language) {
+                        // 映射语言字符串到编辑器模式
+                        const map = { 
+                            javascript: 'javascript', js: 'javascript', jsx: 'jsx', 
+                            typescript: 'text/typescript', ts: 'text/typescript',
+                            python: 'python', py: 'python',
+                            json: 'application/json',
+                            html: 'htmlmixed',
+                            css: 'css',
+                            markdown: 'markdown', md: 'markdown',
+                            shell: 'shell', sh: 'shell', bash: 'shell'
+                        };
+                        return map[result.language.toLowerCase()] || result.language.toLowerCase();
+                    }
+                }
+            } catch (error) {
+                console.error('LLM language detection failed:', error);
+            }
+            // 如果LLM失败，回退到原始启发式规则
             const firstLine = content.split('\n', 1)[0] || '';
             // shebang
             if (/^#!.*\bpython\b/.test(firstLine)) return 'python';
@@ -215,13 +243,13 @@
         }
 
         // 自动推断语言函数
-        function autoDetectLanguage() {
+        async function autoDetectLanguage() {
             if (!window.editor) {
                 statusEl.textContent = "Error: Editor not initialized";
                 return;
             }
             const content = window.editor.getValue();
-            let mode = getModeFromContent(content);
+            let mode = await getModeFromContent(content);
             if (!mode) {
                 // 如果没有文件路径，尝试基于内容的其他检测
                 mode = "text/plain";

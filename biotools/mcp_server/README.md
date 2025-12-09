@@ -4,7 +4,7 @@
 [mcp-fetch](https://github.com/modelcontextprotocol/servers/blob/main/src/fetch/Dockerfile)
 
 ```bash
-# Build (using Clash proxy)
+# Build with Clash Proxy (Building takes approximately 1 hour; downloading the pre-built image is recommended)
 * linux
 docker build \
   --add-host=host.docker.internal:host-gateway \
