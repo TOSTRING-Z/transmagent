@@ -980,6 +980,9 @@ function preprocess(src) {
   // 转换块级公式 \[ \epsilon \] -> $$ \epsilon $$
   src = src.replace(/\\\[([^]+?)\\\]/g, (match, content) => `\n$$${content}$$\n`);
 
+  // 转换 $$xx$$ -> \n$$xx$$\n
+  src = src.replace(/\$\$([^]+?)\$\$/g, (match, content) => `\n$$${content}$$\n`);
+
   return src;
 }
 
