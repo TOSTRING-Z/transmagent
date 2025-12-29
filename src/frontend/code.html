@@ -53,6 +53,7 @@
                         <span id="opt-case" class="opt-btn" title="Match Case (Alt+C)">Aa</span>
                         <span id="opt-regex" class="opt-btn" title="Use Regular Expression (Alt+R)">.*</span>
                         <span id="opt-fuzzy" class="opt-btn" title="Fuzzy Search">fz</span>
+                        <span id="opt-wrap" class="opt-btn" title="Toggle Word Wrap (Alt+W)">↔</span>
                     </div>
                 </div>
                 <!-- 状态显示 -->
@@ -1295,6 +1296,24 @@
     }
 `;
         document.head.appendChild(style);
+
+        // 自动换行切换功能
+        const wrapButton = document.getElementById('opt-wrap');
+        if (wrapButton && window.editor) {
+            // 初始化状态：从编辑器获取当前lineWrapping设置
+            let isWrapping = window.editor.getOption('lineWrapping') || false;
+            if (isWrapping) wrapButton.classList.add('active');
+            
+            wrapButton.addEventListener('click', () => {
+                isWrapping = !isWrapping;
+                window.editor.setOption('lineWrapping', isWrapping);
+                if (isWrapping) {
+                    wrapButton.classList.add('active');
+                } else {
+                    wrapButton.classList.remove('active');
+                }
+            });
+        }
     </script>
 </body>
 
