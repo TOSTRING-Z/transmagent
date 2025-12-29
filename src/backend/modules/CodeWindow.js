@@ -145,6 +145,16 @@ class CodeWindow extends Window {
             }
         });
 
+        // 清除补全
+        ipcMain.on('clear-completion', () => {
+            this.llm_service_completion?.stopMessage();
+        });
+
+        // 清除重构
+        ipcMain.on('clear-refactor', () => {
+            this.llm_service_refactor?.stopMessage();
+        });
+
         // 代码补全
         ipcMain.handle('code-completion', async (event, { prefix, suffix, isMidWord }) => {
             try {
@@ -225,6 +235,45 @@ class CodeWindow extends Window {
                 return result;
             } catch (e) {
                 console.log("Code modify error:", e);
+                return { error: e.message };
+            }
+        });
+
+        // 语言自动检测
+        ipcMain.handle('detect-language', async (event, code) => {
+            try {
+                // 使用短暂的 agent 实例
+                const llm_service = new LLMService();
+                const react_agent = new ReActAgent({}, llm_service);
+
+                const prompt = "You are a programming language detector. Analyze the following code snippet and return only the lowercase language name (e.g., javascript, python, java, c++, html, css, sql, json, markdown, shell). If the code is too short or ambiguous, make your best guess. If it's pure text, return 'plaintext'. Output ONLY the language name, no punctuation or explanation.";
+
+                // 截取前 1000 个字符进行分析即可，无需发送全部代码
+                const snippet = code && code.length > 1000 ? code.slice(0, 1000) : code;
+
+                const requestData = {
+                    prompt,
+                    query: snippet,
+                    params: {
+                        temperature: 0.1, // 低温度以获得确定性结果
+                        max_tokens: 20,
+                        ...(utils.getConfig("code")?.detect?.params || {})
+                    }
+                };
+
+                const data = react_agent.getDataDefault(requestData);
+                const result = await react_agent.llmCall(data);
+                
+                // 清理结果，移除可能的空白或点号
+                if (result) {
+                    let lang = result.trim().toLowerCase();
+                    // 移除末尾可能的标点
+                    lang = lang.replace(/[^a-z0-9+#]/g, '');
+                    return { language: lang };
+                }
+                return { language: 'plaintext' };
+            } catch (e) {
+                console.log("Language detection error:", e);
                 return { error: e.message };
             }
         });

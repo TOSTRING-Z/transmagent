@@ -33,11 +33,11 @@ class ModelWindow extends Window {
             })
 
             ipcMain.on('minimize-window', () => {
-                BrowserWindow.getFocusedWindow().minimize()
+                this.window.minimize()
             })
 
             ipcMain.on('close-window', () => {
-                BrowserWindow.getFocusedWindow().close()
+                this.window.close()
             })
         }
     }

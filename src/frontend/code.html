@@ -53,7 +53,6 @@
                         <span id="opt-case" class="opt-btn" title="Match Case (Alt+C)">Aa</span>
                         <span id="opt-regex" class="opt-btn" title="Use Regular Expression (Alt+R)">.*</span>
                         <span id="opt-fuzzy" class="opt-btn" title="Fuzzy Search">fz</span>
-                        <span id="opt-wrap" class="opt-btn" title="Toggle Word Wrap (Alt+W)">↔</span>
                     </div>
                 </div>
                 <!-- 状态显示 -->
@@ -79,25 +78,203 @@
     </div>
 
     <!-- 内容区域 -->
-    <div class="content">
+    <!-- VS Code Style CSS (Modern Flat) -->
+    <style>
+        :root {
+            --bg-root: #1e1e1e;
+            --bg-nav: #252526;
+            --bg-editor: #1e1e1e;
+            --bg-status: #2d2d2d;
+            --accent: #007acc;
+            --text-primary: #cccccc;
+            --text-secondary: #969696;
+            --border-color: #333333;
+            --hover-bg: rgba(255, 255, 255, 0.1);
+        }
 
-        <div class="app-container">
-            <div class="header">
-                <div>
-                    <div class="badge-group">
-                        <span>Completion: <span class="key-badge">Auto-trigger / Ctrl-Space / Tab</span></span>
-                        <span>Refactor: <span class="key-badge">Triggers after 5s idle</span></span>
-                    </div>
-                </div>
-                <div class="function">
-                    <button class="theme-btn" onclick="openFile()">Open File</button>
-                    <button class="theme-btn" onclick="toggleTheme()">Toggle Theme</button>
-                    <button class="theme-btn" onclick="autoDetectLanguage()">Auto Detect Language</button>
+        * { box-sizing: border-box; }
+        body, html { margin: 0; padding: 0; width: 100%; height: 100%; overflow: hidden !important; background-color: var(--bg-root); font-family: 'Segoe UI', 'SF Pro Text', sans-serif; -webkit-font-smoothing: antialiased; }
+        
+        /* Fixed Title Bar */
+        .title-bar { position: fixed; top: 0; left: 0; width: 100%; height: 32px; z-index: 9999; }
+
+        /* Layout Adjustment for Title Bar */
+        .vscode-layout { 
+            display: flex; 
+            flex-direction: column; 
+            height: calc(100vh - 32px); 
+            padding-top: 32px; /* Space for fixed title bar */
+            overflow: hidden !important;
+            color: var(--text-primary);
+        }
+        
+        /* Ensure all outer containers have no scrollbars */
+        .content, .app-container, .vscode-main-area { 
+            width: 100%; 
+            height: 100%; 
+            margin: 0; 
+            padding: 0; 
+            overflow: hidden !important; 
+        }
+        
+        /* Modern Scrollbar */
+        ::-webkit-scrollbar { width: 10px; height: 10px; }
+        ::-webkit-scrollbar-track { background: transparent; }
+        ::-webkit-scrollbar-thumb { background: #424242; border-radius: 5px; border: 2px solid var(--bg-root); }
+        ::-webkit-scrollbar-thumb:hover { background: #4f4f4f; }
+
+        /* Reset old container styles */
+        .app-container { max-width: none !important; padding: 0 !important; margin: 0 !important; box-shadow: none !important; }
+        
+        /* Ensure Search Widget stays on top */
+        #search-widget { z-index: 2000 !important; top: 80px !important; right: 20px !important; box-shadow: 0 4px 12px rgba(0,0,0,0.3) !important; border-radius: 4px; }
+        
+        /* Modern Navigation Bar */
+        .vscode-nav-bar { 
+            height: 40px; 
+            background-color: var(--bg-nav); 
+            display: flex; 
+            align-items: center; 
+            padding: 0 12px; 
+        }
+        .nav-brand { font-weight: 600; margin-right: 20px; color: var(--accent); font-size: 14px; letter-spacing: 0.5px; }
+        .nav-items { display: flex; gap: 8px; }
+        .nav-btn { 
+            background: transparent; 
+            border: none; 
+            color: var(--text-primary); 
+            padding: 6px 12px; 
+            cursor: pointer; 
+            font-size: 13px; 
+            border-radius: 4px; 
+            display: flex; 
+            align-items: center; 
+            gap: 6px; 
+            transition: background-color 0.2s;
+        }
+        .nav-btn:hover { background-color: var(--hover-bg); color: #fff; }
+        .nav-btn:active { transform: translateY(1px); }
+        
+        /* Main Area */
+        .vscode-main-area { flex: 1; display: flex; flex-direction: column; overflow: hidden; position: relative; height: 100%; }
+        
+        /* Modern Tabs Bar */
+        .vscode-tabs-bar { 
+            height: 36px; 
+            background-color: var(--bg-nav); 
+            display: flex; 
+            align-items: center; 
+            overflow-x: auto; 
+        }
+        .tab { 
+            background-color: #2d2d2d; 
+            color: var(--text-secondary); 
+            padding: 0 15px; 
+            height: 100%; 
+            display: flex; 
+            align-items: center; 
+            font-size: 13px; 
+            border-right: 1px solid var(--border-color);
+            min-width: 140px; 
+            cursor: default; 
+            position: relative;
+        }
+        .tab.active { 
+            background-color: var(--bg-editor); 
+            color: #fff; 
+            border-top: 2px solid var(--accent); 
+        }
+        .tab-icon { margin-right: 8px; font-size: 14px; opacity: 0.8; }
+        .tab-close { margin-left: auto; opacity: 0; transition: opacity 0.2s; border-radius: 4px; width: 20px; height: 20px; display: flex; align-items: center; justify-content: center; }
+        .tab:hover .tab-close { opacity: 1; }
+        .tab-close:hover { background-color: var(--hover-bg); color: #fff; }
+        
+        /* Editor Wrapper - Fix Scroll Issues */
+        .editor-wrapper { 
+            flex: 1; 
+            position: relative; 
+            background-color: var(--bg-editor); 
+            overflow: hidden !important; /* Ensure no scrollbar on wrapper */
+        }
+        
+        .CodeMirror { 
+            position: absolute !important; 
+            top: 0; left: 0; right: 0; bottom: 0; 
+            height: 100% !important; 
+            width: 100% !important;
+            font-family: 'Consolas', 'Monaco', 'Courier New', monospace; 
+            font-size: 14px; 
+            line-height: 1.5;
+            background: transparent;
+        }
+        
+        /* Ensure internal scrollbar uses our style and no duplicates */
+        .CodeMirror-scroll {
+            overflow-y: auto !important;
+            overflow-x: auto !important;
+            margin-bottom: 0 !important;
+            margin-right: 0 !important;
+            padding-bottom: 0 !important;
+            height: 100% !important;
+            outline: none;
+            position: relative;
+        }
+        
+        /* Hide CodeMirror's vscrollbar if it conflicts */
+        .CodeMirror-vscrollbar, .CodeMirror-hscrollbar {
+            display: none !important;
+        }
+        
+        /* Modern Status Bar - Black Background (Flat Modern) */
+        .vscode-status-bar { 
+            height: 24px; 
+            background-color: #1a1a1a; 
+            color: #ffffff;
+            display: flex; 
+            align-items: center; 
+            padding: 0 12px; 
+            font-size: 12px; 
+            justify-content: space-between; 
+            user-select: none; 
+            z-index: 10; 
+            border-top: 1px solid #333333;
+        } 
+        
+        .status-right { display: flex; gap: 16px; }
+        .status-item { cursor: pointer; display: flex; align-items: center; gap: 6px; opacity: 0.9; }
+        .status-item:hover { opacity: 1; }
+    </style>
+
+    <div class="content" style="padding: 0; margin-top: 30px;">
+        <div class="app-container vscode-layout">
+            <!-- Top Navigation -->
+            <div class="vscode-nav-bar">
+                <div class="nav-items">
+                    <button class="nav-btn" onclick="openFile()" title="Open File">📂 Open</button>
+                    <button class="nav-btn" onclick="toggleTheme()" title="Toggle Theme">🎨 Theme</button>
+                    <button class="nav-btn" onclick="autoDetectLanguage()" title="Detect Language">⚡ Detect</button>
+                    <button class="nav-btn" id="toggle-wrap-btn" onclick="toggleWordWrap()" title="Toggle Word Wrap">↩ Wrap</button>
                 </div>
             </div>
 
-            <textarea id="code-editor" style="display: none;"></textarea>
-            <div id="status-bar">Ready</div>
+            <!-- Main Editor Area -->
+            <div class="vscode-main-area">
+                <!-- Editor -->
+                <div class="editor-wrapper">
+                    <textarea id="code-editor" style="display: none;"></textarea>
+                </div>
+            </div>
+
+            <!-- Status Bar -->
+            <div id="status-bar" class="vscode-status-bar">
+                <div class="status-left">Ready</div>
+                <div class="status-right">
+                    <span class="status-item" title="Spaces: 4">Spaces: 4</span>
+                    <span class="status-item" title="Encoding">UTF-8</span>
+                    <span class="status-item" id="language-mode" title="Language Mode">javascript</span>
+                    <span class="status-item" style="opacity: 0.8; margin-left: 10px;">Refactor: 5s idle</span>
+                </div>
+            </div>
         </div>
     </div>
 
@@ -191,41 +368,13 @@
         let currentPrediction = "";
         let isCompleting = false;
 
-        const statusEl = document.getElementById("status-bar");
+        const statusEl = document.querySelector("#status-bar .status-left");
 
         let isComposing = false; // 标记是否正在输入中文
 
         // 内容语言检测函数
-        async function getModeFromContent(content) {
+        function getModeFromContent(content) {
             if (!content) return null;
-            // 尝试使用LLM进行语言检测
-            try {
-                const response = await fetch('/api/detect-language', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ content: content })
-                });
-                if (response.ok) {
-                    const result = await response.json();
-                    if (result.language) {
-                        // 映射语言字符串到编辑器模式
-                        const map = { 
-                            javascript: 'javascript', js: 'javascript', jsx: 'jsx', 
-                            typescript: 'text/typescript', ts: 'text/typescript',
-                            python: 'python', py: 'python',
-                            json: 'application/json',
-                            html: 'htmlmixed',
-                            css: 'css',
-                            markdown: 'markdown', md: 'markdown',
-                            shell: 'shell', sh: 'shell', bash: 'shell'
-                        };
-                        return map[result.language.toLowerCase()] || result.language.toLowerCase();
-                    }
-                }
-            } catch (error) {
-                console.error('LLM language detection failed:', error);
-            }
-            // 如果LLM失败，回退到原始启发式规则
             const firstLine = content.split('\n', 1)[0] || '';
             // shebang
             if (/^#!.*\bpython\b/.test(firstLine)) return 'python';
@@ -243,23 +392,76 @@
             return null;
         }
 
-        // 自动推断语言函数
+        // 自动推断语言函数 (Powered by LLM)
         async function autoDetectLanguage() {
-            if (!window.editor) {
-                statusEl.textContent = "Error: Editor not initialized";
-                return;
-            }
+            if (!window.editor) return;
+            
+            const status = document.querySelector('#status-bar .status-left') || document.getElementById('status-bar');
+            if (status) status.textContent = "⚡ Detecting language...";
+
             const content = window.editor.getValue();
-            let mode = await getModeFromContent(content);
-            if (!mode) {
-                // 如果没有文件路径，尝试基于内容的其他检测
-                mode = "text/plain";
+            
+            try {
+                // 调用后端 LLM 进行检测
+                const result = await ipcRenderer.invoke('detect-language', content);
+                
+                if (result.error) {
+                    if (status) status.textContent = `Detection failed: ${result.error}`;
+                    return;
+                }
+
+                const lang = result.language;
+                let mode = 'text/plain';
+
+                // 语言名称映射表
+                const modeMap = {
+                    'javascript': 'javascript',
+                    'js': 'javascript',
+                    'typescript': 'text/typescript',
+                    'ts': 'text/typescript',
+                    'python': 'python',
+                    'py': 'python',
+                    'html': 'htmlmixed',
+                    'css': 'css',
+                    'java': 'text/x-java',
+                    'c': 'text/x-csrc',
+                    'cpp': 'text/x-c++src',
+                    'c++': 'text/x-c++src',
+                    'c#': 'text/x-csharp',
+                    'go': 'text/x-go',
+                    'sql': 'sql',
+                    'json': 'application/json',
+                    'markdown': 'markdown',
+                    'md': 'markdown',
+                    'shell': 'shell',
+                    'bash': 'shell',
+                    'sh': 'shell',
+                    'xml': 'xml',
+                    'yaml': 'yaml',
+                    'php': 'php',
+                    'ruby': 'ruby',
+                    'rust': 'rust',
+                    'lua': 'lua'
+                };
+
+                if (modeMap[lang]) {
+                    mode = modeMap[lang];
+                } else {
+                    // 尝试直接使用返回的名称，或回退到 plaintext
+                    mode = lang || 'text/plain';
+                }
+
+                document.getElementById('language-mode').textContent = lang;
+                window.editor.setOption("mode", mode);
+                if (status) status.textContent = `Language detected: ${lang} (${mode})`;
+                
+            } catch (err) {
+                console.error("Language detection error:", err);
+                if (status) status.textContent = "Error detecting language";
             }
-            window.editor.setOption("mode", mode);
-            statusEl.textContent = `Language detected: ${mode}`;
         }
 
-        window.onload = function () {
+        window.onload = async function () {
             // helper: simple language detection
             function getModeFromFilename(path) {
                 if (!path) return null;
@@ -290,6 +492,7 @@
             // 初始模式优先从 textarea 内容检测，其次回退到 javascript
             const initialText = document.getElementById("code-editor").value || "";
             const initialMode = getModeFromContent(initialText) || 'javascript';
+            document.getElementById('language-mode').textContent = initialMode;
 
             window.editor = CodeMirror.fromTextArea(document.getElementById("code-editor"), {
                 theme: "dracula",
@@ -690,6 +893,7 @@
             if (completionWidget) { completionWidget.clear(); completionWidget = null; }
             currentPrediction = "";
             isCompleting = false;
+            ipcRenderer.send('clear-completion');
         }
 
         // --- 修改后的重构/检查逻辑 ---
@@ -1216,7 +1420,7 @@
                 // 重新搜索以更新状态
                 this.performSearch();
             }
-
+			
             replaceAll() {
                 if (!this.state.query) return;
 
@@ -1298,21 +1502,31 @@
         document.head.appendChild(style);
 
         // 自动换行切换功能
-        const wrapButton = document.getElementById('opt-wrap');
-        if (wrapButton && window.editor) {
-            // 初始化状态：从编辑器获取当前lineWrapping设置
-            let isWrapping = window.editor.getOption('lineWrapping') || false;
-            if (isWrapping) wrapButton.classList.add('active');
-            
-            wrapButton.addEventListener('click', () => {
-                isWrapping = !isWrapping;
-                window.editor.setOption('lineWrapping', isWrapping);
-                if (isWrapping) {
-                    wrapButton.classList.add('active');
+        function toggleWordWrap() {
+            if (!window.editor) {
+                console.error('CodeMirror editor not initialized');
+                return;
+            }
+            const current = window.editor.getOption('lineWrapping');
+            const newValue = !current;
+            window.editor.setOption('lineWrapping', newValue);
+            const btn = document.getElementById('toggle-wrap-btn');
+            if (btn) {
+                if (newValue) {
+                    btn.classList.add('active');
                 } else {
-                    wrapButton.classList.remove('active');
+                    btn.classList.remove('active');
                 }
-            });
+            }
+        }
+
+        // 初始化按钮状态
+        if (window.editor) {
+            const isWrapping = window.editor.getOption('lineWrapping') || false;
+            const btn = document.getElementById('toggle-wrap-btn');
+            if (btn && isWrapping) {
+                btn.classList.add('active');
+            }
         }
     </script>
 </body>
