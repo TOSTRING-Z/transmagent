@@ -95,7 +95,7 @@
         "timeout": 3600,
         "delay_time": 5,
         "show": true,
-        "threshold": 5000
+        "threshold": 10000
       },
       "enabled": false
     },

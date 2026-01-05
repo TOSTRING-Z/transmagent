@@ -256,6 +256,9 @@ class LLMService {
         }
         else {
             messages_list = messages_list.filter(message => {
+                if (!message?.content) {
+                    return false;
+                }
                 if (typeof message.content !== "string") {
                     switch (message.content[1].type) {
                         case "image_url":

@@ -199,12 +199,17 @@ class DisplayFile {
 
   // 统一文件处理入口
   async processFile(file_path, options = {}) {
-    const {
+    let {
       file_type = 'auto',
       start_line = 0,
       end_line = 10,
       max_line_length = 500
     } = options;
+
+    // 自动调整 end_line：当 start_line 大于等于 end_line 时（常见于用户只指定 start_line 而 end_line 使用默认值 10 的情况）
+    if (end_line !== 0 && start_line >= end_line) {
+      end_line = start_line + 10;
+    }
 
     try {
       // 自动检测文件类型
