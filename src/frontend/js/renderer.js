@@ -1285,7 +1285,7 @@ async function saveConfig() {
     mcp_server: {
       biotools: {
         url: document.getElementById('mcp_server-biotools-url').value,
-        enabled: document.getElementById('mcp_server-biotools-enabled').checked
+        disabled: document.getElementById('mcp_server-biotools-disabled').checked
       }
     },
   };
