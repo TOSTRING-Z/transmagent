@@ -1299,7 +1299,7 @@ async function saveConfig() {
     config.tool_call.ssh_config = postConfig.tool_call.ssh_config;
     config.tool_call.cli_prompt = postConfig.tool_call.cli_prompt;
     config.mcp_server.biotools.url = postConfig.mcp_server.biotools.url;
-    config.mcp_server.biotools.enabled = postConfig.mcp_server.biotools.enabled;
+    config.mcp_server.biotools.disabled = postConfig.mcp_server.biotools.disabled;
   }
   config.models[ai_config.model].api_url = ai_config.api_url;
   config.models[ai_config.model].api_key = ai_config.api_key;
