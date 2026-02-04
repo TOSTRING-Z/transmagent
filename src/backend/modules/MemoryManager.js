@@ -1,19 +1,18 @@
 const axios = require('axios');
-const { spawn } = require('child_process');
 const path = require('path');
 const fs = require('fs');
-const os = require('os');
+const MemoryDB = require('./memory_db');
 
 class MemoryManager {
     constructor(utils) {
         this.utils = utils;
-        this.pythonScriptPath = path.join(__dirname, '../scripts/memory_db.py');
         this.dbPath = path.join(this.utils.getLongMemoryPath(), 'memory.db');
+        this.memoryDB = new MemoryDB(this.dbPath);
         this.initDB();
     }
 
     async initDB() {
-        return this.runPythonScript({ action: 'init', db_path: this.dbPath });
+        return this.memoryDB.initDB();
     }
 
     async getEmbedding(text) {
@@ -44,39 +43,6 @@ class MemoryManager {
         }
     }
 
-    runPythonScript(command) {
-        return new Promise((resolve, reject) => {
-            const pyProcess = spawn('python3', [this.pythonScriptPath]);
-            let output = '';
-            let errorOutput = '';
-
-            pyProcess.stdout.on('data', (data) => {
-                output += data.toString();
-            });
-
-            pyProcess.stderr.on('data', (data) => {
-                errorOutput += data.toString();
-            });
-
-            pyProcess.on('close', (code) => {
-                if (code !== 0) {
-                    console.error(`Python script error: ${errorOutput}`);
-                    resolve(null);
-                } else {
-                    try {
-                        resolve(JSON.parse(output));
-                    } catch (e) {
-                        console.error("Error parsing Python output", output);
-                        resolve(null);
-                    }
-                }
-            });
-
-            pyProcess.stdin.write(JSON.stringify(command));
-            pyProcess.stdin.end();
-        });
-    }
-
     async addLongTermMemory(id, content, timestamp) {
         // Save as Markdown file
         try {
@@ -90,28 +56,14 @@ class MemoryManager {
         const embedding = await this.getEmbedding(content);
         if (!embedding) return false;
 
-        const result = await this.runPythonScript({
-            action: 'add',
-            db_path: this.dbPath,
-            id,
-            content,
-            embedding,
-            timestamp
-        });
-        return result && result.status === 'success';
+        return this.memoryDB.addMemory(id, content, embedding, timestamp);
     }
 
     async queryLongTermMemory(query, top_k = 5) {
         const embedding = await this.getEmbedding(query);
         if (!embedding) return [];
 
-        const results = await this.runPythonScript({
-            action: 'query',
-            db_path: this.dbPath,
-            embedding,
-            top_k
-        });
-        return results || [];
+        return this.memoryDB.querySimilarMemories(embedding, top_k);
     }
 
     getImportantMemory() {

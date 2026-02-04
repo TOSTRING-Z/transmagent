@@ -398,8 +398,12 @@ ${!this.agent.prompt_args.subagent ? `- Current mode: The current mode (automati
 
 # Memory List:
 {memory_list}
-`
-    this.agent.env = `# Environment details
+`;
+    return prompts;
+  }
+
+  getEnvPrompts() {
+    const env = `# Environment details
 - Language: Please answer using {language}
 - Current time: {time}
 - Temporary folder: {tmpdir}
@@ -408,8 +412,8 @@ ${!this.agent.prompt_args.subagent ? `- Current mode: {mode}
 ${this.agent.prompt_args.todolist ? `
 # TodoList
 {todolist}
-` : ""}`;
-    return prompts;
+` : ""}`
+    return env;
   }
 }
 

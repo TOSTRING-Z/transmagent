@@ -182,6 +182,8 @@ class ToolCall extends ReActAgent {
     this.memory_manager = new MemoryManager(utils);
 
     this.task_prompt = () => this.prompts.getSystemPrompts();
+
+    this.env_prompt = this.prompts.getEnvPrompts();
   }
 
   init_var() {
@@ -258,7 +260,7 @@ class ToolCall extends ReActAgent {
     }
     this.environment_details.todolist = todolist.join("\n");
     this.environment_details.envs = envs.join("\n");
-    data.env_message = utils.getConfig("tool_call")?.env_message ? this.llm_service.envMessage(this.env.format(this.environment_details)) : null;
+    data.env_message = utils.getConfig("tool_call")?.env_message ? this.llm_service.envMessage(this.env_prompt.format(this.environment_details)) : null;
   }
 
   change_mode(mode = null) {
