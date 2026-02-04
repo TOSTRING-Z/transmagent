@@ -134,7 +134,7 @@ class ToolCall extends ReActAgent {
           return {
             status: "success",
             message: `${subtask_ids.length} subtasks completed`,
-            options: options || ["continue"]
+            options: options?.length != 0 ? options: ["continue"]
           };
         }
       },
