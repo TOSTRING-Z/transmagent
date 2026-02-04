@@ -333,6 +333,20 @@ class Utils {
         const history_file = path.join(history_path, 'history', `${id}.json`);
         return history_file;
     }
+
+    getImportantMemoryPath() {
+        return this.getDefault("memory.md");
+    }
+
+    getLongMemoryPath() {
+        // eslint-disable-next-line no-undef
+        const history_path = this.getConfig("history_path")?.format(process) || this.getDefault();
+        const long_memory_path = path.join(history_path, 'long_memory');
+        if (!fs.existsSync(long_memory_path)) {
+            fs.mkdirSync(long_memory_path, { recursive: true });
+        }
+        return long_memory_path;
+    }
 }
 
 module.exports = {

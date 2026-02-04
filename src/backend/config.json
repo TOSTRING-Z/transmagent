@@ -1,5 +1,11 @@
 {
   "memory_length": 10,
+  "embedding": {
+    "base_url": "...",
+    "api_key": "...",
+    "model": "text-embedding-3-small",
+    "dimension": 1536
+  },
   "retry_time": 10,
   "icon_time": 5,
   "history_path": null,
