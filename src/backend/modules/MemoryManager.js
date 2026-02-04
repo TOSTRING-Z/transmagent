@@ -12,7 +12,7 @@ class MemoryManager {
     }
 
     async initDB() {
-        return this.memoryDB.initDB();
+        return this.memoryDB.init();
     }
 
     async getEmbedding(text) {
@@ -56,14 +56,14 @@ class MemoryManager {
         const embedding = await this.getEmbedding(content);
         if (!embedding) return false;
 
-        return this.memoryDB.addMemory(id, content, embedding, timestamp);
+        return this.memoryDB.add(id, content, embedding, timestamp);
     }
 
     async queryLongTermMemory(query, top_k = 5) {
         const embedding = await this.getEmbedding(query);
         if (!embedding) return [];
 
-        return this.memoryDB.querySimilarMemories(embedding, top_k);
+        return this.memoryDB.query(embedding, top_k);
     }
 
     getImportantMemory() {

@@ -1,0 +1,7 @@
+onlyBuiltDependencies:
+  - cpu-features
+  - electron
+  - electron-winstaller
+  - puppeteer
+  - sqlite3
+  - ssh2

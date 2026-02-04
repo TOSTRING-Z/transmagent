@@ -93,6 +93,7 @@
     "node-html-parser": "^7.0.1",
     "officeparser": "^5.1.1",
     "puppeteer": "^24.23.0",
+    "sqlite3": "^5.1.7",
     "ssh2": "^1.16.0",
     "string": "^3.3.3",
     "xlsx": "^0.18.5"
