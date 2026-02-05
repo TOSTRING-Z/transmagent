@@ -384,12 +384,12 @@ Usage Example:
     // Save to long term memory
     try {
       if (user_content && final_answer) {
-        const date = new Date().toISOString().slice(0, 19).replace('T', ' ');
-        const content = `Date: ${date}\nUser: ${user_content}\nAgent: ${final_answer}`;
+        const time = new Date().toISOString().slice(0, 19).replace('T', ' ');
+        const content = `Date: ${time}\nUser: ${user_content}\nAgent: ${final_answer}`;
         await this.memory_manager.addLongTermMemory(
           this.llm_service.chat.id,
           content,
-          date
+          time
         );
       }
     } catch (e) {

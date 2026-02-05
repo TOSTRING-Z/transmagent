@@ -86,7 +86,9 @@ class DuckDuckGoSearch extends BaseSearch {
                 await this._sleep(Math.random() * 3000 + 2000);
             }
         }
-        throw new Error('Failed to get search results from DuckDuckGo after retries.');
+        return {
+            error: "All DuckDuckGo methods failed, please check whether the proxy tool is normal or whether DuckDuckGo is blocked."
+        }
     }
 
     // 修改 _callDDGS 方法，确保HTML解析方式为首选
@@ -123,12 +125,7 @@ class DuckDuckGoSearch extends BaseSearch {
 
         // 最后的备用方案：返回模拟数据确保测试能继续
         console.warn('All DuckDuckGo methods failed, returning test data');
-        return [{
-            href: `https://example.com/search?q=${encodeURIComponent(query)}`,
-            title: `Test Result for: ${query}`,
-            description: `This is a test search result for the query: ${query}`,
-            body: `Test content for search query: ${query}`
-        }];
+        return null;
     }
 
     // 方法1: 使用DuckDuckGo官方API
