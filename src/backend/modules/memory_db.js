@@ -46,12 +46,11 @@ class MemoryDB {
             // 使用 BLOB 类型存储向量以兼容 sqlite-vec
             const sql = `
                 CREATE TABLE IF NOT EXISTS memories (
-                    id TEXT PRIMARY KEY,
+                    chat_id TEXT PRIMARY KEY,
                     content TEXT NOT NULL,
                     embedding BLOB NOT NULL,
-                    timestamp INTEGER NOT NULL
+                    date TEXT NOT NULL
                 );
-                CREATE INDEX IF NOT EXISTS idx_timestamp ON memories(timestamp);
             `;
             this.db.exec(sql, (err) => {
                 if (err) reject(err);
@@ -60,7 +59,7 @@ class MemoryDB {
         });
     }
 
-    async add(id, content, embedding, timestamp) {
+    async add(id, content, embedding, date) {
         return new Promise((resolve, reject) => {
             // 将数组转换为 Float32Array 的 Buffer
             let buffer;
@@ -71,8 +70,8 @@ class MemoryDB {
                 buffer = embedding;
             }
 
-            const sql = `INSERT OR REPLACE INTO memories (id, content, embedding, timestamp) VALUES (?, ?, ?, ?)`;
-            this.db.run(sql, [id, content, buffer, timestamp], function(err) {
+            const sql = `INSERT OR REPLACE INTO memories (chat_id, content, embedding, date) VALUES (?, ?, ?, ?)`;
+            this.db.run(sql, [id, content, buffer, date], function(err) {
                 if (err) reject(err);
                 else resolve({ id: id, changes: this.changes });
             });
@@ -94,7 +93,7 @@ class MemoryDB {
             // 否则回退到手动计算 (这里简化为假设扩展已加载，因为我们硬依赖它进行优化)
             
             const sql = `
-                SELECT id, content, timestamp, vec_distance_L2(embedding, ?) AS distance
+                SELECT chat_id, content, date, vec_distance_L2(embedding, ?) AS distance
                 FROM memories
                 ORDER BY distance ASC
                 LIMIT ?
@@ -110,9 +109,9 @@ class MemoryDB {
                 }
 
                 const results = rows.map(row => ({
-                    id: row.id,
+                    chat_id: row.chat_id,
                     content: row.content,
-                    timestamp: row.timestamp,
+                    date: row.date,
                     // 将 L2 距离转换为相似度分数 (越小越好 -> 越大越好)
                     // 这里简单处理：similarity = 1 / (1 + distance)
                     similarity: 1 / (1 + row.distance)

@@ -74,7 +74,7 @@ async function infoAdd(info) {
         }
         if (info.content) {
             let info_item_content = await marked.parse(info.content);
-            let info_item = createElement(`<div info_data-id="${info.memory_id}">
+            let info_item = createElement(`<div info_data-id="${info.context_id}">
     <div class="info-item">
     </div>
   </div>`);
@@ -97,15 +97,15 @@ async function streamMessageAdd(chunk) {
     if (messageSystem) {
         const message_content = messageSystem.getElementsByClassName('message')[0];
         if (chunk.content) {
-            let memory_id = Object.prototype.hasOwnProperty.call(chunk, "memory_id") ? chunk.memory_id : chunk.id;
-            // console.log(`memory_id: ${memory_id}`)
+            let context_id = Object.prototype.hasOwnProperty.call(chunk, "context_id") ? chunk.context_id : chunk.id;
+            // console.log(`context_id: ${context_id}`)
             // console.log(`content: ${chunk.content}`)
             // console.log(`------------------------`)
 
             let chunk_content = null;
             let chunk_item_content = null;
             let chunk_item = null;
-            let chunk_item_query = message_content.querySelectorAll(`[chunk_data-id='${memory_id}']`);
+            let chunk_item_query = message_content.querySelectorAll(`[chunk_data-id='${context_id}']`);
             if (chunk_item_query.length > 0) {
                 chunk_content = chunk_item_query[0].dataset.content + chunk.content;
                 chunk_item_content = await marked.parse(chunk_content);
@@ -113,7 +113,7 @@ async function streamMessageAdd(chunk) {
                 chunk_item.dataset.content = chunk_content;
                 chunk_item.getElementsByClassName('chunk-content')[0].innerHTML = chunk_item_content;
             } else {
-                chunk_item = createElement(`<div chunk_data-id="${memory_id}">
+                chunk_item = createElement(`<div chunk_data-id="${context_id}">
           <div class="chunk">
             <div class="chunk-content"></div>
           </div>

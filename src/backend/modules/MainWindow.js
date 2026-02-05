@@ -362,10 +362,18 @@ class MainWindow extends Window {
             else if (this.funcItems.react.statu) {
                 // ReAct
                 await this.tool_call.callReAct(data)
+                this.tool_call.save_long_term_memory(
+                    data.query,
+                    data.output_formats.find(_ => _.includes("final_answer"))
+                );
             }
             else {
                 // Chain call
                 await this.chain_call.callChain(data);
+                this.tool_call.save_long_term_memory(
+                    data.query,
+                    data.output_formats[0]
+                );
             }
         })
 
@@ -401,10 +409,10 @@ class MainWindow extends Window {
             }
         })
 
-        ipcMain.handle("toggle-memory", async (_event, memory_id) => {
-            let memory_len = await this.llm_service.toggleMemory({ memory_id: memory_id, del_mode: !!this.funcItems.del.statu });
+        ipcMain.handle("toggle-memory", async (_event, context_id) => {
+            let memory_len = await this.llm_service.toggleMemory({ context_id: context_id, del_mode: !!this.funcItems.del.statu });
             this.tool_call.setHistory();
-            console.log(`delete memory_id: ${memory_id}, length: ${memory_len}`)
+            console.log(`delete context_id: ${context_id}, length: ${memory_len}`)
             return { del_mode: !!this.funcItems.del.statu };
         })
 

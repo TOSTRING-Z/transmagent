@@ -17,8 +17,8 @@ class MemoryManager {
 
     async getEmbedding(text) {
         const config = this.utils.getConfig('embedding');
-        if (!config || !config.base_url || !config.api_key) {
-            console.error("Embedding config missing");
+        if (!config || !config.base_url || !config.api_key || !config.enabled) {
+            console.log("Embedding config missing or disabled");
             return null;
         }
 
@@ -38,25 +38,28 @@ class MemoryManager {
             );
             return response.data.data[0].embedding;
         } catch (error) {
-            console.error("Error fetching embedding:", error.message);
+            console.log("Error fetching embedding:", error.message);
             return null;
         }
     }
 
-    async addLongTermMemory(id, content, timestamp) {
+    async addLongTermMemory(chat_id, content, timestamp) {
         // Save as Markdown file
         try {
-            const filename = `${id}-${timestamp}.md`;
+            // 提取年月日作为文件名部分
+            const date = new Date(timestamp);
+            const filename = `${chat_id}-${date.getFullYear()}-${date.getMonth() + 1}-${date.getDate()}.md`;
             const filePath = path.join(this.utils.getLongMemoryPath(), filename);
-            fs.writeFileSync(filePath, content, 'utf8');
+            // 相同文件追加内容
+            fs.appendFileSync(filePath, content + '\n');
         } catch (e) {
-            console.error("Failed to save memory file:", e);
+            console.log("Failed to save memory file:", e);
         }
 
         const embedding = await this.getEmbedding(content);
         if (!embedding) return false;
 
-        return this.memoryDB.add(id, content, embedding, timestamp);
+        return this.memoryDB.add(chat_id, content, embedding, timestamp);
     }
 
     async queryLongTermMemory(query, top_k = 5) {

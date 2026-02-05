@@ -36,18 +36,18 @@ class LLMService {
         return this.messages.filter(message => !message?.del);
     }
 
-    pushMessage(role, content, id, memory_id, show = true, react = true) {
-        let message = { role: role, content: content, id: id, memory_id: memory_id, show: show, react: react };
+    pushMessage(role, content, id, context_id, show = true, react = true) {
+        let message = { role: role, content: content, id: id, context_id: context_id, show: show, react: react };
         this.messages.push(message);
     }
 
-    popMessage(id, memory_id) {
+    popMessage(id, context_id) {
         if (this.messages.length > 0) {
-            if (!id && !memory_id)
+            if (!id && !context_id)
                 return this.messages.pop();
             else {
                 this.messages = this.messages.filter(message => {
-                    if (message.id === id || message.memory_id === memory_id)
+                    if (message.id === id || message.context_id === context_id)
                         return false;
                     return true;
                 })
@@ -95,8 +95,8 @@ class LLMService {
 
             const data = {
                 messages: this.messages.map(message => {
-                    if (!message?.memory_id && message.role == "assistant") {
-                        message.memory_id = message.id;
+                    if (!message?.context_id && message.role == "assistant") {
+                        message.context_id = message.id;
                     }
                     return message;
                 }),
@@ -182,14 +182,14 @@ class LLMService {
         }
     }
 
-    toggleMemory({ memory_id, del_mode }) {
+    toggleMemory({ context_id, del_mode }) {
         try {
             if (del_mode) {
-                this.messages = this.messages.filter(message => message.memory_id != memory_id);
+                this.messages = this.messages.filter(message => message.context_id != context_id);
             }
             else {
                 this.messages = this.messages.map(message => {
-                    if (message.memory_id == memory_id) {
+                    if (message.context_id == context_id) {
                         message.del = Object.prototype.hasOwnProperty.call(message, "del") ? !message.del : true;
                     }
                     return message;
@@ -237,7 +237,7 @@ class LLMService {
                 message_copy = this.delMessage(message_copy);
             }
             delete message_copy.id;
-            delete message_copy.memory_id;
+            delete message_copy.context_id;
             delete message_copy.show;
             delete message_copy.react;
             delete message_copy.del;
@@ -356,17 +356,17 @@ class LLMService {
             let messages_list = null;
             let message_input = null;
             if (data.system_prompt) {
-                messages_list = [{ role: "system", content: data.system_prompt, id: data.id, memory_id: null, show: true, react: false }]
+                messages_list = [{ role: "system", content: data.system_prompt, id: data.id, context_id: null, show: true, react: false }]
                 messages_list = messages_list.concat(this.getMemory(data))
             }
             else {
                 messages_list = this.getMemory(data)
             }
             if (data?.push_message) {
-                message_input = { role: "user", content: content, id: data.id, memory_id: null, show: true, react: false };
+                message_input = { role: "user", content: content, id: data.id, context_id: null, show: true, react: false };
                 messages_list.push(message_input)
             }
-            let message_output = { role: 'assistant', content: '', id: data.id, memory_id: null, show: true, react: false }
+            let message_output = { role: 'assistant', content: '', id: data.id, context_id: null, show: true, react: false }
 
             let body = {
                 model: data.version,

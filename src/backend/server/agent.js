@@ -175,7 +175,7 @@ class ReActAgent {
             return this.llm_service.chatBase(data);
         }
 
-        data.output = await this.retry(func, data);
+        await this.retry(func, data);
         if (!data.output) {
             return null;
         }
@@ -228,7 +228,7 @@ class ReActAgent {
     async contextAutoOpt(data) {
         const auto_optimization = this.plugins.getTool(utils.getConfig('default')['auto_optimization'])?.func;
         const messages = this.llm_service.getMessages(true);
-        let ids = { 'ids': [], 'memory_ids': [] };
+        let ids = { 'ids': [], 'context_ids': [] };
         for (const key in messages) {
             if (this.llm_service.stop) {
                 this.window?.webContents.send('stream-data', { id: data.id, content: "The user interrupted the task.", end: true });
@@ -245,7 +245,7 @@ class ReActAgent {
                 }
                 else if (content && Object.hasOwnProperty.call(content, 'thinking')) {
                     history = content['thinking'];
-                    name = 'memory_ids'
+                    name = 'context_ids'
                 }
                 if (history) {
                     const pred = await auto_optimization({ query: data.query, history });
@@ -254,17 +254,17 @@ class ReActAgent {
                         break;
                     }
                     if (pred === 0) {
-                        const messages_by_id = messages.filter(msg => msg.id === message.id && msg.memory_id === message.memory_id);
+                        const messages_by_id = messages.filter(msg => msg.id === message.id && msg.context_id === message.context_id);
                         messages_by_id.forEach(msg => {
                             msg.del = true;
                         });
                         if (name === 'ids') {
                             ids[name].push(message.id);
                         } else {
-                            ids[name].push(message.memory_id);
+                            ids[name].push(message.context_id);
                         }
                     } else {
-                        const messages_by_id = messages.filter(msg => msg.id === message.id && msg.memory_id === message.memory_id);
+                        const messages_by_id = messages.filter(msg => msg.id === message.id && msg.context_id === message.context_id);
                         messages_by_id.forEach(msg => {
                             if (msg?.del)
                                 delete msg.del;
@@ -274,7 +274,7 @@ class ReActAgent {
             }
         }
         ids['ids'] = [...new Set(ids['ids'])];
-        ids['memory_ids'] = [...new Set(ids['memory_ids'])];
+        ids['context_ids'] = [...new Set(ids['context_ids'])];
         this.window?.webContents.send('delete-memory', ids);
     }
 
@@ -307,7 +307,7 @@ class ReActAgent {
                         content: result,
                         role: "assistant",
                         react: false,
-                        memory_id: preservedUser?.memory_id ?? firstMsg.memory_id
+                        context_id: preservedUser?.context_id ?? firstMsg.context_id
                     };
 
                     // 从全量消息中移除所有相同 id 的消息，但保留第一条 user 消息（如果存在），并在其后插入压缩记录
@@ -414,16 +414,16 @@ class ReActAgent {
                 const react = messages.find(message => message.react);
                 if (react) {
                     const maxMemoryId = messages.reduce((max, current) => {
-                        return parseInt(current.memory_id) > parseInt(max.memory_id) ? current : max;
+                        return parseInt(current.context_id) > parseInt(max.context_id) ? current : max;
                     }, messages[0]);
-                    this.memory_id = maxMemoryId.memory_id;
+                    this.context_id = maxMemoryId.context_id;
                 }
                 for (let i in messages) {
                     i = parseInt(i);
                     if (Object.hasOwnProperty.call(messages, i)) {
-                        let { role, content, id, memory_id, react, del } = messages[i];
-                        // if (memory_id === 188) {
-                        //   console.log(`Memory ID: ${memory_id}, Content: ${content}`);
+                        let { role, content, id, context_id, react, del } = messages[i];
+                        // if (context_id === 188) {
+                        //   console.log(`Memory ID: ${context_id}, Content: ${content}`);
                         // }
                         if (role == "user") {
                             if (react) {
@@ -433,29 +433,29 @@ class ReActAgent {
                                     const observation = tool_info?.observation;
                                     switch (tool) {
                                         case "display_file":
-                                            this.window.webContents.send('stream-data', { id: id, memory_id: memory_id, content: `${observation}\n\n`, end: true, del: del });
+                                            this.window.webContents.send('stream-data', { id: id, context_id: context_id, content: `${observation}\n\n`, end: true, del: del });
                                             break;
                                         case "add_subtasks":
-                                            this.window.webContents.send('stream-data', { id: id, memory_id: memory_id, content: `\`\`\`json\n${JSON.stringify(observation, null, 2)}\n\`\`\`\n\n`, end: true, del: del });
+                                            this.window.webContents.send('stream-data', { id: id, context_id: context_id, content: `\`\`\`json\n${JSON.stringify(observation, null, 2)}\n\`\`\`\n\n`, end: true, del: del });
                                             break;
                                         case "complete_subtasks":
-                                            this.window.webContents.send('stream-data', { id: id, memory_id: memory_id, content: `\`\`\`json\n${JSON.stringify(observation, null, 2)}\n\`\`\`\n\n`, end: true, del: del });
+                                            this.window.webContents.send('stream-data', { id: id, context_id: context_id, content: `\`\`\`json\n${JSON.stringify(observation, null, 2)}\n\`\`\`\n\n`, end: true, del: del });
                                             break;
                                         default:
                                             break;
                                     }
                                     if (["workflow_planner", "tool_manager", "web_searcher", "chart_plotter", "task_executor", "tool_documentation_collector", "url_summarizer"].includes(tool)) {
-                                        this.window.webContents.send('stream-data', { id: id, memory_id: memory_id, content: `${observation}\n\n`, end: true, del: del });
+                                        this.window.webContents.send('stream-data', { id: id, context_id: context_id, content: `${observation}\n\n`, end: true, del: del });
                                     }
                                     if (["ask_followup_question", "waiting_feedback", "plan_mode_response"].includes(tool)) {
-                                        this.window.webContents.send('stream-data', { id: id, memory_id: memory_id, content: `${observation.question}\n\n`, end: true, del: del });
+                                        this.window.webContents.send('stream-data', { id: id, context_id: context_id, content: `${observation.question}\n\n`, end: true, del: del });
                                     }
                                 }
                                 let content_format = content.replaceAll("\\`", "'").replaceAll("`", "'");
-                                this.window.webContents.send('info-data', { id: id, memory_id: memory_id, content: `Step ${i}, id: ${id}, memory_id: ${memory_id}, Output:\n\n\`\`\`json\n${content_format}\n\`\`\`\n\n`, del: del });
+                                this.window.webContents.send('info-data', { id: id, context_id: context_id, content: `Step ${i}, id: ${id}, context_id: ${context_id}, Output:\n\n\`\`\`json\n${content_format}\n\`\`\`\n\n`, del: del });
                             }
                             else {
-                                this.window.webContents.send('user-data', { id: id, memory_id: memory_id, content: content, del: del });
+                                this.window.webContents.send('user-data', { id: id, context_id: context_id, content: content, del: del });
                             }
                         } else {
                             if (react) {
@@ -464,16 +464,16 @@ class ReActAgent {
                                     if (tool_info) {
                                         const thinking = `${tool_info?.thinking || `Tool call: ${tool_info.tool}`}\n\n---\n\n`
                                         let content_format = content.replaceAll("\\`", "'").replaceAll("`", "'");
-                                        this.window.webContents.send('info-data', { id: id, memory_id: memory_id, content: `Step ${i}, id: ${id}, memory_id: ${memory_id}, Output:\n\n\`\`\`json\n${content_format}\n\`\`\`\n\n`, del: del });
-                                        this.window.webContents.send('stream-data', { id: id, memory_id: memory_id, content: thinking, end: true, del: del });
+                                        this.window.webContents.send('info-data', { id: id, context_id: context_id, content: `Step ${i}, id: ${id}, context_id: ${context_id}, Output:\n\n\`\`\`json\n${content_format}\n\`\`\`\n\n`, del: del });
+                                        this.window.webContents.send('stream-data', { id: id, context_id: context_id, content: thinking, end: true, del: del });
                                         if (tool_info.tool == "enter_idle_state") {
-                                            this.window.webContents.send('stream-data', { id: id, memory_id: memory_id, content: tool_info.params.final_answer, end: true, del: del });
+                                            this.window.webContents.send('stream-data', { id: id, context_id: context_id, content: tool_info.params.final_answer, end: true, del: del });
                                         }
                                     } else {
-                                        this.window.webContents.send('stream-data', { id: id, memory_id: memory_id, content: content, end: true, del: del });
+                                        this.window.webContents.send('stream-data', { id: id, context_id: context_id, content: content, end: true, del: del });
                                     }
                                 } catch {
-                                    this.window.webContents.send('stream-data', { id: id, memory_id: memory_id, content: "", end: true, del: del });
+                                    this.window.webContents.send('stream-data', { id: id, context_id: context_id, content: "", end: true, del: del });
                                     continue;
                                 }
                             } else {

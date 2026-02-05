@@ -4,7 +4,8 @@
     "base_url": "...",
     "api_key": "...",
     "model": "text-embedding-3-small",
-    "dimension": 1536
+    "dimension": 1536,
+    "enabled": true
   },
   "retry_time": 10,
   "icon_time": 5,
@@ -14,7 +15,7 @@
   },
   "short_cut": "CommandOrControl+Shift+Space",
   "backend_url": "http://www.licpathway.net/transmagent_web",
-  "info_template": "Step: {step}, id: {id}, memory_id: {memory_id}, Call: {model}, Version: {version}, Output:\n\n```json\n{output_format}\n```\n\n",
+  "info_template": "Step: {step}, id: {id}, context_id: {context_id}, Call: {model}, Version: {version}, Output:\n\n```json\n{output_format}\n```\n\n",
   "llm_params": {
     "stream": true
   },

@@ -21,7 +21,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
   toggleMessage: (data) => ipcRenderer.invoke('toggle-message', data),
   compressionMessage: (data) => ipcRenderer.invoke('compression-message', data),
   thumbMessage: (data) => ipcRenderer.invoke('thumb-message', data),
-  toggleMemory: (memory_id) => ipcRenderer.invoke('toggle-memory', memory_id),
+  toggleMemory: (context_id) => ipcRenderer.invoke('toggle-memory', context_id),
   handleDeleteMemory: (callback) => ipcRenderer.on('delete-memory', (_event, data) => callback(data)),
   toggleAutoOpt: () => ipcRenderer.send('toggle-auto-opt'),
   streamMessageStop: () => ipcRenderer.send('stream-message-stop'),

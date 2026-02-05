@@ -71,7 +71,7 @@ class SubAgentWindow extends Window {
                 window.show();
                 window.focus();
                 window.webContents.send('window-info', { id: window.id, name: agentToolName });
-                window.webContents.send('user-data', { id: 0, memory_id: 0, content: query });
+                window.webContents.send('user-data', { id: 0, context_id: 0, content: query });
                 agentTool.tool_call.changeWindow(window);
                 if (utils.getConfig("tool_call")?.subagent_llm_init || this.window.length > 1) {
                     agentTool.tool_call.llm_service.init();

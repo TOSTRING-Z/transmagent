@@ -64,10 +64,10 @@ window.electronAPI.handleLog((log) => {
   showLog(log);
 })
 
-window.electronAPI.handleDeleteMemory(({ memory_ids, ids }) => {
+window.electronAPI.handleDeleteMemory(({ context_ids, ids }) => {
   let elements = document.querySelectorAll(`[info_data-id]`);
   elements.forEach(function (element) {
-    if (memory_ids.includes(parseInt(element.getAttribute('info_data-id')))) {
+    if (context_ids.includes(parseInt(element.getAttribute('info_data-id')))) {
       if (!element.classList.contains('del')) {
         element.classList.add('del');
       }
@@ -77,7 +77,7 @@ window.electronAPI.handleDeleteMemory(({ memory_ids, ids }) => {
   });
   elements = document.querySelectorAll(`[chunk_data-id]`);
   elements.forEach(function (element) {
-    if (memory_ids.includes(parseInt(element.getAttribute('chunk_data-id')))) {
+    if (context_ids.includes(parseInt(element.getAttribute('chunk_data-id')))) {
       if (!element.classList.contains('del')) {
         element.classList.add('del');
       }
@@ -480,7 +480,7 @@ async function infoAdd(info) {
         tokens.innerText = global.chat.tokens;
       }
       let info_item_content = await marked.parse(info.content);
-      let info_item = createElement(`<div info_data-id="${info.memory_id}">
+      let info_item = createElement(`<div info_data-id="${info.context_id}">
     <div class="info-item">
     </div>
   </div>`);
@@ -508,15 +508,15 @@ async function streamMessageAdd(chunk) {
         tokens.innerText = global.chat.tokens;
       }
       optionDom?.remove();
-      let memory_id = Object.prototype.hasOwnProperty.call(chunk, "memory_id") ? chunk.memory_id : chunk.id;
-      // console.log(`memory_id: ${memory_id}`)
+      let context_id = Object.prototype.hasOwnProperty.call(chunk, "context_id") ? chunk.context_id : chunk.id;
+      // console.log(`context_id: ${context_id}`)
       // console.log(`content: ${chunk.content}`)
       // console.log(`------------------------`)
 
       let chunk_content = null;
       let chunk_item_content = null;
       let chunk_item = null;
-      let chunk_item_query = message_content.querySelectorAll(`[chunk_data-id='${memory_id}']`);
+      let chunk_item_query = message_content.querySelectorAll(`[chunk_data-id='${context_id}']`);
       if (chunk_item_query.length > 0) {
         chunk_content = chunk_item_query[0].dataset.content + chunk.content;
         chunk_item_content = await marked.parse(chunk_content);
@@ -524,7 +524,7 @@ async function streamMessageAdd(chunk) {
         chunk_item.dataset.content = chunk_content;
         chunk_item.getElementsByClassName('chunk-content')[0].innerHTML = chunk_item_content;
       } else {
-        chunk_item = createElement(`<div chunk_data-id="${memory_id}">
+        chunk_item = createElement(`<div chunk_data-id="${context_id}">
           <div class="chunk">
             <div class="chunk-content"></div>
             <div class="chunk-actions">
@@ -544,13 +544,13 @@ async function streamMessageAdd(chunk) {
           chunk_item.getElementsByClassName('chunk-actions')[0].style.display = "none";
         }
         chunk_item.getElementsByClassName('chunk-delete')[0].addEventListener("click", () => {
-          delete_memory(memory_id);
+          delete_memory(context_id);
         })
         chunk_item.getElementsByClassName('chunk-location')[0].addEventListener("click", () => {
-          locate_memory(memory_id);
+          locate_memory(context_id);
         })
         chunk_item.getElementsByClassName('chunk-quote')[0].addEventListener("click", () => {
-          quote_memory(memory_id);
+          quote_memory(context_id);
         })
         message_content.appendChild(chunk_item);
       }
@@ -676,29 +676,29 @@ async function thumbMessage(up, down, data) {
   }
 }
 
-function locate_memory(memory_id) {
-  // 滚动到 info_data-id="memory_id"
-  let elements = document.querySelectorAll(`[info_data-id="${memory_id}"]`);
+function locate_memory(context_id) {
+  // 滚动到 info_data-id="context_id"
+  let elements = document.querySelectorAll(`[info_data-id="${context_id}"]`);
   if (elements)
     elements[0].scrollIntoView({ behavior: 'smooth', block: 'center' });
 }
 
-function quote_memory(memory_id) {
-  const quotedContent = `Please invoke the memory_retrieval tool using memory_id: ${memory_id}`
+function quote_memory(context_id) {
+  const quotedContent = `Please invoke the memory_retrieval tool using context_id: ${context_id}`
   // Add quote to input with newlines before/after
   input.value = quotedContent + '\n' + input.value;
 }
 
-async function delete_memory(memory_id) {
-  let { del_mode } = await window.electronAPI.toggleMemory(memory_id);
-  let elements = document.querySelectorAll(`[info_data-id="${memory_id}"]`);
+async function delete_memory(context_id) {
+  let { del_mode } = await window.electronAPI.toggleMemory(context_id);
+  let elements = document.querySelectorAll(`[info_data-id="${context_id}"]`);
   elements.forEach(function (element) {
     if (del_mode)
       element.remove();
     else
       element.classList.toggle('del');
   });
-  elements = document.querySelectorAll(`[chunk_data-id="${memory_id}"]`);
+  elements = document.querySelectorAll(`[chunk_data-id="${context_id}"]`);
   elements.forEach(function (element) {
     if (del_mode)
       element.remove();

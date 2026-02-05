@@ -20,7 +20,18 @@ class ToolCall extends ReActAgent {
 
     this.prompt_args = prompt_args;
 
-    const base_tools = {
+    this.modes = {
+      AUTO: 'Automatic mode',
+      ACT: 'Execution mode',
+      PLAN: 'Planning mode',
+      FLASH: 'Flash mode',
+    }
+
+    this.system_prompt;
+    this.mcp_prompt;
+    this.init_var();
+
+    this.base_tools = {
       "mcp_server": {
         func: async ({ name, args }) => {
           const result = await this.mcp_client.callTool({
@@ -28,61 +39,149 @@ class ToolCall extends ReActAgent {
             arguments: args
           });
           return result;
-        }
+        },
+        description: `## mcp_server
+Description: Request MCP (Model Context Protocol) service.
+
+Parameters:
+- name: (Required) The name of the MCP service to request.
+- args: (Required) The parameters of the MCP service request.
+
+Usage:
+{{
+  "thinking": "[Thinking process]",
+  "tool": "mcp_server",
+  "params": {{
+    "name": "[value]",
+    "args": {{
+      "[parameter1_name]": [value1],
+      "[parameter2_name]": [value2],
+      ...
+    }}
+  }}
+}}
+`
       },
       "ask_followup_question": {
         func: async ({ question, options }) => {
           this.state = State.PAUSE;
           return { question, options }
-        }
+        },
+        description: `## ask_followup_question
+Description: Ask the user questions to collect additional information needed to complete the task. It should be used when encountering ambiguity, needing clarification, or requiring more details to proceed effectively. It achieves interactive problem-solving by allowing direct communication with the user. Use this.agent tool wisely to balance between collecting necessary information and avoiding excessive back-and-forth communication.
+
+Parameters:
+- question: (Required) The question to ask the user. this.agent should be a clear and specific question targeting the information you need.
+- options: (Optional) Provide the user with 2-5 options to choose from. Each option should be a string describing a possible answer. You do not always need to provide options, but in many cases, this.agent can help the user avoid manually entering a response.
+
+Usage:
+{{
+  "thinking": "[Thinking process]",
+  "tool": "ask_followup_question",
+  "params": {{
+    "question": "[value]",
+    "options": [
+      "Option 1",
+      "Option 2",
+      ...
+    ]
+  }}
+}}`
       },
       "waiting_feedback": {
         func: ({ options = ["Allow", "Deny"] }) => {
           this.state = State.PAUSE;
           return { question: "Task paused, waiting for user feedback...", options: options }
-        }
+        },
+        description: `## waiting_feedback
+Description: Suspends task execution to await explicit user approval/rejection before performing system-altering operations (file modifications, config changes, etc.). Designed for high-risk actions requiring human validation.
+
+Parameters:
+options: (Optional) An array containing 2-4 options for the user to choose from.
+
+
+Usage example:
+{{
+  "thinking": "[Explain why confirmation is needed and impact analysis]",
+  "tool": "waiting_feedback",
+  "params": {{
+    "options": ["Allow", "Deny"]
+  }}
+}}`
       },
       "plan_mode_response": {
         func: async ({ response, options }) => {
           this.state = State.PAUSE;
           return { question: response, options }
-        }
+        },
+        description: `## plan_mode_response
+Description: Respond to user inquiries to plan solutions for user tasks. this.agent tool should be used when you need to respond to user questions or statements about how to complete a task. this.agent tool is only available in "planning mode". The environment details will specify the current mode; if it is not "planning mode", this.agent tool should not be used. Depending on the user's message, you may ask questions to clarify the user's request, design a solution for the task, and brainstorm with the user. For example, if the user's task is to create a website, you can start by asking some clarifying questions, then propose a detailed plan based on the context, explain how you will complete the task, and possibly engage in back-and-forth discussions until the user switches you to another mode to implement the solution before finalizing the details.
+
+Parameters:
+response: (Required) The response provided to the user after the thinking process.
+options: (Optional) An array containing 2-5 options for the user to choose from. Each option should describe a possible choice or a forward path in the planning process. this.agent can help guide the discussion and make it easier for the user to provide input on key decisions. You may not always need to provide options, but in many cases, this.agent can save the user time from manually entering a response. Do not provide options to switch modes, as there is no need for you to guide the user's operations.
+
+Usage:
+{{
+  "thinking": "[Thinking process]",
+  "tool": "plan_mode_response",
+  "params": {{
+    "response": "[value]",
+    "options": [
+      "Option 1",
+      "Option 2",
+      ...
+    ]
+  }}
+}}`
       },
       "enter_idle_state": {
         func: async ({ final_answer }) => {
           this.state = State.FINAL;
-          // Save to long term memory
-          try {
-             const messages = this.llm_service.getMessages(false);
-             const last_user_msg = messages.filter(m => m.role === 'user').pop();
-             if (last_user_msg) {
-                 const content = `User: ${last_user_msg.content}\nAgent: ${final_answer}`;
-                 await this.memory_manager.addLongTermMemory(
-                    Date.now().toString(),
-                    content,
-                    Date.now()
-                 );
-             }
-          } catch (e) {
-             console.error("Error saving memory", e);
-          }
           return final_answer;
-        }
+        },
+        description: `## enter_idle_state  
+Description: Stop current task and enter idle state, waiting for further instructions (called when task is completed).
+
+Parameters:
+- final_answer: (Required, Markdown format)
+
+Usage:
+{{
+  "thinking": "Task analysis completed. Key steps:\n1. Executed 3 code analyses\n2. Performed 2 file searches\n3. Validated architecture patterns",
+  "tool": "enter_idle_state",
+  "params": {{
+    "final_answer": "[final_answer]"
+  }}
+}}`
       },
-      "memory_retrieval": {
-        func: async ({ query }) => {
-          if (!query) return "Please provide a query.";
-          const results = await this.memory_manager.queryLongTermMemory(query);
-          if (!results || results.length === 0) return "No relevant memories found.";
-          return results.map(r => `[${new Date(r.timestamp).toISOString()}] ${r.content}`).join("\n\n");
-        }
-      },
-      "memory_writing": {
-        func: ({ content }) => {
-            if (!content) return "Content is empty.";
-            this.memory_manager.appendImportantMemory(content);
-            return "Important information saved to memory.";
-        }
+      "context_retrieval": {
+        func: ({ context_id }) => {
+          const memory = this.llm_service.getMessages(true).filter(m => m.context_id === context_id).map(m => { return { role: m.role, content: m.content } });
+          return memory || "No memory ID found";
+        },
+        description: `## context_retrieval
+Core Function: Query historical interactions by context_id
+
+Typical Scenarios:
+1. Review analysis steps
+2. Verify historical discussions
+3. Resume previous work
+
+Parameters:
+- context_id: (Required)
+  - Type: Integer
+  - Values: Numeric IDs from Context List
+  - Example: 42
+
+Usage Example:
+{{
+  "thinking": "Need to confirm previous discussion about X",
+  "tool": "context_retrieval",
+  "params": {{
+    "context_id": 24
+  }}
+}}`
       },
       "add_subtasks": {
         func: ({ task, subtasks }) => {
@@ -118,7 +217,28 @@ class ToolCall extends ReActAgent {
             status: "success",
             message: `${subtasks.length} subtasks added`
           };
-        }
+        },
+        description: `## add_subtasks
+Description: Add a new subtask to the current task. this.agent tool is used to break down complex tasks into manageable subtasks, allowing for better organization and tracking of progress. It is essential for maintaining clarity and focus on the main task by defining specific actions that need to be completed.
+
+Parameters:
+- task: (Required) Description of the main task
+- subtasks: (Required) Discription of the subtask
+
+Usage Example:
+{{
+  "thinking": "User requested to create a new project, need to break down into subtasks",
+  "tool": "add_subtasks",
+  "params": {{
+    "task": "Create a new project",
+    "subtasks": [
+      "Design project architecture", 
+      "Create database schema", 
+      "Implement API endpoints",
+      ...
+    ]
+  }}
+}}`
       },
       "record_subtasks": {
         func: ({ subtask_ids, status, reflection, options }) => {
@@ -149,34 +269,81 @@ class ToolCall extends ReActAgent {
           return {
             status: "success",
             message: `${subtask_ids.length} subtasks completed`,
-            options: options?.length != 0 ? options: ["continue"]
+            options: options?.length && options?.length > 0 ? options : ["continue"]
           };
-        }
+        },
+        description: `## record_subtasks
+Description: Record the completion status and reflection content of subtasks.
+
+Parameters:
+- subtask_ids: (Required) A single task ID or an array of subtask IDs to be marked as completed
+- reflection: (Required) Reflect on whether the current task was fully completed, whether the tool usage was optimal, and how to improve (within 100 characters)
+- status: (Optional, true/false, bool, defaults to true) Completion status
+- options: (Optional, ACT mode is Required) Provide the user with 2-5 options to choose from. Each option should be a string describing a possible answer. You do not always need to provide options, but in many cases, this.agent can help the user avoid manually entering a response.
+
+Usage Example:
+{{
+  "thinking": "[Thinking process]",
+  "tool": "record_subtasks",
+  "params": {{
+    "subtask_ids": [
+      0, 
+      1,
+      ...
+    ],
+    "reflection": "Reflection content",
+    "status": [boolean or string],
+    "options": [
+      "Option 1",
+      "Option 2",
+      ...
+    ]
+  }}
+}}`
       },
       "search_long_term_memory": {
         func: async ({ query, top_k }) => {
           return await this.memory_manager.queryLongTermMemory(query, top_k);
-        }
+        },
+        description: `## search_long_term_memory
+Description: Search long-term memory for relevant information based on a query.
+
+Parameters:
+- query: (Required) The search query string/time.
+- top_k: (Optional, default 5) The number of top relevant results to return.
+
+Usage Example:
+{{
+  "thinking": "Searching long-term memory for relevant information",
+  "tool": "search_long_term_memory",
+  "params": {{
+    "query": "[2025-2-5 18:xx:xx] What did the dialogue say?",
+    "top_k": 5
+  }}
+}}`
       },
       "write_important_memory": {
         func: ({ content }) => {
-            return this.memory_manager.appendImportantMemory(content) ? "Memory saved" : "Failed to save memory";
-        }
+          return this.memory_manager.appendImportantMemory(content) ? "Memory saved" : "Failed to save memory";
+        },
+        description: `## write_important_memory
+Description: Write important information to long-term memory.
+
+Parameters:
+- content: (Required) The content to be written to long-term memory.
+
+Usage Example:
+{{
+  "thinking": "Writing important user preferences to long-term memory",
+  "tool": "write_important_memory",
+  "params": {{
+    "content": "User prefers a clean and minimalistic UI design."
+  }}
+}}`
       },
     }
 
-    this.tools = { ...tools, ...base_tools }
-
-    this.modes = {
-      AUTO: 'Automatic mode',
-      ACT: 'Execution mode',
-      PLAN: 'Planning mode',
-      FLASH: 'Flash mode',
-    }
-
-    this.system_prompt;
-    this.mcp_prompt;
-    this.init_var();
+    this.tools = { ...tools, ...this.base_tools };
 
     this.prompts = new Prompts(this);
     this.memory_manager = new MemoryManager(utils);
@@ -187,7 +354,7 @@ class ToolCall extends ReActAgent {
   }
 
   init_var() {
-    this.memory_id = 0;
+    this.context_id = 0;
     this.memory_list = [];
     this.thinking_repetitions = [];
     this.repetitions_delay_empty = 0
@@ -213,6 +380,23 @@ class ToolCall extends ReActAgent {
     return tool_prompt;
   }
 
+  async save_long_term_memory(user_content, final_answer) {
+    // Save to long term memory
+    try {
+      if (user_content && final_answer) {
+        const date = new Date().toISOString().slice(0, 19).replace('T', ' ');
+        const content = `Date: ${date}\nUser: ${user_content}\nAgent: ${final_answer}`;
+        await this.memory_manager.addLongTermMemory(
+          this.llm_service.chat.id,
+          content,
+          date
+        );
+      }
+    } catch (e) {
+      console.error("Error saving memory", e);
+    }
+  }
+
   memory_update(data) {
     let messages = this.llm_service.getMessages(false);
     let messages_list = [];
@@ -233,7 +417,8 @@ class ToolCall extends ReActAgent {
       tool_prompt: this.get_tools_prompt().join("\n\n"),
       mcp_prompt: this.mcp_prompt,
       cli_prompt: this.prompts.getCliPrompt(),
-      extra_prompt: this.prompts.getExtraPrompt(data.extra_prompt) + "\n\nImportant Memory (User Preferences/Events):\n" + this.memory_manager.getImportantMemory(),
+      extra_prompt: this.prompts.getExtraPrompt(data.extra_prompt),
+      important_memory: this.memory_manager.getImportantMemory(),
       memory_list: JSON.stringify(this.memory_list, null, 2)
     })
   }
@@ -288,7 +473,7 @@ class ToolCall extends ReActAgent {
     }
     data.push_message = false
     if (this.state == State.IDLE) {
-      this.llm_service.pushMessage("user", data.query, data.id, this.memory_id++, true, false);
+      this.llm_service.pushMessage("user", data.query, data.id, this.context_id++, true, false);
       this.state = State.RUNNING;
     }
     this.environment_update(data);
@@ -305,37 +490,37 @@ class ToolCall extends ReActAgent {
         this.thinking_repetitions.length = 0;
       }
       data.output_format = JSON.stringify(observation, null, 2);
-      this.llm_service.pushMessage("user", data.output_format, data.id, this.memory_id);
+      this.llm_service.pushMessage("user", data.output_format, data.id, this.context_id);
       if (observation?.warning) {
         this.state = State.PAUSE;
-        this.window.webContents.send('stream-data', { id: data.id, memory_id: this.memory_id, content: `${observation.warning}\n\n`, end: true });
+        this.window.webContents.send('stream-data', { id: data.id, context_id: this.context_id, content: `${observation.warning}\n\n`, end: true });
         return observation.options;
       }
       switch (tool_info.tool) {
         case "display_file":
-          this.window.webContents.send('stream-data', { id: data.id, memory_id: this.memory_id, content: `${output}\n\n` });
+          this.window.webContents.send('stream-data', { id: data.id, context_id: this.context_id, content: `${output}\n\n` });
           break;
         case "add_subtasks":
-          this.window.webContents.send('stream-data', { id: data.id, memory_id: this.memory_id, content: `\`\`\`json\n${JSON.stringify(output, null, 2)}\n\`\`\`\n\n` });
+          this.window.webContents.send('stream-data', { id: data.id, context_id: this.context_id, content: `\`\`\`json\n${JSON.stringify(output, null, 2)}\n\`\`\`\n\n` });
           break;
         case "record_subtasks":
-          this.window.webContents.send('stream-data', { id: data.id, memory_id: this.memory_id, content: `\`\`\`json\n${JSON.stringify(output, null, 2)}\n\`\`\`\n\n` });
+          this.window.webContents.send('stream-data', { id: data.id, context_id: this.context_id, content: `\`\`\`json\n${JSON.stringify(output, null, 2)}\n\`\`\`\n\n` });
           break;
         default:
           break;
       }
       if (["workflow_planner", "tool_manager", "web_searcher", "chart_plotter", "task_executor", "tool_documentation_collector", "url_summarizer"].includes(tool_info.tool)) {
-        this.window.webContents.send('stream-data', { id: data.id, memory_id: this.memory_id, content: output, end: false });
+        this.window.webContents.send('stream-data', { id: data.id, context_id: this.context_id, content: output, end: false });
       }
       if (this.state == State.PAUSE) {
         const { question, options } = output;
-        this.window.webContents.send('stream-data', { id: data.id, memory_id: this.memory_id, content: question || "", end: true });
+        this.window.webContents.send('stream-data', { id: data.id, context_id: this.context_id, content: question || "", end: true });
         return options;
       }
       if (this.state == State.FINAL) {
-        this.window.webContents.send('stream-data', { id: data.id, memory_id: this.memory_id, content: output, end: true });
+        this.window.webContents.send('stream-data', { id: data.id, context_id: this.context_id, content: output, end: true });
       } else {
-        this.window.webContents.send('info-data', { id: data.id, memory_id: this.memory_id, content: this.get_info(data) });
+        this.window.webContents.send('info-data', { id: data.id, context_id: this.context_id, content: this.get_info(data) });
       }
     }
   }
@@ -345,8 +530,8 @@ class ToolCall extends ReActAgent {
     const raw_json = await this.llmCall(data);
     console.log(`raw_json: ${raw_json}`);
     data.output_format = utils.extractJson(raw_json) || raw_json;
-    this.window.webContents.send('info-data', { id: data.id, memory_id: ++this.memory_id, content: this.get_info(data) });
-    this.llm_service.pushMessage("assistant", data.output_format, data.id, this.memory_id);
+    this.window.webContents.send('info-data', { id: data.id, context_id: ++this.context_id, content: this.get_info(data) });
+    this.llm_service.pushMessage("assistant", data.output_format, data.id, this.context_id);
     return this.get_tool(data.output_format, data);
   }
 
@@ -364,7 +549,7 @@ class ToolCall extends ReActAgent {
             this.repetitions_delay_empty = 0;
           }
         }
-        this.window.webContents.send('stream-data', { id: data.id, memory_id: this.memory_id, content: `${tool_info.thinking}\n\n---\n\n` });
+        this.window.webContents.send('stream-data', { id: data.id, context_id: this.context_id, content: `${tool_info.thinking}\n\n---\n\n` });
         return tool_info;
       }
     } catch (error) {
@@ -375,9 +560,9 @@ class ToolCall extends ReActAgent {
   "error": "Your response is not a pure JSON text, or there is a problem with the JSON format: ${error.message}"
 }`;
       this.llm_service.setTag(false);
-      this.llm_service.pushMessage("user", data.output_format, data.id, this.memory_id);
+      this.llm_service.pushMessage("user", data.output_format, data.id, this.context_id);
       this.environment_update(data);
-      this.window.webContents.send('info-data', { id: data.id, memory_id: this.memory_id, content: this.get_info(data) });
+      this.window.webContents.send('info-data', { id: data.id, context_id: this.context_id, content: this.get_info(data) });
     }
   }
 
@@ -458,7 +643,7 @@ class ToolCall extends ReActAgent {
       if (data?.max_step && step > data.max_step) {
         break
       }
-      data = { ...data, ...tool_call, step: ++step, memory_id: this.memory_id, react: true };
+      data = { ...data, ...tool_call, step: ++step, context_id: this.context_id, react: true };
 
       let options = await this.step(data);
       if (!this.llm_service.chat.name) {

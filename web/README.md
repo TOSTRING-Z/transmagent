@@ -28,7 +28,7 @@ python manage.py migrate
   "message_id": 456,
   "user_message": "用户消息内容",
   "agent_messages": [
-    {"memory_id": 1, "role": "user", "content": "测试内容"}
+    {"context_id": 1, "role": "user", "content": "测试内容"}
   ]
 }
 ```
@@ -116,7 +116,7 @@ python manage.py test chat
 ```bash
 curl -X POST http://www.licpathway.net/transagent_web/data/collection \
 -H "Content-Type: application/json" \
--d '{"chat_id":1, "message_id":1, "user_message":"test", "agent_messages":[{"memory_id":1, "role":"user", "content":"test"}]}'
+-d '{"chat_id":1, "message_id":1, "user_message":"test", "agent_messages":[{"context_id":1, "role":"user", "content":"test"}]}'
 ```
 
 ```javascript
@@ -130,7 +130,7 @@ fetch('http://www.licpathway.net/transagent_web/data/collection', {
     message_id: 1,
     user_message: "test",
     agent_messages: [{
-      memory_id: 1,
+      context_id: 1,
       role: "user",
       content: "test"
     }]
