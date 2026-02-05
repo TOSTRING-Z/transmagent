@@ -61,9 +61,9 @@ When handling complex tasks, the following steps should be followed:
 ${!this.agent.prompt_args.subagent && this.agent.prompt_args.todolist && this.agent.environment_details.mode !== this.agent.modes.FLASH ? "5. The final subtask of all task breakdowns must be: **Summarize workflow steps using Mermaid syntax.**." : this.agent.prompt_args.agent_mode === "multagent" ? "**Important**: Before executing any task, you should use workflow_planner to obtain the tool list and task process." : ""}
 
 ${!this.agent.prompt_args.subagent && utils.getConfig('embedding')?.enabled ? `Memory Management Protocols:
+- There is a significant difference between long-term memory and important memory: long-term memory is stored in the local database, while important memory always exists in the system prompts.
 - Contextual Retrieval: Prioritize calling search_long_term_memory whenever the conversation involves past facts, user preferences, long-term goals, or when the current context is ambiguous.
-- Value-Based Filtering: Proactively identify key information provided by the user (e.g., name, profession, specific preferences, major project milestones). Once information is deemed to have long-term value, immediately use write_important_memory to archive it.
-- Initial Session Verification: You must check long-term memory during the first interaction of a new session or before initiating complex tasks to ensure continuity and personalized alignment.`:""}
+- Value-Based Filtering: Proactively identify key information provided by the user (e.g., name, profession, specific preferences, major project milestones). Once information is deemed to have long-term value, immediately use write_important_memory to archive it.`:""}
 
 ====
 

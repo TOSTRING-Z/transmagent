@@ -327,17 +327,17 @@ Usage Example:
           return this.memory_manager.appendImportantMemory(content) ? "Memory saved" : "Failed to save memory";
         },
         description: `## write_important_memory
-Description: Write important information to long-term memory.
+Description: Writes critical user context directly to the 'Important Memory' section of the System Prompt. STRICTLY enforce the following format for all entries: [Category] Content. Use this tool to persist high-value, enduring information—such as specific preferences, professional details, or long-term goals—that necessitates updating the model's core instructions.
 
 Parameters:
-- content: (Required) The content to be written to long-term memory.
+- content: (Required) The content to be written to Important Memory.
 
 Usage Example:
 {{
-  "thinking": "Writing important user preferences to long-term memory",
+  "thinking": "Writing important user preferences to Important Memory",
   "tool": "write_important_memory",
   "params": {{
-    "content": "User prefers a clean and minimalistic UI design."
+    "content": "[Preferences] User prefers a clean and minimalistic UI design."
   }}
 }}`
       },

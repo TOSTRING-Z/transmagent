@@ -43,12 +43,12 @@ class MemoryManager {
         }
     }
 
-    async addLongTermMemory(chat_id, content, timestamp) {
+    async addLongTermMemory(chat_id, content, time) {
         // Save as Markdown file
         try {
             // 提取年月日作为文件名部分
-            const date = new Date(timestamp);
-            const filename = `${chat_id}-${date.getFullYear()}-${date.getMonth() + 1}-${date.getDate()}.md`;
+            const date = time.split(' ')[0];
+            const filename = `${chat_id}-${date}.md`;
             const filePath = path.join(this.utils.getLongMemoryPath(), filename);
             // 相同文件追加内容
             fs.appendFileSync(filePath, content + '\n');
@@ -59,7 +59,7 @@ class MemoryManager {
         const embedding = await this.getEmbedding(content);
         if (!embedding) return false;
 
-        return this.memoryDB.add(chat_id, content, embedding, timestamp);
+        return this.memoryDB.add(chat_id, content, embedding, time);
     }
 
     async queryLongTermMemory(query, top_k = 5) {
