@@ -3,6 +3,7 @@ const { Plugins } = require('./Plugins');
 const { store, global, inner, utils, config } = require('./globals')
 const { LLMService } = require('../server/llm_service');
 const { captureMouse } = require('../mouse/capture_mouse');
+const { State } = require("../server/agent")
 const { ToolCall } = require('../server/tool_call');
 const { ChainCall } = require('../server/chain_call');
 const { install } = require('./Install');
@@ -121,52 +122,23 @@ class MainWindow extends Window {
             console.log(`[Heartbeat] Service started. Interval: ${heartbeat.interval}s`);
             setInterval(async () => {
                 // 如果 Agent 正在生成内容，则跳过本次检查，避免冲突
-                if (global.status && global.status.is_generating) {
-                    return;
-                }
+                if (this.tool_call.state == State.IDLE || this.tool_call.state == State.FINAL) {
+                    try {
+                        // 构造心跳检查指令
+                        let time = this.tool_call.environment_details.time;
+                        let data = {
+                            query: `[${time}] This is a heartbeat timestamp. Please keep the system active.`,
+                        };
 
-                try {
-                    // 构造心跳检查指令
-                    let data = {
-                        query: "请检查当前状态和任务列表，并给出简要反馈。",
-                        id: "heartbeat_" + Date.now(),
-                        type: "text"
-                    };
-                    
-                    if (this.tool_call) {
-                        // 初始化数据
-                        if (this.tool_call.getDataDefault) {
-                            data = this.tool_call.getDataDefault(data);
+                        if (this.tool_call) {
+                            this.send_query(data, global.model, global.version);
                         }
-
-                        // --- 新增：同步消息到前端 ---
-                        if (this.llm_service && this.llm_service.chat) {
-                            // 手动将用户消息加入历史记录
-                            this.llm_service.chat.push({
-                                role: 'user',
-                                content: data.query,
-                                id: data.id
-                            });
-                            // 强制前端更新聊天界面
-                            if (this.window && this.window.webContents) {
-                                this.window.webContents.send('set-chat', this.llm_service.chat);
-                            }
-                        }
-                        // ---------------------------
-
-                        // 通知前端开始接收消息
-                        if (this.llm_service && this.llm_service.startMessage) {
-                            this.llm_service.startMessage();
-                        }
-                        // 触发 Agent 执行
-                        if (this.tool_call.callReAct) {
-                            await this.tool_call.callReAct(data);
-                        }
+                    } catch (e) {
+                        console.error("[Heartbeat] Execution failed:", e);
                     }
-                } catch (e) {
-                    console.error("[Heartbeat] Execution failed:", e);
                 }
             }, heartbeat.interval * 1000);
+
         }
     }
 

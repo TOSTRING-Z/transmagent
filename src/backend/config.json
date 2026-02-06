@@ -1,21 +1,25 @@
 {
   "memory_length": 10,
-  "embedding": {
-    "base_url": "...",
-    "api_key": "...",
-    "model": "text-embedding-3-small",
-    "dimension": 1536,
-    "enabled": true
-  },
   "retry_time": 10,
   "icon_time": 5,
   "history_path": null,
-  "webserver": {
-    "port": 3005
-  },
   "short_cut": "CommandOrControl+Shift+Space",
   "backend_url": "http://www.licpathway.net/transmagent_web",
   "info_template": "Step: {step}, id: {id}, context_id: {context_id}, Call: {model}, Version: {version}, Output:\n\n```json\n{output_format}\n```\n\n",
+  "embedding": {
+    "base_url": "https://open.bigmodel.cn/api/paas/v4",
+    "api_key": "...",
+    "model": "embedding-3",
+    "dimension": 1024,
+    "enabled": false
+  },
+  "heartbeat": {
+    "enabled": false,
+    "interval": 300
+  },
+  "webserver": {
+    "port": 3005
+  },
   "llm_params": {
     "stream": true
   },
@@ -221,9 +225,5 @@
     {
       "type": "system-prompt"
     }
-  ],
-  "heartbeat": {
-    "enabled": true,
-    "interval": 300
-  }
+  ]
 }

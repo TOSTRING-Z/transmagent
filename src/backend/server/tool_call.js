@@ -184,122 +184,170 @@ Usage Example:
 }}`
       },
       "add_subtasks": {
-        func: ({ task, subtasks }) => {
-          if (!task) {
-            return {
-              status: "error",
-              message: `Missing task parameter!`
-            };
+        func: ({ task, subtasks, task_type = "standard", trigger_condition = null }) => {
+          // --- 1. 参数校验与防御性编程 ---
+          if (!task) return { status: "error", message: "Missing required parameter: task" };
+
+          // 强制校验：周期任务必须包含触发条件
+          if (task_type === "recurring" && !trigger_condition) {
+            return { status: "error", message: "Recurring tasks require a 'trigger_condition' (e.g., 'Every hour')." };
           }
-          if (!Array.isArray(subtasks)) {
-            subtasks = [subtasks];
-          }
-          subtasks = subtasks.map(task_description => {
-            const subtask = {
-              id: this.llm_service.chat.vars.subtask_id,
-              description: task_description,
-              status: "pending"
-            }
-            this.llm_service.chat.vars.subtask_id++;
-            return subtask;
-          });
-          //task hash
-          const task_id = utils.hashCode(task);
-          if (!this.llm_service.chat.vars.tasks[task_id]) {
-            this.llm_service.chat.vars.tasks[task_id] = {
-              task: task,
-              subtasks: subtasks,
+
+          const subtaskList = Array.isArray(subtasks) ? subtasks : [subtasks];
+          const chatVars = this.llm_service.chat.vars;
+
+          // --- 2. 格式化子任务 (Atomic Object Creation) ---
+          const newSubtasks = subtaskList.map(desc => ({
+            id: chatVars.subtask_id++, // 全局自增 ID
+            description: desc,
+            status: "pending",
+            reflection: null, // 初始化字段，避免 undefined
+            created_at: new Date().toISOString()
+          }));
+
+          // --- 3. 任务对象构建与合并 (Idempotency Support) ---
+          const taskId = utils.hashCode(task); // 假设 utils 已存在
+          const existingTask = chatVars.tasks[taskId];
+
+          if (existingTask) {
+            // A. 现有任务：合并子任务
+            existingTask.subtasks.push(...newSubtasks);
+
+            // 如果是周期任务，允许更新触发规则
+            if (task_type === "recurring" && trigger_condition) {
+              existingTask.trigger_condition = trigger_condition;
+              existingTask.type = "recurring"; // 允许将标准任务升级为周期任务
             }
           } else {
-            this.llm_service.chat.vars.tasks[task_id].subtasks = this.llm_service.chat.vars.tasks[task_id].subtasks.concat(subtasks)
+            // B. 新任务：初始化结构
+            chatVars.tasks[taskId] = {
+              task_id: taskId,
+              title: task,
+              type: task_type,
+              trigger_condition: task_type === "recurring" ? trigger_condition : null,
+              subtasks: newSubtasks,
+              created_at: new Date().toISOString(),
+              // 周期任务元数据
+              last_triggered: null,
+              last_completed_at: null,
+              execution_count: 0
+            };
           }
+
+          // --- 4. 响应构建 ---
+          const typeInfo = task_type === "recurring" ? `Recurring (Rule: ${trigger_condition})` : "Standard";
           return {
             status: "success",
-            message: `${subtasks.length} subtasks added`
+            message: `Registered ${newSubtasks.length} subtasks to ${typeInfo} task.`,
+            data: {
+              task_id: taskId,
+              new_ids: newSubtasks.map(t => t.id)
+            }
           };
         },
         description: `## add_subtasks
-Description: Add a new subtask to the current task. this.agent tool is used to break down complex tasks into manageable subtasks, allowing for better organization and tracking of progress. It is essential for maintaining clarity and focus on the main task by defining specific actions that need to be completed.
+Description: Register a new project or a recurring maintenance schedule. Use this to structure complex goals into actionable subtasks.
 
 Parameters:
-- task: (Required) Description of the main task
-- subtasks: (Required) Discription of the subtask
+- task: (Required) Clear title of the main objective.
+- subtasks: (Required) List of executable steps (strings).
+- task_type: (Required) 
+  - "standard": One-off projects (e.g., "Research report").
+  - "recurring": System maintenance or monitoring (e.g., "Hourly health check").
+- trigger_condition: (Required for "recurring") The interval or rule (e.g., "Every 30 mins", "Daily at 9AM").
 
-Usage Example:
-{{
-  "thinking": "User requested to create a new project, need to break down into subtasks",
-  "tool": "add_subtasks",
-  "params": {{
-    "task": "Create a new project",
-    "subtasks": [
-      "Design project architecture", 
-      "Create database schema", 
-      "Implement API endpoints",
-      ...
-    ]
-  }}
-}}`
+Usage (Standard):
+{ "task": "Write Blog Post", "task_type": "standard", "subtasks": ["Outline", "Draft", "Publish"] }
+
+Usage (Recurring):
+{ "task": "Server Health Check", "task_type": "recurring", "trigger_condition": "Every 1 hour", "subtasks": ["Check CPU", "Check Memory"] }`
       },
+
       "record_subtasks": {
-        func: ({ subtask_ids, status, reflection, options }) => {
-          if (!Array.isArray(subtask_ids)) {
-            subtask_ids = [subtask_ids];
+        func: ({ subtask_ids, status = "completed", reflection, options }) => {
+          // --- 1. 输入标准化 ---
+          const targetIds = new Set((Array.isArray(subtask_ids) ? subtask_ids : [subtask_ids]).map(id => parseInt(id)));
+          const now = new Date().toISOString();
+          const chatVars = this.llm_service.chat.vars;
+
+          let updatedCount = 0;
+          let affectedRecurringTasks = new Set(); // 追踪受影响的周期任务
+
+          // --- 2. 遍历查找与更新 (O(Tasks * Subtasks)) ---
+          // 注：如果任务量巨大，建议建立 id -> task_id 的反向索引映射
+          for (const taskId in chatVars.tasks) {
+            const parentTask = chatVars.tasks[taskId];
+            let taskModified = false;
+
+            parentTask.subtasks.forEach(subtask => {
+              if (targetIds.has(subtask.id)) {
+                // 更新状态
+                subtask.status = status;
+                subtask.reflection = reflection || subtask.reflection;
+                subtask.updated_at = now;
+
+                updatedCount++;
+                taskModified = true;
+              }
+            });
+
+            if (taskModified && parentTask.type === "recurring") {
+              affectedRecurringTasks.add(parentTask);
+            }
           }
-          subtask_ids = subtask_ids.map(id => {
-            try {
-              return parseInt(id);
-            } catch {
-              return -1;
+
+          if (updatedCount === 0) {
+            return { status: "warning", message: "No subtasks found with provided IDs." };
+          }
+
+          // --- 3. 周期任务生命周期管理 ---
+          affectedRecurringTasks.forEach(task => {
+            // 检查是否该周期内的所有子任务都已完成
+            const allSubtasksDone = task.subtasks.every(st => ["completed", "success", "failed"].includes(st.status));
+
+            if (allSubtasksDone) {
+              task.last_completed_at = now;
+              task.execution_count = (task.execution_count || 0) + 1;
+
+              // 可选策略：为了下个周期，重置子任务状态为 'pending'
+              // 或者保留历史，由调度器生成新的子任务实例。
+              // 此处采用“软重置”逻辑：仅打标，调度器负责重置
+              task.cycle_status = "cycle_completed";
             }
           });
-          for (const task_id in this.llm_service.chat.vars.tasks) {
-            if (Object.prototype.hasOwnProperty.call(this.llm_service.chat.vars.tasks, task_id)) {
-              this.llm_service.chat.vars.tasks[task_id].subtasks = this.llm_service.chat.vars.tasks[task_id].subtasks.map(subtask => {
-                if (subtask_ids.includes(subtask.id)) {
-                  subtask.status = status || true;
-                  subtask.reflection = reflection;
-                }
-                return subtask;
-              });
-            }
-          }
+
+          // --- 4. 环境控制 ---
           if (this.environment_details.mode === this.modes.ACT) {
             this.state = State.PAUSE;
           }
+
           return {
             status: "success",
-            message: `${subtask_ids.length} subtasks completed`,
-            options: options?.length && options?.length > 0 ? options : ["continue"]
+            message: `Updated ${updatedCount} subtasks.`,
+            meta: {
+              recurring_updates: affectedRecurringTasks.size > 0 ? "Synced with scheduler" : "None"
+            },
+            options: options?.length > 0 ? options : ["continue"]
           };
         },
         description: `## record_subtasks
-Description: Record the completion status and reflection content of subtasks.
+Description: Update the status of specific subtasks. Critical for tracking progress and providing feedback to the system.
 
 Parameters:
-- subtask_ids: (Required) A single task ID or an array of subtask IDs to be marked as completed
-- reflection: (Required) Reflect on whether the current task was fully completed, whether the tool usage was optimal, and how to improve (within 100 characters)
-- status: (Optional, true/false, bool, defaults to true) Completion status
-- options: (Optional, ACT mode is Required) Provide the user with 2-5 options to choose from. Each option should be a string describing a possible answer. You do not always need to provide options, but in many cases, this.agent can help the user avoid manually entering a response.
+- subtask_ids: (Required) List of IDs to update.
+- status: (Optional) New state ("completed", "failed", "in_progress"). Default: "completed".
+- reflection: (Required) Brief insight on the result.
+  - Standard: Quality/Outcome check.
+  - Recurring: Anomaly detection report (e.g., "CPU normal at 40%").
+- options: (Optional) Suggested next steps for the user.
 
-Usage Example:
-{{
-  "thinking": "[Thinking process]",
-  "tool": "record_subtasks",
-  "params": {{
-    "subtask_ids": [
-      0, 
-      1,
-      ...
-    ],
-    "reflection": "Reflection content",
-    "status": [boolean or string],
-    "options": [
-      "Option 1",
-      "Option 2",
-      ...
-    ]
-  }}
-}}`
+Example:
+{ 
+  "subtask_ids": [105, 106], 
+  "status": "completed", 
+  "reflection": "Database migration successful, no data loss.", 
+  "options": ["Verify data integrity", "Close ticket"] 
+}`
       },
       "search_long_term_memory": {
         func: async ({ query, top_k }) => {
@@ -384,7 +432,7 @@ Usage Example:
     // Save to long term memory
     try {
       if (user_content && final_answer) {
-        const time = new Date().toISOString().slice(0, 19).replace('T', ' ');
+        const time = this.environment_details.time;
         const content = `Date: ${time}\nUser: ${user_content}\nAgent: ${final_answer}`;
         await this.memory_manager.addLongTermMemory(
           this.llm_service.chat.id,
