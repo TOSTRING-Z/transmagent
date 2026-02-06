@@ -114,6 +114,62 @@ class MainWindow extends Window {
         }).catch(err => console.error('Restart prompt failed:', err));
     }
 
+
+    setupHeartbeat() {
+        const heartbeat = utils.getConfig("heartbeat");
+        if (heartbeat && heartbeat.enabled) {
+            console.log(`[Heartbeat] Service started. Interval: ${heartbeat.interval}s`);
+            setInterval(async () => {
+                // 如果 Agent 正在生成内容，则跳过本次检查，避免冲突
+                if (global.status && global.status.is_generating) {
+                    return;
+                }
+
+                try {
+                    // 构造心跳检查指令
+                    let data = {
+                        query: "请检查当前状态和任务列表，并给出简要反馈。",
+                        id: "heartbeat_" + Date.now(),
+                        type: "text"
+                    };
+                    
+                    if (this.tool_call) {
+                        // 初始化数据
+                        if (this.tool_call.getDataDefault) {
+                            data = this.tool_call.getDataDefault(data);
+                        }
+
+                        // --- 新增：同步消息到前端 ---
+                        if (this.llm_service && this.llm_service.chat) {
+                            // 手动将用户消息加入历史记录
+                            this.llm_service.chat.push({
+                                role: 'user',
+                                content: data.query,
+                                id: data.id
+                            });
+                            // 强制前端更新聊天界面
+                            if (this.window && this.window.webContents) {
+                                this.window.webContents.send('set-chat', this.llm_service.chat);
+                            }
+                        }
+                        // ---------------------------
+
+                        // 通知前端开始接收消息
+                        if (this.llm_service && this.llm_service.startMessage) {
+                            this.llm_service.startMessage();
+                        }
+                        // 触发 Agent 执行
+                        if (this.tool_call.callReAct) {
+                            await this.tool_call.callReAct(data);
+                        }
+                    }
+                } catch (e) {
+                    console.error("[Heartbeat] Execution failed:", e);
+                }
+            }, heartbeat.interval * 1000);
+        }
+    }
+
     create() {
         this.window = new BrowserWindow({
             width: 1200,
@@ -138,6 +194,7 @@ class MainWindow extends Window {
         this.window.webContents.on('did-finish-load', () => {
             this.initFuncItems();
             this.initInfo();
+            this.setupHeartbeat();
         });
 
         // Intercept page navigation
