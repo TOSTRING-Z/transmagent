@@ -24,13 +24,13 @@ English | [中文](README_zh.md)
   - Overview: Added a "Context Compression" option in the subtask processing flow to automatically streamline historical dialogues and intermediate results, reducing context length and memory usage.  
   - Effect: Enhances stability and execution efficiency for long conversations and complex tasks, minimizing redundant information during model calls.
 - 2025-11-28 — New: Code IDE Mode
+  - Overview: Added code and text editor mode, supporting syntax highlighting, AI completion, AI refactoring, and AI conversational correction features.
+  - Effect: Provides a more intelligent code and process writing experience, assisting in the design of complex analysis workflows.
 
 <div align="center">
   <img src="./public/img/code_ide.png" alt="Code IDE" width="600">
 </div>
 
-  - Overview: Added code and text editor mode, supporting syntax highlighting, AI completion, AI refactoring, and AI conversational correction features.
-  - Effect: Provides a more intelligent code and process writing experience, assisting in the design of complex analysis workflows.
 - 2026-2-6 — New: Cross-Session Memory Storage and Retrieval, Important Memory Writing Function
   - Overview: Added cross-session memory storage and retrieval functionality, allowing users to write important memories into persistent storage and retrieve them in subsequent sessions through indexing.
   - Effect: Solves the "memory loss" problem in long-context tasks, enhancing continuity and stability of agents in complex analysis processes.
