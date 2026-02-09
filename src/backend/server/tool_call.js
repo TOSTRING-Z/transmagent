@@ -34,362 +34,334 @@ class ToolCall extends ReActAgent {
     this.base_tools = {
       "mcp_server": {
         func: async ({ name, args }) => {
-          const result = await this.mcp_client.callTool({
-            name: name,
-            arguments: args
-          });
-          return result;
+          // 增加错误捕获，防止外部服务挂掉影响主流程
+          try {
+            return await this.mcp_client.callTool({ name, arguments: args });
+          } catch (e) {
+            return { error: `MCP Call Failed: ${e.message}` };
+          }
         },
         description: `## mcp_server
-Description: Request MCP (Model Context Protocol) service.
+Purpose: Invoke external MCP (Model Context Protocol) services.
+**Critical**: Use this for ALL external capability requests not covered by native tools.
 
 Parameters:
-- name: (Required) The name of the MCP service to request.
-- args: (Required) The parameters of the MCP service request.
+- name: (String) Exact service name.
+- args: (Object) Parameter dictionary key-values.
 
 Usage:
 {{
-  "thinking": "[Thinking process]",
+  "thinking": "Fetching weather data via MCP",
   "tool": "mcp_server",
   "params": {{
-    "name": "[value]",
-    "args": {{
-      "[parameter1_name]": [value1],
-      "[parameter2_name]": [value2],
-      ...
-    }}
+    "name": "weather_service",
+    "args": {{ "city": "Tokyo", "unit": "metric" }}
   }}
-}}
-`
+}}`
       },
+
       "ask_followup_question": {
         func: async ({ question, options }) => {
           this.state = State.PAUSE;
-          return { question, options }
+          return { question, options };
         },
         description: `## ask_followup_question
-Description: Ask the user questions to collect additional information needed to complete the task. It should be used when encountering ambiguity, needing clarification, or requiring more details to proceed effectively. It achieves interactive problem-solving by allowing direct communication with the user. Use this.agent tool wisely to balance between collecting necessary information and avoiding excessive back-and-forth communication.
+Purpose: Pause execution to request clarification or missing info from the user.
+**Trigger**: Ambiguity, missing parameters, or need for user decision.
 
 Parameters:
-- question: (Required) The question to ask the user. this.agent should be a clear and specific question targeting the information you need.
-- options: (Optional) Provide the user with 2-5 options to choose from. Each option should be a string describing a possible answer. You do not always need to provide options, but in many cases, this.agent can help the user avoid manually entering a response.
+- question: (String) Clear, specific inquiry.
+- options: (Array<String>, Optional) 2-5 distinct choices to speed up user response.
 
 Usage:
 {{
-  "thinking": "[Thinking process]",
+  "thinking": "Ambiguous date format",
   "tool": "ask_followup_question",
   "params": {{
-    "question": "[value]",
-    "options": [
-      "Option 1",
-      "Option 2",
-      ...
-    ]
+    "question": "Which date format should I use?",
+    "options": ["YYYY-MM-DD", "DD/MM/YYYY"]
   }}
 }}`
       },
+
       "waiting_feedback": {
         func: ({ options = ["Allow", "Deny"] }) => {
           this.state = State.PAUSE;
-          return { question: "Task paused, waiting for user feedback...", options: options }
+          return { question: "High-risk action detected. Awaiting approval.", options };
         },
         description: `## waiting_feedback
-Description: Suspends task execution to await explicit user approval/rejection before performing system-altering operations (file modifications, config changes, etc.). Designed for high-risk actions requiring human validation.
+Purpose: MANDATORY safety pause before high-risk actions (file deletion, system config, deployment).
 
 Parameters:
-options: (Optional) An array containing 2-4 options for the user to choose from.
-
-
-Usage example:
-{{
-  "thinking": "[Explain why confirmation is needed and impact analysis]",
-  "tool": "waiting_feedback",
-  "params": {{
-    "options": ["Allow", "Deny"]
-  }}
-}}`
-      },
-      "plan_mode_response": {
-        func: async ({ response, options }) => {
-          this.state = State.PAUSE;
-          return { question: response, options }
-        },
-        description: `## plan_mode_response
-Description: Respond to user inquiries to plan solutions for user tasks. this.agent tool should be used when you need to respond to user questions or statements about how to complete a task. this.agent tool is only available in "planning mode". The environment details will specify the current mode; if it is not "planning mode", this.agent tool should not be used. Depending on the user's message, you may ask questions to clarify the user's request, design a solution for the task, and brainstorm with the user. For example, if the user's task is to create a website, you can start by asking some clarifying questions, then propose a detailed plan based on the context, explain how you will complete the task, and possibly engage in back-and-forth discussions until the user switches you to another mode to implement the solution before finalizing the details.
-
-Parameters:
-response: (Required) The response provided to the user after the thinking process.
-options: (Optional) An array containing 2-5 options for the user to choose from. Each option should describe a possible choice or a forward path in the planning process. this.agent can help guide the discussion and make it easier for the user to provide input on key decisions. You may not always need to provide options, but in many cases, this.agent can save the user time from manually entering a response. Do not provide options to switch modes, as there is no need for you to guide the user's operations.
+- options: (Array, Default: ["Allow", "Deny"])
 
 Usage:
 {{
-  "thinking": "[Thinking process]",
+  "thinking": "Deleting remote database requires approval",
+  "tool": "waiting_feedback",
+  "params": {{ "options": ["Proceed", "Abort"] }}
+}}`
+      },
+
+      "plan_mode_response": {
+        func: async ({ response, options }) => {
+          // 强制状态校验，防止在非 Planning 模式下误用
+          if (this.environment_details.mode !== 'PLAN') {
+            return { error: "Tool 'plan_mode_response' is restricted to PLANNING MODE only." };
+          }
+          this.state = State.PAUSE;
+          return { question: response, options };
+        },
+        description: `## plan_mode_response
+Purpose: Interact with the user specifically during the "Planning Phase".
+**Constraint**: ONLY available in 'Planning Mode'. Use for architecture design, requirements gathering, and blueprint confirmation.
+
+Parameters:
+- response: (String) The architectural proposal or clarifying question.
+- options: (Array, Optional) Guided paths for the plan.
+
+Usage:
+{{
+  "thinking": "Proposing 3-step workflow",
   "tool": "plan_mode_response",
   "params": {{
-    "response": "[value]",
-    "options": [
-      "Option 1",
-      "Option 2",
-      ...
-    ]
+    "response": "I propose a 3-layer architecture. Details below...",
+    "options": ["Approve Plan", "Modify Database Layer"]
   }}
 }}`
       },
+
       "enter_idle_state": {
         func: async ({ final_answer }) => {
           this.state = State.FINAL;
           return final_answer;
         },
-        description: `## enter_idle_state  
-Description: Stop current task and enter idle state, waiting for further instructions (called when task is completed).
+        description: `## enter_idle_state
+Purpose: Terminate the current task sequence and return the final result.
+**Trigger**: When all subtasks are complete and verified.
 
 Parameters:
-- final_answer: (Required, Markdown format)
+- final_answer: (String, Markdown) Comprehensive summary of results.
 
 Usage:
 {{
-  "thinking": "Task analysis completed. Key steps:\n1. Executed 3 code analyses\n2. Performed 2 file searches\n3. Validated architecture patterns",
+  "thinking": "All tasks verified. Generating report.",
   "tool": "enter_idle_state",
-  "params": {{
-    "final_answer": "[final_answer]"
-  }}
+  "params": {{ "final_answer": "## Execution Summary\\n- Task A: Done\\n- Task B: Done" }}
 }}`
       },
+
       "context_retrieval": {
         func: ({ context_id }) => {
-          const memory = this.llm_service.getMessages(true).filter(m => m.context_id === context_id).map(m => { return { role: m.role, content: m.content } });
-          return memory || "No memory ID found";
+          // 优化：仅提取需要的字段，减少 Token 消耗
+          const history = this.llm_service.getMessages(true);
+          const target = history.find(m => m.context_id === context_id);
+          return target ? { role: target.role, content: target.content } : "Error: Context ID not found.";
         },
         description: `## context_retrieval
-Core Function: Query historical interactions by context_id
-
-Typical Scenarios:
-1. Review analysis steps
-2. Verify historical discussions
-3. Resume previous work
+Purpose: Fetch raw details of a specific past interaction using its ID.
+**Use Case**: Checking specific code snippets or parameters from previous turns.
 
 Parameters:
-- context_id: (Required)
-  - Type: Integer
-  - Values: Numeric IDs from Context List
-  - Example: 42
+- context_id: (Integer) The ID from the Context List.
 
-Usage Example:
+Usage:
 {{
-  "thinking": "Need to confirm previous discussion about X",
+  "thinking": "Verifying the API key provided in turn 5",
   "tool": "context_retrieval",
-  "params": {{
-    "context_id": 24
-  }}
+  "params": {{ "context_id": 5 }}
 }}`
       },
+
       "add_subtasks": {
         func: ({ task, subtasks, task_type = "standard", trigger_condition = null }) => {
-          // --- 1. 参数校验与防御性编程 ---
-          if (!task) return { status: "error", message: "Missing required parameter: task" };
-
-          // 强制校验：周期任务必须包含触发条件
+          // 1. 健壮性校验
+          if (!task || !subtasks) return { status: "error", message: "Missing 'task' or 'subtasks'." };
           if (task_type === "recurring" && !trigger_condition) {
-            return { status: "error", message: "Recurring tasks require a 'trigger_condition' (e.g., 'Every hour')." };
+            return { status: "error", message: "Recurring tasks MUST have a 'trigger_condition'." };
           }
 
-          const subtaskList = Array.isArray(subtasks) ? subtasks : [subtasks];
           const chatVars = this.llm_service.chat.vars;
+          // 确保 tasks 容器存在
+          chatVars.tasks = chatVars.tasks || {};
+          chatVars.subtask_id = chatVars.subtask_id ?? 100; // 初始化 ID 计数器
 
-          // --- 2. 格式化子任务 (Atomic Object Creation) ---
-          const newSubtasks = subtaskList.map(desc => ({
-            id: chatVars.subtask_id++, // 全局自增 ID
+          // 2. 构造子任务
+          const subtaskList = (Array.isArray(subtasks) ? subtasks : [subtasks]).map(desc => ({
+            id: chatVars.subtask_id++,
             description: desc,
             status: "pending",
-            reflection: null, // 初始化字段，避免 undefined
+            reflection: "",
             created_at: new Date().toISOString()
           }));
 
-          // --- 3. 任务对象构建与合并 (Idempotency Support) ---
-          const taskId = utils.hashCode(task); // 假设 utils 已存在
-          const existingTask = chatVars.tasks[taskId];
+          // 3. 任务挂载 (幂等性处理)
+          const taskId = utils.hashCode(task);
+          const isUpdate = !!chatVars.tasks[taskId];
 
-          if (existingTask) {
-            // A. 现有任务：合并子任务
-            existingTask.subtasks.push(...newSubtasks);
-
-            // 如果是周期任务，允许更新触发规则
-            if (task_type === "recurring" && trigger_condition) {
-              existingTask.trigger_condition = trigger_condition;
-              existingTask.type = "recurring"; // 允许将标准任务升级为周期任务
+          if (isUpdate) {
+            chatVars.tasks[taskId].subtasks.push(...subtaskList);
+            // 如果升级为周期任务
+            if (task_type === "recurring") {
+              chatVars.tasks[taskId].type = "recurring";
+              chatVars.tasks[taskId].trigger_condition = trigger_condition;
             }
           } else {
-            // B. 新任务：初始化结构
             chatVars.tasks[taskId] = {
               task_id: taskId,
               title: task,
               type: task_type,
-              trigger_condition: task_type === "recurring" ? trigger_condition : null,
-              subtasks: newSubtasks,
+              trigger_condition,
+              subtasks: subtaskList,
               created_at: new Date().toISOString(),
-              // 周期任务元数据
-              last_triggered: null,
-              last_completed_at: null,
-              execution_count: 0
+              // Metric fields
+              execution_count: 0,
+              last_triggered: null
             };
           }
 
-          // --- 4. 响应构建 ---
-          const typeInfo = task_type === "recurring" ? `Recurring (Rule: ${trigger_condition})` : "Standard";
           return {
             status: "success",
-            message: `Registered ${newSubtasks.length} subtasks to ${typeInfo} task.`,
-            data: {
-              task_id: taskId,
-              new_ids: newSubtasks.map(t => t.id)
-            }
+            message: `${isUpdate ? "Updated" : "Created"} task '${task}' with ${subtaskList.length} subtasks.`,
+            data: { task_id: taskId, subtask_ids: subtaskList.map(t => t.id) }
           };
         },
         description: `## add_subtasks
-Description: Register a new project or a recurring maintenance schedule. Use this to structure complex goals into actionable subtasks.
+Purpose: Break down complex goals into tracking units.
+**Strategy**: Create "Substantive Milestones", not atomic actions.
 
 Parameters:
-- task: (Required) Clear title of the main objective.
-- subtasks: (Required) List of executable steps (strings).
-- task_type: (Required) 
-  - "standard": One-off projects (e.g., "Research report").
-  - "recurring": System maintenance or monitoring (e.g., "Hourly health check").
-- trigger_condition: (Required for "recurring") The interval or rule (e.g., "Every 30 mins", "Daily at 9AM").
+- task: (String) Main objective title.
+- subtasks: (Array<String>) List of milestones.
+- task_type: "standard" | "recurring"
+- trigger_condition: (String, Required if recurring) e.g., "Every 1 hour".
 
-Usage (Standard):
-{ "task": "Write Blog Post", "task_type": "standard", "subtasks": ["Outline", "Draft", "Publish"] }
-
-Usage (Recurring):
-{ "task": "Server Health Check", "task_type": "recurring", "trigger_condition": "Every 1 hour", "subtasks": ["Check CPU", "Check Memory"] }`
+Usage:
+{{
+  "thinking": "Decomposing deployment",
+  "tool": "add_subtasks",
+  "params": {{
+    "task": "Deploy v2",
+    "task_type": "standard",
+    "subtasks": ["Build Docker", "Push to Registry", "Restart K8s"]
+  }}
+}}`
       },
 
       "record_subtasks": {
         func: ({ subtask_ids, status = "completed", reflection, options }) => {
-          // --- 1. 输入标准化 ---
-          const targetIds = new Set((Array.isArray(subtask_ids) ? subtask_ids : [subtask_ids]).map(id => parseInt(id)));
+          const ids = new Set((Array.isArray(subtask_ids) ? subtask_ids : [subtask_ids]).map(Number));
           const now = new Date().toISOString();
           const chatVars = this.llm_service.chat.vars;
 
-          let updatedCount = 0;
-          let affectedRecurringTasks = new Set(); // 追踪受影响的周期任务
+          let updated = 0;
+          let recurringTasksToCheck = new Set();
 
-          // --- 2. 遍历查找与更新 (O(Tasks * Subtasks)) ---
-          // 注：如果任务量巨大，建议建立 id -> task_id 的反向索引映射
-          for (const taskId in chatVars.tasks) {
-            const parentTask = chatVars.tasks[taskId];
+          // 1. 更新逻辑 (O(N) Scan)
+          Object.values(chatVars.tasks || {}).forEach(task => {
             let taskModified = false;
-
-            parentTask.subtasks.forEach(subtask => {
-              if (targetIds.has(subtask.id)) {
-                // 更新状态
-                subtask.status = status;
-                subtask.reflection = reflection || subtask.reflection;
-                subtask.updated_at = now;
-
-                updatedCount++;
+            task.subtasks.forEach(sub => {
+              if (ids.has(sub.id)) {
+                sub.status = status;
+                sub.reflection = reflection || sub.reflection;
+                sub.updated_at = now;
+                updated++;
                 taskModified = true;
               }
             });
+            if (taskModified && task.type === "recurring") recurringTasksToCheck.add(task);
+          });
 
-            if (taskModified && parentTask.type === "recurring") {
-              affectedRecurringTasks.add(parentTask);
-            }
-          }
+          if (updated === 0) return { status: "warning", message: "No matching subtask IDs found." };
 
-          if (updatedCount === 0) {
-            return { status: "warning", message: "No subtasks found with provided IDs." };
-          }
-
-          // --- 3. 周期任务生命周期管理 ---
-          affectedRecurringTasks.forEach(task => {
-            // 检查是否该周期内的所有子任务都已完成
-            const allSubtasksDone = task.subtasks.every(st => ["completed", "success", "failed"].includes(st.status));
-
-            if (allSubtasksDone) {
+          // 2. 周期任务自动重置逻辑
+          recurringTasksToCheck.forEach(task => {
+            const allDone = task.subtasks.every(s => ["completed", "failed"].includes(s.status));
+            if (allDone) {
               task.last_completed_at = now;
               task.execution_count = (task.execution_count || 0) + 1;
-
-              // 可选策略：为了下个周期，重置子任务状态为 'pending'
-              // 或者保留历史，由调度器生成新的子任务实例。
-              // 此处采用“软重置”逻辑：仅打标，调度器负责重置
-              task.cycle_status = "cycle_completed";
+              task.cycle_status = "cycle_wait"; // 标记为等待下一次调度
             }
           });
 
-          // --- 4. 环境控制 ---
+          // 3. 环境控制
           if (this.environment_details.mode === this.modes.ACT) {
             this.state = State.PAUSE;
           }
 
           return {
             status: "success",
-            message: `Updated ${updatedCount} subtasks.`,
-            meta: {
-              recurring_updates: affectedRecurringTasks.size > 0 ? "Synced with scheduler" : "None"
-            },
-            options: options?.length > 0 ? options : ["continue"]
+            message: `Marked ${updated} steps as ${status}.`,
+            options: options ?? ["Proceed to next step"]
           };
         },
         description: `## record_subtasks
-Description: Update the status of specific subtasks. Critical for tracking progress and providing feedback to the system.
+Purpose: Checkpoint progress and save execution state.
+**Mandatory**: Call this immediately after finishing a subtask.
 
 Parameters:
-- subtask_ids: (Required) List of IDs to update.
-- status: (Optional) New state ("completed", "failed", "in_progress"). Default: "completed".
-- reflection: (Required) Brief insight on the result.
-  - Standard: Quality/Outcome check.
-  - Recurring: Anomaly detection report (e.g., "CPU normal at 40%").
-- options: (Optional) Suggested next steps for the user.
+- subtask_ids: (Array<Int>) IDs to update.
+- status: "completed" | "failed" | "in_progress"
+- reflection: (String) Result summary or metric data.
 
-Example:
-{ 
-  "subtask_ids": [105, 106], 
-  "status": "completed", 
-  "reflection": "Database migration successful, no data loss.", 
-  "options": ["Verify data integrity", "Close ticket"] 
-}`
+Usage:
+{{
+  "thinking": "Docker build successful",
+  "tool": "record_subtasks",
+  "params": {{
+    "subtask_ids": [101],
+    "status": "completed",
+    "reflection": "Image built: sha256:e3b0c442"
+  }}
+}}`
       },
+
       "search_long_term_memory": {
-        func: async ({ query, top_k }) => {
-          return await this.memory_manager.queryLongTermMemory(query, top_k);
+        func: async ({ query, top_k = 5 }) => {
+          try {
+            return await this.memory_manager.queryLongTermMemory(query, top_k);
+          } catch (e) {
+            return { error: "Memory retrieval failed." };
+          }
         },
         description: `## search_long_term_memory
-Description: Search long-term memory for relevant information based on a query.
+Purpose: Retrieve historical knowledge from database.
+**Trigger**: When context is missing or referencing past projects.
 
 Parameters:
-- query: (Required) The search query string/time.
-- top_k: (Optional, default 5) The number of top relevant results to return.
+- query: (String) Semantic search string.
+- top_k: (Int, Default: 5)
 
-Usage Example:
+Usage:
 {{
-  "thinking": "Searching long-term memory for relevant information",
+  "thinking": "Recalling user's preferred Python linter",
   "tool": "search_long_term_memory",
-  "params": {{
-    "query": "[2025-2-5 18:xx:xx] What did the dialogue say?",
-    "top_k": 5
-  }}
+  "params": {{ "query": "python style preference", "top_k": 3 }}
 }}`
       },
+
       "write_important_memory": {
         func: ({ content }) => {
-          return this.memory_manager.appendImportantMemory(content) ? "Memory saved" : "Failed to save memory";
+          if (!content || typeof content !== 'string') return "Error: Content must be a non-empty string.";
+          return this.memory_manager.appendImportantMemory(content)
+            ? "Success: Memory Archived"
+            : "Error: Write Failed";
         },
         description: `## write_important_memory
-Description: Writes critical user context directly to the 'Important Memory' section of the System Prompt. STRICTLY enforce the following format for all entries: [Category] Content. Use this tool to persist high-value, enduring information—such as specific preferences, professional details, or long-term goals—that necessitates updating the model's core instructions.
+Purpose: Save high-value, permanent user context (Preferences, Secrets, Milestones).
+**Format**: "[Category] Content"
 
 Parameters:
-- content: (Required) The content to be written to Important Memory.
+- content: (String)
 
-Usage Example:
+Usage:
 {{
-  "thinking": "Writing important user preferences to Important Memory",
+  "thinking": "User is a vegetarian, saving preference.",
   "tool": "write_important_memory",
-  "params": {{
-    "content": "[Preferences] User prefers a clean and minimalistic UI design."
-  }}
+  "params": {{ "content": "[Diet] User strictly avoids meat products." }}
 }}`
-      },
-    }
+      }
+    };
 
     this.tools = { ...tools, ...this.base_tools };
 

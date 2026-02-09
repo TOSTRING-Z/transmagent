@@ -1,0 +1,558 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>AI Tool Management</title>
+  <link rel="stylesheet" href="css/output.css" />
+  <link rel="stylesheet" href="css/atom-one-light.min.css" />
+  <link rel="stylesheet" href="css/fontawesome-free/css/all.min.css" />
+  <link rel="stylesheet" href="css/index.css" />
+  <style>
+    :root {
+      --primary: #4361ee;
+      --danger: #e63946;
+      --success: #2a9d8f;
+      --dark: #2b2d42;
+      --light: #f8f9fa;
+      --gray: #6c757d;
+      --border: #dee2e6;
+    }
+
+    body {
+      margin: 0;
+      font-family: Arial, sans-serif;
+      background-color: #f9f9f9;
+      color: #333;
+      display: flex;
+      flex-direction: column;
+      border: #333 solid 1px;
+    }
+
+    /* 自定义标题栏 */
+    .title-bar {
+      -webkit-app-region: drag;
+      height: 30px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 0 10px;
+      user-select: none;
+    }
+
+    .window-controls {
+      display: flex;
+      -webkit-app-region: no-drag;
+    }
+
+    .window-btn {
+      width: 12px;
+      height: 12px;
+      border-radius: 50%;
+      margin-left: 8px;
+      cursor: pointer;
+    }
+
+    .content {
+      padding: 15px;
+      width: 100%;
+      height: calc(100vh - 30px);
+      overflow: auto;
+    }
+
+    .close-btn {
+      background: #ff5e57;
+    }
+
+    .minimize-btn {
+      background: #ffbb2e;
+    }
+
+    .btn {
+      padding: 10px 20px;
+      border: none;
+      border-radius: 6px;
+      cursor: pointer;
+      font-weight: 500;
+      transition: all 0.3s ease;
+    }
+
+    .btn-primary {
+      background-color: var(--primary);
+      color: white;
+    }
+
+    .btn-primary:hover {
+      background-color: #3651d3;
+    }
+
+    .tools-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+      gap: 20px;
+    }
+
+    .tool-card {
+      background: white;
+      border-radius: 10px;
+      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
+      padding: 20px;
+      transition: transform 0.3s ease;
+    }
+
+    .tool-card:hover {
+      transform: translateY(-5px);
+    }
+
+    .tool-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 15px;
+    }
+
+    .tool-name {
+      font-weight: 600;
+      font-size: 18px;
+      color: var(--dark);
+    }
+
+    .tool-id {
+      background-color: #eef2ff;
+      color: var(--primary);
+      padding: 4px 10px;
+      border-radius: 20px;
+      font-size: 12px;
+      font-weight: 500;
+    }
+
+    .tool-details {
+      margin-bottom: 15px;
+    }
+
+    .tool-detail {
+      display: flex;
+      margin-bottom: 8px;
+      font-size: 14px;
+      word-break: break-all;
+    }
+
+    .detail-label {
+      font-weight: 500;
+      min-width: 80px;
+      color: var(--gray);
+    }
+
+    .tool-actions {
+      display: flex;
+      gap: 10px;
+    }
+
+    .btn-icon {
+      padding: 6px 10px;
+      border-radius: 6px;
+      font-size: 14px;
+    }
+
+    .btn-edit {
+      background-color: #e8f4fd;
+      color: var(--primary);
+    }
+
+    .btn-delete {
+      background-color: #feeceb;
+      color: var(--danger);
+    }
+
+    /* 模态框样式 */
+    .config-modal {
+      display: none;
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      background-color: rgba(0, 0, 0, 0.5);
+      z-index: 1000;
+      align-items: center;
+      justify-content: center;
+      backdrop-filter: blur(3px);
+    }
+
+    .config-content {
+      background-color: white;
+      width: 90%;
+      max-width: 600px;
+      padding: 25px;
+      box-shadow: 0 10px 30px rgba(0, 0, 0, 0.15);
+      max-height: 90vh;
+      overflow-y: auto;
+    }
+
+    .config-content h2 {
+      margin-bottom: 20px;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+
+    .form-group {
+      margin-bottom: 20px;
+    }
+
+    .form-row {
+      margin-bottom: 15px;
+    }
+
+    .form-row label {
+      display: block;
+      margin-bottom: 6px;
+      font-weight: 500;
+      color: var(--dark);
+    }
+
+    .form-row input,
+    .form-row textarea,
+    .form-row select {
+      width: 100%;
+      padding: 12px;
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      font-family: inherit;
+      font-size: 15px;
+    }
+
+    .form-row textarea {
+      resize: vertical;
+      min-height: 80px;
+    }
+    
+    .input-group {
+        display: flex;
+        gap: 10px;
+    }
+
+    .muted {
+      color: var(--gray);
+      font-size: 13px;
+    }
+
+    .modal-actions {
+      display: flex;
+      justify-content: flex-end;
+      gap: 10px;
+      margin-top: 20px;
+    }
+
+    .dialog-btn {
+      padding: 10px 20px;
+      border-radius: 6px;
+      cursor: pointer;
+      font-weight: 500;
+      border: 1px solid var(--border);
+      background: white;
+      transition: all 0.2s ease;
+    }
+
+    .dialog-confirm {
+      background-color: var(--primary);
+      color: white;
+      border: none;
+    }
+
+    .dialog-btn:hover {
+      opacity: 0.9;
+    }
+
+    .empty-state {
+      text-align: center;
+      padding: 40px 20px;
+      color: var(--gray);
+    }
+
+    .empty-state i {
+      font-size: 48px;
+      margin-bottom: 15px;
+      color: #d0d7de;
+    }
+
+    .bottom_div {
+      background: #f9f9f9;
+      padding: 15px;
+      border: none;
+    }
+
+    .feature-tag {
+      display: inline-block;
+      padding: 4px 8px;
+      border-radius: 4px;
+      font-size: 12px;
+      font-weight: 500;
+      margin-right: 6px;
+    }
+
+    .enabled-tag {
+      background-color: #e8f5e9;
+      color: #2e7d32;
+    }
+    
+    .disabled-tag {
+      background-color: #ffebee;
+      color: #c62828;
+    }
+  </style>
+</head>
+
+<body>
+  <div class="title-bar">
+    <div class="title"><i class="fas fa-toolbox"></i> AI Tool Management</div>
+    <div class="window-controls">
+      <div class="window-btn minimize-btn" id="minimize-btn"></div>
+      <div class="window-btn close-btn" id="close-btn"></div>
+    </div>
+  </div>
+
+  <div class="content">
+    <div class="tools-grid" id="tools-container">
+      <!-- Tools will be rendered here -->
+      <div class="empty-state">
+        <i class="fas fa-inbox"></i>
+        <h3>No Tool Configuration Available</h3>
+        <p>Click the "Add Tool" button to start adding tools</p>
+      </div>
+    </div>
+  </div>
+
+  <div class="bottom_div">
+    <button class="btn btn-primary" onclick="showAddTool()">
+      <i class="fas fa-plus"></i> Add Tool
+    </button>
+  </div>
+
+  <!-- Add/Edit Tool Modal -->
+  <div class="config-modal" id="m-add-tool" onclick="hideConfig()">
+    <div class="config-content" onclick="event.stopPropagation()">
+      <h2 style="color: var(--primary); margin-bottom: 20px;">
+        <i class="fas fa-plus-circle"></i> Add / Edit Tool
+      </h2>
+
+      <div class="form-group">
+        <div class="form-row">
+          <label>Tool ID (Key):</label>
+          <input type="text" id="tool-id" placeholder="e.g. weather_tool">
+        </div>
+        <div class="form-row">
+          <small class="muted">Unique identifier for the tool (used in config).</small>
+        </div>
+
+        <div class="form-row">
+          <label>Tool Path (File):</label>
+          <div class="input-group">
+              <input type="text" id="tool-path" placeholder="Path to tool .js file">
+              <button class="dialog-btn" onclick="browseFile()">Browse</button>
+          </div>
+        </div>
+
+        <div class="form-row">
+          <label>Parameters (JSON):</label>
+          <textarea id="tool-params" rows="4" placeholder='{"api_key": "..."}'></textarea>
+        </div>
+        
+        <div class="form-row">
+          <label>Extra Config (JSON):</label>
+          <textarea id="tool-extra" rows="4" placeholder='[{"type": "..."}]'></textarea>
+        </div>
+
+        <div class="form-row">
+          <label>Status:</label>
+          <select id="tool-enabled">
+            <option value="true">Enabled</option>
+            <option value="false">Disabled</option>
+          </select>
+        </div>
+      </div>
+
+      <div class="modal-actions">
+        <button class="dialog-btn" onclick="hideConfig()">Cancel</button>
+        <button class="dialog-btn dialog-confirm" onclick="saveTool()">Save Tool</button>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    const { ipcRenderer } = require('electron')
+
+    document.getElementById('minimize-btn').addEventListener('click', () => {
+      ipcRenderer.send('minimize-window')
+    })
+
+    document.getElementById('close-btn').addEventListener('click', () => {
+      ipcRenderer.send('close-window')
+    })
+
+    let tools = {};
+    let editingToolId = null;
+
+    function init() {
+      loadTools();
+    }
+
+    function loadTools() {
+      ipcRenderer.invoke('get-tools').then(data => {
+        tools = data || {};
+        renderTools();
+      });
+    }
+
+    function renderTools() {
+      const container = document.getElementById('tools-container');
+      const keys = Object.keys(tools);
+
+      if (keys.length === 0) {
+        container.innerHTML = `
+          <div class="empty-state">
+            <i class="fas fa-inbox"></i>
+            <h3>No Tool Configuration Available</h3>
+            <p>Click the "Add Tool" button to start adding tools</p>
+          </div>
+        `;
+        return;
+      }
+
+      container.innerHTML = keys.map(key => {
+        const tool = tools[key];
+        const isEnabled = tool.enabled !== false;
+        return `
+        <div class="tool-card">
+          <div class="tool-header">
+            <div class="tool-name">${key}</div>
+            <div class="tool-id">${isEnabled ? 'Active' : 'Inactive'}</div>
+          </div>
+          <div class="tool-details">
+            <div class="tool-detail">
+              <span class="detail-label">Path:</span>
+              <span>${tool.path || 'N/A'}</span>
+            </div>
+            <div class="tool-detail">
+              <span class="detail-label">Params:</span>
+              <span>${tool.params ? JSON.stringify(tool.params).substring(0, 50) + (JSON.stringify(tool.params).length > 50 ? '...' : '') : '{}'}</span>
+            </div>
+             <div class="tool-detail">
+              <span class="detail-label">Status:</span>
+              <span>
+                ${isEnabled ? '<span class="feature-tag enabled-tag">Enabled</span>' : '<span class="feature-tag disabled-tag">Disabled</span>'}
+              </span>
+            </div>
+          </div>
+          <div class="tool-actions">
+            <button class="btn btn-icon btn-edit" onclick="showEditTool('${key}')">
+              <i class="fas fa-edit"></i> Edit
+            </button>
+            <button class="btn btn-icon btn-delete" onclick="deleteTool('${key}')">
+              <i class="fas fa-trash"></i> Delete
+            </button>
+          </div>
+        </div>
+      `}).join('');
+    }
+
+    function showAddTool() {
+      editingToolId = null;
+      clearForm();
+      document.getElementById('tool-id').disabled = false;
+      document.getElementById('m-add-tool').style.display = 'flex';
+    }
+
+    function showEditTool(key) {
+      const tool = tools[key];
+      if (tool) {
+        editingToolId = key;
+        document.getElementById('tool-id').value = key;
+        document.getElementById('tool-id').disabled = true;
+        document.getElementById('tool-path').value = tool.path || '';
+        document.getElementById('tool-params').value = tool.params ? JSON.stringify(tool.params, null, 2) : '';
+        document.getElementById('tool-extra').value = tool.extra ? JSON.stringify(tool.extra, null, 2) : '';
+        document.getElementById('tool-enabled').value = tool.enabled !== false ? 'true' : 'false';
+        document.getElementById('m-add-tool').style.display = 'flex';
+      }
+    }
+
+    function hideConfig() {
+      document.getElementById('m-add-tool').style.display = 'none';
+    }
+
+    function clearForm() {
+      document.getElementById('tool-id').value = '';
+      document.getElementById('tool-path').value = '';
+      document.getElementById('tool-params').value = '';
+      document.getElementById('tool-extra').value = '';
+      document.getElementById('tool-enabled').value = 'true';
+    }
+
+    function browseFile() {
+        ipcRenderer.invoke('select-file').then(result => {
+            if (!result.canceled && result.filePaths.length > 0) {
+                document.getElementById('tool-path').value = result.filePaths[0];
+            }
+        });
+    }
+
+    function saveTool() {
+      const id = document.getElementById('tool-id').value.trim();
+      const path = document.getElementById('tool-path').value.trim();
+      const paramsText = document.getElementById('tool-params').value.trim();
+      const extraText = document.getElementById('tool-extra').value.trim();
+      const enabled = document.getElementById('tool-enabled').value === 'true';
+
+      if (!id) {
+        alert('Tool ID cannot be empty');
+        return;
+      }
+
+      let params = {};
+      if (paramsText) {
+        try {
+          params = JSON.parse(paramsText);
+        } catch (e) {
+          alert('Parameters must be in valid JSON format');
+          return;
+        }
+      }
+      
+      let extra = [];
+      if (extraText) {
+        try {
+          extra = JSON.parse(extraText);
+        } catch (e) {
+           alert('Extra Config must be in valid JSON format');
+           return;
+        }
+      }
+
+      const toolData = {
+        id,
+        path,
+        params,
+        extra,
+        enabled
+      };
+
+      ipcRenderer.invoke('save-tool', toolData).then(() => {
+        hideConfig();
+        loadTools();
+      });
+    }
+
+    function deleteTool(id) {
+      if (confirm('Are you sure you want to delete this tool?')) {
+        ipcRenderer.invoke('delete-tool', id).then(() => {
+          loadTools();
+        });
+      }
+    }
+
+    document.addEventListener('DOMContentLoaded', init);
+  </script>
+</body>
+</html>

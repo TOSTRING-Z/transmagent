@@ -714,6 +714,12 @@ class MainWindow extends Window {
                         }
                     },
                     {
+                        label: 'Tool',
+                        click: async () => {
+                            this.windowManager.toolWindow.create();
+                        }
+                    },
+                    {
                         label: 'Setting',
                         click: async () => {
                             this.windowManager.configWindow.create();
