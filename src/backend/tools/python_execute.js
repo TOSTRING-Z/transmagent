@@ -59,7 +59,14 @@ function main(params) {
         })
 
         return new Promise((resolve) => {
-            child = spawn(params.python_bin, [tempFile]);
+            // 强制 Python 输出使用 UTF-8 编码，避免在 Windows 下出现 GBK 乱码
+            const env = { ...process.env, PYTHONIOENCODING: 'utf-8' };
+            child = spawn(params.python_bin, [tempFile], { env });
+            
+            // 设置流编码为 utf8，确保 data.toString() 总是能正确处理多字节字符
+            child.stdout.setEncoding('utf8');
+            child.stderr.setEncoding('utf8');
+
             terminalWindow.webContents.send('terminal-data', `${code}\n`);
 
             ipcMain.on('terminal-input', (event, input) => {
@@ -84,13 +91,15 @@ function main(params) {
             let error = "";
 
             child.stdout.on('data', (data) => {
-                output += data.toString();
-                terminalWindow?.webContents.send('terminal-data', data.toString());
+                const str = data.toString();
+                output += str;
+                terminalWindow?.webContents.send('terminal-data', str);
             });
 
             child.stderr.on('data', (data) => {
-                error += data.toString();
-                terminalWindow?.webContents.send('terminal-data', data.toString());
+                const str = data.toString();
+                error += str;
+                terminalWindow?.webContents.send('terminal-data', str);
             });
 
             child.on('close', (code) => {
