@@ -24,6 +24,12 @@ English | [中文](README_zh.md)
   - Overview: Added a "Context Compression" option in the subtask processing flow to automatically streamline historical dialogues and intermediate results, reducing context length and memory usage.  
   - Effect: Enhances stability and execution efficiency for long conversations and complex tasks, minimizing redundant information during model calls.
 - 2025-11-28 — New: Code IDE Mode
+- 2026-2-6 — New: Cross-Session Memory Storage and Retrieval, Important Memory Writing Function
+  - Overview: Added cross-session memory storage and retrieval functionality, allowing users to write important memories into persistent storage and retrieve them in subsequent sessions through indexing.
+  - Effect: Solves the "memory loss" problem in long-context tasks, enhancing continuity and stability of agents in complex analysis processes.
+- 2026-2-6 — New: Heartbeat Mechanism
+  - Overview: Added a heartbeat mechanism where agents periodically send heartbeat signals during execution to monitor system status and task progress.
+  - Effect: Improves system stability and reliability, allowing timely detection and handling of potential execution issues.
 
 <div align="center">
   <img src="./public/img/code_ide.png" alt="Code IDE" width="600">

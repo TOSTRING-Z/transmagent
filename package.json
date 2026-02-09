@@ -1,6 +1,6 @@
 {
   "name": "transmagent",
-  "version": "1.2.2",
+  "version": "1.2.3",
   "description": "transmagent",
   "main": "src/backend/main.js",
   "homepage": ".",
@@ -65,7 +65,9 @@
         "AppImage"
       ],
       "icon": "resources/icon/icon@256x256.icns"
-    }
+    },
+    "asar": true,
+    "npmRebuild": false
   },
   "scripts": {
     "start": "electron . --enable-logging --log-level=debug --no-sandbox",

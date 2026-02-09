@@ -1,6 +1,6 @@
 {
   "name": "plugins",
-  "version": "1.0.0",
+  "version": "1.2.3",
   "description": "plugins",
   "author": "",
   "license": "ISC",
@@ -11,6 +11,5 @@
     "he": "^1.2.0",
     "jsdom": "^26.0.0"
   },
-  "devDependencies": {
-  }
+  "devDependencies": {}
 }
