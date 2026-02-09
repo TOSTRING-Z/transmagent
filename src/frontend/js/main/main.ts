@@ -1,6 +1,6 @@
 import { DOM, State } from './globals';
 import { init_size, autoResizeTextarea, loadOptions, showLog, toggleMode, toggleSidebar, updateProgress, showRenameDialog, hideRenameDialog } from './ui';
-import { addChatItem, newChat, selectChat, deleteChat, renameChat, confirmRename } from './history';
+import { addChatItem, newChat, selectChat, deleteChat, renameChat, confirmRename, showHistoryMenu } from './history';
 import { initConfigEvents, showConfig, saveConfig, hideConfig } from './config';
 import { userAdd, infoAdd, streamMessageAdd, delete_memory, menuEvent, addEventStop } from './chat';
 import { initMermaid, marked } from './markdown';

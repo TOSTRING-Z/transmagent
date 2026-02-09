@@ -246,7 +246,7 @@ ${DOM.input.value}`;
     DOM.history_list.insertBefore(item, DOM.history_list.firstChild);
     item.onclick = () => selectChat(chat.id);
     const menu = item.querySelector(".history-menu");
-    menu.onclick = (e) => showHistoryMenu2(e, chat.id);
+    menu.onclick = (e) => showHistoryMenu(e, chat.id);
     const renameBtn = item.querySelector(".history-menu-item:nth-child(1)");
     renameBtn.onclick = (e) => {
       e.stopPropagation();
@@ -294,7 +294,7 @@ ${DOM.input.value}`;
       });
     }
   }
-  function showHistoryMenu2(event, chatId) {
+  function showHistoryMenu(event, chatId) {
     event.stopPropagation();
     const menus = document.querySelectorAll(".history-menu-dropdown");
     menus.forEach((menu2) => menu2.style.display = "none");
