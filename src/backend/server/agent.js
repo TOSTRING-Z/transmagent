@@ -389,6 +389,7 @@ class ReActAgent {
         this.setHistory(this.llm_service.chat);
         let chat = utils.copy(this.llm_service.chat);
         chat.name = utils.formatDate();
+        chat.msg_count = 0;
         return chat;
     }
 
@@ -398,6 +399,7 @@ class ReActAgent {
         const history_data = utils.getHistoryData();
         const history = history_data.data.find(history_ => history_.id == id);
         this.llm_service.chat = this.llm_service.getChatInit({ ...history, max_index: max_index });;
+        this.llm_service.chat.msg_count = this.llm_service.getMessages(false).length;
         return this.llm_service.chat;
     }
 

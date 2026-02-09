@@ -148,8 +148,10 @@ class MainWindow extends Window {
             height: 800,
             webPreferences: {
                 // eslint-disable-next-line no-undef
-                preload: path.join(__dirname, '../preload.js')
-            }
+                preload: path.join(__dirname, '../preload.js'),
+                // nodeIntegration: true,
+                // contextIsolation: false
+            },
         })
 
         this.window.on('focus', () => {

@@ -1,0 +1,16 @@
+{
+  "name": "transmagent-renderer",
+  "version": "1.0.0",
+  "description": "TypeScript renderer for TransMAgent",
+  "main": "renderer.js",
+  "scripts": {
+    "build": "node build.js",
+    "watch": "node build.js --watch"
+  },
+  "author": "TransMAgent",
+  "license": "ISC",
+  "devDependencies": {
+    "esbuild": "^0.19.0",
+    "typescript": "^5.0.0"
+  }
+}

@@ -77,13 +77,13 @@ class MemoryManager {
         return "";
     }
 
-    appendImportantMemory(content) {
+    appendImportantMemory(content, time) {
         const memoryPath = this.utils.getImportantMemoryPath();
         const dir = path.dirname(memoryPath);
         if (!fs.existsSync(dir)) {
             fs.mkdirSync(dir, { recursive: true });
         }
-        fs.appendFileSync(memoryPath, content + '\n');
+        fs.appendFileSync(memoryPath, `${time}: ${content}\n`);
         return true;
     }
 }

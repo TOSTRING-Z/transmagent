@@ -419,7 +419,7 @@ class LLMService {
                         }
                     }
                     if (!data?.react && !data?.return_response) {
-                        this.window.webContents.send('stream-data', { id: data.id, content: content, end: false });
+                        this.window.webContents.send('stream-data', { id: data.id, content: content, end: false , msg_count: this.messages.length });
                     }
                 }
                 data.output = message_output.content;
@@ -441,7 +441,7 @@ class LLMService {
                     data.output = respJson.choices[0].message.content;
                 }
                 if (!data?.react && !data?.return_response) {
-                    this.window.webContents.send('stream-data', { id: data.id, content: data.output, end: false });
+                    this.window.webContents.send('stream-data', { id: data.id, content: data.output, end: false , msg_count: this.messages.length });
                 }
                 message_output.content = data.output;
             }
@@ -458,7 +458,7 @@ class LLMService {
                 if (!data?.react)
                     this.window.webContents.send('stream-data', { id: data.id, content: "", end: true });
                 else
-                    this.window.webContents.send('stream-data', { id: data.id, content: data.output_template ? data.output_template.format(data) : data.output, end: true });
+                    this.window.webContents.send('stream-data', { id: data.id, content: data.output_template ? data.output_template.format(data) : data.output, end: true , msg_count: this.messages.length });
                 return true;
             } else {
                 if (data?.push_message) {

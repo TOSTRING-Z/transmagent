@@ -185,18 +185,27 @@ ${!this.agent.prompt_args.subagent ? `- **Active Mode**: The current operating m
     return prompts;
   }
 
-  getEnvPrompts() {
-    const env = `# Environment details
-- Language: Please answer using {language}
-- Current time: {time}
-- Temporary folder: {tmpdir}
-${!this.agent.prompt_args.subagent ? `- Current mode: {mode}
-{envs}` : ""}
-${this.agent.prompt_args.todolist ? `
-# TodoList
+getEnvPrompts() {
+    // 这是一个高频注入的 Prompt，必须极其精简，避免挤占 Context
+    // 它跟随在 User 消息后，作为“即时状态快照”
+    const { subagent, todolist } = this.agent.prompt_args;
+    
+    // 使用紧凑的 Key-Value 格式
+    const env = `
+---
+### 🖥️ CRITICAL CONTEXT SNAPSHOT
+- **Time**: {time}
+- **Lang**: {language}
+- **Dir**: {tmpdir}
+${!subagent ? `- **Mode**: {mode}\n{envs}` : ""}
+${todolist ? `
+### ✅ TASK LIST STATUS
 {todolist}
-` : ""}`
-    return env;
+` : ""}
+---
+**INSTRUCTION**: Review the Snapshot above. Based on the *User Input* and *Task Status*, decide the next JSON Action.
+`;
+    return env.trim();
   }
 }
 

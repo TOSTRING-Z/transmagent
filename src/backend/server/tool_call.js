@@ -343,7 +343,7 @@ Usage:
       "write_important_memory": {
         func: ({ content }) => {
           if (!content || typeof content !== 'string') return "Error: Content must be a non-empty string.";
-          return this.memory_manager.appendImportantMemory(content)
+          return this.memory_manager.appendImportantMemory(content, this.environment_details.time)
             ? "Success: Memory Archived"
             : "Error: Write Failed";
         },
@@ -464,7 +464,7 @@ Usage:
       }
     }
     this.environment_details.todolist = todolist.join("\n");
-    this.environment_details.envs = envs.join("\n");
+    this.environment_details.envs = envs.length > 0 ? envs.join("\n") : "[]";
     data.env_message = utils.getConfig("tool_call")?.env_message ? this.llm_service.envMessage(this.env_prompt.format(this.environment_details)) : null;
   }
 
