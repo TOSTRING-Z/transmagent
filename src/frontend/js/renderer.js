@@ -274,7 +274,7 @@ ${DOM.input.value}`;
     toggleMode(State.chat.mode);
     DOM.system_prompt.value = State.chat.system_prompt;
     DOM.tokens.innerText = State.chat.tokens.toString();
-    DOM.msg_count.innerText = State.chat.msg_count || 0;
+    DOM.msg_count.innerText = State.chat.msg_count?.toString() || "0";
     DOM.seconds.innerText = State.chat.seconds.toFixed(1);
     const items = DOM.history_list.getElementsByClassName("history-item");
     Array.from(items).forEach((item) => {
@@ -947,8 +947,8 @@ $$
     if (messageSystem) {
       const message_content = messageSystem.getElementsByClassName("message")[0];
       if (chunk.content) {
-        if (chunk.msg_count) {
-          DOM.msg_count.innerText = chunk.msg_count;
+        if (chunk.chat?.msg_count) {
+          DOM.msg_count.innerText = chunk.chat.msg_count;
         }
         if (State.seconds_timer) {
           State.chat.tokens += getTokens(chunk.content);
@@ -1267,7 +1267,7 @@ $$
     toggleMode(State.chat.mode);
     DOM.system_prompt.value = State.chat.system_prompt;
     DOM.tokens.innerText = State.chat.tokens.toString();
-    DOM.msg_count.innerText = State.chat.msg_count || 0;
+    DOM.msg_count.innerText = State.chat.msg_count?.toString() || "0";
     DOM.seconds.innerText = State.chat.seconds.toFixed(1);
   });
   window.electronAPI.handleAutoRenameChat(async (chat) => {

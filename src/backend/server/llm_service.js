@@ -29,6 +29,11 @@ class LLMService {
         this.stop = false;
         this.tag_success = false;
         this.chat = this.getChatInit(chat);
+        this.updateChat();
+    }
+
+    updateChat() {
+        this.chat.msg_count = this.getMessages(false).length;
     }
 
     getMessages(all = true) {
@@ -39,6 +44,7 @@ class LLMService {
     pushMessage(role, content, id, context_id, show = true, react = true) {
         let message = { role: role, content: content, id: id, context_id: context_id, show: show, react: react };
         this.messages.push(message);
+        this.updateChat();
     }
 
     popMessage(id, context_id) {
@@ -52,6 +58,7 @@ class LLMService {
                     return true;
                 })
             }
+            this.updateChat();
         } else {
             return null;
         }
@@ -76,6 +83,7 @@ class LLMService {
             mode: "act",
             tokens: 0,
             seconds: 0,
+            msg_count: 0,
             envs: {},
             vars: {
                 task_id: 0,
@@ -129,6 +137,7 @@ class LLMService {
                 this.messages = data.messages;
                 this.chat =  {...data.chat, id: this.chat.id}
             }
+            this.updateChat();
             return this.messages.filter(message => message.show);
         } catch (error) {
             console.log(error);
@@ -140,6 +149,7 @@ class LLMService {
         try {
             if (del_mode) {
                 this.messages = this.messages.filter(message => message.id != id);
+                this.updateChat();
             }
             else {
                 this.messages = this.messages.map(message => {
@@ -186,6 +196,7 @@ class LLMService {
         try {
             if (del_mode) {
                 this.messages = this.messages.filter(message => message.context_id != context_id);
+                this.updateChat();
             }
             else {
                 this.messages = this.messages.map(message => {
@@ -419,7 +430,7 @@ class LLMService {
                         }
                     }
                     if (!data?.react && !data?.return_response) {
-                        this.window.webContents.send('stream-data', { id: data.id, content: content, end: false , msg_count: this.messages.length });
+                        this.window.webContents.send('stream-data', { id: data.id, content: content, end: false , chat: this.chat });
                     }
                 }
                 data.output = message_output.content;
@@ -441,7 +452,7 @@ class LLMService {
                     data.output = respJson.choices[0].message.content;
                 }
                 if (!data?.react && !data?.return_response) {
-                    this.window.webContents.send('stream-data', { id: data.id, content: data.output, end: false , msg_count: this.messages.length });
+                    this.window.webContents.send('stream-data', { id: data.id, content: data.output, end: false , chat: this.chat });
                 }
                 message_output.content = data.output;
             }
@@ -456,14 +467,15 @@ class LLMService {
                 if (data?.return_response)
                     return true;
                 if (!data?.react)
-                    this.window.webContents.send('stream-data', { id: data.id, content: "", end: true });
+                    this.window.webContents.send('stream-data', { id: data.id, content: "", end: true, chat: this.chat });
                 else
-                    this.window.webContents.send('stream-data', { id: data.id, content: data.output_template ? data.output_template.format(data) : data.output, end: true , msg_count: this.messages.length });
+                    this.window.webContents.send('stream-data', { id: data.id, content: data.output_template ? data.output_template.format(data) : data.output, end: true, chat: this.chat });
                 return true;
             } else {
                 if (data?.push_message) {
                     this.messages.push(message_input);
                     this.messages.push(message_output);
+                    this.updateChat();
                 }
             }
             return data.output;

@@ -513,32 +513,32 @@ Usage:
       this.llm_service.pushMessage("user", data.output_format, data.id, this.context_id);
       if (observation?.warning) {
         this.state = State.PAUSE;
-        this.window.webContents.send('stream-data', { id: data.id, context_id: this.context_id, content: `${observation.warning}\n\n`, end: true });
+        this.window.webContents.send('stream-data', { id: data.id, context_id: this.context_id, content: `${observation.warning}\n\n`, end: true, chat: this.llm_service.chat });
         return observation.options;
       }
       switch (tool_info.tool) {
         case "display_file":
-          this.window.webContents.send('stream-data', { id: data.id, context_id: this.context_id, content: `${output}\n\n` });
+          this.window.webContents.send('stream-data', { id: data.id, context_id: this.context_id, content: `${output}\n\n`, chat: this.llm_service.chat });
           break;
         case "add_subtasks":
-          this.window.webContents.send('stream-data', { id: data.id, context_id: this.context_id, content: `\`\`\`json\n${JSON.stringify(output, null, 2)}\n\`\`\`\n\n` });
+          this.window.webContents.send('stream-data', { id: data.id, context_id: this.context_id, content: `\`\`\`json\n${JSON.stringify(output, null, 2)}\n\`\`\`\n\n`, chat: this.llm_service.chat });
           break;
         case "record_subtasks":
-          this.window.webContents.send('stream-data', { id: data.id, context_id: this.context_id, content: `\`\`\`json\n${JSON.stringify(output, null, 2)}\n\`\`\`\n\n` });
+          this.window.webContents.send('stream-data', { id: data.id, context_id: this.context_id, content: `\`\`\`json\n${JSON.stringify(output, null, 2)}\n\`\`\`\n\n`, chat: this.llm_service.chat });
           break;
         default:
           break;
       }
       if (["workflow_planner", "tool_manager", "web_searcher", "chart_plotter", "task_executor", "tool_documentation_collector", "url_summarizer"].includes(tool_info.tool)) {
-        this.window.webContents.send('stream-data', { id: data.id, context_id: this.context_id, content: output, end: false });
+        this.window.webContents.send('stream-data', { id: data.id, context_id: this.context_id, content: output, end: false, chat: this.llm_service.chat });
       }
       if (this.state == State.PAUSE) {
         const { question, options } = output;
-        this.window.webContents.send('stream-data', { id: data.id, context_id: this.context_id, content: question || "", end: true });
+        this.window.webContents.send('stream-data', { id: data.id, context_id: this.context_id, content: question || "", end: true, chat: this.llm_service.chat });
         return options;
       }
       if (this.state == State.FINAL) {
-        this.window.webContents.send('stream-data', { id: data.id, context_id: this.context_id, content: output, end: true });
+        this.window.webContents.send('stream-data', { id: data.id, context_id: this.context_id, content: output, end: true, chat: this.llm_service.chat });
       } else {
         this.window.webContents.send('info-data', { id: data.id, context_id: this.context_id, content: this.get_info(data) });
       }
@@ -569,7 +569,7 @@ Usage:
             this.repetitions_delay_empty = 0;
           }
         }
-        this.window.webContents.send('stream-data', { id: data.id, context_id: this.context_id, content: `${tool_info.thinking}\n\n---\n\n` });
+        this.window.webContents.send('stream-data', { id: data.id, context_id: this.context_id, content: `${tool_info.thinking}\n\n---\n\n`, chat: this.llm_service.chat });
         return tool_info;
       }
     } catch (error) {
@@ -657,7 +657,7 @@ Usage:
     while (this.state != State.FINAL && this.state != State.PAUSE) {
       if (this.llm_service.stop) {
         this.state = State.FINAL
-        this.window.webContents.send('stream-data', { id: data.id, content: "The user interrupted the task.", end: true });
+        this.window.webContents.send('stream-data', { id: data.id, content: "The user interrupted the task.", end: true, chat: this.llm_service.chat });
         break;
       }
       if (data?.max_step && step > data.max_step) {

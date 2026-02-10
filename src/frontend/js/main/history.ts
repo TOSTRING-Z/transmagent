@@ -52,7 +52,7 @@ export async function selectChat(chatId: string) {
   toggleMode(State.chat.mode);
   DOM.system_prompt.value = State.chat.system_prompt;
   DOM.tokens.innerText = State.chat.tokens.toString();
-  DOM.msg_count.innerText = State.chat.msg_count || 0;
+  DOM.msg_count.innerText = State.chat.msg_count?.toString() || "0";
   DOM.seconds.innerText = State.chat.seconds.toFixed(1);
   
   const items = DOM.history_list.getElementsByClassName("history-item");

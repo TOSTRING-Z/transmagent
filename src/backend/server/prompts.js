@@ -148,7 +148,7 @@ ${this.agent.prompt_args.mcp_server ? `
 ====
 
 ${!this.agent.prompt_args.subagent? `
-# 📌 Important User Context
+# 📌 Important Memory
 {important_memory}
 ====
 `: ""}

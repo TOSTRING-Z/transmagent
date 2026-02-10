@@ -321,7 +321,7 @@ window.electronAPI.handleSetChat(async (chat) => {
   toggleMode(State.chat.mode);
   DOM.system_prompt.value = State.chat.system_prompt;
   DOM.tokens.innerText = State.chat.tokens.toString();
-  DOM.msg_count.innerText = State.chat.msg_count || 0;
+  DOM.msg_count.innerText = State.chat.msg_count?.toString() || "0";
   DOM.seconds.innerText = State.chat.seconds.toFixed(1);
 });
 

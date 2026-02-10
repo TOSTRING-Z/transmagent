@@ -301,8 +301,8 @@ export async function streamMessageAdd(chunk: any) {
   if (messageSystem) {
     const message_content = messageSystem.getElementsByClassName('message')[0] as HTMLElement;
     if (chunk.content) {
-      if (chunk.msg_count) {
-        DOM.msg_count.innerText = chunk.msg_count;
+      if (chunk.chat?.msg_count) {
+        DOM.msg_count.innerText = chunk.chat.msg_count;
       }
       if (State.seconds_timer) {
         State.chat.tokens += getTokens(chunk.content);
