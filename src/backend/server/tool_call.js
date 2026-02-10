@@ -465,6 +465,7 @@ Usage:
     }
     this.environment_details.todolist = todolist.join("\n");
     this.environment_details.envs = envs.length > 0 ? envs.join("\n") : "[]";
+    this.environment_details.skills = this.prompts.getSkillPrompt();
     data.env_message = utils.getConfig("tool_call")?.env_message ? this.llm_service.envMessage(this.env_prompt.format(this.environment_details)) : null;
   }
 

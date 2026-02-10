@@ -45,3 +45,4 @@ sample_data.jsonl
 model/dataset/
 model/
 article/
+*.eml

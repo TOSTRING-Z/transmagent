@@ -3,17 +3,11 @@ const { LLMService } = require('./llm_service');
 const JSON5 = require("json5");
 
 String.prototype.format = function (data) {
-    function format(template, params) {
-        const keys = Object.keys(params);
-        const values = Object.values(params);
-        return new Function(...keys, `return \`$${template}\`;`)(...values);
-    }
-
     if (this) {
         let format_text = this.replaceAll("{{", "@bracket_left").replaceAll("}}", "@bracket_right");
-        format_text = format_text.replace(/(\{.*?\})/g, (match, cmd) => {
+        format_text = format_text.replace(/\{(.*?)\}/g, (match, cmd) => {
             try {
-                return format(cmd, data);
+                return data[cmd.trim()] !== undefined ? data[cmd.trim()] : match;
             } catch (e) {
                 console.log(e);
                 return match;

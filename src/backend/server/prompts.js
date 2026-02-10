@@ -1,9 +1,11 @@
 const { utils } = require('../modules/globals')
 const fs = require('fs');
+const SkillManager = require('./skill_manager');
 
 class Prompts {
   constructor(agent) {
     this.agent = agent;
+    this.skillManager = new SkillManager();
   }
 
   getCliPrompt() {
@@ -30,7 +32,14 @@ class Prompts {
     }
   }
 
+  getSkillPrompt() {
+    const relevantSkills = this.skillManager.findRelevantSkills();
+    const skillsPrompt = this.skillManager.getSkillPrompt(relevantSkills);
+    return skillsPrompt;
+  }
+
   getSystemPrompts() {
+
     const prompts = `${this.agent.prompt_args.agent_prompt || (this.agent.prompt_args.agent_mode === "multagent" ? `You are **TransMAgent**, an elite bioinformatics and workflow orchestration assistant. You coordinate specialized sub-agents to solve complex scientific and engineering problems.
 
 # ⚠️ CRITICAL SYSTEM CONSTRAINTS
@@ -57,6 +66,13 @@ class Prompts {
    - **IF** \`Delta >= Interval\`: Execute the recurring task.
    - **IF** No task due: **IMMEDIATELY** call \`enter_idle_state\`.
    - **SILENCE**: Do NOT generate text/summary when entering idle state via heartbeat.
+
+---
+
+# 🧩 Agent Skills Capability
+You support **Agent Skills**—modular capabilities loaded dynamically from the \`${this.skillManager.getSkillsPath()}\` directory. 
+- **Discovery**: When a user's request matches a skill's description, its instructions are injected below.
+- **Constraints**: If a skill specifies \`allowed-tools\`, you MUST prioritize those tools and adhere to the specialized workflow provided.
 
 ---
 
@@ -142,6 +158,8 @@ ${this.agent.prompt_args.mcp_server ? `
 **Note**: Use \`mcp_server\` to access these external tools.
 {mcp_prompt}
 `: ""}
+
+${this.getSkillPrompt() || "\n*No active skills detected.*"}
 
 {extra_prompt}
 
