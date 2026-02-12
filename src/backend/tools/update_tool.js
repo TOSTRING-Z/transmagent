@@ -114,83 +114,51 @@ async function main({ tool_name, tool_documentation }) {
 }
 
 function getPrompt() {
-    const prompt = `## update_tool
+    return `## update_tool
 
-Description: Update or add tool documentation in the CLI prompt configuration file. If the tool exists, updates its usage documentation; if not, adds the new tool at the end of the file.
+Description: Registers or updates tool definitions in the CLI configuration file.
+**Mechanism**: Overwrites existing tools by name; appends new ones if not found.
+**Critical Constraint**: \`tool_documentation\` MUST follow a strict 2-space indentation schema.
 
 Parameters:
-- tool_name: (Required) Name of the tool to update or add
-- tool_documentation: (Required) Complete documentation for the tool usage, MUST strictly follow the exact format below:
+- tool_name: (Required) The unique identifier string.
+- tool_documentation: (Required) The definition body following this EXACT format:
+  \`\`\`text
+  - [tool_name]: [Brief description]
+    - Input: \`[filename]\` ([format notes])
+    - Output: \`[filename]\` ([format notes])
+    - Use: \`[command string]\`
+    - Note:
+      - [Point 1]
+      - [Nested Section]:
+        - [Sub-point]
+  \`\`\`
 
-\`\`\`
-- tool_name: Brief description of the tool's purpose
-  - Input: \`filename\` (description of input format and requirements)
-  - Output: \`filename\` (description of output format and location)  
-  - Use: \`exact command with parameters\`
+### Usage
+
+**1. Registering a Complex Tool**
+<root>
+  <thinking>Adding the 'enrichment_analysis' tool with nested configuration notes.</thinking>
+  <tool_call>
+    <name>update_tool</name>
+    <parameters>
+      <tool_name>enrichment_analysis</tool_name>
+      <tool_documentation>
+- enrichment_analysis: Performs gene set enrichment (GSEA/ORA)
+  - Input: \`genes.txt\` (Gene symbols list)
+  - Output: \`results.csv\` (Enrichment table)
+  - Use: \`Rscript analyze.R --input genes.txt\`
   - Note:
-    - Additional note point 1
-    - Additional note point 2
-    - Nested note section:
-      - Sub-point 1
-      - Sub-point 2
-      - Further nesting:
-        - Deep point 1
-        - Deep point 2
-\`\`\`
-
-**Format Requirements:**
-- Tool name line: \`- tool_name: description\`
-- Input line: \`  - Input: \\\`filename\\\` (description)\`
-- Output line: \`  - Output: \\\`filename\\\` (description)\`
-- Use line: \`  - Use: \\\`exact command\\\`\`
-- Note section (optional):
-  - \`  - Note:\`
-  - \`    - note point 1\`
-  - \`    - note point 2\`
-  - \`    - nested section:\`
-  - \`      - sub-point 1\`
-  - \`      - sub-point 2\`
-  - \`      - deeper section:\`
-  - \`        - deep point 1\`
-  - \`        - deep point 2\`
-- Indentation: 2 spaces per level
-- Backticks around filenames and commands
-- Empty line between tools
-- Note sections can be nested multiple levels deep
-
-**Example with Multi-level Nesting:**
-\`\`\`
-- enrichment_analysis: Performs enrichment analysis for gene sets
-  - Input: \`genes.txt\` (single-column gene symbols), category name
-  - Output: \`enrichment_results.txt\`
-  - Use: \`Rscript /data/geneset/enrichment_analysis.R --input genes.txt --output output_dir\`
-  - Note:
-    - Adjustable thresholds:
-      - p-value: default 0.05
-      - FDR: default 0.5
-      - Bonferroni: default 0.5
-    - Supported categories:
-      - Disease_Type:
-        - Cancer
-        - Metabolic
-      - Pathway_Type:
-        - Signaling
-        - Metabolic
-    - Additional parameters:
-      - min_size: 5
-      - max_size: 500
-\`\`\`
-
-Usage:
-{
-  "thinking": "[Detailed thought process, including which tool is being updated/added, why the change is needed, and verification that the tool_documentation strictly follows the required format with proper multi-level nesting]",
-  "tool": "update_tool",
-  "params": {
-    "tool_name": "[Name of the tool]",
-    "tool_documentation": "[Complete tool documentation in EXACT required format with proper nesting]"
-  }
-}`
-    return prompt
+    - Thresholds:
+      - P-value default: 0.05
+      - FDR default: 0.25
+    - Databases:
+      - KEGG
+      - GO_Biological_Process
+      </tool_documentation>
+    </parameters>
+  </tool_call>
+</root>`;
 }
 
 // 测试函数

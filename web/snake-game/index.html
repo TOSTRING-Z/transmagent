@@ -1,0 +1,104 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>贪吃蛇游戏 - 网页版</title>
+    <link rel="stylesheet" href="style.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&family=Roboto:wght@300;400;700&display=swap" rel="stylesheet">
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1><i class="fas fa-gamepad"></i> 贪吃蛇游戏</h1>
+            <p class="subtitle">经典贪吃蛇游戏的现代网页版</p>
+        </header>
+
+        <div class="game-area">
+            <div class="game-info">
+                <div class="score-board">
+                    <div class="score-item">
+                        <span class="score-label">得分</span>
+                        <span id="score" class="score-value">0</span>
+                    </div>
+                    <div class="score-item">
+                        <span class="score-label">最高分</span>
+                        <span id="high-score" class="score-value">0</span>
+                    </div>
+                    <div class="score-item">
+                        <span class="score-label">等级</span>
+                        <span id="level" class="score-value">1</span>
+                    </div>
+                </div>
+
+                <div class="controls">
+                    <button id="start-btn" class="btn btn-primary">
+                        <i class="fas fa-play"></i> 开始游戏
+                    </button>
+                    <button id="pause-btn" class="btn btn-secondary">
+                        <i class="fas fa-pause"></i> 暂停
+                    </button>
+                    <button id="reset-btn" class="btn btn-warning">
+                        <i class="fas fa-redo"></i> 重新开始
+                    </button>
+                </div>
+
+                <div class="instructions">
+                    <h3><i class="fas fa-info-circle"></i> 游戏说明</h3>
+                    <ul>
+                        <li>使用 <kbd>↑</kbd> <kbd>↓</kbd> <kbd>←</kbd> <kbd>→</kbd> 方向键控制蛇的移动</li>
+                        <li>吃到红色食物可以增加得分和蛇的长度</li>
+                        <li>每得100分升一级，速度会加快</li>
+                        <li>撞到墙壁或自己的身体游戏结束</li>
+                        <li>按空格键可以暂停/继续游戏</li>
+                    </ul>
+                </div>
+            </div>
+
+            <div class="game-container">
+                <canvas id="game-canvas" width="600" height="600"></canvas>
+                <div id="game-over" class="game-over">
+                    <h2>游戏结束!</h2>
+                    <p>最终得分: <span id="final-score">0</span></p>
+                    <button id="restart-btn" class="btn btn-primary">
+                        <i class="fas fa-play-circle"></i> 重新开始
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <div class="settings">
+            <h3><i class="fas fa-cog"></i> 游戏设置</h3>
+            <div class="setting-item">
+                <label for="speed-slider">游戏速度:</label>
+                <input type="range" id="speed-slider" min="1" max="10" value="5">
+                <span id="speed-value">中速</span>
+            </div>
+            <div class="setting-item">
+                <label for="grid-toggle">显示网格:</label>
+                <input type="checkbox" id="grid-toggle" checked>
+            </div>
+            <div class="setting-item">
+                <label for="theme-select">主题颜色:</label>
+                <select id="theme-select">
+                    <option value="classic">经典绿色</option>
+                    <option value="dark">暗黑模式</option>
+                    <option value="neon">霓虹色彩</option>
+                </select>
+            </div>
+        </div>
+
+        <footer>
+            <p>© 2023 贪吃蛇网页版 | 使用 HTML5 Canvas 制作</p>
+            <p class="footer-links">
+                <a href="#"><i class="fab fa-github"></i> GitHub</a> |
+                <a href="#"><i class="fas fa-question-circle"></i> 帮助</a> |
+                <a href="#"><i class="fas fa-envelope"></i> 联系</a>
+            </p>
+        </footer>
+    </div>
+
+    <script src="game.js"></script>
+</body>
+</html>

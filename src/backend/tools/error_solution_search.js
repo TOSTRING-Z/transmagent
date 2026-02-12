@@ -446,28 +446,40 @@ function main({ error_message, max_results = 5 }) {
 }
 
 function getPrompt() {
-    return `## error_solution_search  
-Description: Find programming error solutions from Stack Overflow using browser automation
+    return `## error_solution_search
 
-Parameters:  
-- error_message: The error message to analyze (required)  
-- max_results: Maximum number of solution URLs to return (optional, default: 5)
+Description: Automates Stack Overflow searches to find verified solutions for programming errors.
+**Capabilities**: Crawls SO, handles verification challenges, and extracts solution metadata.
+**Best Practice**: Paste the exact error message or stack trace header for best results.
 
-Key Features:  
-✔ Uses browser automation to crawl Stack Overflow solutions  
-✔ Automatically handles verification challenges  
-✔ Analyzes error type automatically  
-✔ Returns actual solution pages with metadata  
+Parameters:
+- error_message: (Required, String) The exact error string to analyze.
+- max_results: (Optional, Int) Limit the number of solution URLs (Default: 5).
 
-Usage:  
-{
-  "thinking": "User has a programming error, search Stack Overflow for solutions.",
-  "tool": "error_solution_search", 
-  "params": {
-    "error_message": "Error message here",
-    "max_results": 5
-  }
-}`;
+### Usage
+
+**1. Standard Error Search**
+<root>
+  <thinking>Encountered a Python indentation error. Searching for common causes.</thinking>
+  <tool_call>
+    <name>error_solution_search</name>
+    <parameters>
+      <error_message>IndentationError: unexpected indent</error_message>
+      <max_results>3</max_results>
+    </parameters>
+  </tool_call>
+</root>
+
+**2. Complex Stack Trace Analysis**
+<root>
+  <thinking>React hydration mismatch detected. Finding specific solutions.</thinking>
+  <tool_call>
+    <name>error_solution_search</name>
+    <parameters>
+      <error_message>Hydration failed because the initial UI does not match the server-rendered HTML</error_message>
+    </parameters>
+  </tool_call>
+</root>`;
 }
 
 // 测试函数

@@ -50,19 +50,39 @@ async function main(params) {
 
 function getPrompt() {
     return `## fetch_url
-Description: Fetch content from a given web URL
+
+Description: Lightweight HTTP client to scrape text content from a specific URL.
+**Best Practice**: Use for static pages (docs, blogs). For complex JS-heavy sites, use 'browser_client'.
+**Default Behavior**: Truncates content at 2000 characters to protect context window.
+
 Parameters:
-- url: (Required) URL to fetch content from
-- text_max_len: (Optional) Maximum length of text to return, default is 2000 characters
-Usage:
-{
-  "thinking": "[Thinking process]",
-  "tool": "fetch_url",
-  "params": {
-    "url": "[value]",
-    "text_max_len": "[value]"
-  }
-}`;
+- url: (Required, String) Target HTTP/HTTPS URL.
+- text_max_len: (Optional, Int) Override character limit (Default: 2000).
+
+### Usage
+
+**1. Quick Summary (Default limit)**
+<root>
+  <thinking>Reading the introductory paragraph of the documentation.</thinking>
+  <tool_call>
+    <name>fetch_url</name>
+    <parameters>
+      <url>https://api.example.com/v1/intro</url>
+    </parameters>
+  </tool_call>
+</root>
+
+**2. Deep Dive (Extended limit)**
+<root>
+  <thinking>Fetching the full article for detailed analysis.</thinking>
+  <tool_call>
+    <name>fetch_url</name>
+    <parameters>
+      <url>https://research.org/paper-123.html</url>
+      <text_max_len>10000</text_max_len>
+    </parameters>
+  </tool_call>
+</root>`;
 }
 
 module.exports = {

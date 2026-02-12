@@ -399,78 +399,119 @@ class ReActAgent {
         let max_index = 0;
         this.window.webContents.send('clear');
         let messages = this.llm_service.loadMessages(filePath)
+        
         if (messages.length > 0) {
+            // 1. 恢复最大 ID
             const maxId = messages.reduce((max, current) => {
                 return parseInt(current.id) > parseInt(max.id) ? current : max;
             }, messages[0]);
+
             if (maxId.id) {
                 max_index = parseInt(maxId.id);
                 const react = messages.find(message => message.react);
+                
+                // 2. 恢复 context_id
                 if (react) {
                     const maxMemoryId = messages.reduce((max, current) => {
                         return parseInt(current.context_id) > parseInt(max.context_id) ? current : max;
                     }, messages[0]);
                     this.context_id = maxMemoryId.context_id;
                 }
+
+                // 3. 遍历并回放消息
                 for (let i in messages) {
                     i = parseInt(i);
                     if (Object.hasOwnProperty.call(messages, i)) {
                         let { role, content, id, context_id, react, del } = messages[i];
-                        // if (context_id === 188) {
-                        //   console.log(`Memory ID: ${context_id}, Content: ${content}`);
-                        // }
+
+                        // --- Case A: User (通常包含工具的 Observation 结果) ---
                         if (role == "user") {
                             if (react) {
+                                // 注意：Observation 仍然以 JSON 对象存储在历史记录中
                                 const tool_info = utils.parseJsonContent(content);
                                 if (tool_info) {
                                     const tool = tool_info?.tool_call;
                                     const observation = tool_info?.observation;
+
+                                    // 根据工具类型回放流式数据
                                     switch (tool) {
                                         case "display_file":
                                             this.window.webContents.send('stream-data', { id: id, context_id: context_id, content: `${observation}\n\n`, end: true, del: del });
                                             break;
                                         case "add_subtasks":
-                                            this.window.webContents.send('stream-data', { id: id, context_id: context_id, content: `\`\`\`json\n${JSON.stringify(observation, null, 2)}\n\`\`\`\n\n`, end: true, del: del });
-                                            break;
+                                        case "record_subtasks": // 兼容新旧名称
                                         case "complete_subtasks":
+                                            // 结果保持 JSON 展示比较易读
                                             this.window.webContents.send('stream-data', { id: id, context_id: context_id, content: `\`\`\`json\n${JSON.stringify(observation, null, 2)}\n\`\`\`\n\n`, end: true, del: del });
                                             break;
                                         default:
                                             break;
                                     }
-                                    if (["workflow_planner", "tool_manager", "web_searcher", "chart_plotter", "task_executor", "tool_documentation_collector", "url_summarizer"].includes(tool)) {
-                                        this.window.webContents.send('stream-data', { id: id, context_id: context_id, content: `${observation}\n\n`, end: true, del: del });
+                                    
+                                    // 回放通用工具输出
+                                    if (["workflow_planner", "tool_manager", "web_searcher", "chart_plotter", "task_executor", "tool_documentation_collector", "url_summarizer", "cli_execute", "python_execute", "enter_idle_state"].includes(tool)) {
+                                        // this.window.webContents.send('stream-data', { id: id, context_id: context_id, content: `${observation}\n\n`, end: true, del: del });
                                     }
+                                    
+                                    // 回放交互式问题
                                     if (["ask_followup_question", "waiting_feedback", "plan_mode_response"].includes(tool)) {
-                                        this.window.webContents.send('stream-data', { id: id, context_id: context_id, content: `${observation.question}\n\n`, end: true, del: del });
+                                        this.window.webContents.send('stream-data', { id: id, context_id: context_id, content: `${observation.question || observation}\n\n`, end: true, del: del });
                                     }
                                 }
+                                
+                                // Info Panel 显示：用户侧仍是 JSON 数据
                                 let content_format = content.replaceAll("\\`", "'").replaceAll("`", "'");
                                 this.window.webContents.send('info-data', { id: id, context_id: context_id, content: `Step ${i}, id: ${id}, context_id: ${context_id}, Output:\n\n\`\`\`json\n${content_format}\n\`\`\`\n\n`, del: del });
                             }
                             else {
+                                // 普通用户对话
                                 this.window.webContents.send('user-data', { id: id, context_id: context_id, content: content, del: del });
                             }
-                        } else {
+                        } 
+                        // --- Case B: Assistant (XML 格式的 Thinking 和 Tool Call) ---
+                        else {
                             if (react) {
                                 try {
-                                    const tool_info = utils.parseJsonContent(content);
-                                    if (tool_info) {
-                                        const thinking = `${tool_info?.thinking || `Tool call: ${tool_info.tool}`}\n\n---\n\n`
-                                        let content_format = content.replaceAll("\\`", "'").replaceAll("`", "'");
-                                        this.window.webContents.send('info-data', { id: id, context_id: context_id, content: `Step ${i}, id: ${id}, context_id: ${context_id}, Output:\n\n\`\`\`json\n${content_format}\n\`\`\`\n\n`, del: del });
-                                        this.window.webContents.send('stream-data', { id: id, context_id: context_id, content: thinking, end: true, del: del });
-                                        if (tool_info.tool == "enter_idle_state") {
-                                            this.window.webContents.send('stream-data', { id: id, context_id: context_id, content: tool_info.params.final_answer, end: true, del: del });
-                                        }
-                                    } else {
+                                    // === XML 解析逻辑 ===
+                                    // 1. 提取 Thinking
+                                    const thinkingMatch = content.match(/<thinking>([\s\S]*?)<\/thinking>/i);
+                                    const thinkingContent = thinkingMatch ? thinkingMatch[1].trim() : "";
+                                    
+                                    // 2. 提取 Tool Name
+                                    const toolCallMatch = content.match(/<tool_call>([\s\S]*?)<\/tool_call>/i);
+                                    let toolName = "";
+                                    if (toolCallMatch) {
+                                        const nameMatch = toolCallMatch[1].match(/<name>([\s\S]*?)<\/name>/i);
+                                        if (nameMatch) toolName = nameMatch[1].trim();
+                                    }
+
+                                    // 3. 构建显示用的 Thinking
+                                    // 如果没有 thinking 标签但有工具，显示工具名作为 fallback
+                                    const displayThinking = `${thinkingContent || (toolName ? `Tool call: ${toolName}` : "")}\n\n---\n\n`;
+
+                                    // 4. Info Panel 显示：改为 XML 格式
+                                    let content_format = content.replaceAll("\\`", "'").replaceAll("`", "'"); // 防止 markdown 破坏
+                                    this.window.webContents.send('info-data', { id: id, context_id: context_id, content: `Step ${i}, id: ${id}, context_id: ${context_id}, Output:\n\n\`\`\`xml\n${content_format}\n\`\`\`\n\n`, del: del });
+                                    
+                                    // 5. Stream Data 回放 Thinking
+                                    this.window.webContents.send('stream-data', { id: id, context_id: context_id, content: displayThinking, end: true, del: del });
+
+                                    // 6. 特殊处理 enter_idle_state (从 observation 中提取 final_answer)
+                                    if (toolName === "enter_idle_state") {
+                                        // 对于 enter_idle_state，observation 就是 final_answer 字符串
+                                        // 已经在 Case A 中通过 tool_info.observation 获取了
+                                        // 这里不需要额外处理，因为 observation 会在 Case A 中作为工具输出回放
+                                    } else if (!toolName && !thinkingContent) {
+                                        // 如果既不是 XML 也没有 thinking，可能是普通文本回复
                                         this.window.webContents.send('stream-data', { id: id, context_id: context_id, content: content, end: true, del: del });
                                     }
-                                } catch {
+                                } catch (e) {
+                                    console.error("Load message parse error:", e);
                                     this.window.webContents.send('stream-data', { id: id, context_id: context_id, content: "", end: true, del: del });
                                     continue;
                                 }
                             } else {
+                                // 普通 Assistant 对话 (非 ReAct 模式)
                                 this.window.webContents.send('stream-data', { id: id, content: content, end: true, del: del });
                             }
                         }

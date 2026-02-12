@@ -36,45 +36,66 @@ function main({ file_path, diff }) {
 
 // 保留原始脚本中的getPrompt函数
 function getPrompt() {
-    const prompt = `## replace_in_file  
-Description: Precise file content replacement using SEARCH/REPLACE diffs  
+    return `## replace_in_file
 
-Parameters:  
-- file_path: Target file path (required)  
-- diff: Replacement blocks in unified diff format (required):  
-  \`\`\`  
+Description: Surgical file editor using exact string matching.
+**Mechanism**: Locates text via \`SEARCH\` block and swaps it with \`REPLACE\` block.
+**Critical Rules**:
+1. **Exact Match**: Whitespace and indentation in \`SEARCH\` must match the file *exactly*.
+2. **Context**: Include 1-2 lines of surrounding code to ensure uniqueness.
+3. **Multiple Edits**: You can stack multiple SEARCH/REPLACE blocks in one call.
+
+Parameters:
+- file_path: (Required) Absolute path.
+- diff: (Required) The change block(s). Format:
+  \`\`\`
   <<<<<<< SEARCH
-  [original 1]
-  =======  
-  [new 1]
-  >>>>>>> REPLACE
-  <<<<<<< SEARCH
-  [original 2]
+  [Original Code with Context]
   =======
-  [new 2]
+  [New Code]
   >>>>>>> REPLACE
-  \`\`\`  
+  \`\`\`
 
-Key Rules:  
-✔ Exact match required (case/whitespace sensitive)  
-✔ First-match only per block  
-✔ Preserves original line endings  
+### Usage
 
-Best Practices:  
-- Include 2-3 context lines  
-- Split large changes into multiple blocks  
-- For deletions: leave REPLACE empty  
+**1. Modifying Code (Standard)**
+<root>
+  <thinking>Updating the API endpoint and adding a timeout parameter.</thinking>
+  <tool_call>
+    <name>replace_in_file</name>
+    <parameters>
+      <file_path>/src/config.js</file_path>
+      <diff>
+<<<<<<< SEARCH
+    const API_URL = 'http://old.example.com';
+    const TIMEOUT = 1000;
+=======
+    const API_URL = 'https://new.example.com';
+    const TIMEOUT = 5000;
+>>>>>>> REPLACE
+      </diff>
+    </parameters>
+  </tool_call>
+</root>
 
-Usage:  
-{
-  "thinking": "[Thinking process]",
-  "tool": "replace_in_file",
-  "params": {
-    "file_path": "/src/main.js",
-    "diff": "<<<<<<< SEARCH\nconst API_URL = 'http://old.api';\n=======\nconst API_URL = 'https://new.api';\n>>>>>>> REPLACE"
-  }
-}`
-    return prompt
+**2. Deleting Code (Empty Replace)**
+<root>
+  <thinking>Removing the deprecated logging function.</thinking>
+  <tool_call>
+    <name>replace_in_file</name>
+    <parameters>
+      <file_path>/src/utils.js</file_path>
+      <diff>
+<<<<<<< SEARCH
+function oldLog(msg) {
+    console.log("DEPRECATED: " + msg);
+}
+=======
+>>>>>>> REPLACE
+      </diff>
+    </parameters>
+  </tool_call>
+</root>`;
 }
 
 // 保留原始导出部分

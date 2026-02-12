@@ -1091,170 +1091,106 @@ ContentExtractor.instance = null;
  * 获取工具提示
  */
 function getPrompt() {
-    return `## browser_client
+  return `## browser_client
 
-Description: Control browser and extract content with various options, including Puppeteer native actions
+Description: Advanced browser automation and content extraction tool powered by Puppeteer.
+**Capabilities**: Full page rendering, JS execution, element interaction (click/type), and regex-based scraping.
 
 Parameters:
-- operation: (Required) Operation type - 'open', 'close', 'execute_js', 'get_content', 'puppeteer_action', 'get_element_info'
+- operation: (Required) One of ['open', 'close', 'execute_js', 'get_content', 'puppeteer_action', 'get_element_info']
+- ...specific parameters based on operation (see below).
 
-Operation Details:
+### 1. Life Cycle & Navigation
+**Open Browser**:
+<root>
+  <thinking>Initializing browser with specific viewport.</thinking>
+  <tool_call>
+    <name>browser_client</name>
+    <parameters>
+      <operation>open</operation>
+      <width>1280</width>
+      <height>800</height>
+    </parameters>
+  </tool_call>
+</root>
 
-1. Open Browser:
-{
-  "tool": "browser_client",
-  "params": {
-    "operation": "open",
-    "width": 1200,          // Optional, default 1200
-    "height": 800           // Optional, default 800
-  }
-}
+**Close**:
+<root>
+  <thinking>Cleaning up resources.</thinking>
+  <tool_call>
+    <name>browser_client</name>
+    <parameters>
+      <operation>close</operation>
+    </parameters>
+  </tool_call>
+</root>
 
-2. Close Browser:
-{
-  "tool": "browser_client", 
-  "params": {
-    "operation": "close"
-  }
-}
+### 2. Content Extraction (get_content)
+**Actions**: 'extractText' (default), 'extractHTML', 'regexMatch'
+**Params**:
+- url: (Optional) Navigate before extraction.
+- remove_selectors: (JSON Array) CSS selectors to strip (e.g., ads, nav).
+- block_javascript: (Boolean) Speed up loading by blocking scripts.
 
-3. Execute JavaScript:
-{
-  "tool": "browser_client",
-  "params": {
-    "operation": "execute_js",
-    "js": "document.title = 'New Title';",  // Required
-    "wait_after_execution": 1000            // Optional, default 1000ms
-  }
-}
+**Example (Regex Scraping)**:
+<root>
+  <thinking>Extracting price pattern from product page.</thinking>
+  <tool_call>
+    <name>browser_client</name>
+    <parameters>
+      <operation>get_content</operation>
+      <action>regexMatch</action>
+      <url>https://example.com/product/123</url>
+      <regex_pattern>\\$\\d+\\.\\d{2}</regex_pattern>
+      <remove_selectors>["script", ".ads", "footer"]</remove_selectors>
+    </parameters>
+  </tool_call>
+</root>
 
-4. Get Page Content:
-{
-  "tool": "browser_client",
-  "params": {
-    "operation": "get_content",
-    "action": "extractText",           // Required: 'extractHTML', 'extractText', 'regexMatch'
-    "url": "https://example.com",      // Optional: navigate to new URL first
-    "max_length": 10240,                // Optional: max content length
-    "remove_selectors": [              // Optional: elements to remove
-      "script", "style", ".ads"
-    ],
-    "block_javascript": true           // Optional: block JavaScript loading, default false
-  }
-}
+### 3. Interaction (puppeteer_action)
+**Actions**: click, type, hover, waitForSelector, scroll, screenshot, etc.
+**Params**:
+- selector: (Required for interactions) CSS selector.
+- value: (Required for 'type') Text to input.
 
-5. Execute Puppeteer Native Actions:
-{
-  "tool": "browser_client",
-  "params": {
-    "operation": "puppeteer_action",
-    "action": "click",                 // Required: see supported actions below
-    "selector": "#submit-btn",         // Required for element actions
-    "wait_after_action": 1000          // Optional: wait after action in ms
-  }
-}
+**Example (Form Submission)**:
+<root>
+  <thinking>Clicking the submit button after filling the form.</thinking>
+  <tool_call>
+    <name>browser_client</name>
+    <parameters>
+      <operation>puppeteer_action</operation>
+      <action>click</action>
+      <selector>button#submit-form</selector>
+      <wait_after_action>2000</wait_after_action>
+    </parameters>
+  </tool_call>
+</root>
 
-6. Get Element Information:
-{
-  "tool": "browser_client",
-  "params": {
-    "operation": "get_element_info",
-    "selector": "#my-element"          // Required: CSS selector
-  }
-}
+### 4. Advanced Control
+**Execute Custom JS**:
+<root>
+  <thinking>Modifying DOM state directly.</thinking>
+  <tool_call>
+    <name>browser_client</name>
+    <parameters>
+      <operation>execute_js</operation>
+      <js>document.querySelector('.popup').remove();</js>
+    </parameters>
+  </tool_call>
+</root>
 
-Supported Puppeteer Actions:
-
-- Element Interactions:
-  • click: Click on element
-  • type: Type text into input
-  • focus: Focus on element
-  • hover: Hover over element
-  • select: Select options in dropdown
-
-- Navigation:
-  • waitForNavigation: Wait for navigation
-  • reload: Reload page
-  • goBack: Go back in history
-  • goForward: Go forward in history
-
-- Waiting:
-  • waitForSelector: Wait for element to appear
-  • waitForFunction: Wait for function to return true
-
-- Screenshot:
-  • screenshot: Take screenshot
-
-- Scrolling:
-  • scroll: Scroll page or element into view
-
-- Page Evaluation:
-  • evaluate: Execute function in page context
-
-- Browser Control:
-  • setViewport: Set viewport size
-  • setUserAgent: Set user agent
-  • setCookie: Set cookies
-  • deleteCookie: Delete cookies
-  • clearCache: Clear browser cache
-  • clearCookies: Clear all cookies
-
-Content Actions:
-
-- extractHTML: Extract cleaned HTML content
-- extractText: Extract cleaned text content  
-- regexMatch: Apply regex pattern to specified content type
-
-Regex Match Specific Parameters:
-{
-  "tool": "browser_client",
-  "params": {
-    "operation": "get_content",
-    "action": "regexMatch", 
-    "regex_pattern": "\\\\bexample\\\\b",      // Required for regexMatch
-    "content_type": "html",                   // Optional: 'html' or 'text', default 'text'
-    "regex_flags": "gi",                      // Optional, default 'gi'
-    "max_length": 20480,
-    "block_javascript": true                  // Optional: block JavaScript loading
-  }
-}
-
-Content Types for Regex Match:
-- 'text': Apply regex to extracted text content (default)
-- 'html': Apply regex to extracted HTML content
-
-Features:
-- Real browser automation with Puppeteer
-- JavaScript execution support
-- Content extraction with cleaning
-- Regex pattern matching on both HTML and text
-- Full Puppeteer native actions support
-- Element information extraction
-- Automatic main content detection
-- Context preview for regex matches
-- Block JavaScript loading for faster loading and cleaner content
-
-Response Format for Puppeteer Actions:
-{
-  "success": true,
-  "message": "Puppeteer操作 click 执行成功",
-  "data": {
-    "action": "click",
-    "result": {
-      "selector": "#submit-btn",
-      "action": "click"
-    },
-    "pageInfo": {
-      "title": "Page Title",
-      "url": "https://example.com",
-      "readyState": "complete"
-    },
-    "timing": {
-      "startTime": "2023-01-01T00:00:00.000Z",
-      "endTime": "2023-01-01T00:00:01.000Z"
-    }
-  }
-}`;
+**Inspect Element**:
+<root>
+  <thinking>Checking if element is visible/enabled.</thinking>
+  <tool_call>
+    <name>browser_client</name>
+    <parameters>
+      <operation>get_element_info</operation>
+      <selector>#dynamic-content</selector>
+    </parameters>
+  </tool_call>
+</root>`;
 }
 
 // 测试函数

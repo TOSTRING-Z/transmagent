@@ -795,76 +795,69 @@ if (require.main === module) {
 // 获取工具提示词
 function getPrompt() {
     return `## fetch_search
-Description: A comprehensive web browsing tool that can search the web, select specific results, open URLs to fetch content, and check URL accessibility. Note: Content from open_url is limited to 20000 characters.
+
+Description: Comprehensive web browsing tool for searching, result selection, and direct URL scraping.
+**Constraints**: Content fetched via 'open_url' is truncated at ~20,000 characters.
+
 Parameters:
-- action: (Required) The action to perform. One of: 'search', 'select', 'open_url', 'check_accessibility'
-- query: (Required for 'search') Search query string or array of queries
-- select_ids: (Required for 'select') Array of result IDs to fetch detailed content from
-- url: (Required for 'open_url' and 'check_accessibility') URL to open and fetch content from or check accessibility
-- topk: (Optional) Number of top results to return. Default: 10
-- timeout: (Optional) Request timeout in milliseconds. Default: 5000
+- action: (Required) One of ['search', 'select', 'open_url', 'check_accessibility']
+- query: (Required for 'search') Keywords.
+- select_ids: (Required for 'select') JSON Array of indices from search results.
+- url: (Required for 'open_url'/'check_accessibility') Target address.
 
-Usage Examples:
-1. For searching:
-{
-  "thinking": "I need to search for information about Node.js",
-  "tool": "fetch_search",
-  "params": {
-    "action": "search",
-    "query": "Node.js programming",
-    "topk": 10
-  }
-}
+### Usage Patterns
 
-2. For selecting specific results:
-{
-  "thinking": "I want to get detailed content from the first two search results",
-  "tool": "fetch_search", 
-  "params": {
-    "action": "select",
-    "select_ids": [0, 1, 2, 3, 7]
-  }
-}
+**1. Search Engine Workflow (Search -> Select)**
+*Step A: Perform Search*
+<root>
+  <thinking>Searching for latest Node.js features.</thinking>
+  <tool_call>
+    <name>fetch_search</name>
+    <parameters>
+      <action>search</action>
+      <query>Node.js 22 new features</query>
+      <topk>5</topk>
+    </parameters>
+  </tool_call>
+</root>
 
-3. For opening a specific URL:
-{
-  "thinking": "I need to fetch content from a specific website (note: content will be limited to 20000 characters)",
-  "tool": "fetch_search",
-  "params": {
-    "action": "open_url",
-    "url": "https://example.com"
-  }
-}
+*Step B: Retrieve Details (Select specific IDs)*
+<root>
+  <thinking>Reading content from results 0 and 2.</thinking>
+  <tool_call>
+    <name>fetch_search</name>
+    <parameters>
+      <action>select</action>
+      <select_ids>[0, 2]</select_ids>
+    </parameters>
+  </tool_call>
+</root>
 
-4. For checking URL accessibility:
-{
-  "thinking": "I want to check if this website is accessible before proceeding",
-  "tool": "fetch_search",
-  "params": {
-    "action": "check_accessibility",
-    "url": "https://example.com",
-    "timeout": 10000
-  }
-}
+**2. Direct URL Access (Scrape / Check)**
+*Open specific page:*
+<root>
+  <thinking>Fetching documentation directly.</thinking>
+  <tool_call>
+    <name>fetch_search</name>
+    <parameters>
+      <action>open_url</action>
+      <url>https://nodejs.org/en/docs/</url>
+    </parameters>
+  </tool_call>
+</root>
 
-5. Combined workflow - check accessibility then open:
-{
-  "thinking": "First I'll check if the URL is accessible, then open it if it is",
-  "tool": "fetch_search",
-  "params": {
-    "action": "check_accessibility",
-    "url": "https://example.com"
-  }
-}
-// If accessibility check passes, then:
-{
-  "thinking": "The URL is accessible, now I'll fetch its content (will be truncated if over 20000 chars)",
-  "tool": "fetch_search",
-  "params": {
-    "action": "open_url",
-    "url": "https://example.com"
-  }
-}`;
+*Check availability first (Head request):*
+<root>
+  <thinking>Verifying if the site is up before scraping.</thinking>
+  <tool_call>
+    <name>fetch_search</name>
+    <parameters>
+      <action>check_accessibility</action>
+      <url>https://example.com/api</url>
+      <timeout>3000</timeout>
+    </parameters>
+  </tool_call>
+</root>`;
 }
 
 module.exports = {

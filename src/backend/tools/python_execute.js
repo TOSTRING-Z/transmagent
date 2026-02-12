@@ -123,21 +123,48 @@ function main(params) {
 }
 
 function getPrompt() {
-    const prompt = `## python_execute
-Description: Execute Python code locally, such as file reading, data analysis, and code execution.
+    return `## python_execute
+
+Description: Executes Python 3 scripts in a local environment.
+**Capabilities**: Data analysis (pandas/numpy), complex file parsing, and algorithmic logic.
+**Critical Constraints**:
+1. **Output**: You MUST use \`print()\` to return results to the chat context.
+2. **Formatting**: Strict indentation is required. Preserve newlines in the XML.
 
 Parameters:
-- code: (Required) Executable Python code snippet (Python code output must retain "\n" and spaces, please strictly follow the code format, incorrect indentation and line breaks will cause code execution to fail)
+- code: (Required, String) The valid Python script to execute.
 
-Usage:
-{
-  "thinking": "[Detailed thought process, including specifics of the executing code. If the current execution involves file content, please record the absolute file path here in detail.]",
-  "tool": "python_execute",
-  "params": {
-    "code": "[Python code snippet to execute]"
-  }
-}`
-    return prompt
+### Usage
+
+**1. Data Analysis (Pandas Example)**
+<root>
+  <thinking>Loading the CSV to calculate average sales metrics.</thinking>
+  <tool_call>
+    <name>python_execute</name>
+    <parameters>
+      <code>
+import pandas as pd
+df = pd.read_csv('/tmp/data.csv')
+print(df.describe())
+      </code>
+    </parameters>
+  </tool_call>
+</root>
+
+**2. System/File Logic**
+<root>
+  <thinking>Calculating the MD5 hash of a file.</thinking>
+  <tool_call>
+    <name>python_execute</name>
+    <parameters>
+      <code>
+import hashlib
+with open('/tmp/target.iso', 'rb') as f:
+    print(hashlib.md5(f.read()).hexdigest())
+      </code>
+    </parameters>
+  </tool_call>
+</root>`;
 }
 
 module.exports = {

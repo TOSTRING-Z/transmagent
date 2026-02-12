@@ -15,24 +15,48 @@ async function main({ file_path, content }) {
 }
 
 function getPrompt() {
-    const prompt = `## write_to_file
+    return `## write_to_file
 
-Description: Writes text content to files (UTF-8 only) with automatic path handling
+Description: Creates or overwrites a file with new content.
+**Capabilities**: Automatically creates missing parent directories. Supports UTF-8.
+**Critical Warning**: This action **completely replaces** existing file content. For partial edits, use 'replace_in_file'.
 
 Parameters:
-- file_path: Absolute destination path (required)
-- content: Text content to write (supports multiline)
+- file_path: (Required, String) Absolute path to the destination.
+- content: (Required, String) The full text body. Preserve newlines and indentation.
 
-Usage:
-{
-  "thinking": "[Thinking process]",
-  "tool": "write_to_file",
-  "params": {
-    "file_path": "/path/to/file.txt",
-    "content": "Text content\nwith formatting"
-  }
-}`
-    return prompt
+### Usage
+
+**1. Creating a Config File (Standard)**
+<root>
+  <thinking>Initializing the Docker setup with a docker-compose file.</thinking>
+  <tool_call>
+    <name>write_to_file</name>
+    <parameters>
+      <file_path>/app/docker-compose.yml</file_path>
+      <content>
+version: '3'
+services:
+  web:
+    image: nginx:alpine
+    ports:
+      - "80:80"
+      </content>
+    </parameters>
+  </tool_call>
+</root>
+
+**2. Overwriting with Empty Content (Clear File)**
+<root>
+  <thinking>Clearing the log file before starting a new run.</thinking>
+  <tool_call>
+    <name>write_to_file</name>
+    <parameters>
+      <file_path>/var/log/app.log</file_path>
+      <content></content>
+    </parameters>
+  </tool_call>
+</root>`;
 }
 
 module.exports = {

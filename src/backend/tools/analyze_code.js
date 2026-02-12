@@ -237,25 +237,27 @@ function main({ filePath = "/data/zgr/transagent/model/grpo/grpo_trainer.py", la
 }
 
 function getPrompt() {
-  const prompt = `## analyze_code  
+  const prompt = `## analyze_code
 
-Description: Extracts code structure (classes, functions, variables) from source files  
+Description: Extracts code structure (classes, functions, variables) from source files.
 
-Supported: JavaScript, Python, Java, PHP  
+Supported: JavaScript, Python, Java, PHP
 
-Parameters:  
-- filePath: Source file path (required)  
-- language: js/python/java/php (default=js)  
+Parameters:
+- filePath: (String) Source file path (required)
+- language: (String) js/python/java/php (default=js)
 
 Usage:
-{
-  "thinking": "[Thinking process]",
-  "tool": "analyze_code",
-  "params": {
-    "filePath": "/src/main.js",
-    "language": "js"
-  }
-}`;
+<root>
+  <thinking>Analyzing the main logic file to understand the class structure.</thinking>
+  <tool_call>
+    <name>analyze_code</name>
+    <parameters>
+      <filePath>/src/main.js</filePath>
+      <language>js</language>
+    </parameters>
+  </tool_call>
+</root>`;
   return prompt;
 }
 

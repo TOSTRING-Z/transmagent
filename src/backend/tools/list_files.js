@@ -56,34 +56,42 @@ function main(params) {
 }
 
 function getPrompt() {
-  const prompt = `# list_files  
-Description: Recursively scans directories with intelligent filtering (automatically excludes dev/binary files)  
+  return `## list_files
 
-Parameters:  
-- path: Target directory absolute path (required)  
-- recursive: Enable subdirectory scanning (default=false)  
-- regex: Filename pattern filter (optional)  
+Description: Smart directory scanner with built-in noise filtering.
+**Auto-Excludes**: node_modules, .git, .vscode, binaries, images, cache.
+**Best Practice**: Use 'regex' to pinpoint files in large codebases. Avoid recursive scans on root directories.
 
-Auto-excluded:  
-- IDE configs (.vscode/, .idea/)  
-- Cache dirs (.cache/, .npm/)  
-- Media/binaries (.gif, .mp4, .exe, etc)  
+Parameters:
+- path: (Required, String) Absolute directory path.
+- recursive: (Optional, Bool) Enable deep scan (Default: false).
+- regex: (Optional, String) Pattern to match filenames (e.g., "\\.ts$").
 
-Best Practices:  
-1. Disable recursion for large directories  
-2. Use precise regex (e.g. .js$)
+### Usage
 
-Usage:  
-{
-  "thinking": "[Thinking process]",
-  "tool": "list_files",
-  "params": {
-    "path": "/project/src",
-    "recursive": false,
-    "regex": null
-  }
-}`
-  return prompt
+**1. Quick Structure Check (Non-recursive)**
+<root>
+  <thinking>Checking project root to identify project type (package.json, requirements.txt).</thinking>
+  <tool_call>
+    <name>list_files</name>
+    <parameters>
+      <path>/app/project</path>
+    </parameters>
+  </tool_call>
+</root>
+
+**2. Targeted Deep Search**
+<root>
+  <thinking>Finding all TypeScript controllers in the src folder.</thinking>
+  <tool_call>
+    <name>list_files</name>
+    <parameters>
+      <path>/app/project/src</path>
+      <recursive>true</recursive>
+      <regex>.*Controller\.ts$</regex>
+    </parameters>
+  </tool_call>
+</root>`;
 }
 
 if (require.main === module) {

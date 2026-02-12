@@ -54,7 +54,6 @@ class DisplayFile {
             const footer = [];
             if (isRemote) {
                 footer.push(`\n**Remote Source**: \`${filePath}\``);
-                // 修正：Windows下路径反斜杠转义问题，以及添加本地链接
                 footer.push(`**Local Cache**: [${path.basename(targetPath)}](${targetPath})`);
             } else {
                 footer.push(`\n**Local File**: [${path.basename(filePath)}](${filePath})`);
@@ -76,7 +75,6 @@ class DisplayFile {
     async _downloadViaSSH(remotePath, localPath, sshConfig) {
         return new Promise((resolve, reject) => {
             const conn = new Client();
-            let sftpWrapper = null;
             
             const cleanup = () => {
                 if (conn) conn.end();
@@ -88,7 +86,6 @@ class DisplayFile {
                         cleanup();
                         return reject(err);
                     }
-                    sftpWrapper = sftp;
 
                     sftp.stat(remotePath, (statErr, stats) => {
                         if (statErr) {
@@ -107,14 +104,8 @@ class DisplayFile {
                                 const now = Date.now();
                                 if (now - lastStepTime > 500 || transferred === totalSize) {
                                     const progress = totalSize > 0 ? (transferred / totalSize) * 100 : 0;
-                                    const speed = this._calculateSpeed(transferred, startTime);
                                     
                                     this._emitProgress('progress', { progress });
-                                    
-                                    // 仅在控制台打印关键节点，避免刷屏
-                                    if (process.env.NODE_ENV === 'development') {
-                                        process.stdout.write(`\rDownloading: ${progress.toFixed(1)}% | Speed: ${speed}`);
-                                    }
                                     lastStepTime = now;
                                 }
                             }
@@ -132,7 +123,7 @@ class DisplayFile {
             }).on('error', (err) => {
                 cleanup();
                 reject(err);
-            }).connect({ ...sshConfig, readyTimeout: 20000 }); // 增加超时保护
+            }).connect({ ...sshConfig, readyTimeout: 20000 });
         });
     }
 
@@ -190,7 +181,6 @@ class DisplayFile {
 
     _handleMedia(filePath) {
         const fileName = path.basename(filePath);
-        // 使用相对路径或绝对路径，取决于显示环境的需求，这里保持原样
         return `![${fileName}](${filePath})`;
     }
 
@@ -209,8 +199,8 @@ class DisplayFile {
                 // 跳过开始前的行
                 if (lineIdx < startLine) continue;
                 
-                // 到达结束行
-                if (endLine > 0 && lineIdx > endLine) {
+                // 到达结束行 (endLine为-1时不限制)
+                if (endLine !== -1 && endLine > 0 && lineIdx > endLine) {
                     isTruncated = true;
                     break; 
                 }
@@ -276,7 +266,9 @@ class DisplayFile {
             lineIdx++;
             if (lineIdx === 1) continue; // 跳过 Header
             if (lineIdx < dataStartLine) continue;
-            if (endLine > 0 && lineIdx > endLine) break;
+            
+            // endLine为-1时一直读取
+            if (endLine !== -1 && endLine > 0 && lineIdx > endLine) break;
 
             const values = this._parseCSVLine(line, delimiter);
             const row = {};
@@ -286,7 +278,7 @@ class DisplayFile {
             rows.push(row);
         }
 
-        return this._generateMarkdownTable(rows, headers, maxLineLength, lineIdx > endLine);
+        return this._generateMarkdownTable(rows, headers, maxLineLength, (endLine !== -1 && lineIdx > endLine));
     }
 
     _handleExcel(filePath, startLine, endLine, maxLineLength) {
@@ -302,7 +294,14 @@ class DisplayFile {
         
         // 限制读取范围以优化内存
         const actualStart = Math.max(0, startLine > 0 ? startLine - 1 : 0); // 0-indexed
-        const actualEnd = endLine > 0 ? Math.min(endLine, totalRows) : totalRows;
+        
+        // 如果 endLine 为 -1，则读取到最后一行
+        let actualEnd;
+        if (endLine === -1) {
+            actualEnd = totalRows;
+        } else {
+            actualEnd = endLine > 0 ? Math.min(endLine, totalRows) : totalRows;
+        }
         
         // 构建新的 range 字符串
         const newRange = {
@@ -365,20 +364,28 @@ class DisplayFile {
         return res;
     }
 
+    // --- 关键修正：标准化参数，允许 end_line 为 -1 ---
     _normalizeOptions(raw) {
         let { start_line, end_line, max_line_length, file_type } = raw;
         
-        const start = parseInt(start_line) || 0;
-        let end = parseInt(end_line) || 10;
-        
-        // 智能修正 range
-        if (start >= end && end !== 0) {
+        // 解析 start
+        let start = parseInt(start_line);
+        if (isNaN(start)) start = 0; // 默认为 0
+
+        // 解析 end
+        let end = parseInt(end_line);
+        if (isNaN(end)) end = 10; // 默认读取前 10 行
+
+        // 智能修正逻辑：
+        // 只有当 end 不是 -1 (代表全文件) 且 start 大于 end 时才修正
+        if (end !== -1 && start >= end) {
             end = start + 20;
         }
 
         return {
-            startLine: Math.max(1, start), // 1-based logic usually better for user
-            endLine: Math.max(0, end),
+            // 内部逻辑通常使用 1-based (Excel, Line counter)，所以如果不小于1则用1
+            startLine: start < 1 ? 1 : start, 
+            endLine: end, // 直接传递 -1，不要用 Math.max(0, -1) 把它抹除
             maxLineLength: parseInt(max_line_length) || 500,
             fileType: file_type || 'auto'
         };
@@ -446,25 +453,40 @@ function main(params) {
 
 function getPrompt() {
     return `## display_file
-Description: Display various file types (images, tables, text) in Markdown format. Supports remote SSH file retrieval and local caching.
-- Optimized for large files (streaming) and network resilience.
-- Auto-detects file types (.png, .xlsx, .csv, .md, .txt, etc.).
+
+Description: Reads and renders file content (Code, Text, CSV/Excel, Images).
+**Best Practice**: Always specify line ranges for text/code files to conserve context window.
 
 Parameters:
 - file_path: (Required) Absolute path to the file.
-- start_line: Start line for text/tables (default: 0).
-- end_line: End line (default: 10). Set 0 for all (use caution).
-- max_line_length: Max chars per line (default: 500).
+- start_line: (Optional, Int) Start index (Default: 0).
+- end_line: (Optional, Int) End index (Default: 10). Use -1 for full file (Caution).
 
-Usage:
-{
-  "tool": "display_file",
-  "params": {
-    "file_path": "/path/to/file.ext",
-    "start_line": 0,
-    "end_line": 20
-  }
-}`;
+### Usage
+
+**1. Inspect Code/Log (Partial Read)**
+<root>
+  <thinking>Reading the first 50 lines of the config file to check settings.</thinking>
+  <tool_call>
+    <name>display_file</name>
+    <parameters>
+      <file_path>/app/config.yaml</file_path>
+      <start_line>0</start_line>
+      <end_line>50</end_line>
+    </parameters>
+  </tool_call>
+</root>
+
+**2. View Image/Media**
+<root>
+  <thinking>Displaying the generated data visualization.</thinking>
+  <tool_call>
+    <name>display_file</name>
+    <parameters>
+      <file_path>/output/results_plot.png</file_path>
+    </parameters>
+  </tool_call>
+</root>`;
 }
 
 if (require.main === module) {
@@ -474,10 +496,11 @@ if (require.main === module) {
         fs.writeFileSync(testPath, 'Name,Age,Role\nAlice,30,Dev\nBob,25,"Designer, Lead"');
         
         const runner = main({ local_path: os.tmpdir() });
+        // 测试 end_line: -1
         const res = await runner({ 
             file_path: testPath, 
             start_line: 0, 
-            end_line: 5,
+            end_line: -1,
             file_type: 'table'
         });
         console.log(res);

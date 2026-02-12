@@ -55,40 +55,44 @@ async function main({ path, regex="test$", file_pattern="*.js" }) {
 
 
 function getPrompt() {
-  const prompt = `## search_files
-Description:
-Recursively search file contents under a specified directory, match using a regular expression, and return matches with surrounding context (up to 100 results).
-Note: regex matches file contents, not filenames. If you want to filter by filename, use file_pattern (glob).
+  return `## search_files
+
+Description: Grep-like tool to search *text content* within files.
+**Crucial Distinction**: Use \`regex\` to match content inside files, and \`file_pattern\` to filter filenames.
+**Performance Tip**: Always restrict \`file_pattern\` (e.g., "**/*.ts") rather than scanning everything ("**/*").
 
 Parameters:
-- path (required): starting directory path, absolute or relative
-- regex (required): regular expression to match file contents (must be escaped properly in JSON strings")
-- file_pattern (optional): glob pattern for files to scan (default "*.js"). Examples: "**/*" (all files), "**/*.ts" (all ts files), "*.env" (env files in current dir)
+- path: (Required, String) Root directory for the search.
+- regex: (Required, String) Regular Expression for content matching.
+- file_pattern: (Optional, String) Glob pattern for filename filtering (Default: "*.js").
 
-Return format (array, each item):
-- file: file path relative to path
-- match: matched text (from file content)
-- context: about 10 characters before and after the match
-- line: line number of the match (1-based)
+### Usage
 
-Example usage:
-{
-  "thinking": "[optional notes/intents/filters]",
-  "tool": "search_files",
-  "params": {
-    "path": "/project/src",
-    "regex": "test$",
-    "file_pattern": "**/*"
-  }
-}
+**1. Code Definition Search (Specific Extension)**
+<root>
+  <thinking>Locating the 'AuthService' class definition in TypeScript files.</thinking>
+  <tool_call>
+    <name>search_files</name>
+    <parameters>
+      <path>/app/src</path>
+      <regex>class AuthService</regex>
+      <file_pattern>**/*.ts</file_pattern>
+    </parameters>
+  </tool_call>
+</root>
 
-Notes:
-- In JSON strings, escape backslashes twice (see example).
-- file_pattern uses glob syntax; "**" means recursive.
-- regex is used to search file contents, not filenames. To filter by name, adjust file_pattern.
-- To avoid performance issues, narrow the path or restrict file_pattern.`;
-
-  return prompt
+**2. Broad Keyword Scan (Project-wide)**
+<root>
+  <thinking>Scanning all files for legacy 'var' usage.</thinking>
+  <tool_call>
+    <name>search_files</name>
+    <parameters>
+      <path>/app/src</path>
+      <regex>var\s+</regex>
+      <file_pattern>**/*</file_pattern>
+    </parameters>
+  </tool_call>
+</root>`;
 }
 
 if (require.main === module) {

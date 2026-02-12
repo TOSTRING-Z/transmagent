@@ -377,23 +377,40 @@ function main(params) {
 }
 
 function getPrompt() {
-    const prompt = `## cli_execute
-Description: A command-line tool for executing bash commands in Linux environments, providing secure and efficient command execution capabilities.
+    return `## cli_execute
+
+Description: Executes Bash commands in a non-interactive Linux shell.
+**Capabilities**: File management, system monitoring, package installation.
+**Constraints**: Non-interactive (no user input). Captures stdout/stderr.
 
 Parameters:
-- code: (Required) Executable bash code snippet (please strictly follow the code format, incorrect indentation and line breaks will cause code execution to fail)
-- timeout: (Optional) Maximum execution time in seconds (default: At least 3600 seconds). If the command times out, the current console output will be returned with a failure status.
+- code: (Required) Bash command/script.
+- timeout: (Optional) Max seconds (Default: 3600).
 
-Usage:
-{
-  "thinking": "[Detailed thought process, including specifics of the executing code. If the current execution involves file content, please record the absolute file path here in detail. Consider setting an appropriate timeout for long-running commands.]",
-  "tool": "cli_execute",
-  "params": {
-    "code": "[Code snippet to execute]",
-    "timeout": [Optional timeout in seconds]
-  }
-}`;
-    return prompt;
+### Usage
+
+**1. Basic Command**
+<root>
+  <thinking>Checking current directory content.</thinking>
+  <tool_call>
+    <name>cli_execute</name>
+    <parameters>
+      <code>ls -laF</code>
+    </parameters>
+  </tool_call>
+</root>
+
+**2. Long-Running Task with Timeout**
+<root>
+  <thinking>Installing dependencies with a 5-minute limit.</thinking>
+  <tool_call>
+    <name>cli_execute</name>
+    <parameters>
+      <code>npm install</code>
+      <timeout>300</timeout>
+    </parameters>
+  </tool_call>
+</root>`;
 }
 
 module.exports = {
