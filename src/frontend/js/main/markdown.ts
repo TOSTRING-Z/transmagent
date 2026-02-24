@@ -1,3 +1,4 @@
+import { showLog } from './ui';
 import { formatString } from './utils';
 
 const { Marked } = (globalThis as any).marked;
@@ -50,6 +51,16 @@ async function renderPDF(id: string) {
   }, 500);
 }
 
+// 1. 将方法挂载到 globalThis 上，并直接接收 element 而不是 event
+(globalThis as any).copyCode = (btn: HTMLElement) => {
+  const codeToCopy = decodeURIComponent(btn.getAttribute('data-code') || '');
+  navigator.clipboard.writeText(codeToCopy).then(() => {
+    showLog('success', 'Copy successful');
+  }).catch(err => {
+    console.log('Copy failed', err);
+  });
+};
+
 // Formatters
 const formatCode = (token: any) => {
   let encodeCode;
@@ -64,7 +75,7 @@ const formatCode = (token: any) => {
   return `<div class="code-container">
   <div class="code-header">
     <span class="language-tag">${token.type}</span>
-    <button class="copy-btn" data-code="${encodeCode}" title="Copy code">Copy</button>
+    <button class="copy-btn" onclick="copyCode(this)" data-code="${encodeCode}" title="Copy code">Copy</button>
   </div>
   <pre class="hljs"><code>${token.text}</code></pre>
 </div>`;

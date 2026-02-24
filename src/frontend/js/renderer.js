@@ -489,6 +489,14 @@ ${DOM.input.value}`;
       }
     }, 500);
   }
+  globalThis.copyCode = (btn) => {
+    const codeToCopy = decodeURIComponent(btn.getAttribute("data-code") || "");
+    navigator.clipboard.writeText(codeToCopy).then(() => {
+      showLog("success", "Copy successful");
+    }).catch((err) => {
+      console.log("Copy failed", err);
+    });
+  };
   var formatCode = (token) => {
     let encodeCode;
     const codeBlockRegex = /```\w*\n([\s\S]*?)```/;
@@ -502,7 +510,7 @@ ${DOM.input.value}`;
     return `<div class="code-container">
   <div class="code-header">
     <span class="language-tag">${token.type}</span>
-    <button class="copy-btn" data-code="${encodeCode}" title="Copy code">Copy</button>
+    <button class="copy-btn" onclick="copyCode(this)" data-code="${encodeCode}" title="Copy code">Copy</button>
   </div>
   <pre class="hljs"><code>${token.text}</code></pre>
 </div>`;

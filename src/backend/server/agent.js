@@ -464,7 +464,7 @@ class ReActAgent {
                                             this.window.webContents.send('stream-data', { id: id, context_id: context_id, content: tool_info.params.final_answer, end: true, del: del });
                                         }
                                     } else {
-                                        this.window.webContents.send('stream-data', { id: id, context_id: context_id, content: content, end: true, del: del });
+                                        // this.window.webContents.send('stream-data', { id: id, context_id: context_id, content: content, end: true, del: del });
                                     }
                                 } catch {
                                     this.window.webContents.send('stream-data', { id: id, context_id: context_id, content: "", end: true, del: del });
