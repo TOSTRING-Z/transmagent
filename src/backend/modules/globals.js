@@ -74,7 +74,8 @@ const global = {
     concat: false,
     status: {
         auto_opt: false
-    }
+    },
+    tool_format: store.get('tool_format', 'prompt')
 }
 
 

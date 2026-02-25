@@ -118,6 +118,7 @@ Any deviation (Markdown tags, extra text) causes system failure.
 
 ====
 
+${(!this.agent.prompt_args.tool_format || this.agent.prompt_args.tool_format === 'prompt') ? `
 # 🧰 Toolchain Manifest
 
 ## Core Capabilities
@@ -158,6 +159,7 @@ ${this.agent.prompt_args.mcp_server ? `
 **Note**: Use \`mcp_server\` to access these external tools.
 {mcp_prompt}
 `: ""}
+` : ""}
 
 ${this.getSkillPrompt() || "\n*No active skills detected.*"}
 

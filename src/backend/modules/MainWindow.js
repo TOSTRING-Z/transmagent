@@ -226,7 +226,8 @@ class MainWindow extends Window {
             mcp_server: mcp_server,
             todolist: true,
             subagent: false,
-            agent_mode: agent_mode
+            agent_mode: agent_mode,
+            tool_format: global.tool_format
         });
         this.chain_call = new ChainCall(this.plugins, this.llm_service, this.window, this.windowManager.alertWindow);
         this.main_server = new MainServer(this);
@@ -705,6 +706,41 @@ class MainWindow extends Window {
             {
                 label: "Version Selection",
                 submenu: this.getVersionsSubmenu()
+            },
+            {
+                label: "Tool Format",
+                submenu: [
+                    {
+                        type: 'radio',
+                        checked: global.tool_format === 'prompt',
+                        label: 'Prompt (Default)',
+                        click: () => {
+                            global.tool_format = 'prompt';
+                            store.set('tool_format', 'prompt');
+                            this.restart(this.window);
+                        }
+                    },
+                    {
+                        type: 'radio',
+                        checked: global.tool_format === 'openai',
+                        label: 'OpenAI (Native API)',
+                        click: () => {
+                            global.tool_format = 'openai';
+                            store.set('tool_format', 'openai');
+                            this.restart(this.window);
+                        }
+                    },
+                    {
+                        type: 'radio',
+                        checked: global.tool_format === 'claude',
+                        label: 'Claude (Native API)',
+                        click: () => {
+                            global.tool_format = 'claude';
+                            store.set('tool_format', 'claude');
+                            this.restart(this.window);
+                        }
+                    }
+                ]
             },
             {
                 label: "Configuration",

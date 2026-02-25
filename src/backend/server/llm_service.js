@@ -384,6 +384,12 @@ class LLMService {
                 messages: this.formatMessages(messages_list, data.params, data?.env_message),
                 ...data.llm_params
             }
+            if (data.tool_format && data.tool_format !== "prompt" && data.tools && data.tools.length > 0) {
+                body.tools = data.tools;
+                if (data.tool_format === "openai") {
+                    body.tool_choice = "auto";
+                }
+            }
 
             let headers = {
                 "Content-Type": "application/json"

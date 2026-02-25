@@ -169,11 +169,13 @@ ${usageStr}`;
       })
     }
     this.memory_list = messages_list
+    const format = this.prompt_args?.tool_format || "prompt";
+    const toolsData = this.get_tools_prompt();
     this.system_prompt = this.task_prompt().format({
       system_type: utils.getConfig("tool_call")?.system_type || os.type(),
       system_platform: utils.getConfig("tool_call")?.system_platform || os.platform(),
       system_arch: utils.getConfig("tool_call")?.system_arch || os.arch(),
-      tool_prompt: this.get_tools_prompt().join("\n\n"),
+      tool_prompt: format === "prompt" ? toolsData.join("\n\n") : "",
       mcp_prompt: this.mcp_prompt,
       cli_prompt: this.prompts.getCliPrompt(),
       extra_prompt: this.prompts.getExtraPrompt(data.extra_prompt),
@@ -394,6 +396,11 @@ ${usageStr}`;
     let step = 0;
     this.state = State.IDLE;
     let tool_call = utils.getConfig("tool_call");
+    
+    data.tool_format = this.prompt_args?.tool_format || "prompt";
+    if (data.tool_format !== "prompt") {
+      data.tools = this.get_tools_prompt();
+    }
     while (this.state != State.FINAL && this.state != State.PAUSE) {
       if (this.llm_service.stop) {
         this.state = State.FINAL
