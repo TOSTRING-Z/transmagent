@@ -162,8 +162,10 @@
     if (State.seconds_timer)
       clearInterval(State.seconds_timer);
     State.chat.tokens = 0;
+    State.chat.msg_count = 0;
     DOM.tokens.innerText = "0";
     DOM.seconds.innerText = "0";
+    DOM.msg_count.innerText = "0";
     const optionDom = createElement(htmlContent);
     const optionCards = optionDom.querySelectorAll(".option-card");
     optionCards.forEach((card) => {
