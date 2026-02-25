@@ -294,11 +294,11 @@ ${usageStr}`;
   get_tool(content, data) {
     try {
       let tool_info = utils.parseJsonContent(content);
-      if (content.startsWith("{") && content.endsWith("}")) {
+      if (content.startsWith(`{\n  "content"`) && content.endsWith("}")) {
         if (!tool_info) {
           throw new Error("Failed to parse JSON content");
         }
-      } else {
+      } else if (this.prompt_args.tool_format === "prompt") {
         tool_info = JSON5.parse(content);
       }
       if (tool_info) {

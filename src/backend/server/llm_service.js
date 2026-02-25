@@ -501,6 +501,96 @@ ${respJson.error?.message}
                         this.window.webContents.send('stream-data', { id: data.id, content: data.output, end: false, chat: this.chat });
                     }
                     message_output.content = data.output;
+
+                    // ========== 截断检测与自动续传机制 ==========
+                    // 检测输出是否被截断（finish_reason === "length"）
+                    const finishReason = respJson.choices?.[0]?.finish_reason;
+                    if (finishReason === "length" && data.output) {
+                        console.log("[LLM Service] Output truncated, starting continuation...");
+                        
+                        // 续传配置
+                        const maxContinuations = 3; // 最大续传次数
+                        let continuationCount = 0;
+                        let continuationMessages = [...body.messages];
+                        
+                        // 将已获取的输出添加到消息历史
+                        continuationMessages.push({
+                            role: "assistant",
+                            content: data.output
+                        });
+                        
+                        while (continuationCount < maxContinuations) {
+                            continuationCount++;
+                            
+                            // 构建续传请求
+                            const continuationBody = {
+                                ...body,
+                                messages: continuationMessages
+                            };
+                            
+                            try {
+                                const contResp = await fetch(new URL(data.api_url), {
+                                    method: "POST",
+                                    headers: headers,
+                                    body: JSON.stringify(continuationBody),
+                                });
+                                
+                                const contRespJson = await contResp.json();
+                                
+                                // 检查错误
+                                if (Object.prototype.hasOwnProperty.call(contRespJson, "error")) {
+                                    console.error("[Continuation Error]", contRespJson.error);
+                                    break;
+                                }
+                                
+                                // 获取续传内容
+                                let contContent = "";
+                                if (Object.prototype.hasOwnProperty.call(contRespJson, "message")) {
+                                    contContent = contRespJson.message.content;
+                                } else {
+                                    contContent = contRespJson.choices[0].message.content || "";
+                                }
+                                
+                                // 累加输出
+                                data.output += contContent;
+                                message_output.content = data.output;
+                                
+                                // 发送续传内容到前端
+                                if (!data?.react && !data?.return_response) {
+                                    this.window.webContents.send('stream-data', { 
+                                        id: data.id, 
+                                        content: contContent, 
+                                        end: false, 
+                                        chat: this.chat 
+                                    });
+                                }
+                                
+                                // 更新 token 统计
+                                if (contRespJson.usage && contRespJson.usage.total_tokens) {
+                                    this.chat.tokens = (this.chat.tokens || 0) + contRespJson.usage.total_tokens;
+                                }
+                                
+                                // 检查是否还需要继续续传
+                                const contFinishReason = contRespJson.choices?.[0]?.finish_reason;
+                                if (contFinishReason !== "length") {
+                                    console.log(`[Continuation] Completed after ${continuationCount} continuation(s)`);
+                                    break;
+                                }
+                                
+                                // 将本次输出添加到消息历史，准备下一次续传
+                                continuationMessages.push({
+                                    role: "assistant",
+                                    content: contContent
+                                });
+                                
+                            } catch (error) {
+                                console.error("[Continuation Error]", error);
+                                break;
+                            }
+                        }
+                    }
+                    // ========== 截断检测结束 ==========
+
                 } catch {
                     let respText = await resp.text();
                     console.log(respText);
