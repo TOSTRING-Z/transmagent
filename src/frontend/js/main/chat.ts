@@ -1,5 +1,5 @@
 import { DOM, State } from './globals';
-import { createElement, getIcon, getTokens, formatString } from './utils';
+import { createElement, getIcon, formatString } from './utils';
 import { marked } from './markdown';
 import { showLog } from './ui';
 
@@ -274,9 +274,9 @@ export async function infoAdd(info: any) {
       info_div.classList.remove('hidden');
     }
     if (info.content) {
-      if (State.seconds_timer) {
-        State.chat.tokens += getTokens(info.content);
-        DOM.tokens.innerText = State.chat.tokens.toString();
+      
+      if (info.chat && info.chat.tokens !== undefined && DOM.tokens) {
+        DOM.tokens.innerText = info.chat.tokens.toString();
       }
       let info_item_content = await marked.parse(info.content);
       let info_item = createElement(`<div info_data-id="${info.context_id}">
@@ -304,9 +304,9 @@ export async function streamMessageAdd(chunk: any) {
       if (chunk.chat?.msg_count) {
         DOM.msg_count.innerText = chunk.chat.msg_count;
       }
-      if (State.seconds_timer) {
-        State.chat.tokens += getTokens(chunk.content);
-        DOM.tokens.innerText = State.chat.tokens.toString();
+      
+      if (chunk.chat && chunk.chat.tokens !== undefined && DOM.tokens) {
+        DOM.tokens.innerText = chunk.chat.tokens.toString();
       }
       
       // remove optionDom if exists (needs global reference or pass it)

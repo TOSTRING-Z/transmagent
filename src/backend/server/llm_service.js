@@ -402,6 +402,9 @@ class LLMService {
                 return "The user interrupted the task.";
             }
             if (body?.stream) {
+                if (!body.stream_options && data.version && !data.version.includes("claude")) {
+                    body.stream_options = { include_usage: true };
+                }
                 const resp = await fetch(new URL(data.api_url), {
                     method: "POST",
                     headers: headers,
@@ -435,7 +438,12 @@ class LLMService {
                             }
                         }
                     }
-                    if (!data?.react && !data?.return_response) {
+                if (!data?.react && !data?.return_response) {
+                        if (chunk.usage && chunk.usage.total_tokens) {
+                            this.chat.tokens = (this.chat.tokens || 0) + chunk.usage.total_tokens;
+                        } else if (chunk.prompt_eval_count !== undefined) {
+                            this.chat.tokens = (this.chat.tokens || 0) + chunk.prompt_eval_count + (chunk.eval_count || 0);
+                        }
                         this.window.webContents.send('stream-data', { id: data.id, content: content, end: false , chat: this.chat });
                     }
                 }
@@ -449,13 +457,22 @@ class LLMService {
                 });
                 let respJson = await resp.json();
                 if (Object.prototype.hasOwnProperty.call(respJson, "error") && !data?.return_response) {
-                    this.window.webContents.send('info-data', { id: data.id, content: `POST Error:\n\n\`\`\`\n${respJson.error?.message}\n\`\`\`\n\n` });
+                    this.window.webContents.send('info-data', { id: data.id, content: `POST Error:
+
+\`\`\`
+${respJson.error?.message}
+\`\`\`
+
+` });
                     return null;
                 }
                 if (Object.prototype.hasOwnProperty.call(respJson, "message")) {
                     data.output = respJson.message.content;
                 } else {
                     data.output = respJson.choices[0].message.content;
+                }
+                if (respJson.usage && respJson.usage.total_tokens) {
+                    this.chat.tokens = (this.chat.tokens || 0) + respJson.usage.total_tokens;
                 }
                 if (!data?.react && !data?.return_response) {
                     this.window.webContents.send('stream-data', { id: data.id, content: data.output, end: false , chat: this.chat });
@@ -488,7 +505,9 @@ class LLMService {
         } catch (error) {
             console.log(error)
             if (!data?.return_response)
-                this.window.webContents.send('info-data', { id: data.id, content: `Response error: ${error.message}\n\n` });
+                this.window.webContents.send('info-data', { id: data.id, content: `Response error: ${error.message}
+
+` });
             return null;
         }
     }

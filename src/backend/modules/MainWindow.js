@@ -729,16 +729,6 @@ class MainWindow extends Window {
                             store.set('tool_format', 'openai');
                             this.restart(this.window);
                         }
-                    },
-                    {
-                        type: 'radio',
-                        checked: global.tool_format === 'claude',
-                        label: 'Claude (Native API)',
-                        click: () => {
-                            global.tool_format = 'claude';
-                            store.set('tool_format', 'claude');
-                            this.restart(this.window);
-                        }
                     }
                 ]
             },
