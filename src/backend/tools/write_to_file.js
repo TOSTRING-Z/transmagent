@@ -15,24 +15,26 @@ async function main({ file_path, content }) {
 }
 
 function getPrompt() {
-    const prompt = `## write_to_file
-
-Description: Writes text content to files (UTF-8 only) with automatic path handling
-
-Parameters:
-- file_path: Absolute destination path (required)
-- content: Text content to write (supports multiline)
-
-Usage:
-{
-  "thinking": "[Thinking process]",
-  "tool": "write_to_file",
-  "params": {
-    "file_path": "/path/to/file.txt",
-    "content": "Text content\nwith formatting"
-  }
-}`
-    return prompt
+    return {
+    "name": "write_to_file",
+    "description": "Writes text content to files (UTF-8 only) with automatic path handling",
+    "parameters": {
+        "type": "object",
+        "properties": {
+            "file_path": {
+                "type": "string",
+                "description": "Absolute destination path (required)"
+            },
+            "content": {
+                "type": "string",
+                "description": "Text content to write (supports multiline)"
+            }
+        },
+        "required": [
+            "file_path"
+        ]
+    }
+};
 }
 
 module.exports = {

@@ -36,45 +36,27 @@ function main({ file_path, diff }) {
 
 // 保留原始脚本中的getPrompt函数
 function getPrompt() {
-    const prompt = `## replace_in_file  
-Description: Precise file content replacement using SEARCH/REPLACE diffs  
-
-Parameters:  
-- file_path: Target file path (required)  
-- diff: Replacement blocks in unified diff format (required):  
-  \`\`\`  
-  <<<<<<< SEARCH
-  [original 1]
-  =======  
-  [new 1]
-  >>>>>>> REPLACE
-  <<<<<<< SEARCH
-  [original 2]
-  =======
-  [new 2]
-  >>>>>>> REPLACE
-  \`\`\`  
-
-Key Rules:  
-✔ Exact match required (case/whitespace sensitive)  
-✔ First-match only per block  
-✔ Preserves original line endings  
-
-Best Practices:  
-- Include 2-3 context lines  
-- Split large changes into multiple blocks  
-- For deletions: leave REPLACE empty  
-
-Usage:  
-{
-  "thinking": "[Thinking process]",
-  "tool": "replace_in_file",
-  "params": {
-    "file_path": "/src/main.js",
-    "diff": "<<<<<<< SEARCH\nconst API_URL = 'http://old.api';\n=======\nconst API_URL = 'https://new.api';\n>>>>>>> REPLACE"
-  }
-}`
-    return prompt
+    return {
+    "name": "replace_in_file",
+    "description": "Precise file content replacement using SEARCH/REPLACE diffs",
+    "parameters": {
+        "type": "object",
+        "properties": {
+            "file_path": {
+                "type": "string",
+                "description": "Target file path (required)"
+            },
+            "diff": {
+                "type": "string",
+                "description": "Replacement blocks in unified diff format (required)"
+            }
+        },
+        "required": [
+            "file_path",
+            "diff"
+        ]
+    }
+};
 }
 
 // 保留原始导出部分

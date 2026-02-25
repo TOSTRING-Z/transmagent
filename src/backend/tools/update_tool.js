@@ -114,83 +114,27 @@ async function main({ tool_name, tool_documentation }) {
 }
 
 function getPrompt() {
-    const prompt = `## update_tool
-
-Description: Update or add tool documentation in the CLI prompt configuration file. If the tool exists, updates its usage documentation; if not, adds the new tool at the end of the file.
-
-Parameters:
-- tool_name: (Required) Name of the tool to update or add
-- tool_documentation: (Required) Complete documentation for the tool usage, MUST strictly follow the exact format below:
-
-\`\`\`
-- tool_name: Brief description of the tool's purpose
-  - Input: \`filename\` (description of input format and requirements)
-  - Output: \`filename\` (description of output format and location)  
-  - Use: \`exact command with parameters\`
-  - Note:
-    - Additional note point 1
-    - Additional note point 2
-    - Nested note section:
-      - Sub-point 1
-      - Sub-point 2
-      - Further nesting:
-        - Deep point 1
-        - Deep point 2
-\`\`\`
-
-**Format Requirements:**
-- Tool name line: \`- tool_name: description\`
-- Input line: \`  - Input: \\\`filename\\\` (description)\`
-- Output line: \`  - Output: \\\`filename\\\` (description)\`
-- Use line: \`  - Use: \\\`exact command\\\`\`
-- Note section (optional):
-  - \`  - Note:\`
-  - \`    - note point 1\`
-  - \`    - note point 2\`
-  - \`    - nested section:\`
-  - \`      - sub-point 1\`
-  - \`      - sub-point 2\`
-  - \`      - deeper section:\`
-  - \`        - deep point 1\`
-  - \`        - deep point 2\`
-- Indentation: 2 spaces per level
-- Backticks around filenames and commands
-- Empty line between tools
-- Note sections can be nested multiple levels deep
-
-**Example with Multi-level Nesting:**
-\`\`\`
-- enrichment_analysis: Performs enrichment analysis for gene sets
-  - Input: \`genes.txt\` (single-column gene symbols), category name
-  - Output: \`enrichment_results.txt\`
-  - Use: \`Rscript /data/geneset/enrichment_analysis.R --input genes.txt --output output_dir\`
-  - Note:
-    - Adjustable thresholds:
-      - p-value: default 0.05
-      - FDR: default 0.5
-      - Bonferroni: default 0.5
-    - Supported categories:
-      - Disease_Type:
-        - Cancer
-        - Metabolic
-      - Pathway_Type:
-        - Signaling
-        - Metabolic
-    - Additional parameters:
-      - min_size: 5
-      - max_size: 500
-\`\`\`
-
-Usage:
-{
-  "thinking": "[Detailed thought process, including which tool is being updated/added, why the change is needed, and verification that the tool_documentation strictly follows the required format with proper multi-level nesting]",
-  "tool": "update_tool",
-  "params": {
-    "tool_name": "[Name of the tool]",
-    "tool_documentation": "[Complete tool documentation in EXACT required format with proper nesting]"
-  }
-}`
-    return prompt
+    return {
+    "name": "update_tool",
+    "description": "Update or add tool documentation in the CLI prompt configuration file. If the tool exists, updates its usage documentation; if not, adds the new tool at the end of the file.",
+    "parameters": {
+        "type": "object",
+        "properties": {
+            "tool_name": {
+                "type": "string",
+                "description": "(Required) Name of the tool to update or add"
+            },
+            "tool_documentation": {
+                "type": "string",
+                "description": "(Required) Complete documentation for the tool usage, MUST strictly follow the exact format below"
+            }
+        },
+        "required": [
+            "tool_name",
+            "tool_documentation"
+        ]
+    }
+};
 }
 
 // 测试函数

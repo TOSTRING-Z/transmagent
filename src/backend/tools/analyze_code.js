@@ -237,26 +237,26 @@ function main({ filePath = "/data/zgr/transagent/model/grpo/grpo_trainer.py", la
 }
 
 function getPrompt() {
-  const prompt = `## analyze_code  
-
-Description: Extracts code structure (classes, functions, variables) from source files  
-
-Supported: JavaScript, Python, Java, PHP  
-
-Parameters:  
-- filePath: Source file path (required)  
-- language: js/python/java/php (default=js)  
-
-Usage:
-{
-  "thinking": "[Thinking process]",
-  "tool": "analyze_code",
-  "params": {
-    "filePath": "/src/main.js",
-    "language": "js"
-  }
-}`;
-  return prompt;
+    return {
+    "name": "analyze_code",
+    "description": "Extracts code structure (classes, functions, variables) from source files\nSupported: JavaScript, Python, Java, PHP",
+    "parameters": {
+        "type": "object",
+        "properties": {
+            "filePath": {
+                "type": "string",
+                "description": "Source file path (required)"
+            },
+            "language": {
+                "type": "string",
+                "description": "js/python/java/php (default=js)"
+            }
+        },
+        "required": [
+            "filePath"
+        ]
+    }
+};
 }
 
 function getLineNumber(code, searchString) {

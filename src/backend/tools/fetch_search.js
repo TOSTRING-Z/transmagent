@@ -794,77 +794,51 @@ if (require.main === module) {
 
 // 获取工具提示词
 function getPrompt() {
-    return `## fetch_search
-Description: A comprehensive web browsing tool that can search the web, select specific results, open URLs to fetch content, and check URL accessibility. Note: Content from open_url is limited to 20000 characters.
-Parameters:
-- action: (Required) The action to perform. One of: 'search', 'select', 'open_url', 'check_accessibility'
-- query: (Required for 'search') Search query string or array of queries
-- select_ids: (Required for 'select') Array of result IDs to fetch detailed content from
-- url: (Required for 'open_url' and 'check_accessibility') URL to open and fetch content from or check accessibility
-- topk: (Optional) Number of top results to return. Default: 10
-- timeout: (Optional) Request timeout in milliseconds. Default: 5000
-
-Usage Examples:
-1. For searching:
-{
-  "thinking": "I need to search for information about Node.js",
-  "tool": "fetch_search",
-  "params": {
-    "action": "search",
-    "query": "Node.js programming",
-    "topk": 10
-  }
-}
-
-2. For selecting specific results:
-{
-  "thinking": "I want to get detailed content from the first two search results",
-  "tool": "fetch_search", 
-  "params": {
-    "action": "select",
-    "select_ids": [0, 1, 2, 3, 7]
-  }
-}
-
-3. For opening a specific URL:
-{
-  "thinking": "I need to fetch content from a specific website (note: content will be limited to 20000 characters)",
-  "tool": "fetch_search",
-  "params": {
-    "action": "open_url",
-    "url": "https://example.com"
-  }
-}
-
-4. For checking URL accessibility:
-{
-  "thinking": "I want to check if this website is accessible before proceeding",
-  "tool": "fetch_search",
-  "params": {
-    "action": "check_accessibility",
-    "url": "https://example.com",
-    "timeout": 10000
-  }
-}
-
-5. Combined workflow - check accessibility then open:
-{
-  "thinking": "First I'll check if the URL is accessible, then open it if it is",
-  "tool": "fetch_search",
-  "params": {
-    "action": "check_accessibility",
-    "url": "https://example.com"
-  }
-}
-// If accessibility check passes, then:
-{
-  "thinking": "The URL is accessible, now I'll fetch its content (will be truncated if over 20000 chars)",
-  "tool": "fetch_search",
-  "params": {
-    "action": "open_url",
-    "url": "https://example.com"
-  }
-}`;
+    return {
+    "name": "fetch_search",
+    "description": "A comprehensive web browsing tool that can search the web, select specific results, open URLs to fetch content, and check URL accessibility. Note: Content from open_url is limited to 20000 characters.",
+    "parameters": {
+        "type": "object",
+        "properties": {
+            "action": {
+                "type": "string",
+                "description": "(Required) The action to perform. One of: 'search', 'select', 'open_url', 'check_accessibility'"
+            },
+            "query": {
+                "type": "array",
+                "description": "(Required for 'search') Search query string or array of queries",
+                "items": {
+                    "type": "string"
+                }
+            },
+            "select_ids": {
+                "type": "array",
+                "description": "(Required for 'select') Array of result IDs to fetch detailed content from",
+                "items": {
+                    "type": "string"
+                }
+            },
+            "url": {
+                "type": "string",
+                "description": "(Required for 'open_url' and 'check_accessibility') URL to open and fetch content from or check accessibility"
+            },
+            "topk": {
+                "type": "number",
+                "description": "(Optional) Number of top results to return. Default: 10"
+            },
+            "timeout": {
+                "type": "number",
+                "description": "(Optional) Request timeout in milliseconds. Default: 5000"
+            }
+        },
+        "required": [
+            "action",
+            "query",
+            "select_ids",
+            "url"
+        ]
+    }
+};
 }
 
 module.exports = {

@@ -123,21 +123,22 @@ function main(params) {
 }
 
 function getPrompt() {
-    const prompt = `## python_execute
-Description: Execute Python code locally, such as file reading, data analysis, and code execution.
-
-Parameters:
-- code: (Required) Executable Python code snippet (Python code output must retain "\n" and spaces, please strictly follow the code format, incorrect indentation and line breaks will cause code execution to fail)
-
-Usage:
-{
-  "thinking": "[Detailed thought process, including specifics of the executing code. If the current execution involves file content, please record the absolute file path here in detail.]",
-  "tool": "python_execute",
-  "params": {
-    "code": "[Python code snippet to execute]"
-  }
-}`
-    return prompt
+    return {
+    "name": "python_execute",
+    "description": "Execute Python code locally, such as file reading, data analysis, and code execution.",
+    "parameters": {
+        "type": "object",
+        "properties": {
+            "code": {
+                "type": "string",
+                "description": "(Required) Executable Python code snippet (Python code output must retain \"\\n\" and spaces, please strictly follow the code format, incorrect indentation and line breaks will cause code execution to fail)"
+            }
+        },
+        "required": [
+            "code"
+        ]
+    }
+};
 }
 
 module.exports = {

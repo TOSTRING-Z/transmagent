@@ -446,28 +446,26 @@ function main({ error_message, max_results = 5 }) {
 }
 
 function getPrompt() {
-    return `## error_solution_search  
-Description: Find programming error solutions from Stack Overflow using browser automation
-
-Parameters:  
-- error_message: The error message to analyze (required)  
-- max_results: Maximum number of solution URLs to return (optional, default: 5)
-
-Key Features:  
-✔ Uses browser automation to crawl Stack Overflow solutions  
-✔ Automatically handles verification challenges  
-✔ Analyzes error type automatically  
-✔ Returns actual solution pages with metadata  
-
-Usage:  
-{
-  "thinking": "User has a programming error, search Stack Overflow for solutions.",
-  "tool": "error_solution_search", 
-  "params": {
-    "error_message": "Error message here",
-    "max_results": 5
-  }
-}`;
+    return {
+    "name": "error_solution_search",
+    "description": "Find programming error solutions from Stack Overflow using browser automation\nKey Features: \u2714 Uses browser automation to crawl Stack Overflow solutions  \n\u2714 Automatically handles verification challenges  \n\u2714 Analyzes error type automatically  \n\u2714 Returns actual solution pages with metadata\nFeatures: \u2714 Uses browser automation to crawl Stack Overflow solutions  \n\u2714 Automatically handles verification challenges  \n\u2714 Analyzes error type automatically  \n\u2714 Returns actual solution pages with metadata",
+    "parameters": {
+        "type": "object",
+        "properties": {
+            "error_message": {
+                "type": "string",
+                "description": "The error message to analyze (required)"
+            },
+            "max_results": {
+                "type": "number",
+                "description": "Maximum number of solution URLs to return (optional, default: 5)"
+            }
+        },
+        "required": [
+            "error_message"
+        ]
+    }
+};
 }
 
 // 测试函数

@@ -49,20 +49,26 @@ async function main(params) {
 }
 
 function getPrompt() {
-    return `## fetch_url
-Description: Fetch content from a given web URL
-Parameters:
-- url: (Required) URL to fetch content from
-- text_max_len: (Optional) Maximum length of text to return, default is 2000 characters
-Usage:
-{
-  "thinking": "[Thinking process]",
-  "tool": "fetch_url",
-  "params": {
-    "url": "[value]",
-    "text_max_len": "[value]"
-  }
-}`;
+    return {
+    "name": "fetch_url",
+    "description": "Fetch content from a given web URL",
+    "parameters": {
+        "type": "object",
+        "properties": {
+            "url": {
+                "type": "string",
+                "description": "(Required) URL to fetch content from"
+            },
+            "text_max_len": {
+                "type": "number",
+                "description": "(Optional) Maximum length of text to return, default is 2000 characters"
+            }
+        },
+        "required": [
+            "url"
+        ]
+    }
+};
 }
 
 module.exports = {

@@ -445,26 +445,34 @@ function main(params) {
 }
 
 function getPrompt() {
-    return `## display_file
-Description: Display various file types (images, tables, text) in Markdown format. Supports remote SSH file retrieval and local caching.
-- Optimized for large files (streaming) and network resilience.
-- Auto-detects file types (.png, .xlsx, .csv, .md, .txt, etc.).
-
-Parameters:
-- file_path: (Required) Absolute path to the file.
-- start_line: Start line for text/tables (default: 0).
-- end_line: End line (default: 10). Set 0 for all (use caution).
-- max_line_length: Max chars per line (default: 500).
-
-Usage:
-{
-  "tool": "display_file",
-  "params": {
-    "file_path": "/path/to/file.ext",
-    "start_line": 0,
-    "end_line": 20
-  }
-}`;
+    return {
+    "name": "display_file",
+    "description": "Display various file types (images, tables, text) in Markdown format. Supports remote SSH file retrieval and local caching.\n- Optimized for large files (streaming) and network resilience.\n- Auto-detects file types (.png, .xlsx, .csv, .md, .txt, etc.).",
+    "parameters": {
+        "type": "object",
+        "properties": {
+            "file_path": {
+                "type": "string",
+                "description": "(Required) Absolute path to the file."
+            },
+            "start_line": {
+                "type": "string",
+                "description": "Start line for text/tables (default: 0)."
+            },
+            "end_line": {
+                "type": "string",
+                "description": "End line (default: 10). Set 0 for all (use caution)."
+            },
+            "max_line_length": {
+                "type": "number",
+                "description": "Max chars per line (default: 500)."
+            }
+        },
+        "required": [
+            "file_path"
+        ]
+    }
+};
 }
 
 if (require.main === module) {

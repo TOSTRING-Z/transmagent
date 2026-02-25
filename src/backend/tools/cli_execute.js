@@ -377,23 +377,26 @@ function main(params) {
 }
 
 function getPrompt() {
-    const prompt = `## cli_execute
-Description: A command-line tool for executing bash commands in Linux environments, providing secure and efficient command execution capabilities.
-
-Parameters:
-- code: (Required) Executable bash code snippet (please strictly follow the code format, incorrect indentation and line breaks will cause code execution to fail)
-- timeout: (Optional) Maximum execution time in seconds (default: At least 3600 seconds). If the command times out, the current console output will be returned with a failure status.
-
-Usage:
-{
-  "thinking": "[Detailed thought process, including specifics of the executing code. If the current execution involves file content, please record the absolute file path here in detail. Consider setting an appropriate timeout for long-running commands.]",
-  "tool": "cli_execute",
-  "params": {
-    "code": "[Code snippet to execute]",
-    "timeout": [Optional timeout in seconds]
-  }
-}`;
-    return prompt;
+    return {
+    "name": "cli_execute",
+    "description": "A command-line tool for executing bash commands in Linux environments, providing secure and efficient command execution capabilities.",
+    "parameters": {
+        "type": "object",
+        "properties": {
+            "code": {
+                "type": "string",
+                "description": "(Required) Executable bash code snippet (please strictly follow the code format, incorrect indentation and line breaks will cause code execution to fail)"
+            },
+            "timeout": {
+                "type": "number",
+                "description": "(Optional) Maximum execution time in seconds (default: At least 3600 seconds). If the command times out, the current console output will be returned with a failure status."
+            }
+        },
+        "required": [
+            "code"
+        ]
+    }
+};
 }
 
 module.exports = {
