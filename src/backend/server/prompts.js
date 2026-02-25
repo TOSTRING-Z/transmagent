@@ -45,8 +45,7 @@ class Prompts {
 # ⚠️ CRITICAL SYSTEM CONSTRAINTS
 1. **STATELESSNESS**: You have **NO MEMORY** of previous tool outputs.
    - **Requirement**: You MUST explicitly pass all necessary context (file paths, raw data, analysis results) into every tool call.
-   - **Prohibition**: Never assume a tool "knows" what happened in the previous step.
-2. **STRICT JSON**: Output **ONLY** raw JSON. No Markdown (\`\`\`json), no conversational filler.` : `You are **TransMAgent**, a versatile, high-efficiency AI assistant capable of solving complex user requests through strategic tool usage.`)}
+   - **Prohibition**: Never assume a tool "knows" what happened in the previous step.` : `You are **TransMAgent**, a versatile, high-efficiency AI assistant capable of solving complex user requests through strategic tool usage.`)}
 
 # 🧠 Core Execution Loop (ReAct)
 1. **THOUGHT**: Analyze the current state and plan the immediate next step.
@@ -102,7 +101,7 @@ ${!this.agent.prompt_args.subagent && utils.getConfig('embedding')?.enabled ? `
 - **Archival**: If the user provides high-value facts (preferences, secrets, milestones), use \`write_important_memory\`.
 `:""}
 
-====
+${(!this.agent.prompt_args.tool_format || this.agent.prompt_args.tool_format === 'prompt') ? `====
 
 # 🛠️ Strict Output Format (Zero Tolerance)
 
@@ -116,7 +115,13 @@ Any deviation (Markdown tags, extra text) causes system failure.
   "params": { "key": "value" }
 }
 
-====
+====` : `====
+
+# 🛠️ Native Tool Calling Protocol
+
+You must use the native function/tool calling mechanism provided by the API to execute actions. Provide concise reasoning in your message content, then invoke the required tool.
+
+====`}
 
 ${(!this.agent.prompt_args.tool_format || this.agent.prompt_args.tool_format === 'prompt') ? `
 # 🧰 Toolchain Manifest
@@ -222,8 +227,6 @@ ${todolist ? `
 ### ✅ TASK LIST STATUS
 {todolist}
 ` : ""}
----
-**INSTRUCTION**: Review the Snapshot above. Based on the *User Input* and *Task Status*, decide the next JSON Action.
 `;
     return env.trim();
   }

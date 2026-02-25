@@ -299,7 +299,16 @@ ${usageStr}`;
 
   get_tool(content, data) {
     try {
-      const tool_info = JSON5.parse(content);
+      let tool_info = JSON5.parse(content);
+      if (data.tool_format === "openai" && tool_info?.tool_calls && tool_info.tool_calls.length > 0) {
+        const call = tool_info.tool_calls[0];
+        const args = typeof call.function.arguments === 'string' ? JSON5.parse(call.function.arguments) : call.function.arguments;
+        tool_info = {
+          thinking: tool_info.content || `Call tool: ${call.function.name}`,
+          tool: call.function.name,
+          params: args
+        };
+      }
       if (tool_info?.tool && tool_info?.thinking) {
         // 统计重复回答
         if (this.thinking_repetitions.length === 0 || this.thinking_repetitions[0] === tool_info.thinking) {

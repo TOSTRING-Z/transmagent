@@ -135,7 +135,7 @@ class LLMService {
                 this.chat = this.getChatInit();
             } else if (data?.messages && data?.chat) {
                 this.messages = data.messages;
-                this.chat =  {...data.chat, id: this.chat.id}
+                this.chat = { ...data.chat, id: this.chat.id }
             }
             this.updateChat();
             return this.messages.filter(message => message.show);
@@ -435,19 +435,34 @@ class LLMService {
                             else if (Object.prototype.hasOwnProperty.call(delta, "content") && delta.content) {
                                 content = delta.content;
                                 message_output.content += content;
+                            } else if (data.tool_format === "openai" && delta.tool_calls) {
+                                if (!message_output.tool_calls) message_output.tool_calls = [];
+                                for (let tc of delta.tool_calls) {
+                                    if (tc.index !== undefined) {
+                                        if (!message_output.tool_calls[tc.index]) message_output.tool_calls[tc.index] = { id: tc.id, type: "function", function: { name: tc.function?.name || "", arguments: "" } };
+                                        if (tc.function?.name) message_output.tool_calls[tc.index].function.name += tc.function.name;
+                                        if (tc.function?.arguments) message_output.tool_calls[tc.index].function.arguments += tc.function.arguments;
+                                    }
+                                }
                             }
                         }
                     }
-                if (!data?.react && !data?.return_response) {
+                    if (!data?.react && !data?.return_response) {
                         if (chunk.usage && chunk.usage.total_tokens) {
                             this.chat.tokens = (this.chat.tokens || 0) + chunk.usage.total_tokens;
                         } else if (chunk.prompt_eval_count !== undefined) {
                             this.chat.tokens = (this.chat.tokens || 0) + chunk.prompt_eval_count + (chunk.eval_count || 0);
                         }
-                        this.window.webContents.send('stream-data', { id: data.id, content: content, end: false , chat: this.chat });
+                        this.window.webContents.send('stream-data', { id: data.id, content: content, end: false, chat: this.chat });
                     }
                 }
-                data.output = message_output.content;
+                data.output = message_output.content || "";
+                if (data.tool_format === "openai" && message_output.tool_calls && message_output.tool_calls.length > 0) {
+                    data.output = JSON.stringify({
+                        content: data.output,
+                        tool_calls: message_output.tool_calls
+                    });
+                }
             } else {
                 body.stream = false;
                 const resp = await fetch(new URL(data.api_url), {
@@ -455,29 +470,42 @@ class LLMService {
                     headers: headers,
                     body: JSON.stringify(body),
                 });
-                let respJson = await resp.json();
-                if (Object.prototype.hasOwnProperty.call(respJson, "error") && !data?.return_response) {
-                    this.window.webContents.send('info-data', { id: data.id, content: `POST Error:
+                try {
+                    let respJson = await resp.json();
+                    if (Object.prototype.hasOwnProperty.call(respJson, "error") && !data?.return_response) {
+                        this.window.webContents.send('info-data', {
+                            id: data.id, content: `POST Error:
 
 \`\`\`
 ${respJson.error?.message}
 \`\`\`
 
 ` });
-                    return null;
+                        return null;
+                    }
+                    if (Object.prototype.hasOwnProperty.call(respJson, "message")) {
+                        data.output = respJson.message.content;
+                    } else {
+                        data.output = respJson.choices[0].message.content || "";
+                        if (data.tool_format === "openai" && respJson.choices[0].message.tool_calls) {
+                            data.output = JSON.stringify({
+                                content: data.output,
+                                tool_calls: respJson.choices[0].message.tool_calls
+                            });
+                        }
+                    }
+                    if (respJson.usage && respJson.usage.total_tokens) {
+                        this.chat.tokens = (this.chat.tokens || 0) + respJson.usage.total_tokens;
+                    }
+                    if (!data?.react && !data?.return_response) {
+                        this.window.webContents.send('stream-data', { id: data.id, content: data.output, end: false, chat: this.chat });
+                    }
+                    message_output.content = data.output;
+                } catch {
+                    let respText = await resp.text();
+                    console.log(respText);
                 }
-                if (Object.prototype.hasOwnProperty.call(respJson, "message")) {
-                    data.output = respJson.message.content;
-                } else {
-                    data.output = respJson.choices[0].message.content;
-                }
-                if (respJson.usage && respJson.usage.total_tokens) {
-                    this.chat.tokens = (this.chat.tokens || 0) + respJson.usage.total_tokens;
-                }
-                if (!data?.react && !data?.return_response) {
-                    this.window.webContents.send('stream-data', { id: data.id, content: data.output, end: false , chat: this.chat });
-                }
-                message_output.content = data.output;
+
             }
 
             if (this.stop) {
@@ -505,7 +533,8 @@ ${respJson.error?.message}
         } catch (error) {
             console.log(error)
             if (!data?.return_response)
-                this.window.webContents.send('info-data', { id: data.id, content: `Response error: ${error.message}
+                this.window.webContents.send('info-data', {
+                    id: data.id, content: `Response error: ${error.message}
 
 ` });
             return null;
