@@ -61,7 +61,7 @@ module.exports = function getBaseTools(toolCallInstance) {
         },
         "plan_mode_response": {
             func: async ({ response, options }) => {
-                if (toolCallInstance.environment_details.mode !== 'PLAN') {
+                if (toolCallInstance.environment_details.mode !== toolCallInstance.modes.PLAN) {
                     return { error: "Tool 'plan_mode_response' is restricted to PLANNING MODE only." };
                 }
                 toolCallInstance.state = State.PAUSE;

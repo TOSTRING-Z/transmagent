@@ -294,6 +294,13 @@ ${usageStr}`;
   get_tool(content, data) {
     try {
       let tool_info = utils.parseJsonContent(content);
+      if (content.startsWith("{") && content.endsWith("}")) {
+        if (!tool_info) {
+          throw new Error("Failed to parse JSON content");
+        }
+      } else {
+        tool_info = JSON5.parse(content);
+      }
       if (tool_info) {
         if (tool_info?.tool_calls) {
           let call = tool_info.tool_calls[0];
@@ -323,11 +330,10 @@ ${usageStr}`;
       this.window.webContents.send('stream-data', { id: data.id, context_id: this.context_id, content: `${tool_info.thinking}\n\n---\n\n`, chat: this.llm_service.chat });
       return tool_info;
     } catch (error) {
-      console.log(error);
       data.output_format = `{
   "tool_call": "",
   "observation": "Tool was not executed.",
-  "error": "Your response is not a pure JSON text, or there is a problem with the JSON format: ${error.message}"
+  "error": "Function calling is not a pure JSON text, or there is a problem with the JSON format: ${error.message}"
 }`;
       this.llm_service.setTag(false);
       this.llm_service.pushMessage("user", data.output_format, data.id, this.context_id);
