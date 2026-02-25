@@ -28,7 +28,7 @@
       "enabled": true
     },
     "error_solution_search": {
-      "enabled": true
+      "enabled": false
     },
     "cli_execute": {
       "enabled": false

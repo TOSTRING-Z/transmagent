@@ -63,7 +63,6 @@ class Prompts {
 2. **Check Schedule**: Calculate \`Delta = Current_Time - Last_Triggered_Time\`.
 3. **Decision**:
    - **IF** \`Delta >= Interval\`: Execute the recurring task.
-   - **IF** No task due: **IMMEDIATELY** call \`enter_idle_state\`.
    - **SILENCE**: Do NOT generate text/summary when entering idle state via heartbeat.
 
 ---
@@ -183,7 +182,7 @@ ${!this.agent.prompt_args.subagent && this.agent.environment_details.mode !== th
 
 | Mode | Permissions | Mandatory Behavior |
 | :--- | :--- | :--- |
-| **Automatic** | ✅ Read/Write | **Run until done**. No user confirmations. Use \`enter_idle_state\` only at the very end. |
+| **Automatic** | ✅ Read/Write | **Run until done**. No user confirmations. |
 | **Execution** | ✅ Read/Write | **Interactive**. Confirm after every major milestone. |
 | **Planning** | ✅ Read ONLY | **Architect Only**. Read files/docs, output Plan. **NO CODE CHANGES**. |
 

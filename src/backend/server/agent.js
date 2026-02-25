@@ -422,7 +422,7 @@ class ReActAgent {
                         if (role == "user") {
                             if (react) {
                                 const tool_info = utils.parseJsonContent(content);
-                                if (tool_info) {
+                                if (tool_info?.tool_call) {
                                     const tool = tool_info?.tool_call;
                                     const observation = tool_info?.observation;
                                     switch (tool) {
@@ -454,24 +454,36 @@ class ReActAgent {
                         } else {
                             if (react) {
                                 try {
-                                    const tool_info = utils.parseJsonContent(content);
+                                    let tool_info = utils.parseJsonContent(content);
                                     if (tool_info) {
-                                        const thinking = `${tool_info?.thinking || `Tool call: ${tool_info.tool}`}\n\n---\n\n`
-                                        let content_format = content.replaceAll("\\`", "'").replaceAll("`", "'");
-                                        this.window.webContents.send('info-data', { id: id, context_id: context_id, content: `Step ${i}, id: ${id}, context_id: ${context_id}, Output:\n\n\`\`\`json\n${content_format}\n\`\`\`\n\n`, del: del });
-                                        this.window.webContents.send('stream-data', { id: id, context_id: context_id, content: thinking, end: true, del: del });
-                                        if (tool_info.tool == "enter_idle_state") {
-                                            this.window.webContents.send('stream-data', { id: id, context_id: context_id, content: tool_info.params.final_answer, end: true, del: del });
+                                        if (tool_info?.tool_calls) {
+                                            let call = tool_info.tool_calls[0];
+                                            tool_info = {
+                                                thinking: tool_info.content,
+                                                tool: call?.function.name,
+                                                params: utils.parseJsonContent(call?.function.arguments)
+                                            };
                                         }
                                     } else {
-                                        // this.window.webContents.send('stream-data', { id: id, context_id: context_id, content: content, end: true, del: del });
+                                        tool_info = {
+                                            thinking: content,
+                                            tool: null,
+                                            params: null
+                                        };
+                                    }
+                                    const thinking = `${tool_info?.thinking || `Tool call: ${tool_info.tool}`}\n\n---\n\n`
+                                    let content_format = content.replaceAll("\\`", "'").replaceAll("`", "'");
+                                    this.window.webContents.send('info-data', { id: id, context_id: context_id, content: `Step ${i}, id: ${id}, context_id: ${context_id}, Output:\n\n\`\`\`json\n${content_format}\n\`\`\`\n\n`, del: del });
+                                    this.window.webContents.send('stream-data', { id: id, context_id: context_id, content: thinking, end: true, del: del });
+                                    if (tool_info.tool == "enter_idle_state") {
+                                        this.window.webContents.send('stream-data', { id: id, context_id: context_id, content: tool_info.params.final_answer, end: true, del: del });
                                     }
                                 } catch {
-                                    this.window.webContents.send('stream-data', { id: id, context_id: context_id, content: "", end: true, del: del });
+                                    this.window.webContents.send('stream-data', { id: id, context_id: context_id, content: null, end: true, del: del });
                                     continue;
                                 }
                             } else {
-                                this.window.webContents.send('stream-data', { id: id, content: content, end: true, del: del });
+                                // this.window.webContents.send('stream-data', { id: id, content: content, end: true, del: del });
                             }
                         }
                     }

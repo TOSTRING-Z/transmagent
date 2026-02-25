@@ -62,9 +62,9 @@ class ToolCall extends ReActAgent {
     }
   }
 
-    get_tools_prompt() {
+  get_tools_prompt() {
     const format = this.prompt_args?.tool_format || "prompt";
-    
+
     const tool_schemas = [];
     for (let key in this.tools) {
       if (this.tools[key]?.getPrompt) {
@@ -79,19 +79,10 @@ class ToolCall extends ReActAgent {
 
     if (format === "openai") {
       return tool_schemas.map(schema => {
-        if (schema.type === "raw_string") return null;
+        if (schema.type === "raw_string" || schema.name === "enter_idle_state") return null;
         return {
           type: "function",
           function: schema
-        };
-      }).filter(Boolean);
-    } else if (format === "claude") {
-      return tool_schemas.map(schema => {
-        if (schema.type === "raw_string") return null;
-        return {
-          name: schema.name,
-          description: schema.description,
-          input_schema: schema.parameters || { type: "object", properties: {} }
         };
       }).filter(Boolean);
     } else {
@@ -284,6 +275,9 @@ ${usageStr}`;
       } else {
         this.window.webContents.send('info-data', { id: data.id, context_id: this.context_id, content: this.get_info(data) });
       }
+    } else if (tool_info?.thinking) {
+      this.window.webContents.send('stream-data', { id: data.id, context_id: this.context_id, content: null, end: true, chat: this.llm_service.chat });
+      this.state = State.FINAL;
     }
   }
 
@@ -299,30 +293,35 @@ ${usageStr}`;
 
   get_tool(content, data) {
     try {
-      let tool_info = JSON5.parse(content);
-      if (data.tool_format === "openai" && tool_info?.tool_calls && tool_info.tool_calls.length > 0) {
-        const call = tool_info.tool_calls[0];
-        const args = typeof call.function.arguments === 'string' ? JSON5.parse(call.function.arguments) : call.function.arguments;
+      let tool_info = utils.parseJsonContent(content);
+      if (tool_info) {
+        if (tool_info?.tool_calls) {
+          let call = tool_info.tool_calls[0];
+          tool_info = {
+            thinking: tool_info.content,
+            tool: call?.function.name,
+            params: utils.parseJsonContent(call?.function.arguments)
+          };
+        }
+      } else {
         tool_info = {
-          thinking: tool_info.content || `Call tool: ${call.function.name}`,
-          tool: call.function.name,
-          params: args
+          thinking: content,
+          tool: null,
+          params: null
         };
       }
-      if (tool_info?.tool && tool_info?.thinking) {
-        // 统计重复回答
-        if (this.thinking_repetitions.length === 0 || this.thinking_repetitions[0] === tool_info.thinking) {
-          this.thinking_repetitions.push(tool_info.thinking);
-        } else {
-          this.repetitions_delay_empty += 1
-          if (this.repetitions_delay_empty >= (utils.getConfig("tool_call")?.repetitions_delay_empty || 2)) {
-            this.thinking_repetitions.length = 0;
-            this.repetitions_delay_empty = 0;
-          }
+      // 统计重复回答
+      if (this.thinking_repetitions.length === 0 || this.thinking_repetitions[0] === tool_info.thinking) {
+        this.thinking_repetitions.push(tool_info.thinking);
+      } else {
+        this.repetitions_delay_empty += 1
+        if (this.repetitions_delay_empty >= (utils.getConfig("tool_call")?.repetitions_delay_empty || 2)) {
+          this.thinking_repetitions.length = 0;
+          this.repetitions_delay_empty = 0;
         }
-        this.window.webContents.send('stream-data', { id: data.id, context_id: this.context_id, content: `${tool_info.thinking}\n\n---\n\n`, chat: this.llm_service.chat });
-        return tool_info;
       }
+      this.window.webContents.send('stream-data', { id: data.id, context_id: this.context_id, content: `${tool_info.thinking}\n\n---\n\n`, chat: this.llm_service.chat });
+      return tool_info;
     } catch (error) {
       console.log(error);
       data.output_format = `{
@@ -405,7 +404,7 @@ ${usageStr}`;
     let step = 0;
     this.state = State.IDLE;
     let tool_call = utils.getConfig("tool_call");
-    
+
     data.tool_format = this.prompt_args?.tool_format || "prompt";
     if (data.tool_format !== "prompt") {
       data.tools = this.get_tools_prompt();
