@@ -956,6 +956,17 @@ class MainWindow extends Window {
                     },
                     { type: 'separator' },
                     {
+                        label: 'Open Memory',
+                        click: () => {
+                            const memoryPath = path.join(utils.getDefault(), 'memory.md');
+                            if (!fs.existsSync(memoryPath)) {
+                                fs.writeFileSync(memoryPath, '# Memory\n\n');
+                            }
+                            shell.openPath(memoryPath).catch(err => console.error('Failed to open memory.md:', err));
+                        }
+                    },
+                    { type: 'separator' },
+                    {
                         label: 'Console',
                         click: () => {
                             if (this.windowManager?.configWindow) this.windowManager.configWindow.window?.webContents.openDevTools();
