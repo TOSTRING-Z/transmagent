@@ -84,7 +84,7 @@ class IconWindow extends Window {
 
         ipcMain.on('submit-clicked', () => {
             global.concat = false;
-            this.windowManager.mainWindow.send_query({ query: global.last_clipboard_content }, global.model, global.version);
+            this.windowManager.mainWindow.send_query({ query: global.last_clipboard_content }, this.windowManager.mainWindow?.llm_service?.chat?.model, this.windowManager.mainWindow?.llm_service?.chat?.version);
             this.destroy();
         })
 

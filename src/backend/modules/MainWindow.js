@@ -131,7 +131,7 @@ class MainWindow extends Window {
                         };
 
                         if (this.tool_call) {
-                            this.send_query(data, global.model, global.version);
+                            this.send_query(data, this.llm_service?.chat?.model, this.llm_service?.chat?.version);
                         }
                     } catch (e) {
                         console.error("[Heartbeat] Execution failed:", e);
@@ -227,7 +227,7 @@ class MainWindow extends Window {
             todolist: true,
             subagent: false,
             agent_mode: agent_mode,
-            tool_format: global.tool_format
+            tool_format: this.llm_service?.chat?.tool_format
         });
         this.chain_call = new ChainCall(this.plugins, this.llm_service, this.window, this.windowManager.alertWindow);
         this.main_server = new MainServer(this);
@@ -459,7 +459,7 @@ class MainWindow extends Window {
         })
 
         ipcMain.on('submit', (_event, formData) => {
-            this.send_query(formData, global.model, global.version);
+            this.send_query(formData, this.llm_service?.chat?.model, this.llm_service?.chat?.version);
         })
 
         ipcMain.on('change-mode', (_event, mode) => {
@@ -615,7 +615,7 @@ class MainWindow extends Window {
             if (global.is_plugin) {
                 console.log(inner.model_obj)
                 console.log(global)
-                this.window.webContents.send("extra_load", e.statu && this.plugins.get[global.version]?.extra)
+                this.window.webContents.send("extra_load", e.statu && this.plugins.get[this.llm_service?.chat?.version]?.extra)
             }
             else {
                 const ssh_config = utils.getSshConfig();
@@ -656,11 +656,11 @@ class MainWindow extends Window {
         return Object.keys(utils.getConfig("models")).map((_model) => {
             return {
                 type: 'radio',
-                checked: global.model == _model,
+                checked: this.llm_service?.chat?.model == _model,
                 click: () => {
-                    global.model = _model;
+                    if (this.llm_service?.chat) this.llm_service.chat.model = _model;
                     global.is_plugin = _model === "plugins";
-                    global.version = utils.getConfig("models")[_model]["versions"][0].version;
+                    if (this.llm_service?.chat) this.llm_service.chat.version = utils.getConfig("models")[_model]["versions"][0].version;
                     this.updateVersionsSubmenu();
                 },
                 label: _model
@@ -677,7 +677,7 @@ class MainWindow extends Window {
             console.log(versions)
         }
         else {
-            versions = utils.getConfig("models")[global.model]["versions"];
+            versions = utils.getConfig("models")[this.llm_service?.chat?.model]["versions"];
         }
         this.funcItems.react.event();
         console.log(versions);
@@ -685,9 +685,9 @@ class MainWindow extends Window {
             const _version = version?.version || version;
             return {
                 type: 'radio',
-                checked: global.version == _version,
+                checked: this.llm_service?.chat?.version == _version,
                 click: () => {
-                    global.version = _version
+                    if (this.llm_service?.chat) this.llm_service.chat.version = _version
                     if (global.is_plugin) {
                         this.window.webContents.send("extra_load", version?.extra)
                     }
@@ -712,20 +712,20 @@ class MainWindow extends Window {
                 submenu: [
                     {
                         type: 'radio',
-                        checked: global.tool_format === 'prompt',
+                        checked: this.llm_service?.chat?.tool_format === 'prompt',
                         label: 'Prompt (Default)',
                         click: () => {
-                            global.tool_format = 'prompt';
+                            if (this.llm_service?.chat) this.llm_service.chat.tool_format = 'prompt';
                             store.set('tool_format', 'prompt');
                             this.restart(this.window);
                         }
                     },
                     {
                         type: 'radio',
-                        checked: global.tool_format === 'openai',
+                        checked: this.llm_service?.chat?.tool_format === 'openai',
                         label: 'OpenAI (Native API)',
                         click: () => {
-                            global.tool_format = 'openai';
+                            if (this.llm_service?.chat) this.llm_service.chat.tool_format = 'openai';
                             store.set('tool_format', 'openai');
                             this.restart(this.window);
                         }

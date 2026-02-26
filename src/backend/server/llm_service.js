@@ -2,7 +2,7 @@ const fs = require("fs");
 const path = require("path");
 const { streamJSON, streamSse } = require("./stream.js");
 const JSON5 = require("json5");
-const { utils } = require('../modules/globals.js')
+const { utils, getDefaultConfig } = require('../modules/globals.js')
 
 String.prototype.format = function (data) {
     let format_text = this.replace(/(\{.*?\})/g, (match) => {
@@ -75,6 +75,7 @@ class LLMService {
     }
 
     getChatInit(params = {}) {
+        const defaultConfig = getDefaultConfig();
         return {
             id: this.getChatId(),
             name: null,
@@ -91,6 +92,11 @@ class LLMService {
                 },
                 subtask_id: 0,
             },
+            // 对话局部配置变量
+            model: defaultConfig.model,
+            version: defaultConfig.version,
+            tool_format: defaultConfig.tool_format,
+            is_plugin: defaultConfig.is_plugin,
             ...params
         }
     }

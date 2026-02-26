@@ -71,7 +71,7 @@ class OverlayWindow extends Window {
         })
 
         ipcMain.on('query-img', (_, img_url) => {
-            this.windowManager.mainWindow.send_query({ img_url: img_url }, global.model, global.version, global.stream);
+            this.windowManager.mainWindow.send_query({ img_url: img_url }, this.windowManager.mainWindow?.llm_service?.chat?.model, this.windowManager.mainWindow?.llm_service?.chat?.version, global.stream);
             this.windowManager.overlayWindow.destroy();
         })
     }

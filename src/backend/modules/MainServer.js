@@ -11,7 +11,7 @@ class MainServer {
                 query: data.messages[data.messages.length - 1].content,
                 max_step: data?.max_step
             };
-            this.main_window.send_query(cdata, global.model, global.version, false);
+            this.main_window.send_query(cdata, this.main_window?.llm_service?.chat?.model, this.main_window?.llm_service?.chat?.version, false);
             const _data = this.main_window.tool_call.getDataDefault(cdata);
             _data.id = this.main_window.llm_service.chat.max_index;
 
