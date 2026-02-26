@@ -307,7 +307,7 @@ ${usageStr}`;
           tool_info = {
             thinking: tool_info.content,
             tool: call?.function.name,
-            params: utils.parseJsonContent(call?.function.arguments)
+            params: JSON5.parse(call?.function.arguments)
           };
         }
       } else {

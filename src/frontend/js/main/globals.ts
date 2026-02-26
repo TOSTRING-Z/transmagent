@@ -36,14 +36,15 @@ export interface ChatState {
   seconds: number;
   id: string | null;
   mode: string;
-  system_prompt: string;
+  version: string | null;
+  system_prompt: string | null;
   msg_count?: number;
 }
 
 export const State = {
   markdown_statu: true,
   seconds_timer: null as any,
-  chat: { tokens: 0, seconds: 0, id: null, mode: 'auto', system_prompt: '' } as ChatState,
+  chat: { tokens: 0, seconds: 0, id: null, mode: 'auto', version: null, system_prompt: null } as ChatState,
   scroll_top: {
     info: true,
     data: true,

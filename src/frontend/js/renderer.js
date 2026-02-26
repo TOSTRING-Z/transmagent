@@ -278,6 +278,7 @@ ${DOM.input.value}`;
     DOM.tokens.innerText = State.chat.tokens.toString();
     DOM.msg_count.innerText = State.chat.msg_count?.toString() || "0";
     DOM.seconds.innerText = State.chat.seconds.toFixed(1);
+  if (State.chat.version && DOM.version) DOM.version.innerText = State.chat.version;
     const items = DOM.history_list.getElementsByClassName("history-item");
     Array.from(items).forEach((item) => {
       if (item.id == chatId)
@@ -1194,6 +1195,7 @@ $$
     State.seconds_timer = setInterval(() => {
       State.chat.seconds += 0.1;
       DOM.seconds.innerText = State.chat.seconds.toFixed(1);
+  if (State.chat.version && DOM.version) DOM.version.innerText = State.chat.version;
     }, 100);
     DOM.tokens.innerText = State.chat.tokens.toString();
     DOM.version.innerText = data.version;
@@ -1279,6 +1281,7 @@ $$
     DOM.tokens.innerText = State.chat.tokens.toString();
     DOM.msg_count.innerText = State.chat.msg_count?.toString() || "0";
     DOM.seconds.innerText = State.chat.seconds.toFixed(1);
+  if (State.chat.version && DOM.version) DOM.version.innerText = State.chat.version;
   });
   window.electronAPI.handleAutoRenameChat(async (chat) => {
     State.chat.id = chat.id;

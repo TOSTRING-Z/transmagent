@@ -191,6 +191,7 @@ window.electronAPI.handleQuery(async ({ data, api_callback = true }) => {
   State.seconds_timer = setInterval(() => {
     State.chat.seconds += 0.1;
     DOM.seconds.innerText = State.chat.seconds.toFixed(1);
+  if (State.chat.version && DOM.version) DOM.version.innerText = State.chat.version;
   }, 100);
 
   DOM.tokens.innerText = State.chat.tokens.toString();
@@ -323,6 +324,7 @@ window.electronAPI.handleSetChat(async (chat) => {
   DOM.tokens.innerText = State.chat.tokens.toString();
   DOM.msg_count.innerText = State.chat.msg_count?.toString() || "0";
   DOM.seconds.innerText = State.chat.seconds.toFixed(1);
+  if (State.chat.version && DOM.version) DOM.version.innerText = State.chat.version;
 });
 
 window.electronAPI.handleAutoRenameChat(async (chat) => {

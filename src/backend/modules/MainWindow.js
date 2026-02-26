@@ -474,12 +474,18 @@ class MainWindow extends Window {
         ipcMain.handle('new-chat', () => {
             this.windowManager.subAgentWindow.destroy();
             const chat = this.tool_call.newChat();
+            this.updateVersionsSubmenu();
+            this.window.webContents.send('set-chat', this.llm_service.chat);
+                    if (this.tool_call && this.tool_call.setHistory) this.tool_call.setHistory();
             return chat;
         })
 
         ipcMain.handle('load-chat', (_event, id) => {
             this.windowManager.subAgentWindow.destroy();
             const chat = this.tool_call.loadChat(id);
+            this.updateVersionsSubmenu();
+            this.window.webContents.send('set-chat', this.llm_service.chat);
+                    if (this.tool_call && this.tool_call.setHistory) this.tool_call.setHistory();
             return chat;
         })
 
@@ -488,6 +494,9 @@ class MainWindow extends Window {
                 this.llm_service.init();
                 this.windowManager.subAgentWindow.destroy();
                 this.window.webContents.send('clear');
+                this.updateVersionsSubmenu();
+                this.window.webContents.send('set-chat', this.llm_service.chat);
+                    if (this.tool_call && this.tool_call.setHistory) this.tool_call.setHistory();
             }
             this.tool_call.delHistory(id);
         })
@@ -644,7 +653,7 @@ class MainWindow extends Window {
             prompt = fs.readFileSync(filePath, 'utf-8');
         }
         const history_data = utils.getHistoryData();
-        this.window.webContents.send('init-info', { prompt, ...global, chat: this.llm_service.chat, chats: history_data.data });
+        this.window.webContents.send('init-info', { prompt, ...global, model: this.llm_service.chat?.model || utils.getConfig('default')['model'], version: this.llm_service.chat?.version || utils.getConfig('default')['version'], tool_format: this.llm_service.chat?.tool_format, is_plugin: this.llm_service.chat?.is_plugin, chat: this.llm_service.chat, chats: history_data.data });
     }
 
     updateVersionsSubmenu() {
@@ -656,12 +665,14 @@ class MainWindow extends Window {
         return Object.keys(utils.getConfig("models")).map((_model) => {
             return {
                 type: 'radio',
-                checked: this.llm_service?.chat?.model == _model,
+                checked: (this.llm_service?.chat?.model || utils.getConfig("default")["model"]) == _model,
                 click: () => {
                     if (this.llm_service?.chat) this.llm_service.chat.model = _model;
                     global.is_plugin = _model === "plugins";
                     if (this.llm_service?.chat) this.llm_service.chat.version = utils.getConfig("models")[_model]["versions"][0].version;
                     this.updateVersionsSubmenu();
+                    this.window.webContents.send("set-chat", this.llm_service.chat);
+                    if (this.tool_call && this.tool_call.setHistory) this.tool_call.setHistory();
                 },
                 label: _model
             }
@@ -677,7 +688,7 @@ class MainWindow extends Window {
             console.log(versions)
         }
         else {
-            versions = utils.getConfig("models")[this.llm_service?.chat?.model]["versions"];
+            versions = utils.getConfig("models")[(this.llm_service?.chat?.model || utils.getConfig("default")["model"])]["versions"];
         }
         this.funcItems.react.event();
         console.log(versions);
@@ -685,9 +696,11 @@ class MainWindow extends Window {
             const _version = version?.version || version;
             return {
                 type: 'radio',
-                checked: this.llm_service?.chat?.version == _version,
+                checked: (this.llm_service?.chat?.version || utils.getConfig("default")["version"]) == _version,
                 click: () => {
                     if (this.llm_service?.chat) this.llm_service.chat.version = _version
+                    this.window.webContents.send("set-chat", this.llm_service.chat);
+                    if (this.tool_call && this.tool_call.setHistory) this.tool_call.setHistory();
                     if (global.is_plugin) {
                         this.window.webContents.send("extra_load", version?.extra)
                     }
@@ -712,22 +725,26 @@ class MainWindow extends Window {
                 submenu: [
                     {
                         type: 'radio',
-                        checked: this.llm_service?.chat?.tool_format === 'prompt',
+                        checked: (this.llm_service?.chat?.tool_format || require('./globals').getDefaultConfig().tool_format) === 'prompt',
                         label: 'Prompt (Default)',
                         click: () => {
                             if (this.llm_service?.chat) this.llm_service.chat.tool_format = 'prompt';
                             store.set('tool_format', 'prompt');
-                            this.restart(this.window);
+                            this.updateVersionsSubmenu();
+                            this.window.webContents.send('set-chat', this.llm_service.chat);
+                    if (this.tool_call && this.tool_call.setHistory) this.tool_call.setHistory();
                         }
                     },
                     {
                         type: 'radio',
-                        checked: this.llm_service?.chat?.tool_format === 'openai',
+                        checked: (this.llm_service?.chat?.tool_format || require('./globals').getDefaultConfig().tool_format) === 'openai',
                         label: 'OpenAI (Native API)',
                         click: () => {
                             if (this.llm_service?.chat) this.llm_service.chat.tool_format = 'openai';
                             store.set('tool_format', 'openai');
-                            this.restart(this.window);
+                            this.updateVersionsSubmenu();
+                            this.window.webContents.send('set-chat', this.llm_service.chat);
+                    if (this.tool_call && this.tool_call.setHistory) this.tool_call.setHistory();
                         }
                     }
                 ]
@@ -908,6 +925,9 @@ class MainWindow extends Window {
                             this.llm_service.chat.id = chat_id;
                             this.tool_call.setHistory();
                             this.tool_call.change_mode();
+                            this.updateVersionsSubmenu();
+                            this.window.webContents.send('set-chat', this.llm_service.chat);
+                    if (this.tool_call && this.tool_call.setHistory) this.tool_call.setHistory();
                         }
                     },
                     {
@@ -948,6 +968,7 @@ class MainWindow extends Window {
                                     this.tool_call.load_message(result.filePaths[0]);
                                     this.tool_call.setHistory();
                                     this.window.webContents.send('set-chat', this.llm_service.chat);
+                    if (this.tool_call && this.tool_call.setHistory) this.tool_call.setHistory();
                                 }
                             }).catch(err => {
                                 console.error(err);
