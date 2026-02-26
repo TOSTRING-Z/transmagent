@@ -33,7 +33,8 @@
     "model": "deepseek",
     "version": "deepseek-chat",
     "plugin": "baidu_translate",
-    "auto_optimization": "auto_optimization"
+    "tool_format": "prompt",
+    "auto_optimization": "auto_optimization",
   },
   "models": {
     "ollama": {

@@ -729,7 +729,9 @@ class MainWindow extends Window {
                         label: 'Prompt (Default)',
                         click: () => {
                             if (this.llm_service?.chat) this.llm_service.chat.tool_format = 'prompt';
-                            store.set('tool_format', 'prompt');
+                            let config = utils.getConfig();
+                            config.default.tool_format = 'prompt';
+                            utils.setConfig(config);
                             this.updateVersionsSubmenu();
                             this.window.webContents.send('set-chat', this.llm_service.chat);
                     if (this.tool_call && this.tool_call.setHistory) this.tool_call.setHistory();
@@ -741,7 +743,9 @@ class MainWindow extends Window {
                         label: 'OpenAI (Native API)',
                         click: () => {
                             if (this.llm_service?.chat) this.llm_service.chat.tool_format = 'openai';
-                            store.set('tool_format', 'openai');
+                            let config = utils.getConfig();
+                            config.default.tool_format = 'openai';
+                            utils.setConfig(config);
                             this.updateVersionsSubmenu();
                             this.window.webContents.send('set-chat', this.llm_service.chat);
                     if (this.tool_call && this.tool_call.setHistory) this.tool_call.setHistory();

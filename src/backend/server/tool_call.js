@@ -1,5 +1,5 @@
 const { ReActAgent, State } = require("./agent")
-const { utils } = require('../modules/globals')
+const { utils, CHAT_CONST } = require('../modules/globals')
 const { MCPClient } = require('./mcp_client')
 const Prompts = require('./prompts');
 const os = require('os');
@@ -330,11 +330,11 @@ ${usageStr}`;
       this.window.webContents.send('stream-data', { id: data.id, context_id: this.context_id, content: `${tool_info.thinking}\n\n---\n\n`, chat: this.llm_service.chat });
       return tool_info;
     } catch (error) {
-      data.output_format = `{
-  "tool_call": "",
-  "observation": "Tool was not executed.",
-  "error": "Function calling is not a pure JSON text, or there is a problem with the JSON format: ${error.message}"
-}`;
+      let observation = {
+        type: "tool_result",
+        content: `Function calling is not a pure JSON text, or there is a problem with the JSON format: ${error.message}`
+      };
+      data.output_format = JSON.stringify(observation, null, 2);
       this.llm_service.setTag(false);
       this.llm_service.pushMessage("user", data.output_format, data.id, this.context_id);
       this.environment_update(data);
@@ -346,9 +346,8 @@ ${usageStr}`;
     try {
       if (!Object.prototype.hasOwnProperty.call(this.tools, tool)) {
         const observation = {
-          "tool_call": tool,
-          "observation": "Tool was not executed.",
-          "error": "Tool does not exist."
+          type: "tool_result",
+          content: "Tool does not exist."
         };
         this.llm_service.setTag(false);
         return { observation, output: null };
@@ -356,9 +355,8 @@ ${usageStr}`;
       const will_tool = this.tools[tool].func;
       const output = await will_tool(params);
       const observation = {
-        "tool_call": tool,
-        "observation": output,
-        "error": ""
+        type: "tool_result",
+        content: output
       };
       if (tool == "cli_execute") {
         const success = output?.success;
@@ -370,9 +368,8 @@ ${usageStr}`;
     } catch (error) {
       console.log(error);
       const observation = {
-        "tool_call": tool,
-        "observation": "Tool has been executed.",
-        "error": error.message
+        type: "tool_result",
+        content: `Tool has been executed with error: ${error.message}`
       };
       this.llm_service.setTag(false);
       return { observation, output: error.message };
@@ -427,9 +424,9 @@ ${usageStr}`;
       data = { ...data, ...tool_call, step: ++step, context_id: this.context_id, react: true };
 
       let options = await this.step(data);
-      if (!this.llm_service.chat.name) {
+      if (!this.llm_service.chat.name || this.llm_service.chat.name === CHAT_CONST.DEFAULT_NAME) {
         this.setChatName(data).then(() => {
-          if (this.llm_service.chat.name) {
+          if (this.llm_service.chat.name && this.llm_service.chat.name !== CHAT_CONST.DEFAULT_NAME) {
             this.window.webContents.send('auto-rename-chat', this.llm_service.chat);
           }
         });

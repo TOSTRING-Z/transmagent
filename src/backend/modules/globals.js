@@ -84,11 +84,15 @@ function getDefaultConfig() {
     return {
         model: utils.getConfig("default")["model"],
         version: utils.getConfig("default")["version"],
-        tool_format: store.get("tool_format", "prompt"),
+        tool_format: utils.getConfig("default")["tool_format"],
         is_plugin: utils.getConfig("default")["model"] === "plugins"
     };
 }
 
+const CHAT_CONST = {
+    DEFAULT_NAME: "New Chat"
+};
+
 module.exports = {
-    store, global, inner, utils, config, getDefaultConfig
+    store, global, inner, utils, config, getDefaultConfig, CHAT_CONST
 };

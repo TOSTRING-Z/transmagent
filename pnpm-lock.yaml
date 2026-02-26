@@ -121,6 +121,25 @@ importers:
         specifier: ^3.4.17
         version: 3.4.19
 
+  src/backend/server/llm_service:
+    dependencies:
+      json5:
+        specifier: ^2.2.3
+        version: 2.2.3
+      llm-service-core:
+        specifier: 'link:'
+        version: 'link:'
+    devDependencies:
+      '@types/json5':
+        specifier: ^0.0.30
+        version: 0.0.30
+      '@types/node':
+        specifier: ^20.0.0
+        version: 20.19.34
+      typescript:
+        specifier: ^5.3.0
+        version: 5.4.5
+
 packages:
 
   7zip-bin@5.2.0:
@@ -684,6 +703,9 @@ packages:
   '@types/json-schema@7.0.15':
     resolution: {integrity: sha512-5+fP8P8MFNC+AyZCDxrB2pkZFPGzqQWUzpSeuuVLvm8VMcorNYavBqoFcxK8bQz4Qsbn4oUEEem4wDLfcysGHA==}
 
+  '@types/json5@0.0.30':
+    resolution: {integrity: sha512-sqm9g7mHlPY/43fcSNrCYfOeX9zkTTK+euO5E6+CVijSMm5tTjkVdwdqRkY3ljjIAf8679vps5jKUoJBCLsMDA==}
+
   '@types/keyv@3.1.4':
     resolution: {integrity: sha512-BQ5aZNSCpj7D6K2ksrRCTmKRLEpnPvWDiLPfoGyhZ++8YtiK9d/3DBKPJgry359X/P1PfruyYwvnvwFjuEiEIg==}
 
@@ -692,6 +714,9 @@ packages:
 
   '@types/mute-stream@0.0.4':
     resolution: {integrity: sha512-CPM9nzrCPPJHQNA9keH9CVkVI+WR5kMa+7XEs5jcGQ0VoAGnLv242w8lIVgwAEfmE4oufJRaTc9PNLQl0ioAow==}
+
+  '@types/node@20.19.34':
+    resolution: {integrity: sha512-by3/Z0Qp+L9cAySEsSNNwZ6WWw8ywgGLPQGgbQDhNRSitqYgkgp4pErd23ZSCavbtUA2CN4jQtoB3T8nk4j3Rg==}
 
   '@types/node@22.19.8':
     resolution: {integrity: sha512-ebO/Yl+EAvVe8DnMfi+iaAyIqYdK0q/q0y0rw82INWEKJOBe6b/P3YWE8NW7oOlF/nXFNrHwhARrN/hdgDkraA==}
@@ -4821,6 +4846,8 @@ snapshots:
 
   '@types/json-schema@7.0.15': {}
 
+  '@types/json5@0.0.30': {}
+
   '@types/keyv@3.1.4':
     dependencies:
       '@types/node': 22.19.8
@@ -4830,6 +4857,10 @@ snapshots:
   '@types/mute-stream@0.0.4':
     dependencies:
       '@types/node': 22.19.8
+
+  '@types/node@20.19.34':
+    dependencies:
+      undici-types: 6.21.0
 
   '@types/node@22.19.8':
     dependencies:

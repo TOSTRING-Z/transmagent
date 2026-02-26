@@ -1,4 +1,4 @@
-const { utils, inner, global } = require('../modules/globals')
+const { utils, inner, CHAT_CONST } = require('../modules/globals')
 const { LLMService } = require('./llm_service');
 const JSON5 = require("json5");
 
@@ -391,7 +391,8 @@ class ReActAgent {
         const max_index = this.load_message(history_path);
         const history_data = utils.getHistoryData();
         const history = history_data.data.find(history_ => history_.id == id);
-        this.llm_service.chat = this.llm_service.getChatInit({ ...history, max_index: max_index });
+        let chatName = (history && history.name) ? history.name : CHAT_CONST.DEFAULT_NAME;
+        this.llm_service.chat = this.llm_service.getChatInit({ ...history, name: chatName, max_index: max_index });
         return this.llm_service.chat;
     }
 

@@ -52,7 +52,7 @@ export const State = {
   status: {
     auto_opt: false,
   },
-  react_statu: false,
+  react_statu: false, 
   formData: {
     query: null as string | null,
     prompt: null as string | null,

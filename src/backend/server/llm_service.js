@@ -2,7 +2,7 @@ const fs = require("fs");
 const path = require("path");
 const { streamJSON, streamSse } = require("./stream.js");
 const JSON5 = require("json5");
-const { utils, getDefaultConfig } = require('../modules/globals.js')
+const { utils, getDefaultConfig, CHAT_CONST } = require('../modules/globals.js')
 
 String.prototype.format = function (data) {
     let format_text = this.replace(/(\{.*?\})/g, (match) => {
@@ -78,7 +78,7 @@ class LLMService {
         const defaultConfig = getDefaultConfig();
         return {
             id: this.getChatId(),
-            name: null,
+            name: CHAT_CONST.DEFAULT_NAME,
             system_prompt: null,
             max_index: 0,
             mode: "act",

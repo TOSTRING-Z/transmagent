@@ -1,0 +1,27 @@
+{
+  "name": "service-core",
+  "version": "2.0.0",
+  "description": "Refactored LLM Service with TypeScript, Adapter and Factory patterns",
+  "main": "dist/LLMService.js",
+  "types": "dist/LLMService.d.ts",
+  "scripts": {
+    "clean": "node -e \"const fs=require('fs'); fs.rmSync('dist', {recursive:true, force:true});\"",
+    "build": "node build.js",
+    "dev": "tsc --watch",
+    "type-check": "tsc --noEmit"
+  },
+  "dependencies": {
+    "json5": "^2.2.3",
+    "llm-service-core": "link:"
+  },
+  "devDependencies": {
+    "@types/json5": "^0.0.30",
+    "@types/node": "^20.0.0",
+    "typescript": "^5.3.0"
+  },
+  "engines": {
+    "node": ">=18.0.0"
+  },
+  "author": "",
+  "license": "ISC"
+}

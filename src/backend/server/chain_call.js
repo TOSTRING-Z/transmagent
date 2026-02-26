@@ -61,9 +61,9 @@ class ChainCall extends ReActAgent {
             }
             data = { ...data, ...tool_params };
             await this.step(data);
-            if (!this.llm_service.chat.name) {
+            if (!this.llm_service.chat.name || this.llm_service.chat.name === CHAT_CONST.DEFAULT_NAME) {
                 this.setChatName(data).then(() => {
-                    if (this.llm_service.chat.name) {
+                    if (this.llm_service.chat.name && this.llm_service.chat.name !== CHAT_CONST.DEFAULT_NAME) {
                         this.window.webContents.send('auto-rename-chat', this.llm_service.chat);
                     }
                 });
