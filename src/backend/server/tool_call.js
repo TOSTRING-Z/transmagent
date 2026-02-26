@@ -332,6 +332,7 @@ ${usageStr}`;
     } catch (error) {
       let observation = {
         type: "tool_result",
+        tool_use_id: null,
         content: `Function calling is not a pure JSON text, or there is a problem with the JSON format: ${error.message}`
       };
       data.output_format = JSON.stringify(observation, null, 2);
@@ -347,6 +348,7 @@ ${usageStr}`;
       if (!Object.prototype.hasOwnProperty.call(this.tools, tool)) {
         const observation = {
           type: "tool_result",
+          tool_use_id: null,
           content: "Tool does not exist."
         };
         this.llm_service.setTag(false);
@@ -356,6 +358,7 @@ ${usageStr}`;
       const output = await will_tool(params);
       const observation = {
         type: "tool_result",
+        tool_use_id: tool,
         content: output
       };
       if (tool == "cli_execute") {
@@ -369,6 +372,7 @@ ${usageStr}`;
       console.log(error);
       const observation = {
         type: "tool_result",
+        tool_use_id: tool,
         content: `Tool has been executed with error: ${error.message}`
       };
       this.llm_service.setTag(false);

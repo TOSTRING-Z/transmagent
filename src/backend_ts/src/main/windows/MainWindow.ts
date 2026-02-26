@@ -199,7 +199,7 @@ export class MainWindow extends BaseWindow {
         this.plugins = new Plugins();
         this.plugins.init();
         this.llm_service = new LLMService([], this.window);
-        
+
         let tools = this.plugins.getTool();
         let agent_mode = "transagent";
         let mcp_server = true;
@@ -224,27 +224,41 @@ export class MainWindow extends BaseWindow {
             agent_mode: agent_mode,
             tool_format: this.llm_service.chatManager.chat.tool_format
         });
-        
+
         this.chain_call = new ChainCall(this.plugins, this.llm_service, this.window, this.windowManager.alertWindow);
         this.main_server = new MainServer(this);
-        
-        this.worker = new Worker(path.join(__dirname, 'MainWorker.js'));
-        this.worker.postMessage({ type: 'start' });
-        this.worker.on('message', (request: any) => {
-            console.log('Received from worker:', request);
-            const { requestId, cdata } = request;
-            switch (cdata.method) {
-                case "completions":
-                    this.main_server.completions(cdata.data).then((res: any) => this.worker.postMessage({ requestId, result: res })); break;
-                case "mode":
-                    this.main_server.mode(cdata.data).then((res: any) => this.worker.postMessage({ requestId, result: res })); break;
-                case "list":
-                    this.main_server.list().then((res: any) => this.worker.postMessage({ requestId, result: res })); break;
-                case "checkout":
-                    this.main_server.checkout(cdata.data).then((res: any) => this.worker.postMessage({ requestId, result: res })); break;
-                default:
-                    console.error('Unknown method:', cdata.method);
+
+        // 启动 WebServer Worker
+        this.worker = new Worker(path.join(__dirname, '../server/MainWorker.js'));
+
+        // 传入配置启动
+        const webserverConfig = utils.getConfig("webserver");
+        this.worker.postMessage({
+            type: 'start',
+            config: {
+                port: webserverConfig?.port || 3005,
+                timeoutMs: webserverConfig?.timeout || 12 * 60 * 60 * 1000
             }
+        });
+
+        // 接收 Worker 的业务请求并分发
+        this.worker.on('message', (request: any) => {
+            const { requestId, cdata } = request;
+            if (!cdata?.method) return;
+
+            const handler = (this.main_server as any)[cdata.method];
+            if (typeof handler === 'function') {
+                handler.call(this.main_server, cdata.data)
+                    .then((result: any) => this.worker.postMessage({ requestId, result }))
+                    .catch((error: Error) => this.worker.postMessage({ requestId, result: { error: error.message } }));
+            } else {
+                console.error(`[MainWindow] Unknown worker method: ${cdata.method}`);
+                this.worker.postMessage({ requestId, result: { error: `Unknown method: ${cdata.method}` } });
+            }
+        });
+
+        this.worker.on('error', (err: Error) => {
+            console.error('[MainWindow] Worker error:', err);
         });
     }
 
@@ -310,11 +324,11 @@ export class MainWindow extends BaseWindow {
             else this.window?.focus();
 
             if (globalState.status.auto_opt) await this.tool_call.contextAutoOpt(data);
-            
+
             data = this.tool_call.getDataDefault({ ...data });
             data.query = this.funcItems.text.event(data.query);
             this.llm_service.startMessage();
-            
+
             if (data?.is_plugin) {
                 let content = await this.chain_call.pluginCall(data);
                 this.window?.webContents.send('stream-data', { id: data.id, content: content, end: true, is_plugin: data.is_plugin });
@@ -467,7 +481,7 @@ export class MainWindow extends BaseWindow {
                 } else {
                     globalState.last_clipboard_content = clipboardContent;
                 }
-                
+
                 if (this.funcItems.text.statu) {
                     try {
                         const dom = new JSDOM(globalState.last_clipboard_content);
@@ -478,7 +492,7 @@ export class MainWindow extends BaseWindow {
                         console.error('Failed to clear clipboard formatting:', error);
                     }
                 }
-                
+
                 if (e.statu) {
                     captureMouse().then((mousePosition: any) => {
                         this.windowManager.iconWindow?.create(mousePosition);
@@ -530,17 +544,17 @@ export class MainWindow extends BaseWindow {
         const filePath = utils.getConfig("prompt");
         let prompt = "";
         if (fs.existsSync(filePath)) prompt = fs.readFileSync(filePath, 'utf-8');
-        
+
         const history_data = utils.getHistoryData();
-        this.window?.webContents.send('init-info', { 
-            prompt, 
-            ...globalState, 
-            model: this.llm_service.chatManager.chat.model, 
-            version: this.llm_service.chatManager.chat.version, 
-            tool_format: this.llm_service.chatManager.chat.tool_format, 
-            is_plugin: this.llm_service.chatManager.chat.is_plugin, 
-            chat: this.llm_service.chatManager.chat, 
-            chats: history_data.data 
+        this.window?.webContents.send('init-info', {
+            prompt,
+            ...globalState,
+            model: this.llm_service.chatManager.chat.model,
+            version: this.llm_service.chatManager.chat.version,
+            tool_format: this.llm_service.chatManager.chat.tool_format,
+            is_plugin: this.llm_service.chatManager.chat.is_plugin,
+            chat: this.llm_service.chatManager.chat,
+            chats: history_data.data
         });
     }
 
@@ -572,7 +586,7 @@ export class MainWindow extends BaseWindow {
         } else {
             versions = utils.getConfig("models")[this.llm_service.chatManager.chat.model]["versions"];
         }
-        
+
         this.funcItems.react.event();
         return versions.map((version: any) => {
             const _version = version?.version || version;
@@ -811,15 +825,15 @@ export class MainWindow extends BaseWindow {
         let config = utils.getConfig();
         config.chain_call = JSON.parse(chainStr).chain_call;
         config.extra = [];
-        
+
         for (const key in config.chain_call) {
             const item = config.chain_call[key];
-            let extra = item?.model === (inner.model_name as any).plugins 
-                ? (this.plugins.getTool(item.version)?.extra || []) 
+            let extra = item?.model === (inner.model_name as any).plugins
+                ? (this.plugins.getTool(item.version)?.extra || [])
                 : [{ "type": "system-prompt" }];
             extra.forEach((e: any) => config.extra.push(e));
         }
-        
+
         const deduplicateByType = (arr: any[]) => {
             const seen = new Set();
             return arr.filter(item => {
@@ -828,16 +842,16 @@ export class MainWindow extends BaseWindow {
                 return !duplicate;
             });
         };
-        
+
         config.extra = deduplicateByType(config.extra);
         utils.setConfig(config);
-        
+
         this.funcItems.react.statu = false;
         this.funcItems.react.transagent.statu = false;
         this.funcItems.react.multagent.statu = false;
         this.funcItems.react.baseagent.statu = false;
         this.funcItems.react.llm.statu = true;
-        
+
         this.funcItems.react.event();
         this.updateVersionsSubmenu();
     }

@@ -1,5 +1,6 @@
 import { ChatManager } from './ChatManager';
 import { AdapterFactory } from '../factories/AdapterFactory';
+import { ILLMAdapter } from '../adapters/IAdapter';
 import { ChatRequestData, Message } from '../types';
 import { streamJSON, streamSse } from '../utils/stream';
 import { formatString } from '../utils/format'; // 原型扩展 format 的替代品
@@ -8,10 +9,12 @@ export class LLMService {
     private window: any;
     public chatManager: ChatManager;
     public stopFlag: boolean = false;
+    public adapter: ILLMAdapter;
 
     constructor(messages: Message[] = [], window: any = null) {
         this.window = window;
         this.chatManager = new ChatManager(messages);
+        this.adapter = AdapterFactory.getAdapter("prompt"); // 默认适配器
     }
 
     public stopMessage() {
@@ -25,7 +28,7 @@ export class LLMService {
     public async chatBase(data: ChatRequestData): Promise<string | null> {
         try {
             // 1. 获取对应数据结构适配器
-            const adapter = AdapterFactory.getAdapter(data.tool_format);
+            this.adapter = AdapterFactory.getAdapter(data.tool_format);
 
             // 2. 输入数据清洗与格式化
             let content: any = data.input;
@@ -57,8 +60,8 @@ export class LLMService {
             const messageOutput: Message = { role: 'assistant', content: '', id: data.id, show: true, react: false };
 
             // 4. 构建 HTTP 发送载荷
-            const formattedMessages = adapter.formatMessages(messagesList, data.params);
-            const body = adapter.buildPayload(data, formattedMessages);
+            const formattedMessages = this.adapter.formatMessages(messagesList, data.params);
+            const body = this.adapter.buildPayload(data, formattedMessages);
 
             const headers: Record<string, string> = { "Content-Type": "application/json" };
             if (data?.api_key) headers["Authorization"] = `Bearer ${data.api_key}`;
@@ -77,9 +80,9 @@ export class LLMService {
 
             // 6. 流式与非流式分流处理
             if (body?.stream) {
-                await this.handleStream(resp, adapter, data, messageOutput);
+                await this.handleStream(resp, this.adapter, data, messageOutput);
             } else {
-                await this.handleNormal(resp, adapter, headers, body, data, messageOutput);
+                await this.handleNormal(resp, this.adapter, headers, body, data, messageOutput);
             }
 
             if (this.stopFlag) {

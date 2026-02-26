@@ -1,0 +1,88 @@
+import * as fs from 'fs';
+import * as path from 'path';
+import { utils } from '../utils/globals';
+
+export interface PluginItem {
+    func: (...args: any[]) => any;
+    extra?: any;
+    getPrompt?: () => any;
+}
+
+interface PluginInfo {
+    version: string;
+    path?: string;
+    params?: any;
+    extra?: any;
+    enabled?: boolean;
+}
+
+export class Plugins {
+    public static instance: Plugins | null = null;
+    private tools: Record<string, PluginItem>;
+
+    constructor() {
+        Plugins.instance = this;
+        this.tools = {};
+    }
+
+    public getTool(name?: string | null): any {
+        if (name) {
+            return this.tools[name] || null;
+        }
+        return this.tools;
+    }
+
+    private loadPlugin(info: PluginInfo): PluginItem {
+        const pluginPath = info.path;
+        const pluginParams = info.params;
+
+        try {
+            let plugin: any;
+            if (pluginPath && fs.existsSync(pluginPath)) {
+                plugin = require(pluginPath);
+            } else {
+                // 从内置工具目录加载
+                // 编译后路径: dist/core/Plugins.js -> dist/tools/{version}
+                const builtinPath = path.join(__dirname, '..', 'tools', info.version);
+                plugin = require(builtinPath);
+            }
+
+            const item: PluginItem = {
+                func: pluginParams ? plugin.main(pluginParams) : plugin.main,
+                extra: info.extra,
+                getPrompt: plugin.getPrompt
+            };
+            return item;
+        } catch (error: any) {
+            console.error(`[Plugins] Failed to load plugin '${info.version}':`, error.message);
+            return {
+                func: () => `Plugin: ${info.version}, Path: ${pluginPath || 'built-in'}, Error: ${error.message}`
+            };
+        }
+    }
+
+    public init(config_name: string | null = null, forceLoad: boolean = false): void {
+        const plugins = utils.getConfig("plugins", config_name);
+        if (!plugins) {
+            console.warn("[Plugins] No plugins configuration found.");
+            return;
+        }
+
+        Object.keys(plugins).forEach((version) => {
+            const info: PluginInfo = {
+                version,
+                path: plugins[version]?.path,
+                ...plugins[version]
+            };
+
+            let enabled = true;
+            if (Object.prototype.hasOwnProperty.call(info, "enabled")) {
+                enabled = !!info.enabled;
+            }
+
+            if (enabled || forceLoad) {
+                this.tools[version] = this.loadPlugin(info);
+            }
+        });
+    }
+}

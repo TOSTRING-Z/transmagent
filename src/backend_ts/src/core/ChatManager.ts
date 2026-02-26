@@ -146,6 +146,16 @@ export class ChatManager {
         }
     }
 
+    public loadFromChat(chat: ChatState): boolean {
+        try {
+            this.chat = chat;
+            return true;
+        } catch (error) {
+            console.log(error);
+            return false;
+        }
+    }
+
     public toggleMessage({ id, del, del_mode }: { id: string, del?: boolean, del_mode?: boolean }): number {
         try {
             if (del_mode) {

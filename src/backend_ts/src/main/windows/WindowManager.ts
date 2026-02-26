@@ -12,7 +12,7 @@ const { ToolWindow } = require("./ToolWindow");
 export class WindowManager {
     private static instance: WindowManager;
     
-    public mainWindow: MainWindow | undefined;
+    public mainWindow!: MainWindow;
     public iconWindow: any;
     public alertWindow: any;
     public overlayWindow: any;

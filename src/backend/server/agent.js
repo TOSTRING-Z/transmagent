@@ -54,7 +54,7 @@ class ReActAgent {
         webContents: {
             send: (channel, data) => {
                 const timestamp = new Date().toLocaleTimeString();
-                console.log("%c[time]" + timestamp + " Channel: " + channel + ", Data:", "color: blue; font-weight: bold", data);
+                // console.log("%c[time]" + timestamp + " Channel: " + channel + ", Data:", "color: blue; font-weight: bold", data);
             }
         }
     }) {
@@ -423,9 +423,9 @@ class ReActAgent {
                         if (role == "user") {
                             if (react) {
                                 const tool_info = utils.parseJsonContent(content);
-                                if (tool_info?.tool_call) {
-                                    const tool = tool_info?.tool_call;
-                                    const observation = tool_info?.observation;
+                                if (tool_info?.type == "tool_result") {
+                                    const tool = tool_info?.tool_use_id;
+                                    const observation = tool_info?.content;
                                     switch (tool) {
                                         case "display_file":
                                             this.window.webContents.send('stream-data', { id: id, context_id: context_id, content: `${observation}\n\n`, end: true, del: del });
@@ -484,7 +484,7 @@ class ReActAgent {
                                     continue;
                                 }
                             } else {
-                                // this.window.webContents.send('stream-data', { id: id, content: content, end: true, del: del });
+                                this.window.webContents.send('stream-data', { id: id, content: content, end: true, del: del });
                             }
                         }
                     }
