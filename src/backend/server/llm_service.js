@@ -449,9 +449,9 @@ class LLMService {
                     }
                     if (!data?.react && !data?.return_response) {
                         if (chunk.usage && chunk.usage.total_tokens) {
-                            this.chat.tokens = (this.chat.tokens || 0) + chunk.usage.total_tokens;
+                            this.chat.tokens = chunk.usage.total_tokens;
                         } else if (chunk.prompt_eval_count !== undefined) {
-                            this.chat.tokens = (this.chat.tokens || 0) + chunk.prompt_eval_count + (chunk.eval_count || 0);
+                            this.chat.tokens = chunk.prompt_eval_count + (chunk.eval_count || 0);
                         }
                         this.window.webContents.send('stream-data', { id: data.id, content: content, end: false, chat: this.chat });
                     }
@@ -495,7 +495,7 @@ ${respJson.error?.message}
                         }
                     }
                     if (respJson.usage && respJson.usage.total_tokens) {
-                        this.chat.tokens = (this.chat.tokens || 0) + respJson.usage.total_tokens;
+                        this.chat.tokens = respJson.usage.total_tokens;
                     }
                     if (!data?.react && !data?.return_response) {
                         this.window.webContents.send('stream-data', { id: data.id, content: data.output, end: false, chat: this.chat });
@@ -567,7 +567,7 @@ ${respJson.error?.message}
                                 
                                 // 更新 token 统计
                                 if (contRespJson.usage && contRespJson.usage.total_tokens) {
-                                    this.chat.tokens = (this.chat.tokens || 0) + contRespJson.usage.total_tokens;
+                                    this.chat.tokens = contRespJson.usage.total_tokens;
                                 }
                                 
                                 // 检查是否还需要继续续传
