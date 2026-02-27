@@ -2,7 +2,7 @@ import { ILLMAdapter } from './IAdapter';
 import { ChatRequestData, Message, StreamChunkResult } from '../types';
 
 export class PromptAdapter implements ILLMAdapter {
-    formatMessages(messages: Message[], params: any, env_message?: any): any[] {
+    formatMessages(messages: Message[], params: any, env_message?: Message): any[] {
         let formattedMessages = messages.map((message) => {
             // 1. 深度拷贝并剔除本地状态字段
             const messageCopy = { ...message };
