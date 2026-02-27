@@ -12,6 +12,52 @@ try {
   throw new Error('Failed to import glob module');
 }
 
+/**
+ * 判断文件是否为文本文件
+ * @param {string} filePath 文件绝对路径
+ * @returns {boolean}
+ */
+function isTextFile(filePath) {
+  const ext = path_.extname(filePath).toLowerCase();
+
+  // 1. 常见二进制/多媒体文件黑名单（直接跳过，提高性能）
+  const BINARY_EXTENSIONS = new Set([
+    '.mp4', '.avi', '.mkv', '.mov', '.wmv', '.flv', // 视频
+    '.mp3', '.wav', '.flac', '.aac', '.ogg',        // 音频
+    '.png', '.jpg', '.jpeg', '.gif', '.bmp', '.webp', '.ico', // 图片
+    '.pdf', '.doc', '.docx', '.xls', '.xlsx', '.ppt', '.pptx', // 办公文档
+    '.zip', '.tar', '.gz', '.rar', '.7z', '.bz2',   // 压缩包
+    '.exe', '.dll', '.so', '.dylib', '.bin', '.class', '.pyc', '.wasm' // 可执行文件与字节码
+  ]);
+
+  if (BINARY_EXTENSIONS.has(ext)) return false;
+
+  // 2. 常见文本文件白名单（直接通过，提高性能）
+  const TEXT_EXTENSIONS = new Set([
+    '.txt', '.md', '.js', '.jsx', '.ts', '.tsx', '.json', '.html', '.css', '.scss', '.less',
+    '.vue', '.svelte', '.py', '.java', '.c', '.cpp', '.h', '.hpp', '.cs', '.go', '.rs', '.php', '.rb', '.swift',
+    '.sql', '.sh', '.bat', '.ps1', '.yaml', '.yml', '.ini', '.env', '.xml', '.svg', '.csv', '.log', '.conf', '.toml', '.graphql'
+  ]);
+
+  if (TEXT_EXTENSIONS.has(ext)) return true;
+
+  // 3. 未知扩展名（如 Dockerfile, Makefile, .gitignore 等）
+  // 启发式检测：读取前 4096 字节，检查是否包含 null 字节 (0x00)
+  try {
+    const fd = fs.openSync(filePath, 'r');
+    const buffer = Buffer.alloc(4096);
+    const bytesRead = fs.readSync(fd, buffer, 0, 4096, 0);
+    fs.closeSync(fd);
+    
+    for (let i = 0; i < bytesRead; i++) {
+      if (buffer[i] === 0) return false; // 含有 null 字节，判定为二进制文件
+    }
+    return true; // 没有 null 字节，认为是文本文件
+  } catch (error) {
+    return false; // 读取失败则跳过
+  }
+}
+
 async function main({ path, regex="test$", file_pattern="*.js" }) {
   try {
     // Find all files matching the pattern using glob
@@ -30,6 +76,9 @@ async function main({ path, regex="test$", file_pattern="*.js" }) {
     const regexObj = new RegExp(regex, 'g');
 
     for (const file of files) {
+      // 过滤非文本文件
+      if (!isTextFile(file)) continue;
+
       // Read file content and search for regex matches
       const content = fs.readFileSync(file, 'utf8');
       let match;
@@ -47,32 +96,31 @@ async function main({ path, regex="test$", file_pattern="*.js" }) {
     }
 
     // Return array of match results
-    return results.slice(0,100);
+    return results.slice(0, 100);
   } catch (error) {
     console.log(error);
     return error.message;
   }
 }
 
-
 function getPrompt() {
-    return {
+  return {
     "name": "search_files",
-    "description": "Recursively search file contents under a specified directory, match using a regular expression, and return matches with surrounding context (up to 100 results).\nNote: regex matches file contents, not filenames. If you want to filter by filename, use file_pattern (glob).\nNotes: - In JSON strings, escape backslashes twice (see example).\n- file_pattern uses glob syntax; \"**\" means recursive.\n- regex is used to search file contents, not filenames. To filter by name, adjust file_pattern.\n- To avoid performance issues, narrow the path or restrict file_pattern.",
+    "description": "Recursively search text file contents under a specified directory, match using a regular expression, and return matches with surrounding context (up to 100 results).\nNote: regex matches file contents, not filenames. If you want to filter by filename, use file_pattern (glob).\nNotes: - In JSON strings, escape backslashes twice (see example).\n- file_pattern uses glob syntax; \"**\" means recursive.\n- regex is used to search file contents, not filenames. To filter by name, adjust file_pattern.\n- To avoid performance issues, narrow the path or restrict file_pattern. Binary files are automatically ignored.",
     "parameters": {
         "type": "object",
         "properties": {
             "path": {
                 "type": "string",
-                "description": "required): starting directory path, absolute or relative"
+                "description": "(required): starting directory path, absolute or relative"
             },
             "regex": {
                 "type": "string",
-                "description": "required): regular expression to match file contents (must be escaped properly in JSON strings\")"
+                "description": "(required): regular expression to match file contents (must be escaped properly in JSON strings)"
             },
             "file_pattern": {
                 "type": "string",
-                "description": "optional): glob pattern for files to scan (default \"*.js\"). Examples: \"**/*\" (all files), \"**/*.ts\" (all ts files), \"*.env\" (env files in current dir)"
+                "description": "(optional): glob pattern for files to scan (default \"*.js\"). Examples: \"**/*\" (all files), \"**/*.ts\" (all ts files), \"*.env\" (env files in current dir)"
             },
             "file": {
                 "type": "string",
@@ -96,7 +144,7 @@ function getPrompt() {
             "regex"
         ]
     }
-};
+  };
 }
 
 if (require.main === module) {

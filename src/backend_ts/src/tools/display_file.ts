@@ -447,33 +447,33 @@ function main(params) {
 
 function getPrompt() {
     return {
-    "name": "display_file",
-    "description": "Display various file types (images, tables, text) in Markdown format. Supports remote SSH file retrieval and local caching.\n- Optimized for large files (streaming) and network resilience.\n- Auto-detects file types (.png, .xlsx, .csv, .md, .txt, etc.).",
-    "parameters": {
-        "type": "object",
-        "properties": {
-            "file_path": {
-                "type": "string",
-                "description": "(Required) Absolute path to the file."
+        "name": "display_file",
+        "description": "Display various file types (images, tables, text) in Markdown format. Supports remote SSH file retrieval and local caching.\n- Optimized for large files (streaming) and network resilience.\n- Auto-detects file types (.png, .pdf, .xlsx, .csv, .md, .txt, etc.).\n- **IMPORTANT LIMITATION**: For images (.png, .jpg, etc.) and PDFs, this tool ONLY returns the Markdown syntax to display/embed the file (e.g., `![filename](path)`). It DOES NOT OCR, parse, or extract the actual textual or visual content from inside these files.",
+        "parameters": {
+            "type": "object",
+            "properties": {
+                "file_path": {
+                    "type": "string",
+                    "description": "(Required) Absolute path to the file."
+                },
+                "start_line": {
+                    "type": "string",
+                    "description": "Start line for text/tables (default: 0)."
+                },
+                "end_line": {
+                    "type": "string",
+                    "description": "End line (default: 10). Set 0 for all (use caution)."
+                },
+                "max_line_length": {
+                    "type": "number",
+                    "description": "Max chars per line (default: 500)."
+                }
             },
-            "start_line": {
-                "type": "string",
-                "description": "Start line for text/tables (default: 0)."
-            },
-            "end_line": {
-                "type": "string",
-                "description": "End line (default: 10). Set 0 for all (use caution)."
-            },
-            "max_line_length": {
-                "type": "number",
-                "description": "Max chars per line (default: 500)."
-            }
-        },
-        "required": [
-            "file_path"
-        ]
-    }
-};
+            "required": [
+                "file_path"
+            ]
+        }
+    };
 }
 
 if (require.main === module) {
