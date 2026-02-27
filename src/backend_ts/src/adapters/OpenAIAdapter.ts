@@ -3,7 +3,7 @@ import { ChatRequestData, Message, StreamChunkResult } from '../types';
 
 export class OpenAIAdapter implements ILLMAdapter {
     public formatMessages(messages: Message[], params: any, env_message?: any): any[] {
-        messages = messages.map((message) => {
+        let formattedMessages = messages.map((message) => {
             // 1. 深度拷贝并剔除本地状态字段
             const messageCopy = { ...message };
             delete messageCopy.id;
@@ -62,9 +62,9 @@ export class OpenAIAdapter implements ILLMAdapter {
         });
 
         if (env_message) {
-            messages.push(env_message);
+            formattedMessages.push(env_message);
         }
-        return messages;
+        return formattedMessages;
     }
 
     public buildPayload(data: ChatRequestData, formattedMessages: any[]): Record<string, any> {

@@ -474,6 +474,8 @@ export class ReActAgent {
             } else {
                 console.log(`Load failed: ${filePath}`);
             }
+            let { id, context_id, del } = messages[messages.length - 1];
+            this.window.webContents.send('stream-data', { id, context_id, content: null, end: true, del });
         }
         return max_index;
     }

@@ -3,8 +3,7 @@ import { ChatRequestData, Message, StreamChunkResult } from '../types';
 
 export class PromptAdapter implements ILLMAdapter {
     formatMessages(messages: Message[], params: any, env_message?: any): any[] {
-        // Prompt 模型通常只需要最基础的 text，或者由上层将 tool_format 转化为 system prompt
-        messages = messages.map((message) => {
+        let formattedMessages = messages.map((message) => {
             // 1. 深度拷贝并剔除本地状态字段
             const messageCopy = { ...message };
             delete messageCopy.id;
@@ -63,9 +62,9 @@ export class PromptAdapter implements ILLMAdapter {
         });
         
         if (env_message) {
-            messages.push(env_message);
+            formattedMessages.push(env_message);
         }
-        return messages;
+        return formattedMessages;
     }
 
     buildPayload(data: ChatRequestData, messages: any[]): Record<string, any> {

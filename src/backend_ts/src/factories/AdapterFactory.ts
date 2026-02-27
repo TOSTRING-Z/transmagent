@@ -10,8 +10,7 @@ export class AdapterFactory {
             case 'prompt':
                 return new PromptAdapter();
             default:
-                // 默认降级为 OpenAI 标准
-                return new OpenAIAdapter(); 
+                return new PromptAdapter(); 
         }
     }
 }

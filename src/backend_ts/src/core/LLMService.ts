@@ -32,9 +32,6 @@ export class LLMService {
 
             // 2. 输入数据清洗与格式化
             let content: any = data.input;
-            if (this.chatManager.chat.tool_format === "prompt" && typeof content !== "string") {
-                content = JSON.stringify(content);
-            }
             if (data?.img_url) {
                 content = [
                     { "type": "text", "text": data.input },
@@ -53,14 +50,11 @@ export class LLMService {
             if (data?.push_message) {
                 messagesList.push(messageInput);
             }
-            if (data?.env_message) {
-                messagesList.push(data.env_message);
-            }
 
             const messageOutput: Message = { role: 'assistant', content: '', id: data.id, show: true, react: false };
 
             // 4. 构建 HTTP 发送载荷
-            const formattedMessages = this.adapter.formatMessages(messagesList, data.params);
+            const formattedMessages = this.adapter.formatMessages(messagesList, data.params, data?.env_message);
             const body = this.adapter.buildPayload(data, formattedMessages);
 
             const headers: Record<string, string> = { "Content-Type": "application/json" };
