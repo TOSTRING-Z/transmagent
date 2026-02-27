@@ -410,14 +410,6 @@ export class MainWindow extends BaseWindow {
         });
 
         ipcMain.on('del-chat', (_event, id) => {
-            if (id == this.llm_service.chatManager.chat.id) {
-                this.llm_service.chatManager.init();
-                this.windowManager.subAgentWindow?.destroy();
-                this.window?.webContents.send('clear');
-                this.updateVersionsSubmenu();
-                this.window?.webContents.send('set-chat', this.llm_service.chatManager.chat);
-                if (this.tool_call.setHistory) this.tool_call.setHistory();
-            }
             this.tool_call.delHistory(id);
         });
 
@@ -761,8 +753,12 @@ export class MainWindow extends BaseWindow {
                                     store.set('lastLoadPath', path.dirname(result.filePaths[0]));
                                     this.tool_call.init_var();
                                     this.tool_call.load_message(result.filePaths[0]);
-                                    this.tool_call.setHistory();
-                                    this.window?.webContents.send('set-chat', this.llm_service.chatManager.chat);
+                                    let id_exist = this.tool_call.setHistory();
+                                    if (id_exist) {
+                                        this.window?.webContents.send('select-chat', this.llm_service.chatManager.chat);
+                                    } else {
+                                        this.window?.webContents.send('set-chat', this.llm_service.chatManager.chat);
+                                    };
                                 }
                             });
                         }

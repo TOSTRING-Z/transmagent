@@ -61,8 +61,7 @@ export class ToolCall extends ReActAgent {
             mcp_server: true,
             todolist: true,
             subagent: false,
-            agent_mode: "transagent",
-            tool_format: "prompt"
+            agent_mode: "transagent"
         }
     ) {
         super(plugins, llm_service, window, alertWindow);
@@ -105,7 +104,7 @@ export class ToolCall extends ReActAgent {
     }
 
     public get_tools_prompt(): any[] {
-        const format = this.prompt_args?.tool_format || "prompt";
+        const format = this.llm_service.chatManager.chat.tool_format;
         const tool_schemas: any[] = [];
 
         for (let key in this.tools) {
@@ -181,7 +180,7 @@ export class ToolCall extends ReActAgent {
         }
         
         this.memory_list = messages_list;
-        const format = this.prompt_args?.tool_format || "prompt";
+        const format = this.llm_service.chatManager.chat.tool_format;
         const toolsData = this.get_tools_prompt();
         
         const paramsToFormat = {
@@ -322,7 +321,7 @@ export class ToolCall extends ReActAgent {
 
             if (contentStr.startsWith(`{\n  "content"`) && contentStr.endsWith("}")) {
                 if (!tool_info) throw new Error("Failed to parse JSON content");
-            } else if (this.prompt_args.tool_format === "prompt") {
+            } else if (this.llm_service.chatManager.chat.tool_format === "prompt") {
                 tool_info = JSON5.parse(contentStr);
             }
 
@@ -401,8 +400,7 @@ export class ToolCall extends ReActAgent {
         this.state = State.IDLE;
         let tool_call = utils.getConfig("tool_call");
 
-        data.tool_format = this.prompt_args?.tool_format || "prompt";
-        if (data.tool_format !== "prompt") {
+        if (this.llm_service.chatManager.chat.tool_format !== "prompt") {
             data.tools = this.get_tools_prompt();
         }
         // @ts-ignore

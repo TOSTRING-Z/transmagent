@@ -72,7 +72,7 @@ export class ReActAgent {
         (this.llm_service as any).window = window;
     }
 
-    public setHistory(chat: ChatState | null = null) {
+    public setHistory(chat: ChatState | null = null): boolean | undefined {
         if (!chat) {
             chat = this.llm_service.chatManager.chat;
         }
@@ -83,8 +83,9 @@ export class ReActAgent {
 
             let history_data = utils.getHistoryData();
             let history_exist = history_data.data.filter((h: any) => h.id === chat!.id);
+            let id_exist = history_exist.length > 0;
             
-            if (history_exist.length === 0) {
+            if (!id_exist) {
                 history_data.data.push(chat);
             } else {
                 history_data.data = history_data.data.map((h: any) => h.id === chat!.id ? chat : h);
@@ -93,6 +94,7 @@ export class ReActAgent {
             utils.setHistoryData(history_data);
             const history_path = utils.getHistoryPath(chat.id);
             this.llm_service.chatManager.saveMessages(history_path);
+            return id_exist;
         }
     }
 

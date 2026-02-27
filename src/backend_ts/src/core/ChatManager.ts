@@ -60,7 +60,6 @@ export class ChatManager {
         return `chat-${crypto.randomUUID()}`;
     }
 
-
     public getDefaultConfig() {
         const defaultConfig = utils.getConfig("default") || {};
         return {
@@ -137,7 +136,7 @@ export class ChatManager {
                 this.chat = this.getChatInit();
             } else if (data?.messages && data?.chat) {
                 this.messages = data.messages;
-                this.chat = { ...data.chat, id: this.chat.id };
+                this.chat = data.chat;
             }
             this.updateChat();
             return this.messages.filter(message => message.show);

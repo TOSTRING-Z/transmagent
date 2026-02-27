@@ -28,11 +28,11 @@ export class LLMService {
     public async chatBase(data: ChatRequestData): Promise<string | null> {
         try {
             // 1. 获取对应数据结构适配器
-            this.adapter = AdapterFactory.getAdapter(data.tool_format);
+            this.adapter = AdapterFactory.getAdapter(this.chatManager.chat.tool_format);
 
             // 2. 输入数据清洗与格式化
             let content: any = data.input;
-            if (data.tool_format === "prompt" && typeof content !== "string") {
+            if (this.chatManager.chat.tool_format === "prompt" && typeof content !== "string") {
                 content = JSON.stringify(content);
             }
             if (data?.img_url) {
@@ -91,7 +91,7 @@ export class LLMService {
 
             // 7. 处理并序列化 Tool Calls
             data.output = messageOutput.content as string;
-            if (data.tool_format === "openai" && messageOutput.tool_calls && messageOutput.tool_calls.length > 0) {
+            if (this.chatManager.chat.tool_format === "openai" && messageOutput.tool_calls && messageOutput.tool_calls.length > 0) {
                 data.output = JSON.stringify({
                     content: data.output,
                     tool_calls: messageOutput.tool_calls
@@ -160,7 +160,7 @@ export class LLMService {
             }
 
             // 组装并拼凑碎片的 Tool Calls
-            if (data.tool_format === "openai" && tool_calls) {
+            if (this.chatManager.chat.tool_format === "openai" && tool_calls) {
                 if (!messageOutput.tool_calls) messageOutput.tool_calls = [];
                 for (let tc of tool_calls) {
                     if (tc.index !== undefined) {
