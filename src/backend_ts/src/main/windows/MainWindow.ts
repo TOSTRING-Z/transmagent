@@ -12,12 +12,10 @@ import { LLMService } from '../../core/LLMService';
 import { State } from "../../core/ReActAgent";
 import { ToolCall } from '../../core/ToolCall';
 import { ChainCall } from '../../core/ChainCall';
-
-// 假设这些外部依赖暂未 TS 化
-const { Plugins } = require('../../core/Plugins');
-const { captureMouse } = require('../../mouse/capture_mouse');
-const { install } = require('../../core/Install');
-const { MainServer } = require('../../core/MainServer');
+import { Plugins } from '../../core/Plugins';
+import { captureMouse } from '../../mouse/CaptureMouse';
+import { install } from '../../core/Install';
+import { MainServer } from '../../server/MainServer';
 
 // 定义 FuncItems 结构以启用严格模式
 interface FuncItemNode {
@@ -149,12 +147,78 @@ export class MainWindow extends BaseWindow {
     }
 
     public create() {
+
         this.window = new BrowserWindow({
             width: 1200,
             height: 800,
             webPreferences: {
-                preload: path.join(__dirname, '../../preload.js'),
+                preload: path.join(__dirname, '../preload.js'),
             },
+        });
+
+        this.plugins = new Plugins();
+        this.plugins.init();
+        this.llm_service = new LLMService([], this.window);
+
+        let tools = this.plugins.getTool();
+        let agent_mode = "transagent";
+        let mcp_server = true;
+
+        if (this.funcItems.react.transagent.statu && utils.getConfig("tool_call")?.subagent) {
+            tools = { ...tools, "tool_manager": this.windowManager.subAgentWindow?.agentTools?.["tool_manager"] };
+        }
+        if (this.funcItems.react.multagent.statu) {
+            agent_mode = "multagent";
+            mcp_server = false;
+            tools = { ...tools, ...this.windowManager.subAgentWindow?.getMainSubAgent() };
+        }
+        if (this.funcItems.react.baseagent.statu) {
+            agent_mode = "baseagent";
+        }
+
+        this.tool_call = new ToolCall(this.plugins, tools, this.llm_service, this.window, this.windowManager.alertWindow, {
+            agent_prompt: null,
+            mcp_server: mcp_server,
+            todolist: true,
+            subagent: false,
+            agent_mode: agent_mode,
+            tool_format: this.llm_service.chatManager.chat.tool_format
+        });
+
+        this.chain_call = new ChainCall(this.plugins, this.llm_service, this.window, this.windowManager.alertWindow);
+        this.main_server = new MainServer(this);
+
+        // 启动 WebServer Worker
+        this.worker = new Worker(path.join(__dirname, '../../server/MainWorker.js'));
+
+        // 传入配置启动
+        const webserverConfig = utils.getConfig("webserver");
+        this.worker.postMessage({
+            type: 'start',
+            config: {
+                port: webserverConfig?.port || 3005,
+                timeoutMs: webserverConfig?.timeout || 12 * 60 * 60 * 1000
+            }
+        });
+
+        // 接收 Worker 的业务请求并分发
+        this.worker.on('message', (request: any) => {
+            const { requestId, cdata } = request;
+            if (!cdata?.method) return;
+
+            const handler = (this.main_server as any)[cdata.method];
+            if (typeof handler === 'function') {
+                handler.call(this.main_server, cdata.data)
+                    .then((result: any) => this.worker.postMessage({ requestId, result }))
+                    .catch((error: Error) => this.worker.postMessage({ requestId, result: { error: error.message } }));
+            } else {
+                console.error(`[MainWindow] Unknown worker method: ${cdata.method}`);
+                this.worker.postMessage({ requestId, result: { error: `Unknown method: ${cdata.method}` } });
+            }
+        });
+
+        this.worker.on('error', (err: Error) => {
+            console.error('[MainWindow] Worker error:', err);
         });
 
         this.window.on('focus', () => {
@@ -195,71 +259,6 @@ export class MainWindow extends BaseWindow {
         });
 
         globalState.last_clipboard_content = clipboard.readText();
-
-        this.plugins = new Plugins();
-        this.plugins.init();
-        this.llm_service = new LLMService([], this.window);
-
-        let tools = this.plugins.getTool();
-        let agent_mode = "transagent";
-        let mcp_server = true;
-
-        if (this.funcItems.react.transagent.statu && utils.getConfig("tool_call")?.subagent) {
-            tools = { ...tools, "tool_manager": this.windowManager.subAgentWindow?.agentTools?.["tool_manager"] };
-        }
-        if (this.funcItems.react.multagent.statu) {
-            agent_mode = "multagent";
-            mcp_server = false;
-            tools = { ...tools, ...this.windowManager.subAgentWindow?.getMainSubAgent() };
-        }
-        if (this.funcItems.react.baseagent.statu) {
-            agent_mode = "baseagent";
-        }
-
-        this.tool_call = new ToolCall(this.plugins, tools, this.llm_service, this.window, this.windowManager.alertWindow, {
-            agent_prompt: null,
-            mcp_server: mcp_server,
-            todolist: true,
-            subagent: false,
-            agent_mode: agent_mode,
-            tool_format: this.llm_service.chatManager.chat.tool_format
-        });
-
-        this.chain_call = new ChainCall(this.plugins, this.llm_service, this.window, this.windowManager.alertWindow);
-        this.main_server = new MainServer(this);
-
-        // 启动 WebServer Worker
-        this.worker = new Worker(path.join(__dirname, '../server/MainWorker.js'));
-
-        // 传入配置启动
-        const webserverConfig = utils.getConfig("webserver");
-        this.worker.postMessage({
-            type: 'start',
-            config: {
-                port: webserverConfig?.port || 3005,
-                timeoutMs: webserverConfig?.timeout || 12 * 60 * 60 * 1000
-            }
-        });
-
-        // 接收 Worker 的业务请求并分发
-        this.worker.on('message', (request: any) => {
-            const { requestId, cdata } = request;
-            if (!cdata?.method) return;
-
-            const handler = (this.main_server as any)[cdata.method];
-            if (typeof handler === 'function') {
-                handler.call(this.main_server, cdata.data)
-                    .then((result: any) => this.worker.postMessage({ requestId, result }))
-                    .catch((error: Error) => this.worker.postMessage({ requestId, result: { error: error.message } }));
-            } else {
-                console.error(`[MainWindow] Unknown worker method: ${cdata.method}`);
-                this.worker.postMessage({ requestId, result: { error: `Unknown method: ${cdata.method}` } });
-            }
-        });
-
-        this.worker.on('error', (err: Error) => {
-            console.error('[MainWindow] Worker error:', err);
-        });
     }
 
     public setup() {
@@ -351,7 +350,6 @@ export class MainWindow extends BaseWindow {
         });
 
         ipcMain.handle("toggle-message", async (_event, data) => {
-            let message_len = this.llm_service.chatManager.toggleMessage({ ...data, del_mode: !!this.funcItems.del.statu });
             this.tool_call.setHistory();
             return { del_mode: !!this.funcItems.del.statu };
         });
@@ -374,7 +372,6 @@ export class MainWindow extends BaseWindow {
         });
 
         ipcMain.handle("toggle-memory", async (_event, context_id) => {
-            let memory_len = this.llm_service.chatManager.toggleMemory({ context_id: context_id, del_mode: !!this.funcItems.del.statu });
             this.tool_call.setHistory();
             return { del_mode: !!this.funcItems.del.statu };
         });

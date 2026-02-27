@@ -1,0 +1,26 @@
+{
+  "compilerOptions": {
+    "target": "ES2022",
+    "module": "CommonJS",
+    "sourceMap": true,
+    "inlineSources": true,
+    "outDir": "src/backend_ts/dist",
+    "rootDir": "src/backend_ts/src", 
+    "declaration": true,
+    "moduleResolution": "node",
+    "esModuleInterop": true,
+    "resolveJsonModule": true,
+    "strict": true,
+    "noImplicitAny": false,
+    "strictNullChecks": true,
+    "skipLibCheck": true,
+    "forceConsistentCasingInFileNames": true
+  },
+  "include": [
+    "src/backend_ts/**/*.ts"
+  ],
+  "exclude": [
+    "node_modules",
+    "src/backend_ts/dist"
+  ]
+}

@@ -2,7 +2,7 @@
   "name": "transmagent",
   "version": "1.2.3",
   "description": "transmagent",
-  "main": "src/backend/main.js",
+  "main": "src/backend_ts/dist/main.js",
   "homepage": ".",
   "author": {
     "name": "TOSTRING_Z",
@@ -70,12 +70,14 @@
     "npmRebuild": false
   },
   "scripts": {
+    "build": "tsc",
+    "watch": "tsc --watch",
+    "clean": "rm -rf dist",
+    "rebuild": "npm run clean && npm run build",
     "start": "electron . --enable-logging --log-level=debug --no-sandbox",
-    "pack": "electron-builder --dir",
-    "dist": "electron-builder",
-    "dist:win": "electron-builder --win --x64",
-    "dist:mac": "electron-builder --mac --x64",
-    "dist:linux": "electron-builder --linux"
+    "debug": "electron --inspect=5858 . --enable-logging --log-level=debug --no-sandbox",
+    "start:dev": "NODE_ENV=development electron -r source-map-support/register . --enable-logging --log-level=debug --no-sandbox",
+    "debug:dev": "electron --inspect=5858 -r source-map-support/register ."
   },
   "dependencies": {
     "@babel/parser": "^7.24.0",
@@ -95,6 +97,7 @@
     "node-html-parser": "^7.0.1",
     "officeparser": "^5.1.1",
     "puppeteer": "^24.23.0",
+    "source-map-support": "^0.5.21",
     "sqlite-vec": "0.1.7-alpha.2",
     "sqlite3": "^5.1.7",
     "ssh2": "^1.16.0",
@@ -111,6 +114,7 @@
     "@electron-forge/maker-zip": "^7.8.0",
     "@eslint/js": "^9.25.1",
     "@types/node": "^22.15.2",
+    "@types/source-map-support": "^0.5.10",
     "electron": "^35.7.5",
     "electron-builder": "^26.0.12",
     "eslint": "^9.25.1",

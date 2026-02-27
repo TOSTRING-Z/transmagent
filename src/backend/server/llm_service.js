@@ -597,9 +597,8 @@ ${respJson.error?.message}
                     }
                     // ========== 截断检测结束 ==========
 
-                } catch {
-                    let respText = await resp.text();
-                    console.log(respText);
+                } catch (error) {
+                    console.log(error.message);
                 }
 
             }

@@ -4,17 +4,34 @@
   "description": "An Electron-based AI Agent desktop application refactored with TypeScript and clean architecture.",
   "main": "dist/main.js",
   "scripts": {
-    "start": "electron .",
-    "dev": "tsc --watch",
-    "build": "node build.js",
-    "clean": "node -e \"const fs=require('fs'); fs.rmSync('dist', {recursive:true, force:true});\"",
-    "type-check": "tsc --noEmit"
+    "build": "tsc",
+    "watch": "tsc --watch",
+    "clean": "rm -rf dist",
+    "rebuild": "npm run clean && npm run build"
   },
   "dependencies": {
-    "jsdom": "^24.0.0",
+    "@babel/parser": "^7.24.0",
+    "@babel/traverse": "^7.27.4",
+    "@modelcontextprotocol/sdk": "^1.13.3",
+    "@xterm/addon-fit": "^0.10.0",
+    "@xterm/xterm": "^5.5.0",
+    "axios": "^1.12.2",
+    "cheerio": "^1.1.0",
+    "crypto": "^1.0.1",
+    "duckduckgo-search-api": "^1.0.5",
+    "express": "^5.1.0",
+    "glob": "^11.0.3",
+    "he": "^1.2.0",
+    "jsdom": "^26.1.0",
     "json5": "^2.2.3",
-    "ssh2": "^1.15.0",
-    "transmagent-core": "link:"
+    "node-html-parser": "^7.0.1",
+    "officeparser": "^5.1.1",
+    "puppeteer": "^24.23.0",
+    "sqlite-vec": "0.1.7-alpha.2",
+    "sqlite3": "^5.1.7",
+    "ssh2": "^1.16.0",
+    "string": "^3.3.3",
+    "xlsx": "^0.18.5"
   },
   "devDependencies": {
     "@types/jsdom": "^21.1.6",

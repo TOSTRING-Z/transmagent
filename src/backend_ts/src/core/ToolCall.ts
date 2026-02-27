@@ -7,10 +7,10 @@ import { LLMService } from './LLMService';
 import { Message } from '../types';
 
 // 假设这些文件后续也会做 TS 适配，目前可以使用 any 或对应类型
-const { MCPClient } = require('./mcp_client');
-const Prompts = require('./prompts');
-const MemoryManager = require('../modules/MemoryManager');
-const getBaseTools = require('./base_tools');
+import { MCPClient } from './McpClient';
+import Prompts from './Prompts';
+import MemoryManager from '../data/MemoryManager';
+import getBaseTools from './base_tools';
 
 export interface PromptArgs {
     agent_prompt?: string | null;

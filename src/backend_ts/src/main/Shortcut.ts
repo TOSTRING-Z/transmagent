@@ -1,9 +1,7 @@
 import { globalShortcut } from 'electron';
 import { utils } from '../utils/globals';
 import { WindowManager } from './windows/WindowManager';
-
-// captureMouse 暂未 TS 化，保持 require
-const { captureMouse } = require('../mouse/capture_mouse');
+import { captureMouse } from '../mouse/CaptureMouse';
 
 export class Shortcut {
     private windowManager: WindowManager;
