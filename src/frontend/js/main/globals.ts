@@ -37,14 +37,14 @@ export interface ChatState {
   id: string | null;
   mode: string;
   version: string | null;
-  system_prompt: string | null;
+  system_prompt: string;
   msg_count?: number;
 }
 
 export const State = {
   markdown_statu: true,
   seconds_timer: null as any,
-  chat: { tokens: 0, seconds: 0, id: null, mode: 'auto', version: null, system_prompt: null } as ChatState,
+  chat: { tokens: 0, seconds: 0, id: null, mode: 'auto', version: null, system_prompt: "" } as ChatState,
   scroll_top: {
     info: true,
     data: true,

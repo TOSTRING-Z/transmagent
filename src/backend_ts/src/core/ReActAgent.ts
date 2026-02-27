@@ -454,7 +454,7 @@ export class ReActAgent {
                                     tool_info = { thinking: content, tool: null, params: null };
                                 }
                                 
-                                const thinking = `${tool_info?.thinking || `Tool call: ${tool_info.tool}`}\n\n---\n\n`;
+                                const thinking = `${tool_info?.thinking || `Tool call: ${tool_info.tool || "error"}`}\n\n---\n\n`;
                                 let content_format = (content as string).replaceAll("\\`", "'").replaceAll("`", "'");
                                 
                                 this.window.webContents.send('info-data', { id, context_id, content: `Step ${i}, id: ${id}, context_id: ${context_id}, Output:\n\n\`\`\`json\n${content_format}\n\`\`\`\n\n`, del });
@@ -466,6 +466,8 @@ export class ReActAgent {
                             } catch {
                                 this.window.webContents.send('stream-data', { id, context_id, content: null, end: true, del });
                             }
+                        } else {
+                            this.window.webContents.send('stream-data', { id: id, content: content, end: true, del: del });
                         }
                     }
                 });

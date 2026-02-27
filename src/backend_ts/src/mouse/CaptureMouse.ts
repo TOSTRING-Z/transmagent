@@ -19,7 +19,7 @@ const execFileAsync = promisify(execFile);
  */
 function getExecutablePath(): string {
   const platform = process.platform;
-  const executableDir = path.join(__dirname, 'bin');
+  const executableDir = path.join(__dirname, '../../bin');
 
   const executableMap: Partial<Record<NodeJS.Platform, string>> = {
     linux: 'capture_mouse_x11',

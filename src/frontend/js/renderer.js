@@ -36,7 +36,7 @@
   var State = {
     markdown_statu: true,
     seconds_timer: null,
-    chat: { tokens: 0, seconds: 0, id: null, mode: "auto", system_prompt: "" },
+    chat: { tokens: 0, seconds: 0, id: null, mode: "auto", version: null, system_prompt: "" },
     scroll_top: {
       info: true,
       data: true
@@ -56,12 +56,6 @@
   // main/utils.ts
   function getFileName(path) {
     return path.split("/").pop().split("\\").pop();
-  }
-  function getTokens(text) {
-    const normalizedText = text.replace(/\\n/g, "\n").replace(/\\t/g, "	").replace(/\\"/g, '"').replace(/\\\\/g, "\\");
-    const chineseTokens = normalizedText.match(/[\u4e00-\u9fa5\u3000-\u303f\uff00-\uffef]/g) || [];
-    const wordTokens = normalizedText.match(/[a-zA-Z_][a-zA-Z0-9_]*|\+\+|--|&&|\|\||[<>!=]=?|\d+\.?\d*|[^\s\u4e00-\u9fa5]/g) || [];
-    return chineseTokens.length + wordTokens.length;
   }
   function createElement(html) {
     const parser = new DOMParser();
@@ -278,7 +272,6 @@ ${DOM.input.value}`;
     DOM.tokens.innerText = State.chat.tokens.toString();
     DOM.msg_count.innerText = State.chat.msg_count?.toString() || "0";
     DOM.seconds.innerText = State.chat.seconds.toFixed(1);
-  if (State.chat.version && DOM.version) DOM.version.innerText = State.chat.version;
     const items = DOM.history_list.getElementsByClassName("history-item");
     Array.from(items).forEach((item) => {
       if (item.id == chatId)
@@ -931,9 +924,8 @@ $$
         info_div.classList.remove("hidden");
       }
       if (info.content) {
-        if (State.seconds_timer) {
-          State.chat.tokens += getTokens(info.content);
-          DOM.tokens.innerText = State.chat.tokens.toString();
+        if (info.chat && info.chat.tokens !== void 0 && DOM.tokens) {
+          DOM.tokens.innerText = info.chat.tokens.toString();
         }
         let info_item_content = await marked.parse(info.content);
         let info_item = createElement(`<div info_data-id="${info.context_id}">
@@ -961,9 +953,8 @@ $$
         if (chunk.chat?.msg_count) {
           DOM.msg_count.innerText = chunk.chat.msg_count;
         }
-        if (State.seconds_timer) {
-          State.chat.tokens += getTokens(chunk.content);
-          DOM.tokens.innerText = State.chat.tokens.toString();
+        if (chunk.chat && chunk.chat.tokens !== void 0 && DOM.tokens) {
+          DOM.tokens.innerText = chunk.chat.tokens.toString();
         }
         const optionDom = document.querySelector(".base-container");
         if (optionDom)
@@ -1195,7 +1186,8 @@ $$
     State.seconds_timer = setInterval(() => {
       State.chat.seconds += 0.1;
       DOM.seconds.innerText = State.chat.seconds.toFixed(1);
-  if (State.chat.version && DOM.version) DOM.version.innerText = State.chat.version;
+      if (State.chat.version && DOM.version)
+        DOM.version.innerText = State.chat.version;
     }, 100);
     DOM.tokens.innerText = State.chat.tokens.toString();
     DOM.version.innerText = data.version;
@@ -1281,7 +1273,8 @@ $$
     DOM.tokens.innerText = State.chat.tokens.toString();
     DOM.msg_count.innerText = State.chat.msg_count?.toString() || "0";
     DOM.seconds.innerText = State.chat.seconds.toFixed(1);
-  if (State.chat.version && DOM.version) DOM.version.innerText = State.chat.version;
+    if (State.chat.version && DOM.version)
+      DOM.version.innerText = State.chat.version;
   });
   window.electronAPI.handleAutoRenameChat(async (chat) => {
     State.chat.id = chat.id;
