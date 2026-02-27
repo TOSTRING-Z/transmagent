@@ -77,18 +77,49 @@ export class PromptAdapter implements ILLMAdapter {
         };
     }
 
-    parseStreamChunk(chunk: any): StreamChunkResult {
-        // 兼容 Ollama 等格式
+    public parseStreamChunk(chunk: any): StreamChunkResult {
+        let content = "";
+        let reasoning_content = "";
+        let tokens: number | undefined = undefined;
+
         if (chunk.message?.content) {
-            return { content: chunk.message.content, tokens: chunk.eval_count };
+            content = chunk.message.content;
+        } else {
+            const delta = chunk.choices?.[0]?.delta;
+            if (delta) {
+                if (delta.reasoning_content) {
+                    reasoning_content = delta.reasoning_content;
+                } else if (delta.content) {
+                    content = delta.content;
+                }
+            }
         }
-        return { content: chunk.choices?.[0]?.delta?.content || "" };
+
+        // 兼容不同的 token 统计返回格式
+        if (chunk.usage?.total_tokens) {
+            tokens = chunk.usage.total_tokens;
+        } else if (chunk.prompt_eval_count !== undefined) {
+            tokens = chunk.prompt_eval_count + (chunk.eval_count || 0);
+        }
+
+        return { content, reasoning_content, tokens };
     }
 
-    parseResponse(respJson: any) {
+    public parseResponse(respJson: any): any {
+        let content = "";
+        let finish_reason = "";
+
+        if (respJson.message) {
+            content = respJson.message.content;
+        } else {
+            const choice = respJson.choices?.[0];
+            content = choice?.message?.content || "";
+            finish_reason = choice?.finish_reason || "";
+        }
+
         return {
-            content: respJson.message?.content || respJson.choices?.[0]?.message?.content || "",
-            finish_reason: respJson.choices?.[0]?.finish_reason || "stop",
+            content,
+            finish_reason,
             tokens: respJson.usage?.total_tokens
         };
     }

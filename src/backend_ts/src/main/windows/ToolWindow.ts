@@ -1,6 +1,6 @@
 import { BrowserWindow, ipcMain, dialog } from 'electron';
-import { BaseWindow } from "./BaseWindow";
-import { WindowManager } from "./WindowManager";
+import { BaseWindow } from './BaseWindow';
+import { WindowManager } from './WindowManager';
 import { utils } from '../../utils/globals';
 
 export class ToolWindow extends BaseWindow {
@@ -8,7 +8,7 @@ export class ToolWindow extends BaseWindow {
         super(windowManager);
     }
 
-    public create(): void {
+    public create() {
         if (this.window) {
             this.window.restore();
             this.window.show();
@@ -29,69 +29,50 @@ export class ToolWindow extends BaseWindow {
         });
 
         this.window.loadFile('src/frontend/tool.html');
-
-        this.window.on('closed', () => {
-            this.window = null;
-        });
-
-        ipcMain.on('minimize-window', () => {
-            const win = BrowserWindow.getFocusedWindow();
-            if (win) win.minimize();
-        });
-
-        ipcMain.on('close-window', () => {
-            const win = BrowserWindow.getFocusedWindow();
-            if (win) win.close();
-        });
+        this.window.on('closed', () => { this.window = null; });
     }
 
-    public destroy(): void {
+    public destroy() {
         if (this.window) {
             this.window.close();
             this.window = null;
         }
     }
 
-    public setup(): void {
-        ipcMain.handle('get-tools', async () => {
-            return utils.getConfig("plugins") || {};
-        });
+    public setup() {
+        ipcMain.handle('get-tools', async () => utils.getConfig("plugins") || {});
 
-        ipcMain.handle('save-tool', async (_event, toolData: any) => {
+        ipcMain.handle('save-tool', async (_, toolData) => {
             if (!toolData?.id) {
-                this.windowManager.alertWindow?.show?.("error", "Tool ID is required.");
+                this.windowManager.alertWindow?.show("error", "Tool ID is required.");
                 return;
             }
-
             const config = utils.getConfig();
             const plugins = config.plugins || {};
-
             plugins[toolData.id] = {
                 path: toolData.path,
                 params: toolData.params,
                 extra: toolData.extra,
                 enabled: toolData.enabled
             };
-
             config.plugins = plugins;
             utils.setConfig(config);
-            this.windowManager.alertWindow?.show?.("success", "Tool saved successfully!");
+            this.windowManager.alertWindow?.show("success", "Tool saved successfully!");
         });
 
-        ipcMain.handle('delete-tool', async (_event, id: string) => {
+        ipcMain.handle('delete-tool', async (_, id) => {
             const config = utils.getConfig();
             const plugins = config.plugins || {};
-
             if (plugins[id]) {
                 delete plugins[id];
                 config.plugins = plugins;
                 utils.setConfig(config);
-                this.windowManager.alertWindow?.show?.("success", "Tool deleted successfully!");
+                this.windowManager.alertWindow?.show("success", "Tool deleted successfully!");
             }
         });
 
         ipcMain.handle('select-file', async () => {
-            return await dialog.showOpenDialog({
+            return dialog.showOpenDialog({
                 properties: ['openFile'],
                 filters: [{ name: 'JavaScript', extensions: ['js'] }]
             });

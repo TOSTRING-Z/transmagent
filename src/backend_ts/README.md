@@ -1,70 +1,95 @@
-# LLM Service Core (Refactored)
+# TransmAgent Core (TypeScript v2.0)
 
-This module represents the core LLM communication layer, refactored from JavaScript to **TypeScript** using the **Adapter** and **Simple Factory** design patterns. 
+TransmAgent is a powerful Electron-based desktop AI Assistant. It integrates LLM services, tool calling (Function Calling), code execution analysis, MCP (Model Context Protocol) client, and a React-based Agent workflow.
 
-It acts as a robust bridge between the local application (Electron window/IPC) and LLM APIs, handling complex chat state, context truncation, streaming, and tool-call aggregation.
+This project has been completely refactored using **TypeScript**, adopting **Adapter**, **Factory**, and **Singleton** patterns to ensure type safety, high cohesion, and low coupling.
 
-## 🏗 Architecture Highlights
+## 🏗 Architectural Refactoring Highlights
 
-To solve the tight-coupling and monolithic nature of the original `llm_service.js`, the code is now divided into three specific layers:
+1. **State Decoupling (`ChatManager`)**: 
+   Message history and state manipulation have been extracted into `ChatManager`. `LLMService` now acts purely as an HTTP and SSE streaming pipeline.
+2. **Adapter Pattern (`AdapterFactory`)**:
+   Seamlessly switch between native `OpenAI` format and `Prompt` format models.
+3. **Electron UI Layer (`src/main/windows`)**:
+   All Electron windows (MainWindow, CodeWindow, ToolWindow, etc.) inherit from an abstract `BaseWindow` class. `WindowManager` handles singleton routing and prevents IPC memory leaks.
+4. **Local Database & Services (`src/data` & `src/server`)**:
+   Isolated data persistence (`MemoryDB`) and local web/worker services for background execution.
 
-1. **`ChatManager` (State & Memory Layer)**
-   - Manages the entire lifecycle of a conversation.
-   - Handles saving/loading history arrays and truncating `long_memory`.
-   - Replaces array manipulation logic previously scattered inside the service.
-2. **`Adapters` (Protocol Layer)**
-   - Normalizes different backend API formats.
-   - `OpenAIAdapter`: Specifically formats context, builds payload, and parses tool_calling payloads for OpenAI-compatible APIs.
-   - `PromptAdapter`: A fallback/alternative for non-standard or older models.
-3. **`LLMService` (Network & Event Layer)**
-   - Focuses solely on HTTP pipelines (fetch) and SSE Streams.
-   - Implements the critical **Auto-Continuation (Truncation retry)** mechanism up to 3 times without mixing with model-specific payload rules.
-
-## 📁 Directory Structure
+## 📁 Project Structure
 
 \`\`\`text
 ├── src/
-│   ├── types.ts                 # Global TypeScript interfaces
-│   ├── adapters/
-│   │   ├── IAdapter.ts          # Interface for all LLM Adapters
-│   │   ├── OpenAIAdapter.ts     # OpenAI specific data parsing
-│   │   └── PromptAdapter.ts     # Plain text prompt parsing
-│   ├── core/
-│   │   └── ChatManager.ts       # Handles array ops, memory & local JSON saving
+│   ├── main.ts                   # Electron App entry point
+│   ├── types.ts                  # Global TypeScript interfaces
+│   ├── adapters/                 # Protocol adapters
+│   │   ├── IAdapter.ts
+│   │   ├── OpenAIAdapter.ts      # OpenAI / Function Calling format
+│   │   └── PromptAdapter.ts      # Plain text / Ollama fallback
+│   ├── core/                     # Agent & Business logic layer
+│   │   ├── ChatManager.ts        # Message lifecycle & storage
+│   │   ├── LLMService.ts         # Core HTTP & Stream processor
+│   │   ├── ReActAgent.ts         # Agent base class (State machine)
+│   │   ├── ToolCall.ts           # Function Calling executor
+│   │   ├── ChainCall.ts          # Sequential multi-step caller
+│   │   ├── base_tools.ts         # Built-in native tools definition
+│   │   ├── Install.ts            # Bootstrapper (copies default configs)
+│   │   ├── Plugins.ts            # Plugin loader
+│   │   └── prompts/              # Specific tool prompts & JS scripts
+│   ├── data/
+│   │   └── MemoryDB.ts           # Local Database / Memory persistence
 │   ├── factories/
-│   │   └── AdapterFactory.ts    # Dynamically injects the correct adapter
-│   ├── utils/
-│   │   ├── format.ts            # Safe string formatter (replacing String.prototype pollution)
-│   │   ├── Utils.ts             # Refactored Utils class (Singleton)
-│   │   └── globals.ts           # Central store and configuration entry
-│   ├── stream.ts                # (Pending/External) SSE text-stream parser
-│   └── LLMService.ts            # The main facade and execution flow
-├── build.js                     # Custom compilation script
-├── tsconfig.json                # TypeScript compiler configuration
-└── package.json
+│   │   └── AdapterFactory.ts     # Dynamically injects the correct adapter
+│   ├── main/                     # Main process controllers
+│   │   ├── Shortcut.ts           # Global shortcut manager
+│   │   └── windows/              # Electron UI layer (BaseWindow & subclasses)
+│   ├── server/                   # Local HTTP/Worker services
+│   │   ├── MainServer.ts
+│   │   ├── MainWorker.ts
+│   │   └── WebServer.ts
+│   └── utils/                    # Shared utilities
+│       ├── globals.ts            # Centralized stores and constants
+│       ├── Utils.ts              # File ops, JSON extraction, hashing
+│       ├── stream.ts             # SSE stream parser
+│       └── format.ts             # Safe template string formatter
+├── build.js                      # Custom build script
+├── package.json                  # Dependencies & Scripts
+└── tsconfig.json                 # TypeScript compiler options
 \`\`\`
 
 ## 🚀 Getting Started
 
 ### 1. Install Dependencies
-Ensure you are using Node.js v18+ (since `fetch` is used natively).
+Make sure you have Node.js 18+ installed (native `fetch` is used).
 \`\`\`bash
 pnpm install
 \`\`\`
 
 ### 2. Build the Project
-Compile the TypeScript source code into CommonJS (`./dist` folder).
+Compile the TypeScript code into the `./dist` directory. The custom build script will automatically clean up old artifacts.
 \`\`\`bash
 pnpm run build
 \`\`\`
 
-### 3. Development
-Watch mode for auto-compilation during development.
+### 3. Run the Application
+Launch the Electron application (reads from `dist/main.js`).
+\`\`\`bash
+pnpm start
+\`\`\`
+
+### 4. Development Mode
+To auto-recompile when saving files, run the TypeScript watcher in one terminal:
 \`\`\`bash
 pnpm run dev
 \`\`\`
+Then restart the Electron app via `pnpm start` in another terminal to see changes.
 
-## ⚠️ Breaking Changes & Improvements
-- **No Global Prototype Pollution**: Removed `String.prototype.format`. Uses `formatString(template, data)` internally.
-- **Type Safety**: The entire payload config `ChatRequestData` is now typed. Misspelled properties will be caught at compile-time.
-- **Decoupled Scaling**: Want to add support for Claude or Ollama specific params? Just create a `ClaudeAdapter.ts`, implement `ILLMAdapter`, and register it in `AdapterFactory.ts`. `LLMService.ts` won't need to change.
+## 🛠 Key Features
+
+- **ReAct & Chain Agents**: Choose between autonomous ReAct mode or strict predefined Chain sequences.
+- **Smart Truncation & Auto-Continuation**: `LLMService` automatically detects if an output was truncated (`finish_reason: length`) and resumes seamlessly up to 3 times.
+- **Context Optimization**: Supports background tasks that automatically compress redundant memory context to save tokens.
+- **Native Code Assistance**: Provides specialized IPC handlers for code completion, code refactoring, and AST language detection via `CodeWindow`.
+- **SSH / File Transfer**: Securely transfer files to remote environments directly via the native UI.
+
+## 📝 License
+ISC

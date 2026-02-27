@@ -118,7 +118,7 @@ Any deviation (Markdown tags, extra text) causes system failure.
 
 # 🛠️ Native Tool Calling Protocol
 
-You must use the native function/tool calling mechanism provided by the API to execute actions. Provide concise reasoning in your message content, then invoke the required tool.
+You must use the native function/tool calling mechanism provided by the API to execute actions. You are only permitted to respond directly without calling a tool in two specific situations: when you need to ask the user for additional information to proceed, or when the task has been completed and you are ready to conclude the conversation. In all other cases, provide concise reasoning in your message content, then invoke the required tool.
 
 ====`}
 

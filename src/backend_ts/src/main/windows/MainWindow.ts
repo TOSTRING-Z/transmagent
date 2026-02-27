@@ -558,7 +558,7 @@ export class MainWindow extends BaseWindow {
         });
     }
 
-    private updateVersionsSubmenu() {
+    public updateVersionsSubmenu() {
         const menu = Menu.buildFromTemplate(this.getTemplate());
         Menu.setApplicationMenu(menu);
     }

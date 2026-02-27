@@ -1,23 +1,27 @@
 {
-  "name": "service-core",
+  "name": "transmagent-core",
   "version": "2.0.0",
-  "description": "Refactored LLM Service with TypeScript, Adapter and Factory patterns",
-  "main": "dist/LLMService.js",
-  "types": "dist/LLMService.d.ts",
+  "description": "An Electron-based AI Agent desktop application refactored with TypeScript and clean architecture.",
+  "main": "dist/main.js",
   "scripts": {
-    "clean": "node -e \"const fs=require('fs'); fs.rmSync('dist', {recursive:true, force:true});\"",
-    "build": "node build.js",
+    "start": "electron .",
     "dev": "tsc --watch",
+    "build": "node build.js",
+    "clean": "node -e \"const fs=require('fs'); fs.rmSync('dist', {recursive:true, force:true});\"",
     "type-check": "tsc --noEmit"
   },
   "dependencies": {
+    "jsdom": "^24.0.0",
     "json5": "^2.2.3",
-    "llm-service-core": "link:"
+    "ssh2": "^1.15.0",
+    "transmagent-core": "link:"
   },
   "devDependencies": {
-    "@types/json5": "^0.0.30",
+    "@types/jsdom": "^21.1.6",
     "@types/node": "^20.0.0",
-    "typescript": "^5.3.0"
+    "@types/ssh2": "^1.11.19",
+    "electron": "^29.0.0",
+    "typescript": "^5.4.0"
   },
   "engines": {
     "node": ">=18.0.0"
