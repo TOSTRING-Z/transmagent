@@ -32,6 +32,14 @@ export class ConfigWindow extends BaseWindow {
 
         this.window.loadFile('src/frontend/config.html');
         this.window.on('closed', () => { this.window = null; });
+        
+        ipcMain.on('minimize-window', () => {
+            BrowserWindow.getFocusedWindow()?.minimize()
+        })
+
+        ipcMain.on('close-window', () => {
+            BrowserWindow.getFocusedWindow()?.close()
+        })
     }
 
     public destroy() {

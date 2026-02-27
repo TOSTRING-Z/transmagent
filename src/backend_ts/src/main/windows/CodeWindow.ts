@@ -38,6 +38,14 @@ export class CodeWindow extends BaseWindow {
 
         this.window.loadFile('src/frontend/code.html');
         this.window.on('closed', () => { this.window = null; });
+        
+        ipcMain.on('minimize-window', () => {
+            BrowserWindow.getFocusedWindow()?.minimize()
+        })
+
+        ipcMain.on('close-window', () => {
+            BrowserWindow.getFocusedWindow()?.close()
+        })
     }
 
     public openFile(filePath: string) {
