@@ -399,7 +399,6 @@ export class MainWindow extends BaseWindow {
             this.windowManager.subAgentWindow?.destroy();
             const chat = this.tool_call.newChat();
             this.updateVersionsSubmenu();
-            this.window?.webContents.send('set-chat', this.llm_service.chatManager.chat);
             return chat;
         });
 
@@ -407,7 +406,6 @@ export class MainWindow extends BaseWindow {
             this.windowManager.subAgentWindow?.destroy();
             const chat = this.tool_call.loadChat(id);
             this.updateVersionsSubmenu();
-            this.window?.webContents.send('load-chat', chat.id);
             return chat;
         });
 

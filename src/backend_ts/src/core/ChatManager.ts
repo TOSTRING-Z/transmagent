@@ -15,6 +15,7 @@ export class ChatManager {
     }
 
     public init(messages: Message[] = []) {
+        this.chat = this.getChatInit();
         this.messages = messages;
         this.tagSuccess = false;
         this.updateChat();

@@ -361,10 +361,7 @@ export class ReActAgent {
         this.window.webContents.send('clear');
         this.llm_service.chatManager.init();
         this.setHistory(this.llm_service.chatManager.chat);
-        
-        let chat = utils.copy(this.llm_service.chatManager.chat);
-        chat.name = utils.formatDate();
-        return chat;
+        return this.llm_service.chatManager.chat;
     }
 
     public loadChat(id: string): ChatState {
