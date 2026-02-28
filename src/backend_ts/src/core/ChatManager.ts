@@ -248,7 +248,7 @@ export class ChatManager {
                 if (typeof message.content !== 'string') return message;
 
                 let content_parse = utils.parseJsonContent(message.content);
-                if (content_parse?.tool_call == "cli_execute" && message.role == "user") {
+                if (content_parse?.tool_call == "cli_execute" && message.role == "tool") {
                     let success = true;
                     if (Object.prototype.hasOwnProperty.call(content_parse.observation, "success")) {
                         success = content_parse.observation?.success;

@@ -37,9 +37,9 @@ export class ReActAgent {
     public context_id?: string; // 用于记录当前的 memory id
 
     constructor(
-        plugins: any, 
-        llm_service: LLMService, 
-        window: any = createMockWindow(), 
+        plugins: any,
+        llm_service: LLMService,
+        window: any = createMockWindow(),
         alertWindow: any = createMockAlertWindow()
     ) {
         this.state = State.IDLE;
@@ -84,13 +84,13 @@ export class ReActAgent {
             let history_data = utils.getHistoryData();
             let history_exist = history_data.data.filter((h: any) => h.id === chat!.id);
             let id_exist = history_exist.length > 0;
-            
+
             if (!id_exist) {
                 history_data.data.push(chat);
             } else {
                 history_data.data = history_data.data.map((h: any) => h.id === chat!.id ? chat : h);
             }
-            
+
             utils.setHistoryData(history_data);
             const history_path = utils.getHistoryPath(chat.id);
             this.llm_service.chatManager.saveMessages(history_path);
@@ -119,7 +119,7 @@ export class ReActAgent {
     public async retry(func: (data: any) => Promise<any>, data: any): Promise<any> {
         data.input = data.output_format !== undefined ? data.output_format : data.query;
         data.system_prompt = data.prompt_format !== undefined ? data.prompt_format : data.prompt;
-        
+
         if (data.input_template) {
             data.input = this.formatTemplate(data.input_template, data);
         }
@@ -129,12 +129,12 @@ export class ReActAgent {
 
         while (count < retry_time) {
             // @ts-ignore: 假设 LLMService 有 public stopFlag（需配合修改 LLMService）
-            if (this.llm_service.stopFlag) return null; 
+            if (this.llm_service.stopFlag) return null;
 
             try {
                 let output = await func(data);
                 if (output) return output;
-                
+
                 count++;
                 await utils.delay(2);
             } catch (err) {
@@ -150,7 +150,7 @@ export class ReActAgent {
         const configModels = utils.getConfig("models");
         data.api_url = data.api_url || configModels[data.model]?.api_url;
         data.api_key = data.api_key || configModels[data.model]?.api_key;
-        
+
         data.params = data.params || configModels[data.model]?.versions?.find((v: any) => {
             return typeof v !== "string" && v.version === data.version;
         });
@@ -159,8 +159,8 @@ export class ReActAgent {
             data.llm_params = data.params.llm_params;
         }
 
-        data.prompt_format = data.prompt_template 
-            ? this.formatTemplate(data.prompt_template, data) 
+        data.prompt_format = data.prompt_template
+            ? this.formatTemplate(data.prompt_template, data)
             : data.prompt;
 
         const func = (reqData: any) => this.llm_service.chatBase(reqData);
@@ -170,9 +170,9 @@ export class ReActAgent {
         if (!data.output) return null;
 
         data.outputs.push(utils.copy(data.output));
-        
-        data.output_format = data.output_template 
-            ? this.formatTemplate(data.output_template, data) 
+
+        data.output_format = data.output_template
+            ? this.formatTemplate(data.output_template, data)
             : data.output;
 
         data.output_formats.push(utils.copy(data.output_format));
@@ -229,7 +229,7 @@ export class ReActAgent {
             }
 
             let history: any, name: 'ids' | 'context_ids' | undefined, content: any;
-            
+
             if (typeof message.content === 'string') {
                 const content_json = utils.extractJson(message.content);
                 if (content_json) content = JSON5.parse(content_json);
@@ -249,9 +249,9 @@ export class ReActAgent {
                     this.window?.webContents.send('log', 'Error in loading context automatic optimization model!');
                     break;
                 }
-                
+
                 const messages_by_id = messages.filter(msg => msg.id === message.id && msg.context_id === message.context_id);
-                
+
                 if (pred === 0) {
                     messages_by_id.forEach(msg => { msg.del = true; });
                     if (name === 'ids') ids.ids.push(message.id!);
@@ -273,22 +273,22 @@ export class ReActAgent {
             if (will_compress_messages.length > 0) {
                 const temp_llm_service = new LLMService();
                 const react_agent = new ReActAgent(this.plugins, temp_llm_service);
-                
-                let combined_content = will_compress_messages.map(msg => 
+
+                let combined_content = will_compress_messages.map(msg =>
                     typeof msg.content === 'string' ? msg.content : JSON.stringify(msg.content)
                 ).join("\n\n");
-                
+
                 const prompt = `You are an intelligent assistant skilled at compressing and summarizing contextual content into detailed documents. Please ensure the generated documents are comprehensive and clear, accurately reflecting the original content.`;
                 const query = `# context\n\`\`\`text\n${combined_content}\n\`\`\`\nPlease compress the above context into a detailed document. \nRequirements: use concise language while retaining all essential information.\nplease generate the compressed document:`;
-                
-                const data = react_agent.getDataDefault({ 
-                    prompt, query, params: { ...utils.getConfig("llm_params"), temperature: 0.3 } 
+
+                const data = react_agent.getDataDefault({
+                    prompt, query, params: { ...utils.getConfig("llm_params"), temperature: 0.3 }
                 });
-                
+
                 let result = await react_agent.llmCall(data);
                 if (result) {
                     result = "The user compressed the execution process of the current task. The compressed document is as follows:\n\n---\n\n" + result.trim();
-                    
+
                     const firstMsg = will_compress_messages[0];
                     const preservedUser = will_compress_messages.find(m => m.role === 'user');
 
@@ -340,19 +340,19 @@ export class ReActAgent {
         } else {
             const temp_llm_service = new LLMService();
             const react_agent = new ReActAgent(this.plugins, temp_llm_service);
-            
+
             const user_content = this.llm_service.chatManager.messages.find(m => m?.role === "user")?.content || "";
             const history_content = this.llm_service.chatManager.messages
                 .filter(m => m?.role === "assistant")
                 .map(m => utils.parseJsonContent(m.content as string)?.thinking || "")
                 .join("===");
-                
+
             const prompt = `You are an intelligent assistant skilled at generating short chat names based on contextual content. Please ensure the generated names are concise and clear, accurately reflecting the chat content.`;
             const query = `# history\n\`\`\`text\n# user\n${user_content}\n\n# assistant\n${history_content}\n\`\`\`\n\nGenerate a short ${_data?.language || utils.getLanguage()} chat name based on context. \nReturn name only (strictly no JSON/XML/formatting). \nRequirements: max 20 chars, must contain letters, no pure numbers/symbols/spaces.\nplease generate a name:`;
-            
+
             const data = react_agent.getDataDefault({ prompt, query, params: { ...utils.getConfig("llm_params"), ..._data.params } });
             const result = await react_agent.llmCall(data);
-            
+
             if (result) {
                 this.llm_service.chatManager.chat.name = result.split("\n")[0];
             }
@@ -369,11 +369,11 @@ export class ReActAgent {
     public loadChat(id: string): ChatState {
         const history_path = utils.getHistoryPath(id);
         const max_index = this.load_message(history_path);
-        
+
         const history_data = utils.getHistoryData();
         const history = history_data.data.find((h: any) => h.id == id);
         let chatName = (history && history.name) ? history.name : CHAT_CONST.DEFAULT_NAME;
-        
+
         this.llm_service.chatManager.chat = this.llm_service.chatManager.getChatInit({ ...history, name: chatName, max_index: max_index });
         return this.llm_service.chatManager.chat;
     }
@@ -382,7 +382,7 @@ export class ReActAgent {
         let max_index = 0;
         this.window.webContents.send('clear');
         let messages = this.llm_service.chatManager.loadMessages(filePath);
-        
+
         if (typeof messages === 'boolean') {
             return max_index;
         }
@@ -391,11 +391,11 @@ export class ReActAgent {
             const maxIdMsg = messages.reduce((max, current) => {
                 return parseInt(current.id || "0") > parseInt(max.id || "0") ? current : max;
             }, messages[0]);
-            
+
             if (maxIdMsg.id) {
                 max_index = parseInt(maxIdMsg.id);
                 const reactMsg = messages.find(m => m.react);
-                
+
                 if (reactMsg) {
                     const maxMemoryId = messages.reduce((max, current) => {
                         return parseInt(current.context_id || "0") > parseInt(max.context_id || "0") ? current : max;
@@ -405,37 +405,36 @@ export class ReActAgent {
 
                 messages.forEach((message, i) => {
                     let { role, content, id, context_id, react, del } = message;
-                    
+
                     if (role === "user") {
-                        if (react) {
-                            const tool_info = utils.parseJsonContent(content as string);
-                            if (tool_info?.tool_call) {
-                                const tool = tool_info.tool_call;
-                                const observation = tool_info.observation;
-                                
-                                switch (tool) {
-                                    case "display_file":
-                                        this.window.webContents.send('stream-data', { id, context_id, content: `${observation}\n\n`, end: true, del });
-                                        break;
-                                    case "add_subtasks":
-                                    case "complete_subtasks":
-                                        this.window.webContents.send('stream-data', { id, context_id, content: `\`\`\`json\n${JSON.stringify(observation, null, 2)}\n\`\`\`\n\n`, end: true, del });
-                                        break;
-                                }
-                                
-                                if (["workflow_planner", "tool_manager", "web_searcher", "chart_plotter", "task_executor", "tool_documentation_collector", "url_summarizer"].includes(tool)) {
+                        this.window.webContents.send('user-data', { id, context_id, content, del });
+                    }
+                    else if (role === "tool") {
+                        const tool_info = utils.parseJsonContent(content as string);
+                        if (tool_info?.tool_call) {
+                            const tool = tool_info.tool_call;
+                            const observation = tool_info.observation;
+
+                            switch (tool) {
+                                case "display_file":
                                     this.window.webContents.send('stream-data', { id, context_id, content: `${observation}\n\n`, end: true, del });
-                                }
-                                if (["ask_followup_question", "waiting_feedback", "plan_mode_response"].includes(tool)) {
-                                    this.window.webContents.send('stream-data', { id, context_id, content: `${observation.question}\n\n`, end: true, del });
-                                }
+                                    break;
+                                case "add_subtasks":
+                                case "complete_subtasks":
+                                    this.window.webContents.send('stream-data', { id, context_id, content: `\`\`\`json\n${JSON.stringify(observation, null, 2)}\n\`\`\`\n\n`, end: true, del });
+                                    break;
                             }
-                            
-                            let content_format = (content as string).replaceAll("\\`", "'").replaceAll("`", "'");
-                            this.window.webContents.send('info-data', { id, context_id, content: `Step ${i}, id: ${id}, context_id: ${context_id}, Output:\n\n\`\`\`json\n${content_format}\n\`\`\`\n\n`, del });
-                        } else {
-                            this.window.webContents.send('user-data', { id, context_id, content, del });
+
+                            if (["workflow_planner", "tool_manager", "web_searcher", "chart_plotter", "task_executor", "tool_documentation_collector", "url_summarizer"].includes(tool)) {
+                                this.window.webContents.send('stream-data', { id, context_id, content: `${observation}\n\n`, end: true, del });
+                            }
+                            if (["ask_followup_question", "waiting_feedback", "plan_mode_response"].includes(tool)) {
+                                this.window.webContents.send('stream-data', { id, context_id, content: `${observation.question}\n\n`, end: true, del });
+                            }
                         }
+
+                        let content_format = (content as string).replaceAll("\\`", "'").replaceAll("`", "'");
+                        this.window.webContents.send('info-data', { id, context_id, content: `Step ${i}, id: ${id}, context_id: ${context_id}, Output:\n\n\`\`\`json\n${content_format}\n\`\`\`\n\n`, del });
                     } else { // assistant
                         if (react) {
                             try {
@@ -452,13 +451,13 @@ export class ReActAgent {
                                 } else {
                                     tool_info = { thinking: content, tool: null, params: null };
                                 }
-                                
+
                                 const thinking = `${tool_info?.thinking || `Tool call: ${tool_info.tool || "error"}`}\n\n---\n\n`;
                                 let content_format = (content as string).replaceAll("\\`", "'").replaceAll("`", "'");
-                                
+
                                 this.window.webContents.send('info-data', { id, context_id, content: `Step ${i}, id: ${id}, context_id: ${context_id}, Output:\n\n\`\`\`json\n${content_format}\n\`\`\`\n\n`, del });
                                 this.window.webContents.send('stream-data', { id, context_id, content: thinking, end: true, del });
-                                
+
                                 if (tool_info.tool === "enter_idle_state") {
                                     this.window.webContents.send('stream-data', { id, context_id, content: tool_info.params.final_answer, end: true, del });
                                 }
@@ -483,10 +482,10 @@ export class ReActAgent {
     public get_info(data: any): string {
         const output_format = utils.copy(data.output_format);
         data.output_format = data.output_format?.replaceAll("\\`", "'").replaceAll("`", "'");
-        
+
         let infoTemplate = utils.getConfig("info_template");
         let info = this.formatTemplate(infoTemplate, data);
-        
+
         data.output_format = output_format; // 恢复原数据
         console.log(info);
         return info;

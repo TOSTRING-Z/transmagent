@@ -262,7 +262,7 @@ export class ToolCall extends ReActAgent {
             }
             
             data.output_format = JSON.stringify(observation, null, 2);
-            this.llm_service.chatManager.pushMessage({ role: "user", content: data.output_format, id: data.id, context_id: String(this.current_context_id) });
+            this.llm_service.chatManager.pushMessage({ role: "tool", content: data.output_format, id: data.id, context_id: String(this.current_context_id), show: true, react: true });
             
             if (warning_info?.warning) {
                 this.state = State.PAUSE;
@@ -307,11 +307,10 @@ export class ToolCall extends ReActAgent {
         console.log(`raw_json: ${raw_json}`);
         data.output_format = utils.extractJson(raw_json) || raw_json;
         this.window?.webContents.send('info-data', { id: data.id, context_id: String(++this.current_context_id), content: this.get_info(data) });
-        this.llm_service.chatManager.pushMessage({ role: "assistant", content: data.output_format, id: data.id, context_id: String(this.current_context_id) });
+        this.llm_service.chatManager.pushMessage({ role: "assistant", content: data.output_format, id: data.id, context_id: String(this.current_context_id), show: true, react: true });
         return this.get_tool(data.output_format, data);
     }
 
-    // ⭐ 修复了崩溃 BUG 的方法
     public get_tool(content: any, data: any): any {
         try {
             // 空值和非字符串的防御性转换
@@ -360,7 +359,7 @@ export class ToolCall extends ReActAgent {
             };
             data.output_format = JSON.stringify(observation, null, 2);
             this.llm_service.chatManager.setTag(false);
-            this.llm_service.chatManager.pushMessage({ role: "user", content: data.output_format, id: data.id, context_id: String(this.current_context_id) });
+            this.llm_service.chatManager.pushMessage({ role: "tool", content: data.output_format, id: data.id, context_id: String(this.current_context_id), show: true, react: true });
             this.environment_update(data);
             this.window?.webContents.send('info-data', { id: data.id, context_id: String(this.current_context_id), content: this.get_info(data) });
             return null;

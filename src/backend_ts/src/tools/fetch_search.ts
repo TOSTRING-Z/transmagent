@@ -71,7 +71,7 @@ class DuckDuckGoSearch extends BaseSearch {
         this.cache = new TTLCache(100, 600);
     }
 
-    async search(query, maxRetry = 3) {
+    async search(query, maxRetry = 1) {
         const cacheKey = `ddg_${query}`;
         const cached = this.cache.get(cacheKey);
         if (cached) return cached;
@@ -353,7 +353,7 @@ class BingSearch extends BaseSearch {
         this.cache = new TTLCache(100, 600);
     }
 
-    async search(query, maxRetry = 3) {
+    async search(query, maxRetry = 1) {
         const cacheKey = `bing_${query}`;
         const cached = this.cache.get(cacheKey);
         if (cached) return cached;

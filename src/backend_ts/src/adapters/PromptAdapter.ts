@@ -67,10 +67,15 @@ export class PromptAdapter implements ILLMAdapter {
         return formattedMessages;
     }
 
-    buildPayload(data: ChatRequestData, messages: any[]): Record<string, any> {
+    buildPayload(data: ChatRequestData, messages: Message[]): Record<string, any> {
         return {
             model: data.version,
-            messages: messages,
+            messages: messages.map(msg => {
+                if (msg.role === "tool") {
+                    msg.role = "user";
+                }
+                return msg;
+            }),
             ...data.llm_params
             // 注意：这里不传入 tools 和 tool_choice，避免 API 报错
         };
