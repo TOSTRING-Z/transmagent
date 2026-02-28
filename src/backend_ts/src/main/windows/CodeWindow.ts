@@ -38,7 +38,7 @@ export class CodeWindow extends BaseWindow {
 
         this.window.loadFile('src/frontend/code.html');
         this.window.on('closed', () => { this.window = null; });
-        
+
         ipcMain.on('minimize-window', () => {
             BrowserWindow.getFocusedWindow()?.minimize()
         })
@@ -192,9 +192,9 @@ export class CodeWindow extends BaseWindow {
                     prompt, query: snippet,
                     params: { temperature: 0.1, max_tokens: 20, ...(utils.getConfig("code")?.detect?.params || {}) }
                 });
-                const result = await react_agent.llmCall(data);
-                if (result) {
-                    let lang = result.trim().toLowerCase().replace(/[^a-z0-9+#]/g, '');
+                const baseResult = await react_agent.llmCall(data);
+                if (baseResult) {
+                    let lang = (baseResult.message.content as string).trim().toLowerCase().replace(/[^a-z0-9+#]/g, '');
                     return { language: lang };
                 }
                 return { language: 'plaintext' };

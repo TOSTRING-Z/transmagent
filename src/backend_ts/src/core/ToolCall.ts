@@ -4,7 +4,7 @@ import { ReActAgent, State } from './ReActAgent';
 import { utils, CHAT_CONST } from '../utils/globals';
 import { formatString } from '../utils/format';
 import { LLMService } from './LLMService';
-import { Message } from '../types';
+import { Message, ToolInfo, ToolResult } from '../types';
 
 // 假设这些文件后续也会做 TS 适配，目前可以使用 any 或对应类型
 import { MCPClient } from './McpClient';
@@ -35,12 +35,12 @@ export class ToolCall extends ReActAgent {
     public mcp_client: any;
     public prompt_args: PromptArgs;
     public modes: Record<string, string>;
-    public system_prompt!: string;
+    public system_prompt!: () => Promise<string> | string;
     public mcp_prompt!: string;
     public base_tools: any;
     public tools: Record<string, any>;
-    public prompts: any;
-    public memory_manager: any;
+    public prompts: Prompts;
+    public memory_manager: MemoryManager;
     public task_prompt: () => string;
     public env_prompt: string;
 
@@ -167,7 +167,7 @@ export class ToolCall extends ReActAgent {
     public memory_update(data: any) {
         let messages = this.llm_service.chatManager.getMessages(false);
         let messages_list: Message[] = [];
-        
+
         if (messages.length > data.memory_length) {
             const startIdx = Math.max(messages.length - data.long_memory_length - data.memory_length, 0);
             messages_list = messages.slice(startIdx, messages.length - data.memory_length).map(message => {
@@ -178,25 +178,26 @@ export class ToolCall extends ReActAgent {
                 return message_copy;
             });
         }
-        
-        this.memory_list = messages_list;
-        const format = this.llm_service.chatManager.chat.tool_format;
-        const toolsData = this.get_tools_prompt();
-        
-        const paramsToFormat = {
-            system_type: utils.getConfig("tool_call")?.system_type || os.type(),
-            system_platform: utils.getConfig("tool_call")?.system_platform || os.platform(),
-            system_arch: utils.getConfig("tool_call")?.system_arch || os.arch(),
-            tool_prompt: format === "prompt" ? toolsData.join("\n\n") : "",
-            mcp_prompt: this.mcp_prompt,
-            cli_prompt: this.prompts.getCliPrompt(),
-            extra_prompt: this.prompts.getExtraPrompt(data.extra_prompt),
-            important_memory: this.memory_manager.getImportantMemory(),
-            memory_list: JSON.stringify(this.memory_list, null, 2)
-        };
 
-        // 彻底根除 String.prototype.format 的调用
-        this.system_prompt = formatString(this.task_prompt(), paramsToFormat);
+        this.memory_list = messages_list;
+
+        this.system_prompt = async () => {
+            const format = this.llm_service.chatManager.chat.tool_format;
+            const toolsData = this.get_tools_prompt();
+            const important_memory = await this.memory_manager.getImportantMemory();
+            const paramsToFormat =  {
+                system_type: utils.getConfig("tool_call")?.system_type || os.type(),
+                system_platform: utils.getConfig("tool_call")?.system_platform || os.platform(),
+                system_arch: utils.getConfig("tool_call")?.system_arch || os.arch(),
+                tool_prompt: format === "prompt" ? toolsData.join("\n\n") : "",
+                mcp_prompt: this.mcp_prompt,
+                cli_prompt: this.prompts.getCliPrompt(),
+                extra_prompt: this.prompts.getExtraPrompt(data.extra_prompt),
+                important_memory: important_memory,
+                memory_list: JSON.stringify(this.memory_list, null, 2)
+            }
+            return formatString(this.task_prompt(), paramsToFormat);
+        }
     }
 
     public environment_update(data: any) {
@@ -226,7 +227,7 @@ export class ToolCall extends ReActAgent {
         const modeMap: Record<string, string> = { "auto": this.modes.AUTO, "plan": this.modes.PLAN, "flash": this.modes.FLASH, "act": this.modes.ACT };
         const selectedMode = modeMap[mode || ""] || this.modes.ACT;
         const shortMode = modeMap[mode || ""] ? mode : "act";
-        
+
         this.environment_details.mode = selectedMode;
         this.llm_service.chatManager.chat.mode = shortMode as string;
         this.window?.webContents.send('change-mode', shortMode);
@@ -237,21 +238,21 @@ export class ToolCall extends ReActAgent {
             await this.mcp_client.initMcp();
             this.mcp_prompt = this.mcp_client.mcp_prompt;
         }
-        
+
         data.push_message = false;
-        
+
         if (this.state === State.IDLE) {
             this.llm_service.chatManager.pushMessage({ role: "user", content: data.query, id: data.id, context_id: String(this.current_context_id++), show: true, react: false });
             this.state = State.RUNNING;
         }
-        
+
         this.environment_update(data);
         this.memory_update(data);
-        
-        const tool_info = await this.task(data);
-        
-        if (tool_info?.tool) {
-            let { observation, output } = await this.act(tool_info);
+
+        const toolInfo = await this.task(data);
+
+        if (toolInfo?.tool) {
+            let observation = await this.act(toolInfo);
             let warning_info: { warning: string; options: string[] } | null = null;
             if (this.thinking_repetitions.length >= (utils.getConfig("tool_call")?.max_thinking_repetitions || 3)) {
                 warning_info = {
@@ -260,138 +261,134 @@ export class ToolCall extends ReActAgent {
                 };
                 this.thinking_repetitions.length = 0;
             }
-            
-            data.output_format = JSON.stringify(observation, null, 2);
-            this.llm_service.chatManager.pushMessage({ role: "tool", content: data.output_format, id: data.id, context_id: String(this.current_context_id), show: true, react: true });
-            
+
+            data.output_format = typeof observation === "string" ? observation : JSON.stringify(observation, null, 2);
+            this.llm_service.chatManager.pushMessage({ role: "tool", content: data.output_format, tool_call_id: toolInfo?.id, tool_call_name: toolInfo?.tool, id: data.id, context_id: String(this.current_context_id), show: true, react: true });
+
             if (warning_info?.warning) {
                 this.state = State.PAUSE;
                 this.window?.webContents.send('stream-data', { id: data.id, context_id: String(this.current_context_id), content: `${warning_info.warning}\n\n`, end: true, chat: this.llm_service.chatManager.chat });
                 return warning_info.options;
             }
-            
-            switch (tool_info.tool) {
+
+            switch (toolInfo.tool) {
                 case "display_file":
-                    this.window?.webContents.send('stream-data', { id: data.id, context_id: String(this.current_context_id), content: `${output}\n\n`, chat: this.llm_service.chatManager.chat });
+                    this.window?.webContents.send('stream-data', { id: data.id, context_id: String(this.current_context_id), content: `${observation}\n\n`, chat: this.llm_service.chatManager.chat });
                     break;
                 case "add_subtasks":
                 case "record_subtasks":
-                    this.window?.webContents.send('stream-data', { id: data.id, context_id: String(this.current_context_id), content: `\`\`\`json\n${JSON.stringify(output, null, 2)}\n\`\`\`\n\n`, chat: this.llm_service.chatManager.chat });
+                    this.window?.webContents.send('stream-data', { id: data.id, context_id: String(this.current_context_id), content: `\`\`\`json\n${JSON.stringify(observation, null, 2)}\n\`\`\`\n\n`, chat: this.llm_service.chatManager.chat });
                     break;
             }
-            
-            if (["workflow_planner", "tool_manager", "web_searcher", "chart_plotter", "task_executor", "tool_documentation_collector", "url_summarizer"].includes(tool_info.tool)) {
-                this.window?.webContents.send('stream-data', { id: data.id, context_id: String(this.current_context_id), content: output, end: false, chat: this.llm_service.chatManager.chat });
+
+            if (["workflow_planner", "tool_manager", "web_searcher", "chart_plotter", "task_executor", "tool_documentation_collector", "url_summarizer"].includes(toolInfo.tool)) {
+                this.window?.webContents.send('stream-data', { id: data.id, context_id: String(this.current_context_id), content: observation, end: false, chat: this.llm_service.chatManager.chat });
             }
-            
+
             if (this.state === State.PAUSE) {
-                const { question, options } = output;
+                const { question, options } = observation.content;
                 this.window?.webContents.send('stream-data', { id: data.id, context_id: String(this.current_context_id), content: question || "", end: true, chat: this.llm_service.chatManager.chat });
                 return options;
             }
-            
+
             if (this.state === State.FINAL) {
-                this.window?.webContents.send('stream-data', { id: data.id, context_id: String(this.current_context_id), content: output, end: true, chat: this.llm_service.chatManager.chat });
+                this.window?.webContents.send('stream-data', { id: data.id, context_id: String(this.current_context_id), content: observation, end: true, chat: this.llm_service.chatManager.chat });
             } else {
                 this.window?.webContents.send('info-data', { id: data.id, context_id: String(this.current_context_id), content: this.get_info(data) });
             }
-        } else if (tool_info?.thinking) {
+        } else if (toolInfo?.thinking) {
             this.window?.webContents.send('stream-data', { id: data.id, context_id: String(this.current_context_id), content: null, end: true, chat: this.llm_service.chatManager.chat });
             this.state = State.FINAL;
         }
     }
 
     public async task(data: any) {
-        data.prompt = this.system_prompt;
-        const raw_json = await this.llmCall(data);
-        console.log(`raw_json: ${raw_json}`);
-        data.output_format = utils.extractJson(raw_json) || raw_json;
+        data.prompt = await this.system_prompt();
+        const baseResult = await this.llmCall(data);
+        if (baseResult?.tool_format === "prompt") {
+            this.llm_service.chatManager.pushMessage({ role: "assistant", content: baseResult.message.content, id: data.id, context_id: String(this.current_context_id), show: true, react: true });
+        }
+        if (baseResult?.tool_format === "openai") {
+            this.llm_service.chatManager.pushMessage({ role: "assistant", content: baseResult.message.content, tool_calls: baseResult.message.tool_calls, id: data.id, context_id: String(this.current_context_id), show: true, react: true });
+        }
         this.window?.webContents.send('info-data', { id: data.id, context_id: String(++this.current_context_id), content: this.get_info(data) });
-        this.llm_service.chatManager.pushMessage({ role: "assistant", content: data.output_format, id: data.id, context_id: String(this.current_context_id), show: true, react: true });
-        return this.get_tool(data.output_format, data);
+        const toolInfo = this.get_tool(baseResult, data);
+        return toolInfo;
     }
 
-    public get_tool(content: any, data: any): any {
+    public get_tool(baseResult: any, data: any): ToolInfo | null {
         try {
-            // 空值和非字符串的防御性转换
-            const contentStr = typeof content === 'string' ? content : (content ? JSON.stringify(content) : "");
-            
-            let tool_info = utils.parseJsonContent(contentStr);
+            let aiRespnse: any = null;
+            let toolInfo: ToolInfo | null = null;
 
-            if (contentStr.startsWith(`{\n  "content"`) && contentStr.endsWith("}")) {
-                if (!tool_info) throw new Error("Failed to parse JSON content");
-            } else if (this.llm_service.chatManager.chat.tool_format === "prompt") {
-                tool_info = JSON5.parse(contentStr);
+            if (baseResult?.tool_format === "prompt") {
+                aiRespnse = JSON5.parse(baseResult.message.content);
+                toolInfo = { thinking: aiRespnse.content, tool: aiRespnse?.tool, id: null, tool_calls: null, params: aiRespnse?.params || {} };
             }
 
-            if (tool_info) {
-                if (tool_info?.tool_calls) {
-                    let call = tool_info.tool_calls[0];
-                    tool_info = {
-                        thinking: tool_info.content,
+            if (baseResult?.tool_format === "openai") {
+                aiRespnse = baseResult.message;
+                if (aiRespnse?.tool_calls && aiRespnse.tool_calls.length > 0) {
+                    let call = aiRespnse.tool_calls[0];
+                    toolInfo = {
+                        thinking: aiRespnse.content,
                         tool: call?.function?.name,
+                        id: call?.id,
+                        tool_calls: aiRespnse?.tool_calls,
                         params: call?.function?.arguments ? JSON5.parse(call.function.arguments) : {}
                     };
+                } else {
+                    toolInfo = { thinking: aiRespnse.content, tool: null, id: null, tool_calls: null, params: {} };
                 }
-            } else {
-                tool_info = { thinking: contentStr, tool: null, params: null };
             }
 
             // 统计重复思考以打断死循环
-            if (this.thinking_repetitions.length === 0 || this.thinking_repetitions[0] === tool_info.thinking) {
-                this.thinking_repetitions.push(tool_info.thinking);
-            } else {
-                this.repetitions_delay_empty += 1;
-                if (this.repetitions_delay_empty >= (utils.getConfig("tool_call")?.repetitions_delay_empty || 2)) {
-                    this.thinking_repetitions.length = 0;
-                    this.repetitions_delay_empty = 0;
+            if (toolInfo?.thinking) {
+                if (this.thinking_repetitions.length === 0 || this.thinking_repetitions[0] === toolInfo.thinking) {
+                    this.thinking_repetitions.push(toolInfo.thinking);
+                } else {
+                    this.repetitions_delay_empty += 1;
+                    if (this.repetitions_delay_empty >= (utils.getConfig("tool_call")?.repetitions_delay_empty || 2)) {
+                        this.thinking_repetitions.length = 0;
+                        this.repetitions_delay_empty = 0;
+                    }
                 }
+                this.window?.webContents.send('stream-data', { id: data.id, context_id: String(this.current_context_id), content: `${toolInfo.thinking}\n\n---\n\n`, chat: this.llm_service.chatManager.chat });
             }
-
-            this.window?.webContents.send('stream-data', { id: data.id, context_id: String(this.current_context_id), content: `${tool_info.thinking}\n\n---\n\n`, chat: this.llm_service.chatManager.chat });
-            return tool_info;
+            return toolInfo;
 
         } catch (error: any) {
             // 解析失败时的兜底错误处理
-            let observation = {
-                type: "tool_result",
-                content: `Function calling is not a pure JSON text, or there is a problem with the JSON format: ${error.message}`
-            };
-            data.output_format = JSON.stringify(observation, null, 2);
+            let observation = `Function calling is not a pure JSON text, or there is a problem with the JSON format: ${error.message}`;
+            data.output_format = observation;
             this.llm_service.chatManager.setTag(false);
-            this.llm_service.chatManager.pushMessage({ role: "tool", content: data.output_format, id: data.id, context_id: String(this.current_context_id), show: true, react: true });
+            this.llm_service.chatManager.pushMessage({ role: "user", content: data.output_format, id: data.id, context_id: String(this.current_context_id), show: true, react: true });
             this.environment_update(data);
             this.window?.webContents.send('info-data', { id: data.id, context_id: String(this.current_context_id), content: this.get_info(data) });
             return null;
         }
     }
 
-    public async act({ tool, params }: { tool: string, params: any }) {
+    public async act(toolInfo: ToolInfo): Promise<any> {
+        let observation: any;
         try {
-            if (!this.tools || !Object.prototype.hasOwnProperty.call(this.tools, tool)) {
+            if (!this.tools || !Object.prototype.hasOwnProperty.call(this.tools, toolInfo.tool as string)) {
                 this.llm_service.chatManager.setTag(false);
-                return { observation: { type: "tool_result", content: "Tool does not exist." }, output: null };
+                observation = "Tool does not exist.";
             }
-            
-            const will_tool = this.tools[tool].func;
-            const output = await will_tool(params);
-            
-            const observation = { type: "tool_result", content: output };
-            
-            if (tool === "cli_execute") {
-                this.llm_service.chatManager.setTag(output?.success);
+            const will_tool = this.tools[toolInfo.tool as string].func;
+            observation = await will_tool(toolInfo?.params);
+            if (toolInfo?.tool === "cli_execute") {
+                this.llm_service.chatManager.setTag(observation?.success);
             } else {
                 this.llm_service.chatManager.setTag(true);
             }
-            return { observation, output };
         } catch (error: any) {
             console.error(error);
             this.llm_service.chatManager.setTag(false);
-            return { 
-                observation: { type: "tool_result", content: `Tool has been executed with error: ${error.message}` }, 
-                output: error.message 
-            };
+            observation = `Tool has been executed with error: ${error.message}`;
         }
+        return observation;
     }
 
     public async callReAct(data: any): Promise<any> {
@@ -415,7 +412,7 @@ export class ToolCall extends ReActAgent {
             data = { ...data, ...tool_call, step: ++step, context_id: String(this.current_context_id), react: true };
 
             let options = await this.step(data);
-            
+
             const currentChatName = this.llm_service.chatManager.chat.name;
             if (!currentChatName || currentChatName === CHAT_CONST.DEFAULT_NAME) {
                 this.setChatName(data).then(() => {
@@ -424,7 +421,7 @@ export class ToolCall extends ReActAgent {
                     }
                 });
             }
-            
+
             if (!this.prompt_args.subagent) {
                 this.setHistory();
             }
@@ -433,7 +430,7 @@ export class ToolCall extends ReActAgent {
                 this.window?.webContents.send("options", { options, id: data.id });
             }
         }
-        
+
         if (!this.prompt_args.subagent) {
             this.sendData(data);
         }

@@ -1,13 +1,72 @@
+// 文本内容
+export interface TextContent {
+  type: "text";
+  text: string;
+}
+
+// 图片内容
+export interface ImageContent {
+  type: "image_url";
+  image_url: {
+    url: string;
+    // 可选的其他图片参数
+    detail?: "low" | "high" | "auto";
+  };
+}
+
+// 联合类型
+export type MessageContent = TextContent | ImageContent;
+
+// openai内容
+export interface OpenAIContent {
+    role: "system" | "user" | "assistant" | "tool";
+    content: string | MessageContent[];
+    tool_call_id?: string | null;
+    tool_calls?: any[];
+}
+
+// ollama内容
+export interface OllamaContent {
+    role: "system" | "user" | "assistant";
+    content: string;
+    tool_call_id?: string | null;
+    images?: string[]; // base64图片数据数组
+}
+
+// observation
+export interface ToolResult {
+    type: "tool_result";
+    tool_call_id?: string | null;
+    content: string | any;
+}
+
+// ToolInfo
+export interface ToolInfo {
+    thinking: string;
+    tool: string | null;
+    id: string | null;
+    tool_calls: any[] | null;
+    params: any;
+}
+
+// BaseResult
+export interface BaseResult {
+    tool_format: "openai" | "prompt";
+    message: Message;
+}
+
 export interface Message {
     id?: string;
     context_id?: string | null;
     role: "system" | "user" | "assistant" | "tool";
-    content: string | any[] | undefined;
+    tool_call_name?: string | null;
+    tool_call_id?: string | null;
+    tool_calls?: any[];
+    content: string | MessageContent[];
     show?: boolean;
     react?: boolean;
     del?: boolean;
     thumb?: number; // 1:up, 0:null, -1:down
-    tool_calls?: any[];
 }
 
 export interface ChatState {
@@ -23,7 +82,7 @@ export interface ChatState {
     vars: Record<string, any>;
     model: string;
     version: string;
-    tool_format: "openai" | "prompt" | string;
+    tool_format: "openai" | "prompt";
     is_plugin: boolean;
 }
 

@@ -1,7 +1,7 @@
 import { ChatManager } from './ChatManager';
 import { AdapterFactory } from '../factories/AdapterFactory';
 import { ILLMAdapter } from '../adapters/IAdapter';
-import { ChatRequestData, Message } from '../types';
+import { BaseResult, ChatRequestData, Message, MessageContent } from '../types';
 import { streamJSON, streamSse } from '../utils/stream';
 import { formatString } from '../utils/format'; // 原型扩展 format 的替代品
 
@@ -25,18 +25,20 @@ export class LLMService {
         this.stopFlag = false;
     }
 
-    public async chatBase(data: ChatRequestData): Promise<string | null> {
+    public async chatBase(data: ChatRequestData): Promise<BaseResult | null> {
         try {
             // 1. 获取对应数据结构适配器
             this.adapter = AdapterFactory.getAdapter(this.chatManager.chat.tool_format);
 
             // 2. 输入数据清洗与格式化
-            let content: any = data.input;
+            let content: string | MessageContent[];
             if (data?.img_url) {
                 content = [
-                    { "type": "text", "text": data.input },
-                    { "type": "image_url", "image_url": { "url": data.img_url } }
+                    { type: "text", text: data.input },
+                    { type: "image_url", image_url: { url: data.img_url } }
                 ];
+            } else {
+                content = data.input;
             }
 
             // 3. 构建消息上下文记录
@@ -51,7 +53,7 @@ export class LLMService {
                 messagesList.push(messageInput);
             }
 
-            const messageOutput: Message = { role: 'assistant', content: '', id: data.id, show: true, react: false };
+            let messageOutput: Message = { role: 'assistant', content: '', id: data.id, show: true, react: false };
 
             // 4. 构建 HTTP 发送载荷
             const formattedMessages = this.adapter.formatMessages(messagesList, data.params, data?.env_message);
@@ -62,7 +64,8 @@ export class LLMService {
 
             if (this.stopFlag) {
                 this.stopFlag = false;
-                return "The user interrupted the task.";
+                messageOutput = { role: 'assistant', content: "The user interrupted the task.", id: data.id, show: true, react: false };
+                return this.adapter.formatOutput(messageOutput);
             }
 
             // 5. 发起请求
@@ -80,45 +83,33 @@ export class LLMService {
             }
 
             if (this.stopFlag) {
-                return "The user interrupted the task.";
+                messageOutput = { role: 'assistant', content: "The user interrupted the task.", id: data.id, show: true, react: false };
+                return this.adapter.formatOutput(messageOutput);
             }
 
             // 7. 处理并序列化 Tool Calls
-            data.output = messageOutput.content as string;
-            if (this.chatManager.chat.tool_format === "openai" && messageOutput.tool_calls && messageOutput.tool_calls.length > 0) {
-                data.output = JSON.stringify({
-                    content: data.output,
-                    tool_calls: messageOutput.tool_calls
-                });
-            }
+            let baseResult = this.adapter.formatOutput(messageOutput);
+            data.output = baseResult.message.content;
 
             // 8. 存入本地记忆与结束反馈
+            if (data?.push_message) {
+                this.chatManager.pushMessage(messageInput);
+                this.chatManager.pushMessage(messageOutput);
+            }
             if (data.end) {
-                if (data?.push_message) {
-                    this.chatManager.pushMessage(messageInput);
-                    this.chatManager.pushMessage(messageOutput);
-                }
-
-                if (data?.return_response) return data.output; // 只需返回
+                if (data?.return_response) return baseResult; // 只需返回
 
                 const finalResponseText = data.output_template ? formatString(data.output_template, { ...data }) : data.output;
-                
-                this.window?.webContents.send('stream-data', { 
-                    id: data.id, 
-                    content: data.react ? finalResponseText : "", 
-                    end: true, 
-                    chat: this.chatManager.chat 
+
+                this.window?.webContents.send('stream-data', {
+                    id: data.id,
+                    content: data.react ? finalResponseText : "",
+                    end: true,
+                    chat: this.chatManager.chat
                 });
-                
-                return data.output;
-            } else {
-                if (data?.push_message) {
-                    this.chatManager.pushMessage(messageInput);
-                    this.chatManager.pushMessage(messageOutput);
-                }
             }
 
-            return data.output;
+            return baseResult;
 
         } catch (error: any) {
             console.error(error);
@@ -135,7 +126,7 @@ export class LLMService {
     private async handleStream(resp: Response, adapter: any, data: ChatRequestData, messageOutput: Message) {
         const contentType = resp.headers.get('content-type');
         let streamRes;
-        
+
         if (contentType && contentType.includes('text/event-stream')) {
             streamRes = streamSse(resp);
         } else {
@@ -146,7 +137,7 @@ export class LLMService {
             if (this.stopFlag) return;
 
             const { content, reasoning_content, tool_calls, tokens } = adapter.parseStreamChunk(chunk);
-            
+
             // 组装文本
             let textDelta = content || reasoning_content || "";
             if (textDelta) {
@@ -159,10 +150,10 @@ export class LLMService {
                 for (let tc of tool_calls) {
                     if (tc.index !== undefined) {
                         if (!messageOutput.tool_calls[tc.index]) {
-                            messageOutput.tool_calls[tc.index] = { 
-                                id: tc.id, 
-                                type: "function", 
-                                function: { name: tc.function?.name || "", arguments: "" } 
+                            messageOutput.tool_calls[tc.index] = {
+                                id: tc.id,
+                                type: "function",
+                                function: { name: tc.function?.name || "", arguments: "" }
                             };
                         }
                         if (tc.function?.name) messageOutput.tool_calls[tc.index].function.name += tc.function.name;
@@ -178,11 +169,11 @@ export class LLMService {
 
             // IPC 向前台推流
             if (!data?.react && !data?.return_response) {
-                this.window?.webContents.send('stream-data', { 
-                    id: data.id, 
-                    content: textDelta, 
-                    end: false, 
-                    chat: this.chatManager.chat 
+                this.window?.webContents.send('stream-data', {
+                    id: data.id,
+                    content: textDelta,
+                    end: false,
+                    chat: this.chatManager.chat
                 });
             }
         }
@@ -199,18 +190,18 @@ export class LLMService {
 
         if (respJson.error && !data?.return_response) {
             this.window?.webContents.send('info-data', {
-                id: data.id, 
+                id: data.id,
                 content: `POST Error:\n\`\`\`\n${respJson.error.message}\n\`\`\`\n`
             });
             return;
         }
 
         const { content, tool_calls, finish_reason, tokens } = adapter.parseResponse(respJson);
-        
+
         data.output = content;
         messageOutput.content = content;
         if (tool_calls) messageOutput.tool_calls = tool_calls;
-        
+
         if (tokens) this.chatManager.chat.tokens = tokens;
 
         if (!data?.react && !data?.return_response) {
@@ -244,8 +235,8 @@ export class LLMService {
                     messageOutput.content = data.output; // 全量积累
 
                     if (!data?.react && !data?.return_response) {
-                        this.window?.webContents.send('stream-data', { 
-                            id: data.id, content: parsedCont.content, end: false, chat: this.chatManager.chat 
+                        this.window?.webContents.send('stream-data', {
+                            id: data.id, content: parsedCont.content, end: false, chat: this.chatManager.chat
                         });
                     }
 

@@ -1,17 +1,14 @@
 import { ILLMAdapter } from './IAdapter';
-import { ChatRequestData, Message, StreamChunkResult } from '../types';
+import { BaseResult, ChatRequestData, Message, MessageContent, OllamaContent, OpenAIContent, StreamChunkResult, TextContent } from '../types';
 
 export class PromptAdapter implements ILLMAdapter {
     formatMessages(messages: Message[], params: any, env_message?: Message): any[] {
         let formattedMessages = messages.map((message) => {
             // 1. 深度拷贝并剔除本地状态字段
-            const messageCopy = { ...message };
-            delete messageCopy.id;
-            delete messageCopy.context_id;
-            delete messageCopy.show;
-            delete messageCopy.react;
-            delete messageCopy.del;
-            delete messageCopy.thumb;
+            const messageCopy: OpenAIContent = {
+                role: message.role,
+                content: message.content
+            }
 
             // 2. 视觉模型参数处理
             if (!params?.vision) {
@@ -43,15 +40,17 @@ export class PromptAdapter implements ILLMAdapter {
             // 3. 针对 Ollama 等兼容 OpenAI 格式的模型做特殊适配
             if (params?.ollama && Array.isArray(messageCopy.content)) {
                 try {
-                    const textObj = messageCopy.content.find((c: any) => c.type === "text");
-                    const imgObj = messageCopy.content.find((c: any) => c.type === "image_url");
+                    const textObj = messageCopy.content.find((c: MessageContent) => c.type === "text");
+                    const imgObj = messageCopy.content.find((c: MessageContent) => c.type === "image_url");
                     if (imgObj && imgObj.image_url?.url) {
                         const base64Image = imgObj.image_url.url.split(",")[1];
-                        return {
-                            role: messageCopy.role,
+                        const role = messageCopy.role === "tool" ? "user" : messageCopy.role; // tool角色转换为user
+                        let ollamaContent: OllamaContent = {
+                            role: role,
                             content: textObj?.text || "",
                             images: [base64Image]
                         };
+                        return ollamaContent;
                     }
                 } catch (e) {
                     console.error("Ollama format error", e);
@@ -60,7 +59,7 @@ export class PromptAdapter implements ILLMAdapter {
 
             return messageCopy;
         });
-        
+
         if (env_message) {
             formattedMessages.push(env_message);
         }
@@ -125,6 +124,13 @@ export class PromptAdapter implements ILLMAdapter {
             content,
             finish_reason,
             tokens: respJson.usage?.total_tokens
+        };
+    }
+
+    public formatOutput(message: Message): BaseResult {
+        return {
+            tool_format: "prompt",
+            message: message
         };
     }
 }

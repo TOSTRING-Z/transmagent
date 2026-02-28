@@ -1,7 +1,7 @@
 import JSON5 from 'json5';
 import { LLMService } from './LLMService';
 import { utils, inner, CHAT_CONST } from '../utils/globals';
-import { ChatRequestData, Message, ChatState } from '../types';
+import { ChatRequestData, Message, ChatState, BaseResult } from '../types';
 
 export enum State {
     IDLE = 'idle',
@@ -146,7 +146,7 @@ export class ReActAgent {
         return null;
     }
 
-    public async llmCall(data: any): Promise<any> {
+    public async llmCall(data: any): Promise<BaseResult | null> {
         const configModels = utils.getConfig("models");
         data.api_url = data.api_url || configModels[data.model]?.api_url;
         data.api_key = data.api_key || configModels[data.model]?.api_key;
@@ -165,9 +165,9 @@ export class ReActAgent {
 
         const func = (reqData: any) => this.llm_service.chatBase(reqData);
 
-        await this.retry(func, data);
+        let baseResult = await this.retry(func, data);
 
-        if (!data.output) return null;
+        if (!baseResult) return null;
 
         data.outputs.push(utils.copy(data.output));
 
@@ -176,7 +176,7 @@ export class ReActAgent {
             : data.output;
 
         data.output_formats.push(utils.copy(data.output_format));
-        return data.output_format;
+        return baseResult;
     }
 
     public async sendData(data: any): Promise<boolean> {
@@ -285,16 +285,16 @@ export class ReActAgent {
                     prompt, query, params: { ...utils.getConfig("llm_params"), temperature: 0.3 }
                 });
 
-                let result = await react_agent.llmCall(data);
-                if (result) {
-                    result = "The user compressed the execution process of the current task. The compressed document is as follows:\n\n---\n\n" + result.trim();
+                let baseResult = await react_agent.llmCall(data);
+                if (baseResult) {
+                    let content = "The user compressed the execution process of the current task. The compressed document is as follows:\n\n---\n\n" + (baseResult.message.content as string).trim();
 
                     const firstMsg = will_compress_messages[0];
                     const preservedUser = will_compress_messages.find(m => m.role === 'user');
 
                     const compressed_message: Message = {
                         ...firstMsg,
-                        content: result,
+                        content: content,
                         role: "assistant",
                         react: false,
                         context_id: preservedUser?.context_id ?? firstMsg.context_id
@@ -325,7 +325,7 @@ export class ReActAgent {
 
                     this.llm_service.chatManager.messages = newMessages;
                     console.log(`Compression success for id: ${id}`);
-                    return result;
+                    return compressed_message.content as string;
                 }
             }
         } catch (error) {
@@ -351,10 +351,10 @@ export class ReActAgent {
             const query = `# history\n\`\`\`text\n# user\n${user_content}\n\n# assistant\n${history_content}\n\`\`\`\n\nGenerate a short ${_data?.language || utils.getLanguage()} chat name based on context. \nReturn name only (strictly no JSON/XML/formatting). \nRequirements: max 20 chars, must contain letters, no pure numbers/symbols/spaces.\nplease generate a name:`;
 
             const data = react_agent.getDataDefault({ prompt, query, params: { ...utils.getConfig("llm_params"), ..._data.params } });
-            const result = await react_agent.llmCall(data);
+            const baseResult = await react_agent.llmCall(data);
 
-            if (result) {
-                this.llm_service.chatManager.chat.name = result.split("\n")[0];
+            if (baseResult) {
+                this.llm_service.chatManager.chat.name = (baseResult.message.content as string).split("\n")[0];
             }
         }
     }

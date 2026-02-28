@@ -1,12 +1,13 @@
 import { utils } from '../utils/globals'
 import * as fs from 'fs';
 import { SkillManager } from './SkillManager';
+import { ToolCall } from './ToolCall';
 
 class Prompts {
-  public agent: any;
+  public agent: ToolCall;
   public skillManager: SkillManager;
 
-  constructor(agent) {
+  constructor(agent: ToolCall) {
     this.agent = agent;
     this.skillManager = new SkillManager();
   }
@@ -103,7 +104,7 @@ ${!this.agent.prompt_args.subagent && utils.getConfig('embedding')?.enabled ? `
 - **Archival**: If the user provides high-value facts (preferences, secrets, milestones), use \`write_important_memory\`.
 `:""}
 
-${(!this.agent.prompt_args.tool_format || this.agent.prompt_args.tool_format === 'prompt') ? `====
+${this.agent.llm_service.chatManager.chat.tool_format === 'prompt' ? `====
 
 # 🛠️ Strict Output Format (Zero Tolerance)
 
@@ -125,7 +126,7 @@ You must use the native function/tool calling mechanism provided by the API to e
 
 ====`}
 
-${(!this.agent.prompt_args.tool_format || this.agent.prompt_args.tool_format === 'prompt') ? `
+${this.agent.llm_service.chatManager.chat.tool_format === 'prompt' ? `
 # 🧰 Toolchain Manifest
 
 ## Core Capabilities
