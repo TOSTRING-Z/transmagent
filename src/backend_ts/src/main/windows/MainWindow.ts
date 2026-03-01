@@ -625,6 +625,20 @@ export class MainWindow extends BaseWindow {
                             this.window?.webContents.send('set-chat', this.llm_service.chatManager.chat);
                             if (this.tool_call.setHistory) this.tool_call.setHistory();
                         }
+                    },
+                    {
+                        type: 'radio',
+                        checked: this.llm_service.chatManager.chat.tool_format === 'anthropic',
+                        label: 'Anthropic (Claude API)',
+                        click: () => {
+                            this.llm_service.chatManager.chat.tool_format = 'anthropic';
+                            let config = utils.getConfig();
+                            config.default.tool_format = 'anthropic';
+                            utils.setConfig(config);
+                            this.updateVersionsSubmenu();
+                            this.window?.webContents.send('set-chat', this.llm_service.chatManager.chat);
+                            if (this.tool_call.setHistory) this.tool_call.setHistory();
+                        }
                     }
                 ]
             },

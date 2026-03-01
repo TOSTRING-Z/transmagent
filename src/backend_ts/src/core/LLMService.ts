@@ -58,9 +58,7 @@ export class LLMService {
             // 4. 构建 HTTP 发送载荷
             const formattedMessages = this.adapter.formatMessages(messagesList, data.params, data?.env_message);
             const body = this.adapter.buildPayload(data, formattedMessages);
-
-            const headers: Record<string, string> = { "Content-Type": "application/json" };
-            if (data?.api_key) headers["Authorization"] = `Bearer ${data.api_key}`;
+            const headers = this.adapter.buildHeaders(data);
 
             if (this.stopFlag) {
                 this.stopFlag = false;
@@ -183,7 +181,7 @@ export class LLMService {
         try {
             respJson = await resp.json();
         } catch (err) {
-            console.error(await resp.text());
+            console.error(err);
             return;
         }
 

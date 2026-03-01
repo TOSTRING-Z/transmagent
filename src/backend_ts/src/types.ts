@@ -52,7 +52,7 @@ export interface ToolInfo {
 export interface Message {
     id?: string;
     context_id?: string | null;
-    tool_format?: "openai" | "prompt" | string;
+    tool_format?: "openai" | "prompt" | "anthropic" | string;
     role: "system" | "user" | "assistant" | "tool";
     tool_call_name?: string | null;
     tool_call_id?: string | null;
@@ -77,7 +77,7 @@ export interface ChatState {
     vars: Record<string, any>;
     model: string;
     version: string;
-    tool_format: "openai" | "prompt";
+    tool_format: "openai" | "prompt" | "anthropic";
     is_plugin: boolean;
 }
 

@@ -1,5 +1,5 @@
 import { ILLMAdapter, IToolCallAdapter } from './IAdapter';
-import { ChatRequestData, Message, MessageContent, OllamaContent, OpenAIContent, StreamChunkResult, ToolInfo } from '../types';
+import { ChatRequestData, Message, MessageContent, OllamaContent, OpenAIContent, StreamChunkResult, ImageContent, TextContent, ToolInfo } from '../types';
 import JSON5 from 'json5';
 
 export class PromptAdapter implements ILLMAdapter {
@@ -42,14 +42,18 @@ export class PromptAdapter implements ILLMAdapter {
             // 3. 针对 Ollama 等兼容 OpenAI 格式的模型做特殊适配
             if (params?.ollama && Array.isArray(messageCopy.content)) {
                 try {
-                    const textObj = messageCopy.content.find((c: MessageContent) => c.type === "text");
-                    const imgObj = messageCopy.content.find((c: MessageContent) => c.type === "image_url");
-                    if (imgObj && imgObj.image_url?.url) {
+                    const textObj = messageCopy.content.find(
+                        (c: MessageContent): c is TextContent => c.type === "text"
+                    );
+                    const imgObj = messageCopy.content.find(
+                        (c: MessageContent): c is ImageContent => c.type === "image_url"
+                    );
+                    if (textObj && imgObj) {
                         const base64Image = imgObj.image_url.url.split(",")[1];
                         const role = messageCopy.role === "tool" ? "user" : messageCopy.role; // tool角色转换为user
                         let ollamaContent: OllamaContent = {
                             role: role,
-                            content: textObj?.text || "",
+                            content: textObj.text || "",
                             images: [base64Image]
                         };
                         return ollamaContent;
@@ -80,6 +84,12 @@ export class PromptAdapter implements ILLMAdapter {
             ...data.llm_params
             // 注意：这里不传入 tools 和 tool_choice，避免 API 报错
         };
+    }
+
+    public buildHeaders(data: ChatRequestData): Record<string, string> {
+        const headers: Record<string, string> = { "Content-Type": "application/json" };
+        if (data?.api_key) headers["Authorization"] = `Bearer ${data.api_key}`;
+        return headers;
     }
 
     public parseStreamChunk(chunk: any): StreamChunkResult {

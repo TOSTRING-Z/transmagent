@@ -6,6 +6,9 @@ export interface ILLMAdapter {
     
     // 组装最终的 Fetch Request Body
     buildPayload(data: ChatRequestData, formattedMessages: any[]): Record<string, any>;
+
+    // 构建请求头（如 API Key、特殊模型参数等）
+    buildHeaders(data: ChatRequestData): Record<string, string>;
     
     // 解析流式 Chunk
     parseStreamChunk(chunk: any): StreamChunkResult;

@@ -122,6 +122,20 @@ export class ToolCall extends ReActAgent {
                 if (schema.type === "raw_string" || schema.name === "enter_idle_state") return null;
                 return { type: "function", function: schema };
             }).filter(Boolean);
+        } else if (format === "anthropic") {
+            return tool_schemas.map(schema => {
+                if (schema.type === "raw_string" || schema.name === "enter_idle_state") return null;
+
+                return {
+                    type: "custom",
+                    name: schema.name,
+                    description: schema.description || '',
+                    input_schema: schema.parameters || {
+                        type: 'object',
+                        properties: {}
+                    }
+                };
+            }).filter(Boolean);
         } else {
             const tool_prompt: string[] = [];
             for (const schema of tool_schemas) {
