@@ -5,6 +5,7 @@ import JSON5 from 'json5';
 export class AnthropicAdapter implements ILLMAdapter {
     public formatMessages(messages: Message[], params: any, env_message?: any): any[] {
         let formattedMessages = messages
+            .filter(message => message.role !== 'system') // 过滤掉 system 消息
             .map((message) => {
                 const messageCopy: any = {
                     // Anthropic 只接受 user 和 assistant
@@ -105,13 +106,13 @@ export class AnthropicAdapter implements ILLMAdapter {
     public buildPayload(data: ChatRequestData, formattedMessages: any[]): Record<string, any> {
         const body: Record<string, any> = {
             model: data.version,
-            messages: formattedMessages.slice(1, formattedMessages.length),
+            messages: formattedMessages,
             max_tokens: data.llm_params?.max_tokens || 4096,
             ...data.llm_params
         };
 
-        // 提取 System Prompt (从原始 messages 中获取)
-        let systemMessages = formattedMessages[0].content[0].text || ""; // 默认取第一个消息的文本作为 system prompt，后续可以根据实际情况调整提取逻辑
+        // 提取 System Prompt
+        let systemMessages = data.system_prompt || ""; // 默认取第一个消息的文本作为 system prompt，后续可以根据实际情况调整提取逻辑
 
         // 兼容原有的 【system】 标记逻辑
         const lastMessage = formattedMessages[formattedMessages.length - 1];

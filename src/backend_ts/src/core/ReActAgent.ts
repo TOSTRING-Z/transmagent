@@ -1,7 +1,7 @@
 import JSON5 from 'json5';
 import { LLMService } from './LLMService';
 import { utils, inner, CHAT_CONST } from '../utils/globals';
-import { Message, ChatState } from '../types';
+import { Message, ChatState, MessageContent } from '../types';
 
 export enum State {
     IDLE = 'idle',
@@ -197,6 +197,8 @@ export class ReActAgent {
             query: data?.query,
             img_url: data?.img_url,
             file_path: data?.file_path,
+            api_url: null,
+            api_key: null,
             model: utils.copy(data?.model || this.llm_service.chatManager.chat.model),
             version: utils.copy(data?.version || this.llm_service.chatManager.chat.version),
             output_template: null,
@@ -350,11 +352,39 @@ export class ReActAgent {
             const prompt = `You are an intelligent assistant skilled at generating short chat names based on contextual content. Please ensure the generated names are concise and clear, accurately reflecting the chat content.`;
             const query = `# history\n\`\`\`text\n# user\n${user_content}\n\n# assistant\n${history_content}\n\`\`\`\n\nGenerate a short ${_data?.language || utils.getLanguage()} chat name based on context. \nReturn name only (strictly no JSON/XML/formatting). \nRequirements: max 20 chars, must contain letters, no pure numbers/symbols/spaces.\nplease generate a name:`;
 
-            const data = react_agent.getDataDefault({ prompt, query, params: { ...utils.getConfig("llm_params"), ..._data.params } });
+            const data = react_agent.getDataDefault({ prompt, query, params: { ...utils.getConfig("llm_params"), ..._data.params }, api_url: _data.api_url, api_key: _data.api_key });
             const messageOutput = await react_agent.llmCall(data);
-
             if (messageOutput) {
-                this.llm_service.chatManager.chat.name = (messageOutput.content as string).split("\n")[0];
+                if (this.llm_service.chatManager.chat.tool_format === "anthropic") {
+                    // 处理Anthropic格式的响应
+                    const content = messageOutput.content;
+                    let chatName = '';
+    
+                    if (Array.isArray(content)) {
+                        // 查找文本类型的content
+                        const textItem = content.find((item: MessageContent) => item.type === "text");
+                        if (textItem) {
+                            chatName = textItem.text.split("\n")[0].trim();
+                        }
+                    } else if (typeof content === 'string') {
+                        // 如果content是字符串（某些情况）
+                        chatName = content.split("\n")[0].trim();
+                    }
+    
+                    // 设置聊天名称
+                    if (chatName) {
+                        this.llm_service.chatManager.chat.name = chatName;
+                    } else {
+                        // 如果没有获取到名称，使用默认值
+                        this.llm_service.chatManager.chat.name = utils.formatDate();
+                    }
+                } else {
+                    // 原有的OpenAI格式处理
+                    const content = messageOutput.content;
+                    if (content) {
+                        this.llm_service.chatManager.chat.name = (content as string).split("\n")[0];
+                    }
+                }
             }
         }
     }
