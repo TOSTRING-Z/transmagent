@@ -274,7 +274,7 @@ export default function getBaseTools(toolCallInstance: ToolCall): Record<string,
         "write_important_memory": {
             func: async ({ content }: { content: string }) => {
                 if (!content || typeof content !== 'string') return "Error: Content must be a non-empty string.";
-                return toolCallInstance.memory_manager.appendImportantMemory(content, toolCallInstance.environment_details.time)
+                return await toolCallInstance.memory_manager.appendImportantMemory(content, toolCallInstance.environment_details.time)
                     ? "Success: Memory Archived"
                     : "Error: Write Failed";
             },

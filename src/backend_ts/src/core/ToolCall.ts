@@ -4,8 +4,6 @@ import { utils, CHAT_CONST } from '../utils/globals';
 import { formatString } from '../utils/format';
 import { LLMService } from './LLMService';
 import { Message, ToolInfo } from '../types';
-
-// 假设这些文件后续也会做 TS 适配，目前可以使用 any 或对应类型
 import { MCPClient } from './McpClient';
 import Prompts from './Prompts';
 import MemoryManager from '../data/MemoryManager';

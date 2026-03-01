@@ -1,6 +1,5 @@
 import * as fs from 'fs';
 import * as path from 'path';
-// import * as yaml from 'js-yaml'; // 假设已安装，若未安装将改用正则解析
 
 class SkillManager {
   skillsPath: string;

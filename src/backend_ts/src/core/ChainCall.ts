@@ -2,7 +2,6 @@ import { ReActAgent, State } from './ReActAgent';
 import { utils, CHAT_CONST } from '../utils/globals';
 import { formatString } from '../utils/format';
 import { LLMService } from './LLMService';
-import { BaseResult } from '../types';
 
 export class ChainCall extends ReActAgent {
     public is_plugin: boolean;
@@ -41,16 +40,15 @@ export class ChainCall extends ReActAgent {
 
     public async step(data: any): Promise<void> {
         this.is_plugin = data.model === "plugins";
-        let stateResult = null;
-        let baseResult: BaseResult | null = null;
+        let stateResult: any = null;
         
         if (data.model === "plugins") {
             stateResult = await this.pluginCall(data);
         } else {
-            baseResult = await this.llmCall(data);
+            stateResult = await this.llmCall(data);
         }
         
-        if (!stateResult && !baseResult) {
+        if (!stateResult) {
             this.state = State.ERROR;
         }
         
