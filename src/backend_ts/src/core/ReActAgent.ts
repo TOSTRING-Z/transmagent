@@ -1,7 +1,7 @@
 import JSON5 from 'json5';
 import { LLMService } from './LLMService';
 import { utils, inner, CHAT_CONST } from '../utils/globals';
-import { ChatRequestData, Message, ChatState, BaseResult } from '../types';
+import { Message, ChatState } from '../types';
 
 export enum State {
     IDLE = 'idle',
@@ -146,7 +146,7 @@ export class ReActAgent {
         return null;
     }
 
-    public async llmCall(data: any): Promise<BaseResult | null> {
+    public async llmCall(data: any): Promise<Message | null> {
         const configModels = utils.getConfig("models");
         data.api_url = data.api_url || configModels[data.model]?.api_url;
         data.api_key = data.api_key || configModels[data.model]?.api_key;
@@ -285,9 +285,9 @@ export class ReActAgent {
                     prompt, query, params: { ...utils.getConfig("llm_params"), temperature: 0.3 }
                 });
 
-                let baseResult = await react_agent.llmCall(data);
-                if (baseResult) {
-                    let content = "The user compressed the execution process of the current task. The compressed document is as follows:\n\n---\n\n" + (baseResult.message.content as string).trim();
+                let messageOutput = await react_agent.llmCall(data);
+                if (messageOutput) {
+                    let content = "The user compressed the execution process of the current task. The compressed document is as follows:\n\n---\n\n" + (messageOutput.content as string).trim();
 
                     const firstMsg = will_compress_messages[0];
                     const preservedUser = will_compress_messages.find(m => m.role === 'user');
@@ -351,10 +351,10 @@ export class ReActAgent {
             const query = `# history\n\`\`\`text\n# user\n${user_content}\n\n# assistant\n${history_content}\n\`\`\`\n\nGenerate a short ${_data?.language || utils.getLanguage()} chat name based on context. \nReturn name only (strictly no JSON/XML/formatting). \nRequirements: max 20 chars, must contain letters, no pure numbers/symbols/spaces.\nplease generate a name:`;
 
             const data = react_agent.getDataDefault({ prompt, query, params: { ...utils.getConfig("llm_params"), ..._data.params } });
-            const baseResult = await react_agent.llmCall(data);
+            const messageOutput = await react_agent.llmCall(data);
 
-            if (baseResult) {
-                this.llm_service.chatManager.chat.name = (baseResult.message.content as string).split("\n")[0];
+            if (messageOutput) {
+                this.llm_service.chatManager.chat.name = (messageOutput.content as string).split("\n")[0];
             }
         }
     }
@@ -410,10 +410,10 @@ export class ReActAgent {
                         this.window.webContents.send('user-data', { id, context_id, content, del });
                     }
                     else if (role === "tool") {
-                        const tool_info = utils.parseJsonContent(content as string);
-                        if (tool_info?.tool_call) {
-                            const tool = tool_info.tool_call;
-                            const observation = tool_info.observation;
+                        const toolInfo = utils.parseJsonContent(content as string);
+                        if (toolInfo?.tool_call) {
+                            const tool = toolInfo.tool_call;
+                            const observation = toolInfo.observation;
 
                             switch (tool) {
                                 case "display_file":
@@ -438,28 +438,28 @@ export class ReActAgent {
                     } else { // assistant
                         if (react) {
                             try {
-                                let tool_info = utils.parseJsonContent(content as string);
-                                if (tool_info) {
-                                    if (tool_info?.tool_calls) {
-                                        let call = tool_info.tool_calls[0];
-                                        tool_info = {
-                                            thinking: tool_info.content,
+                                let toolInfo = utils.parseJsonContent(content as string);
+                                if (toolInfo) {
+                                    if (toolInfo?.tool_calls) {
+                                        let call = toolInfo.tool_calls[0];
+                                        toolInfo = {
+                                            thinking: toolInfo.content,
                                             tool: call?.function?.name,
                                             params: call?.function?.arguments ? JSON5.parse(call.function.arguments) : {}
                                         };
                                     }
                                 } else {
-                                    tool_info = { thinking: content, tool: null, params: null };
+                                    toolInfo = { thinking: content, tool: null, params: null };
                                 }
 
-                                const thinking = `${tool_info?.thinking || `Tool call: ${tool_info.tool || "error"}`}\n\n---\n\n`;
+                                const thinking = `${toolInfo?.thinking || `Tool call: ${toolInfo.tool || "error"}`}\n\n---\n\n`;
                                 let content_format = (content as string).replaceAll("\\`", "'").replaceAll("`", "'");
 
                                 this.window.webContents.send('info-data', { id, context_id, content: `Step ${i}, id: ${id}, context_id: ${context_id}, Output:\n\n\`\`\`json\n${content_format}\n\`\`\`\n\n`, del });
                                 this.window.webContents.send('stream-data', { id, context_id, content: thinking, end: true, del });
 
-                                if (tool_info.tool === "enter_idle_state") {
-                                    this.window.webContents.send('stream-data', { id, context_id, content: tool_info.params.final_answer, end: true, del });
+                                if (toolInfo.tool === "enter_idle_state") {
+                                    this.window.webContents.send('stream-data', { id, context_id, content: toolInfo.params.final_answer, end: true, del });
                                 }
                             } catch {
                                 this.window.webContents.send('stream-data', { id, context_id, content: null, end: true, del });

@@ -1,5 +1,6 @@
-import { ILLMAdapter } from './IAdapter';
-import { BaseResult, ChatRequestData, Message, MessageContent, OllamaContent, OpenAIContent, StreamChunkResult } from '../types';
+import { ILLMAdapter, IToolCallAdapter } from './IAdapter';
+import { ChatRequestData, Message, MessageContent, OllamaContent, OpenAIContent, StreamChunkResult, ToolInfo } from '../types';
+import JSON5 from 'json5';
 
 export class OpenAIAdapter implements ILLMAdapter {
     public formatMessages(messages: Message[], params: any, env_message?: any): any[] {
@@ -146,11 +147,30 @@ export class OpenAIAdapter implements ILLMAdapter {
             tokens: respJson.usage?.total_tokens
         };
     }
+}
 
-    public formatOutput(message: Message): BaseResult {
-        return {
-            tool_format: "openai",
-            message: message
-        };
+export class OpenAIToolCallAdapter implements IToolCallAdapter {
+    public getToolInfo(message: Message): ToolInfo {
+        let toolInfo: ToolInfo;
+        try {
+            if (message?.tool_calls && message.tool_calls.length > 0) {
+                let call = message.tool_calls[0];
+                toolInfo = {
+                    thinking: message.content as string,
+                    tool: call?.function?.name,
+                    id: call?.id,
+                    tool_calls: message?.tool_calls,
+                    params: call?.function?.arguments ? JSON5.parse(call.function.arguments) : {},
+                    error: null
+                };
+            } else {
+                toolInfo = { thinking: message.content as string, tool: null, id: null, tool_calls: null, params: {}, error: null };
+            }
+        } catch (error: any) {
+            // 解析失败时的兜底错误处理
+            let observation = `Arguments are not a pure JSON text, or there is a problem with the JSON format: ${error.message}`;
+            toolInfo = { thinking: null, tool: null, id: null, tool_calls: null, params: {}, error: observation };
+        }
+        return toolInfo;
     }
 }

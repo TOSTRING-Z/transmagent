@@ -1,7 +1,7 @@
 import { ChatManager } from './ChatManager';
-import { AdapterFactory } from '../factories/AdapterFactory';
+import { LLMAdapterFactory } from '../factories/AdapterFactory';
 import { ILLMAdapter } from '../adapters/IAdapter';
-import { BaseResult, ChatRequestData, Message, MessageContent } from '../types';
+import { ChatRequestData, Message, MessageContent } from '../types';
 import { streamJSON, streamSse } from '../utils/stream';
 import { formatString } from '../utils/format'; // 原型扩展 format 的替代品
 
@@ -14,7 +14,7 @@ export class LLMService {
     constructor(messages: Message[] = [], window: any = null) {
         this.window = window;
         this.chatManager = new ChatManager(messages);
-        this.adapter = AdapterFactory.getAdapter("prompt"); // 默认适配器
+        this.adapter = LLMAdapterFactory.getAdapter("prompt"); // 默认适配器
     }
 
     public stopMessage() {
@@ -25,10 +25,10 @@ export class LLMService {
         this.stopFlag = false;
     }
 
-    public async chatBase(data: ChatRequestData): Promise<BaseResult | null> {
+    public async chatBase(data: ChatRequestData): Promise<Message | null> {
         try {
             // 1. 获取对应数据结构适配器
-            this.adapter = AdapterFactory.getAdapter(this.chatManager.chat.tool_format);
+            this.adapter = LLMAdapterFactory.getAdapter(this.chatManager.chat.tool_format);
 
             // 2. 输入数据清洗与格式化
             let content: string | MessageContent[];
@@ -65,7 +65,7 @@ export class LLMService {
             if (this.stopFlag) {
                 this.stopFlag = false;
                 messageOutput = { role: 'assistant', content: "The user interrupted the task.", id: data.id, show: true, react: false };
-                return this.adapter.formatOutput(messageOutput);
+                return messageOutput;
             }
 
             // 5. 发起请求
@@ -84,12 +84,11 @@ export class LLMService {
 
             if (this.stopFlag) {
                 messageOutput = { role: 'assistant', content: "The user interrupted the task.", id: data.id, show: true, react: false };
-                return this.adapter.formatOutput(messageOutput);
+                return messageOutput;
             }
 
             // 7. 处理并序列化 Tool Calls
-            let baseResult = this.adapter.formatOutput(messageOutput);
-            data.output = baseResult.message.content;
+            data.output = messageOutput.content;
 
             // 8. 存入本地记忆与结束反馈
             if (data?.push_message) {
@@ -97,7 +96,7 @@ export class LLMService {
                 this.chatManager.pushMessage(messageOutput);
             }
             if (data.end) {
-                if (data?.return_response) return baseResult; // 只需返回
+                if (data?.return_response) return messageOutput; // 只需返回
 
                 const finalResponseText = data.output_template ? formatString(data.output_template, { ...data }) : data.output;
 
@@ -109,7 +108,7 @@ export class LLMService {
                 });
             }
 
-            return baseResult;
+            return messageOutput;
 
         } catch (error: any) {
             console.error(error);

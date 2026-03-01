@@ -1,16 +1,17 @@
 import * as os from 'os';
-import JSON5 from 'json5';
 import { ReActAgent, State } from './ReActAgent';
 import { utils, CHAT_CONST } from '../utils/globals';
 import { formatString } from '../utils/format';
 import { LLMService } from './LLMService';
-import { Message, ToolInfo, ToolResult } from '../types';
+import { Message, ToolInfo } from '../types';
 
 // 假设这些文件后续也会做 TS 适配，目前可以使用 any 或对应类型
 import { MCPClient } from './McpClient';
 import Prompts from './Prompts';
 import MemoryManager from '../data/MemoryManager';
 import getBaseTools from './base_tools';
+import { ToolCallAdapterFactory } from '../factories/AdapterFactory';
+import { IToolCallAdapter } from '../adapters/IAdapter';
 
 export interface PromptArgs {
     agent_prompt?: string | null;
@@ -185,7 +186,7 @@ export class ToolCall extends ReActAgent {
             const format = this.llm_service.chatManager.chat.tool_format;
             const toolsData = this.get_tools_prompt();
             const important_memory = await this.memory_manager.getImportantMemory();
-            const paramsToFormat =  {
+            const paramsToFormat = {
                 system_type: utils.getConfig("tool_call")?.system_type || os.type(),
                 system_platform: utils.getConfig("tool_call")?.system_platform || os.platform(),
                 system_arch: utils.getConfig("tool_call")?.system_arch || os.arch(),
@@ -304,44 +305,22 @@ export class ToolCall extends ReActAgent {
 
     public async task(data: any) {
         data.prompt = await this.system_prompt();
-        const baseResult = await this.llmCall(data);
-        if (baseResult?.tool_format === "prompt") {
-            this.llm_service.chatManager.pushMessage({ role: "assistant", content: baseResult.message.content, id: data.id, context_id: String(this.current_context_id), show: true, react: true });
-        }
-        if (baseResult?.tool_format === "openai") {
-            this.llm_service.chatManager.pushMessage({ role: "assistant", content: baseResult.message.content, tool_calls: baseResult.message.tool_calls, id: data.id, context_id: String(this.current_context_id), show: true, react: true });
-        }
-        this.window?.webContents.send('info-data', { id: data.id, context_id: String(++this.current_context_id), content: this.get_info(data) });
-        const toolInfo = this.get_tool(baseResult, data);
-        return toolInfo;
-    }
-
-    public get_tool(baseResult: any, data: any): ToolInfo | null {
-        try {
-            let aiRespnse: any = null;
-            let toolInfo: ToolInfo | null = null;
-
-            if (baseResult?.tool_format === "prompt") {
-                aiRespnse = JSON5.parse(baseResult.message.content);
-                toolInfo = { thinking: aiRespnse.content, tool: aiRespnse?.tool, id: null, tool_calls: null, params: aiRespnse?.params || {} };
+        const messageOutput = await this.llmCall(data);
+        if (messageOutput) {
+            const message = { ...messageOutput, ...{ id: data.id, context_id: String(this.current_context_id), tool_format: this.llm_service.chatManager.chat.tool_format, show: true, react: true } }
+            this.llm_service.chatManager.pushMessage(message);
+            this.window?.webContents.send('info-data', { id: data.id, context_id: String(++this.current_context_id), content: this.get_info(data) });
+            const adapter: IToolCallAdapter = ToolCallAdapterFactory.getAdapter(this.llm_service.chatManager.chat.tool_format);
+            const toolInfo = adapter.getToolInfo(message);
+            if (toolInfo?.error) {
+                data.output_format = toolInfo.error;
+                this.llm_service.chatManager.setTag(false);
+                this.llm_service.chatManager.pushMessage({ role: "user", content: data.output_format, id: data.id, context_id: String(this.current_context_id), show: true, react: true });
+                this.environment_update(data);
+                this.window?.webContents.send('info-data', { id: data.id, context_id: String(this.current_context_id), content: this.get_info(data) });
+            } else {
+                data.output_format = toolInfo?.thinking || "No thinking content.";
             }
-
-            if (baseResult?.tool_format === "openai") {
-                aiRespnse = baseResult.message;
-                if (aiRespnse?.tool_calls && aiRespnse.tool_calls.length > 0) {
-                    let call = aiRespnse.tool_calls[0];
-                    toolInfo = {
-                        thinking: aiRespnse.content,
-                        tool: call?.function?.name,
-                        id: call?.id,
-                        tool_calls: aiRespnse?.tool_calls,
-                        params: call?.function?.arguments ? JSON5.parse(call.function.arguments) : {}
-                    };
-                } else {
-                    toolInfo = { thinking: aiRespnse.content, tool: null, id: null, tool_calls: null, params: {} };
-                }
-            }
-
             // 统计重复思考以打断死循环
             if (toolInfo?.thinking) {
                 if (this.thinking_repetitions.length === 0 || this.thinking_repetitions[0] === toolInfo.thinking) {
@@ -356,18 +335,9 @@ export class ToolCall extends ReActAgent {
                 this.window?.webContents.send('stream-data', { id: data.id, context_id: String(this.current_context_id), content: `${toolInfo.thinking}\n\n---\n\n`, chat: this.llm_service.chatManager.chat });
             }
             return toolInfo;
-
-        } catch (error: any) {
-            // 解析失败时的兜底错误处理
-            let observation = `Function calling is not a pure JSON text, or there is a problem with the JSON format: ${error.message}`;
-            data.output_format = observation;
-            this.llm_service.chatManager.setTag(false);
-            this.llm_service.chatManager.pushMessage({ role: "user", content: data.output_format, id: data.id, context_id: String(this.current_context_id), show: true, react: true });
-            this.environment_update(data);
-            this.window?.webContents.send('info-data', { id: data.id, context_id: String(this.current_context_id), content: this.get_info(data) });
-            return null;
         }
     }
+
 
     public async act(toolInfo: ToolInfo): Promise<any> {
         let observation: any;
@@ -402,6 +372,8 @@ export class ToolCall extends ReActAgent {
         // @ts-ignore
         while (this.state !== State.FINAL && this.state !== State.PAUSE) {
             // @ts-ignore
+            // 延时1s，避免过快进入死循环
+            await new Promise(resolve => setTimeout(resolve, 1000));
             if (this.llm_service.stopFlag) {
                 this.state = State.FINAL;
                 this.window?.webContents.send('stream-data', { id: data.id, content: "The user interrupted the task.", end: true, chat: this.llm_service.chatManager.chat });

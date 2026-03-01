@@ -11,6 +11,8 @@ export class CodeWindow extends BaseWindow {
     private react_agent_completion: ReActAgent | null = null;
     private llm_service_refactor: LLMService | null = null;
     private react_agent_refactor: ReActAgent | null = null;
+    private auto_complete_enabled: boolean = false;  // 自动AI补全开关，默认关闭
+    private auto_error_correct_enabled: boolean = false;  // 自动错误纠正开关，默认关闭
 
     constructor(windowManager: WindowManager) {
         super(windowManager);
@@ -182,6 +184,26 @@ export class CodeWindow extends BaseWindow {
             }
         });
 
+        // 获取自动AI补全和错误纠正开关状态
+        ipcMain.handle('get-auto-features', () => {
+            return {
+                auto_complete: this.auto_complete_enabled,
+                auto_error_correct: this.auto_error_correct_enabled
+            };
+        });
+
+        // 设置自动AI补全开关
+        ipcMain.handle('set-auto-complete', (_, enabled: boolean) => {
+            this.auto_complete_enabled = enabled;
+            return { success: true, enabled: this.auto_complete_enabled };
+        });
+
+        // 设置自动错误纠正开关
+        ipcMain.handle('set-auto-error-correct', (_, enabled: boolean) => {
+            this.auto_error_correct_enabled = enabled;
+            return { success: true, enabled: this.auto_error_correct_enabled };
+        });
+
         ipcMain.handle('detect-language', async (_, code: string) => {
             try {
                 const llm_service = new LLMService();
@@ -192,9 +214,9 @@ export class CodeWindow extends BaseWindow {
                     prompt, query: snippet,
                     params: { temperature: 0.1, max_tokens: 20, ...(utils.getConfig("code")?.detect?.params || {}) }
                 });
-                const baseResult = await react_agent.llmCall(data);
-                if (baseResult) {
-                    let lang = (baseResult.message.content as string).trim().toLowerCase().replace(/[^a-z0-9+#]/g, '');
+                const messageOutput = await react_agent.llmCall(data);
+                if (messageOutput) {
+                    let lang = (messageOutput.content as string).trim().toLowerCase().replace(/[^a-z0-9+#]/g, '');
                     return { language: lang };
                 }
                 return { language: 'plaintext' };

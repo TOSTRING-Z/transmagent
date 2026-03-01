@@ -42,22 +42,18 @@ export interface ToolResult {
 
 // ToolInfo
 export interface ToolInfo {
-    thinking: string;
+    thinking: string | null;
     tool: string | null;
     id: string | null;
     tool_calls: any[] | null;
     params: any;
-}
-
-// BaseResult
-export interface BaseResult {
-    tool_format: "openai" | "prompt";
-    message: Message;
+    error: string | null;
 }
 
 export interface Message {
     id?: string;
     context_id?: string | null;
+    tool_format?: "openai" | "prompt" | string;
     role: "system" | "user" | "assistant" | "tool";
     tool_call_name?: string | null;
     tool_call_id?: string | null;

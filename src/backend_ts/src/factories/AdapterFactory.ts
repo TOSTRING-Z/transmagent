@@ -1,8 +1,8 @@
-import { ILLMAdapter } from '../adapters/IAdapter';
-import { OpenAIAdapter } from '../adapters/OpenAIAdapter';
-import { PromptAdapter } from '../adapters/PromptAdapter';
+import { ILLMAdapter,IToolCallAdapter } from '../adapters/IAdapter';
+import { OpenAIAdapter,OpenAIToolCallAdapter } from '../adapters/OpenAIAdapter';
+import { PromptAdapter,PromptToolCallAdapter } from '../adapters/PromptAdapter';
 
-export class AdapterFactory {
+export class LLMAdapterFactory {
     static getAdapter(format: string): ILLMAdapter {
         switch (format) {
             case 'openai':
@@ -11,6 +11,19 @@ export class AdapterFactory {
                 return new PromptAdapter();
             default:
                 return new PromptAdapter(); 
+        }
+    }
+}
+
+export class ToolCallAdapterFactory {
+    static getAdapter(format: string): IToolCallAdapter {
+        switch (format) {
+            case 'openai':
+                return new OpenAIToolCallAdapter();
+            case 'prompt':
+                return new PromptToolCallAdapter();
+            default:
+                return new PromptToolCallAdapter(); 
         }
     }
 }
