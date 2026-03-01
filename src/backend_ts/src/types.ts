@@ -45,7 +45,6 @@ export interface ToolInfo {
     thinking: string | null;
     tool: string | null;
     id: string | null;
-    tool_calls: any[] | null;
     params: any;
     error: string | null;
 }

@@ -309,7 +309,6 @@ export class ToolCall extends ReActAgent {
         if (messageOutput) {
             const message = { ...messageOutput, ...{ id: data.id, context_id: String(this.current_context_id), tool_format: this.llm_service.chatManager.chat.tool_format, show: true, react: true } }
             this.llm_service.chatManager.pushMessage(message);
-            this.window?.webContents.send('info-data', { id: data.id, context_id: String(++this.current_context_id), content: this.get_info(data) });
             const adapter: IToolCallAdapter = ToolCallAdapterFactory.getAdapter(this.llm_service.chatManager.chat.tool_format);
             const toolInfo = adapter.getToolInfo(message);
             if (toolInfo?.error) {
@@ -319,7 +318,9 @@ export class ToolCall extends ReActAgent {
                 this.environment_update(data);
                 this.window?.webContents.send('info-data', { id: data.id, context_id: String(this.current_context_id), content: this.get_info(data) });
             } else {
-                data.output_format = toolInfo?.thinking || "No thinking content.";
+                let toolInfoStr = JSON.stringify(toolInfo, null, 2).replaceAll("\\`", "'").replaceAll("`", "'");
+                data.output_format = toolInfoStr;
+                this.window?.webContents.send('info-data', { id: data.id, context_id: String(++this.current_context_id), content: this.get_info(data) });
             }
             // 统计重复思考以打断死循环
             if (toolInfo?.thinking) {

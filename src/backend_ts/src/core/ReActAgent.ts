@@ -410,27 +410,24 @@ export class ReActAgent {
                         this.window.webContents.send('user-data', { id, context_id, content, del });
                     }
                     else if (role === "tool") {
-                        const toolInfo = utils.parseJsonContent(content as string);
-                        if (toolInfo?.tool_call) {
-                            const tool = toolInfo.tool_call;
-                            const observation = toolInfo.observation;
+                        const parameters = utils.parseJsonContent(content as string);
+                        const tool_call_name = message.tool_call_name || "unknown_tool";
 
-                            switch (tool) {
-                                case "display_file":
-                                    this.window.webContents.send('stream-data', { id, context_id, content: `${observation}\n\n`, end: true, del });
-                                    break;
-                                case "add_subtasks":
-                                case "complete_subtasks":
-                                    this.window.webContents.send('stream-data', { id, context_id, content: `\`\`\`json\n${JSON.stringify(observation, null, 2)}\n\`\`\`\n\n`, end: true, del });
-                                    break;
-                            }
+                        switch (tool_call_name) {
+                            case "display_file":
+                                this.window.webContents.send('stream-data', { id, context_id, content: `${content}\n\n`, end: true, del });
+                                break;
+                            case "add_subtasks":
+                            case "complete_subtasks":
+                                this.window.webContents.send('stream-data', { id, context_id, content: `\`\`\`json\n${content}\n\`\`\`\n\n`, end: true, del });
+                                break;
+                        }
 
-                            if (["workflow_planner", "tool_manager", "web_searcher", "chart_plotter", "task_executor", "tool_documentation_collector", "url_summarizer"].includes(tool)) {
-                                this.window.webContents.send('stream-data', { id, context_id, content: `${observation}\n\n`, end: true, del });
-                            }
-                            if (["ask_followup_question", "waiting_feedback", "plan_mode_response"].includes(tool)) {
-                                this.window.webContents.send('stream-data', { id, context_id, content: `${observation.question}\n\n`, end: true, del });
-                            }
+                        if (["workflow_planner", "tool_manager", "web_searcher", "chart_plotter", "task_executor", "tool_documentation_collector", "url_summarizer"].includes(tool_call_name)) {
+                            this.window.webContents.send('stream-data', { id, context_id, content: `${content}\n\n`, end: true, del });
+                        }
+                        if (["ask_followup_question", "waiting_feedback", "plan_mode_response"].includes(tool_call_name)) {
+                            this.window.webContents.send('stream-data', { id, context_id, content: `${parameters.question}\n\n`, end: true, del });
                         }
 
                         let content_format = (content as string).replaceAll("\\`", "'").replaceAll("`", "'");
@@ -438,24 +435,26 @@ export class ReActAgent {
                     } else { // assistant
                         if (react) {
                             try {
-                                let toolInfo = utils.parseJsonContent(content as string);
-                                if (toolInfo) {
-                                    if (toolInfo?.tool_calls) {
-                                        let call = toolInfo.tool_calls[0];
+                                let toolInfo;
+                                if (message?.tool_format && message.tool_format !== "prompt") {
+                                    if (message?.tool_calls) {
+                                        let call = message.tool_calls[0];
                                         toolInfo = {
-                                            thinking: toolInfo.content,
+                                            thinking: content,
                                             tool: call?.function?.name,
                                             params: call?.function?.arguments ? JSON5.parse(call.function.arguments) : {}
                                         };
+                                    } else {
+                                        toolInfo = { thinking: content, tool: null, params: null };
                                     }
                                 } else {
-                                    toolInfo = { thinking: content, tool: null, params: null };
+                                    toolInfo = utils.parseJsonContent(content as string);
                                 }
 
                                 const thinking = `${toolInfo?.thinking || `Tool call: ${toolInfo.tool || "error"}`}\n\n---\n\n`;
-                                let content_format = (content as string).replaceAll("\\`", "'").replaceAll("`", "'");
+                                let toolInfoStr = JSON.stringify(toolInfo, null, 2).replaceAll("\\`", "'").replaceAll("`", "'");
 
-                                this.window.webContents.send('info-data', { id, context_id, content: `Step ${i}, id: ${id}, context_id: ${context_id}, Output:\n\n\`\`\`json\n${content_format}\n\`\`\`\n\n`, del });
+                                this.window.webContents.send('info-data', { id, context_id, content: `Step ${i}, id: ${id}, context_id: ${context_id}, Output:\n\n\`\`\`json\n${toolInfoStr}\n\`\`\`\n\n`, del });
                                 this.window.webContents.send('stream-data', { id, context_id, content: thinking, end: true, del });
 
                                 if (toolInfo.tool === "enter_idle_state") {

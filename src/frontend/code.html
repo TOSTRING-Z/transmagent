@@ -254,6 +254,8 @@
                     <button class="nav-btn" onclick="toggleTheme()" title="Toggle Theme">🎨 Theme</button>
                     <button class="nav-btn" onclick="autoDetectLanguage()" title="Detect Language">⚡ Detect</button>
                     <button class="nav-btn" id="toggle-wrap-btn" onclick="toggleWordWrap()" title="Toggle Word Wrap">↩ Wrap</button>
+                    <button class="nav-btn" id="toggle-auto-complete-btn" onclick="toggleAutoComplete()" title="Toggle Auto AI Completion">✨ AI</button>
+                    <button class="nav-btn" id="toggle-auto-error-btn" onclick="toggleAutoErrorCorrect()" title="Toggle Auto Error Correction">🔧 Fix</button>
                 </div>
             </div>
 
@@ -344,6 +346,64 @@
             },
             ...ipcRenderer.send('get-code-config')
         };
+
+        // 自动AI补全和错误纠正开关状态
+        let autoCompleteEnabled = false;
+        let autoErrorCorrectEnabled = false;
+
+        // 初始化开关状态
+        async function initAutoFeatures() {
+            try {
+                const features = await ipcRenderer.invoke('get-auto-features');
+                autoCompleteEnabled = features.auto_complete;
+                autoErrorCorrectEnabled = features.auto_error_correct;
+                updateToggleButtonStates();
+            } catch (e) {
+                console.error('Failed to load auto features:', e);
+            }
+        }
+
+        // 更新按钮状态显示
+        function updateToggleButtonStates() {
+            const completeBtn = document.getElementById('toggle-auto-complete-btn');
+            const errorBtn = document.getElementById('toggle-auto-error-btn');
+            
+            if (completeBtn) {
+                completeBtn.style.color = autoCompleteEnabled ? '#4ec9b0' : '';
+                completeBtn.style.background = autoCompleteEnabled ? 'rgba(78, 201, 176, 0.2)' : '';
+            }
+            if (errorBtn) {
+                errorBtn.style.color = autoErrorCorrectEnabled ? '#4ec9b0' : '';
+                errorBtn.style.background = autoErrorCorrectEnabled ? 'rgba(78, 201, 176, 0.2)' : '';
+            }
+        }
+
+        // 切换自动AI补全
+        async function toggleAutoComplete() {
+            autoCompleteEnabled = !autoCompleteEnabled;
+            try {
+                await ipcRenderer.invoke('set-auto-complete', autoCompleteEnabled);
+                updateToggleButtonStates();
+                console.log('Auto completion:', autoCompleteEnabled ? 'ON' : 'OFF');
+            } catch (e) {
+                console.error('Failed to toggle auto complete:', e);
+            }
+        }
+
+        // 切换自动错误纠正
+        async function toggleAutoErrorCorrect() {
+            autoErrorCorrectEnabled = !autoErrorCorrectEnabled;
+            try {
+                await ipcRenderer.invoke('set-auto-error-correct', autoErrorCorrectEnabled);
+                updateToggleButtonStates();
+                console.log('Auto error correct:', autoErrorCorrectEnabled ? 'ON' : 'OFF');
+            } catch (e) {
+                console.error('Failed to toggle auto error correct:', e);
+            }
+        }
+
+        // 页面加载时初始化
+        initAutoFeatures();
 
         let isDark = true;
         // --- 新增变量 ---
@@ -583,6 +643,11 @@
             function triggerCompletionDebounce() {
                 clearTimeout(completionTimer);
                 completionTimer = setTimeout(() => {
+                    // 检查自动AI补全开关是否开启
+                    if (!autoCompleteEnabled) {
+                        console.log('Auto completion is disabled');
+                        return;
+                    }
                     runCompletion();
                 }, code_config.completion.trigger_time); // 2秒后补全
             }
@@ -590,6 +655,11 @@
             function triggerRefactorDebounce() {
                 clearTimeout(refactorTimer);
                 refactorTimer = setTimeout(() => {
+                    // 检查自动错误纠正开关是否开启
+                    if (!autoErrorCorrectEnabled) {
+                        console.log('Auto error correct is disabled');
+                        return;
+                    }
                     lastAnalyzedContent = window.editor.getValue().trim();
                     runRefactorAnalysis(window.editor);
                 }, code_config.refactor.trigger_time); // 5秒后检查错误

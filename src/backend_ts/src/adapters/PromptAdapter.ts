@@ -136,11 +136,11 @@ export class PromptToolCallAdapter implements IToolCallAdapter {
         let toolInfo: ToolInfo | null = null;
         try {
             aiRespnse = JSON5.parse(message.content as string);
-            toolInfo = { thinking: aiRespnse.thinking, tool: aiRespnse?.tool, id: null, tool_calls: null, params: aiRespnse?.params || {}, error: null };
+            toolInfo = { thinking: aiRespnse.thinking, tool: aiRespnse?.tool, id: null, params: aiRespnse?.params || {}, error: null };
         } catch (error: any) {
             // 解析失败时的兜底错误处理
             let observation = `Function calling is not a pure JSON text, or there is a problem with the JSON format: ${error.message}`;
-            toolInfo = { thinking: null, tool: null, id: null, tool_calls: null, params: {}, error: observation };
+            toolInfo = { thinking: null, tool: null, id: null, params: {}, error: observation };
         }
         return toolInfo;
     }

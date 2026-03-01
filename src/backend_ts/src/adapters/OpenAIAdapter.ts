@@ -159,17 +159,16 @@ export class OpenAIToolCallAdapter implements IToolCallAdapter {
                     thinking: message.content as string,
                     tool: call?.function?.name,
                     id: call?.id,
-                    tool_calls: message?.tool_calls,
                     params: call?.function?.arguments ? JSON5.parse(call.function.arguments) : {},
                     error: null
                 };
             } else {
-                toolInfo = { thinking: message.content as string, tool: null, id: null, tool_calls: null, params: {}, error: null };
+                toolInfo = { thinking: message.content as string, tool: null, id: null, params: {}, error: null };
             }
         } catch (error: any) {
             // 解析失败时的兜底错误处理
             let observation = `Arguments are not a pure JSON text, or there is a problem with the JSON format: ${error.message}`;
-            toolInfo = { thinking: null, tool: null, id: null, tool_calls: null, params: {}, error: observation };
+            toolInfo = { thinking: null, tool: null, id: null, params: {}, error: observation };
         }
         return toolInfo;
     }
