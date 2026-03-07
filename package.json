@@ -2,7 +2,7 @@
   "name": "transmagent",
   "version": "1.2.3",
   "description": "transmagent",
-  "main": "src/backend_ts/dist/main.js",
+  "main": "src/backend/dist/main.js",
   "homepage": ".",
   "author": {
     "name": "TOSTRING_Z",
@@ -73,7 +73,7 @@
     "build": "tsc",
     "watch": "tsc --watch",
     "clean": "rm -rf dist",
-    "rebuild": "npm run clean && npm run build",
+    "rebuild": "tsc --build --clean",
     "start": "electron . --enable-logging --log-level=debug --no-sandbox",
     "debug": "electron --inspect=5858 . --enable-logging --log-level=debug --no-sandbox",
     "start:dev": "NODE_ENV=development electron -r source-map-support/register . --enable-logging --log-level=debug --no-sandbox",
@@ -82,7 +82,7 @@
   "dependencies": {
     "@babel/parser": "^7.24.0",
     "@babel/traverse": "^7.27.4",
-    "@modelcontextprotocol/sdk": "^1.13.3",
+    "@modelcontextprotocol/sdk": "^1.27.1",
     "@xterm/addon-fit": "^0.10.0",
     "@xterm/xterm": "^5.5.0",
     "axios": "^1.12.2",

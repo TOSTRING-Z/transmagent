@@ -4,8 +4,8 @@
     "module": "CommonJS",
     "sourceMap": true,
     "inlineSources": true,
-    "outDir": "src/backend_ts/dist",
-    "rootDir": "src/backend_ts/src", 
+    "outDir": "src/backend/dist",
+    "rootDir": "src/backend/src", 
     "declaration": true,
     "moduleResolution": "node",
     "esModuleInterop": true,
@@ -17,10 +17,10 @@
     "forceConsistentCasingInFileNames": true
   },
   "include": [
-    "src/backend_ts/**/*.ts",
+    "src/backend/src/**/*.ts",
   ],
   "exclude": [
     "node_modules",
-    "src/backend_ts/dist"
+    "src/backend/dist"
   ]
 }
