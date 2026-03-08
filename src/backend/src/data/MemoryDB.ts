@@ -1,4 +1,6 @@
 import * as path from 'path';
+import { logger } from '../utils/logger';
+
 
 // sqlite3 和 sqlite-vec 是原生模块，保持 require 引入
 const sqlite3 = require('sqlite3').verbose();
@@ -6,8 +8,8 @@ const sqlite3 = require('sqlite3').verbose();
 let sqliteVec: any = null;
 try {
     sqliteVec = require('sqlite-vec');
-} catch (e) {
-    console.warn("[MemoryDB] sqlite-vec module not found. Vector search will be limited.", e);
+} catch (e: any) {
+    logger.warn("[MemoryDB] sqlite-vec module not found. Vector search will be limited.", e);
 }
 
 export interface MemoryRecord {
@@ -37,8 +39,8 @@ export class MemoryDB {
                 if (sqliteVec) {
                     try {
                         sqliteVec.load(this.db);
-                        console.log("[MemoryDB] sqlite-vec extension loaded.");
-                    } catch (loadErr) {
+                        logger.log("[MemoryDB] sqlite-vec extension loaded.");
+                    } catch (loadErr: any) {
                         console.error("[MemoryDB] Failed to load sqlite-vec:", loadErr);
                     }
                 }
@@ -46,7 +48,7 @@ export class MemoryDB {
                 try {
                     await this.createTables();
                     resolve();
-                } catch (tableErr) {
+                } catch (tableErr: any) {
                     reject(tableErr);
                 }
             });

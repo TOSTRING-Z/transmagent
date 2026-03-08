@@ -1,4 +1,6 @@
 import axios from 'axios';
+import { logger } from '../utils/logger';
+
 import path from 'path';
 import fs from 'fs/promises';
 import { existsSync, mkdirSync } from 'fs';
@@ -82,7 +84,7 @@ class MemoryManager {
 
             await this.memoryDB.add(chatId, content, embedding, time);
             return true;
-        } catch (error) {
+        } catch (error: any) {
             console.error("Failed to process long-term memory:", error);
             return false;
         }
@@ -101,7 +103,7 @@ class MemoryManager {
         const memoryPath = this.utils.getImportantMemoryPath();
         try {
             return await fs.readFile(memoryPath, 'utf8');
-        } catch {
+        } catch (e: any) {
             return "";
         }
     }
@@ -118,7 +120,7 @@ class MemoryManager {
             }
             await fs.appendFile(memoryPath, `[${time}]: ${content}\n`, 'utf8');
             return true;
-        } catch (error) {
+        } catch (error: any) {
             console.error("Failed to append important memory:", error);
             return false;
         }

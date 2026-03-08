@@ -1,5 +1,7 @@
-// @ts-nocheck
+import { logger } from '../utils/logger';
 const { spawn } = require('child_process');
+
+let terminalWindow: any = null;
 const { tmpdir } = require('os');
 const { writeFileSync, unlinkSync } = require('fs');
 const path = require('path');
@@ -18,10 +20,10 @@ function main(params) {
         // Create temporary file
         const tempFile = path.join(tmpdir(), `temp_${Date.now()}.py`)
         writeFileSync(tempFile, code)
-        console.log(tempFile)
+        logger.log(tempFile)
 
-        let terminalWindow = null;
-        let child = null;
+        let terminalWindow: any = null;
+        let child: any = null;
         // Create terminal window
         terminalWindow = new BrowserWindow({
             width: 800,

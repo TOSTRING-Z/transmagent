@@ -1,4 +1,5 @@
 import { BrowserWindow, Menu, shell, ipcMain, clipboard, dialog, app, MenuItemConstructorOptions } from 'electron';
+import { logger } from '../../utils/logger';
 import { JSDOM } from "jsdom";
 import * as fs from 'fs';
 import * as path from 'path';
@@ -121,7 +122,7 @@ export class MainWindow extends BaseWindow {
                 try {
                     app.relaunch();
                     app.exit(0);
-                } catch (err) {
+                } catch (err: any) {
                     console.error('Failed to restart app:', err);
                 }
             }
@@ -131,14 +132,14 @@ export class MainWindow extends BaseWindow {
     public setupHeartbeat() {
         const heartbeat = utils.getConfig("heartbeat");
         if (heartbeat && heartbeat.enabled) {
-            console.log(`[Heartbeat] Service started. Interval: ${heartbeat.interval}s`);
+            logger.log(`[Heartbeat] Service started. Interval: ${heartbeat.interval}s`);
             setInterval(async () => {
                 if (this.tool_call && (this.tool_call.state === State.IDLE || this.tool_call.state === State.FINAL)) {
                     try {
                         let time = this.tool_call.environment_details.time;
                         let data = { query: `[${time}] This is a heartbeat timestamp. Please keep the system active.` };
                         this.send_query(data, this.llm_service.chatManager.chat.model, this.llm_service.chatManager.chat.version);
-                    } catch (e) {
+                    } catch (e: any) {
                         console.error("[Heartbeat] Execution failed:", e);
                     }
                 }
@@ -239,10 +240,10 @@ export class MainWindow extends BaseWindow {
 
         this.window.webContents.on('will-navigate', (event, url) => {
             function isValidUrl(urlStr: string) {
-                try { new URL(urlStr); return true; } catch { return false; }
+                try { new URL(urlStr); return true; } catch (e: any) { return false; }
             }
             event.preventDefault();
-            console.log(`Attempt to navigate to: ${url}, has been blocked`);
+            logger.log(`Attempt to navigate to: ${url}, has been blocked`);
             if (isValidUrl(url)) {
                 shell.openExternal(url).catch(err => console.error('Failed to open link:', err.message));
             } else {
@@ -354,7 +355,7 @@ export class MainWindow extends BaseWindow {
         ipcMain.handle("toggle-message", async (_event, data) => {
             let message_len = await this.llm_service.chatManager.toggleMessage({ ...data, del_mode: !!this.funcItems.del.statu });
             this.tool_call.setHistory();
-            console.log(`delete id: ${data.id}, length: ${message_len}`)
+            logger.log(`delete id: ${data.id}, length: ${message_len}`)
             return { del_mode: !!this.funcItems.del.statu };
         });
 
@@ -378,7 +379,7 @@ export class MainWindow extends BaseWindow {
         ipcMain.handle("toggle-memory", async (_event, context_id) => {
             let memory_len = await this.llm_service.chatManager.toggleMemory({ context_id: context_id, del_mode: !!this.funcItems.del.statu });
             this.tool_call.setHistory();
-            console.log(`delete context_id: ${context_id}, length: ${memory_len}`)
+            logger.log(`delete context_id: ${context_id}, length: ${memory_len}`)
             return { del_mode: !!this.funcItems.del.statu };
         });
 
@@ -481,7 +482,7 @@ export class MainWindow extends BaseWindow {
                         const plainText = dom.window.document.body.textContent || "";
                         globalState.last_clipboard_content = plainText;
                         clipboard.writeText(plainText);
-                    } catch (error) {
+                    } catch (error: any) {
                         console.error('Failed to clear clipboard formatting:', error);
                     }
                 }
@@ -829,7 +830,7 @@ export class MainWindow extends BaseWindow {
                     store.set('lastPromptDirectory', path.dirname(filePath));
                     this.setPrompt(filePath);
                 }
-            }).catch(err => console.log(err));
+            }).catch(err => logger.log(err));
     }
 
     public setChain(chainStr: string) {
@@ -876,6 +877,6 @@ export class MainWindow extends BaseWindow {
                     store.set('lastChainDirectory', path.dirname(filePath));
                     this.setChain(fs.readFileSync(filePath, 'utf-8'));
                 }
-            }).catch(err => console.log(err));
+            }).catch(err => logger.log(err));
     }
 }

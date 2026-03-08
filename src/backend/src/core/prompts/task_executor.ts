@@ -1,4 +1,3 @@
-// @ts-nocheck
 // 8. 命令行执行专家 - 专注于命令执行和协调
 const prompt = {
     tool_name: 'task_executor', 

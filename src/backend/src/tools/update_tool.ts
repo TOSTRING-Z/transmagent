@@ -1,4 +1,4 @@
-// @ts-nocheck
+import { logger } from '../utils/logger';
 const fs = require('fs');
 const { utils } = require('../utils/globals');
 
@@ -64,8 +64,8 @@ async function main({ tool_name, tool_documentation }) {
         }
 
         if (toolStartIndex !== -1) {
-            console.log('找到现有工具，进行更新...');
-            console.log('工具位置:', toolStartIndex, '到', toolEndIndex);
+            logger.log('找到现有工具，进行更新...');
+            logger.log('工具位置:', toolStartIndex, '到', toolEndIndex);
             
             // 构建替换后的内容
             const beforeTool = lines.slice(0, toolStartIndex).join('\n');
@@ -89,7 +89,7 @@ async function main({ tool_name, tool_documentation }) {
             }
             
         } else {
-            console.log('未找到现有工具，添加到文件末尾...');
+            logger.log('未找到现有工具，添加到文件末尾...');
             // Tool doesn't exist - directly append to the end of file
             // 清理末尾的多余空行后再添加
             const cleanContent = content.trimEnd();
@@ -106,7 +106,7 @@ async function main({ tool_name, tool_documentation }) {
             message: `Tool '${tool_name}' has been ${toolStartIndex !== -1 ? 'updated' : 'added'} successfully`
         };
         
-    } catch (error) {
+    } catch (error: any) {
         return {
             success: false,
             error: error.message
@@ -154,8 +154,8 @@ if (require.main === module) {
     - This is a test note
     - For debugging purposes only`
       });
-      console.log('调试结果:', JSON.stringify(result, null, 2));
-    } catch (error) {
+      logger.log('调试结果:', JSON.stringify(result, null, 2));
+    } catch (error: any) {
       console.error('调试错误:', error);
     }
   })();

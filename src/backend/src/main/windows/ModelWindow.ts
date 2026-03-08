@@ -55,7 +55,7 @@ export class ModelWindow extends BaseWindow {
             for (const name in config_models) {
                 const versions = config_models[name]["versions"] || [];
                 versions.forEach((version: any) => {
-                    let llm_params = null;
+                    let llm_params: any = null;
                     if (version?.llm_params && Object.keys(version.llm_params).length > 0) {
                         llm_params = version.llm_params;
                     }

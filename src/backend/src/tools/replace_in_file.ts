@@ -1,4 +1,3 @@
-// @ts-nocheck
 const fs = require('fs');
 
 function main({ file_path, diff }) {
@@ -30,7 +29,7 @@ function main({ file_path, diff }) {
         
         fs.writeFileSync(file_path, content);
         return `File ${file_path} modified successfully`;
-    } catch (error) {
+    } catch (error: any) {
         return `File ${file_path} modification failed: ${error.message}`;
     }
 }

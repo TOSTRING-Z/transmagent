@@ -1,4 +1,4 @@
-// @ts-nocheck
+import { logger } from '../utils/logger';
 const path = require('path');
 const { Client } = require('ssh2');
 const { utils } = require('../utils/globals');
@@ -9,12 +9,17 @@ const { WindowManager } = require("../main/windows/WindowManager");
 
 class DisplayFile {
     constructor(localPath = null) {
+        // @ts-ignore
         if (!DisplayFile.instance) {
+            // @ts-ignore
             this.baseLocalPath = localPath || os.tmpdir();
             // 确保目录存在
+            // @ts-ignore
             fs.mkdirSync(this.baseLocalPath, { recursive: true });
+            // @ts-ignore
             DisplayFile.instance = this;
         }
+        // @ts-ignore
         return DisplayFile.instance;
     }
 
@@ -27,11 +32,12 @@ class DisplayFile {
 
         let targetPath = filePath;
         let isRemote = false;
-        let downloadInfo = null;
+        let downloadInfo: any = null;
 
         if (sshConfig?.enabled && sshConfig?.host) {
             isRemote = true;
             const localFileName = path.basename(filePath);
+            // @ts-ignore
             targetPath = path.join(this.baseLocalPath, localFileName);
 
             this._emitProgress('start');
@@ -39,7 +45,7 @@ class DisplayFile {
             try {
                 downloadInfo = await this._downloadViaSSH(filePath, targetPath, sshConfig);
                 this._emitProgress('end', { file_path: filePath });
-            } catch (err) {
+            } catch (err: any) {
                 this._emitProgress('error', { error: err.message });
                 return { success: false, error: `SSH Download Failed: ${err.message}` };
             }
@@ -48,7 +54,7 @@ class DisplayFile {
         const result = await this._processLocalFile(targetPath, normalizedOptions);
 
         if (result.success) {
-            const footer = [];
+            const footer: any[] = [];
             if (isRemote) {
                 footer.push(`\n**Remote Source**: \`${filePath}\``);
                 footer.push(`**Local Cache**: [${path.basename(targetPath)}](${targetPath})`);
@@ -135,7 +141,7 @@ class DisplayFile {
             }
 
             return { success: true, content, metadata: meta };
-        } catch (err) {
+        } catch (err: any) {
             return { success: false, error: err.message, content: '', metadata: { file_path: filePath } };
         }
     }
@@ -147,7 +153,7 @@ class DisplayFile {
     async _handleTextStream(filePath, { startLine, endLine, maxLineLength }, type = 'text') {
         const fileStream = fs.createReadStream(filePath, { encoding: 'utf8' });
         const rl = readline.createInterface({ input: fileStream, crlfDelay: Infinity });
-        const lines = [];
+        const lines: any[] = [];
         let lineIdx = 0;
         let isTruncated = false;
 
@@ -203,7 +209,7 @@ class DisplayFile {
             headers = headers.slice(0, maxCols);
         }
 
-        const rows = [];
+        const rows: any[] = [];
         const fileStream = fs.createReadStream(filePath, { encoding: 'utf8' });
         const rl = readline.createInterface({ input: fileStream, crlfDelay: Infinity });
         let lineIdx = 0;
@@ -275,7 +281,7 @@ class DisplayFile {
     }
 
     _parseCSVLine(line, delimiter) {
-        const res = [];
+        const res: any[] = [];
         let cur = '', inQuote = false;
         for (let i = 0; i < line.length; i++) {
             const char = line[i];
@@ -328,12 +334,14 @@ class DisplayFile {
     }
 }
 
+// @ts-ignore
 DisplayFile.instance = null;
 
 function main(params) {
     return async function (args) {
         const display = new DisplayFile(params?.local_path);
         const result = await display.display(args.file_path, args);
+        // @ts-ignore
         return result.success ? result.content : `Error: ${result.error}`;
     }
 }
@@ -372,7 +380,7 @@ if (require.main === module) {
 
         });
 
-        console.log(res);
+        logger.log(res);
 
     })();
 

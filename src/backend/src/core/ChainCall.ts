@@ -11,7 +11,7 @@ export class ChainCall extends ReActAgent {
         this.is_plugin = false;
     }
 
-    public async pluginCall(data: any): Promise<any> {
+    public async pluginCall(data: Record<string, any>): Promise<any> {
         data.prompt_format = "";
         
         let func = this.plugins.getTool(data.version)?.func;
@@ -38,7 +38,7 @@ export class ChainCall extends ReActAgent {
         return data.output_format;
     }
 
-    public async step(data: any): Promise<void> {
+    public async step(data: Record<string, any>): Promise<void> {
         this.is_plugin = data.model === "plugins";
         let stateResult: any = null;
         
@@ -57,7 +57,7 @@ export class ChainCall extends ReActAgent {
         }
     }
 
-    public async callChain(data: any): Promise<any> {
+    public async callChain(data: Record<string, any>): Promise<any> {
         // 适配新架构的 chat 访问
         this.llm_service.chatManager.chat.system_prompt = data.prompt;
         this.state = State.IDLE;
@@ -65,7 +65,6 @@ export class ChainCall extends ReActAgent {
         let chain_calls = utils.getConfig("chain_call");
         
         for (const step in chain_calls) {
-            // @ts-ignore: 使用我们在 LLMService 重构时添加的 stopFlag
             if (this.llm_service.stopFlag) {
                 this.window?.webContents.send('stream-data', { id: data.id, content: "The user interrupted the task.", end: true });
                 break;
@@ -97,15 +96,13 @@ export class ChainCall extends ReActAgent {
             }
             
             this.setHistory();
-            // @ts-ignore
-            if (this.state === State.FINAL) {
+            if ((this.state as any) === "final") {
                 if (this.is_plugin) {
                     this.window?.webContents.send('stream-data', { id: data.id, content: data.output_format, end: true });
                 }
                 break;
             }
-            // @ts-ignore
-            if (this.state === State.ERROR) {
+            if ((this.state as any) === "error") {
                 this.window?.webContents.send('stream-data', { id: data.id, content: "Error occurred!", end: true });
                 break;
             }

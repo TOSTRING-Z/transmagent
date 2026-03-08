@@ -1,4 +1,4 @@
-// @ts-nocheck
+import { logger } from '../utils/logger';
 const he = require('he');
 
 const TRANSLATION_API_URL = 'https://fanyi.baidu.com/v2transapi'
@@ -15,7 +15,7 @@ function decodeHtmlEntities(str) {
 
 
 function hash(r) {
-    function a(r) {
+    function a(r: any): any[] {
         if (Array.isArray(r)) {
             for (var o = 0, t = Array(r.length); o < r.length; o++) t[o] = r[o];
             return t
@@ -38,16 +38,15 @@ function hash(r) {
         var t = r.length;
         t > 30 && (r = '' + r.substr(0, 10) + r.substr(Math.floor(t / 2) - 5, 10) + r.substr(-10, 10))
     } else {
-        for (var e = r.split(/[\uD800-\uDBFF][\uDC00-\uDFFF]/), C = 0, h = e.length, f = []; h > C; C++) '' !== e[C] && f.push.apply(f, a(e[C].split(''))),
-            C !== h - 1 && f.push(o[C]);
+        for (var e = r.split(/[\uD800-\uDBFF][\uDC00-\uDFFF]/), C = 0, h = e.length, f: any[] = []; h > C; C++) '' !== e[C] && f.push.apply(f, a(e[C].split(''))),
+            C !== h - 1 && o[C] && (f as any).push(o[C]);
         var g = f.length;
         g > 30 && (r = f.slice(0, 10).join('') + f.slice(Math.floor(g / 2) - 5, Math.floor(g / 2) + 5).join('') + f.slice(-10).join(''))
     }
-    var u = void 0;
-    u = '320305.131321201';
-    for (var d = u.split('.'), m = Number(d[0]) || 0, s = Number(d[1]) || 0, S = [], c = 0, v = 0; v < r.length; v++) {
+    var u: string = '320305.131321201';
+    for (var d = u.split('.'), m = Number(d[0]) || 0, s = Number(d[1] || '0') || 0, S: number[] = [], c = 0, v = 0; v < r.length; v++) {
         var A = r.charCodeAt(v);
-        128 > A ? S[c++] = A : (2048 > A ? S[c++] = A >> 6 | 192 : (55296 === (64512 & A) && v + 1 < r.length && 56320 === (64512 & r.charCodeAt(v + 1)) ? (A = 65536 + ((1023 & A) << 10) + (1023 & r.charCodeAt(++v)), S[c++] = A >> 18 | 240, S[c++] = A >> 12 & 63 | 128) : S[c++] = A >> 12 | 224, S[c++] = A >> 6 & 63 | 128), S[c++] = 63 & A | 128)
+        128 > A ? S[c++ as number] = A : (2048 > A ? S[c++] = A >> 6 | 192 : (55296 === (64512 & A) && v + 1 < r.length && 56320 === (64512 & r.charCodeAt(v + 1)) ? (A = 65536 + ((1023 & A) << 10) + (1023 & r.charCodeAt(++v)), S[c++] = A >> 18 | 240, S[c++] = A >> 12 & 63 | 128) : S[c++] = A >> 12 | 224, S[c++] = A >> 6 & 63 | 128), S[c++] = 63 & A | 128)
     }
     for (var p = m, F = '' + String.fromCharCode(43) + String.fromCharCode(45) + String.fromCharCode(97) + ('' + String.fromCharCode(94) + String.fromCharCode(43) + String.fromCharCode(54)), D = '' + String.fromCharCode(43) + String.fromCharCode(45) + String.fromCharCode(51) + ('' + String.fromCharCode(94) + String.fromCharCode(43) + String.fromCharCode(98)) + ('' + String.fromCharCode(43) + String.fromCharCode(45) + String.fromCharCode(102)), b = 0; b < S.length; b++) p += S[b],
         p = n(p, F);
@@ -55,7 +54,7 @@ function hash(r) {
         p ^= s,
         0 > p && (p = (2147483647 & p) + 2147483648),
         p %= 1000000,
-        p.toString() + '.' + (p ^ m)
+        p.toString() as any + '.' + (p ^ m)
 }
 
 // Determine the translation method
@@ -86,8 +85,8 @@ function format(result) {
             }).join('\n')
         }
         return he.encode(text)
-    } catch (error) {
-        console.log(error.message);
+    } catch (error: any) {
+        logger.log((error as Error).message);
         return null;
     }
 }
@@ -95,7 +94,7 @@ function format(result) {
 async function main({ input }) {
     try {
         let mode = getMode(input)
-        const sign = hash(input).toString();
+        const sign = hash(input).toString() as any;
         const params = new URLSearchParams();
         params.append('from', mode[0]);
         params.append('to', mode[1]);
@@ -125,13 +124,13 @@ async function main({ input }) {
                 "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:120.0) Gecko/20100101 Firefox/120.0",
                 "X-Requested-With": "XMLHttpRequest",
             },
-            body: params.toString().replaceAll('+', '%20'),
+            body: (params.toString() as any).replaceAll('+', '%20'),
         });
 
         const data = await response.json();
         return decodeHtmlEntities(format(data));
-    } catch (error) {
-        console.log(error);
+    } catch (error: any) {
+        logger.log(error);
         return null;
     }
 

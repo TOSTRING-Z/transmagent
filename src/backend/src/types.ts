@@ -22,7 +22,7 @@ export interface OpenAIContent {
     role: "system" | "user" | "assistant" | "tool";
     content: string | MessageContent[];
     tool_call_id?: string | null;
-    tool_calls?: any[];
+    tool_calls?: ToolCall[];
 }
 
 // ollama内容
@@ -37,7 +37,18 @@ export interface OllamaContent {
 export interface ToolResult {
     type: "tool_result";
     tool_call_id?: string | null;
-    content: string | any;
+    content: string | MessageContent[];
+}
+
+
+// Tool Call 类型
+export interface ToolCall {
+    id?: string;
+    type?: string;
+    function?: {
+        name: string;
+        arguments: string | object;
+    };
 }
 
 // ToolInfo
@@ -45,7 +56,7 @@ export interface ToolInfo {
     thinking: string | null;
     tool: string | null;
     id: string | null;
-    params: any;
+    params: Record<string, any>;
     error: string | null;
 }
 
@@ -56,7 +67,7 @@ export interface Message {
     role: "system" | "user" | "assistant" | "tool";
     tool_call_name?: string | null;
     tool_call_id?: string | null;
-    tool_calls?: any[];
+    tool_calls?: ToolCall[];
     content: string | MessageContent[];
     show?: boolean;
     react?: boolean;
@@ -92,8 +103,8 @@ export interface ChatRequestData {
     api_key?: string;
     version: string;
     params?: any;
-    llm_params?: any;
-    tools?: any[];
+    llm_params?: Record<string, any>;
+    tools?: ToolCall[];
     push_message?: boolean;
     react?: boolean;
     return_response?: boolean;
@@ -107,6 +118,6 @@ export interface ChatRequestData {
 export interface StreamChunkResult {
     content: string;
     reasoning_content?: string;
-    tool_calls?: any[];
+    tool_calls?: ToolCall[];
     tokens?: number;
 }

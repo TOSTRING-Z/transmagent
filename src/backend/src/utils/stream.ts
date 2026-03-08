@@ -2,8 +2,10 @@ async function* toAsyncIterable(
   nodeReadable: NodeJS.ReadableStream,
 ): AsyncGenerator<Uint8Array> {
   for await (const chunk of nodeReadable) {
-    // @ts-ignore
-    yield chunk as Uint8Array;
+    // Buffer 或 string 转换为 Uint8Array
+    yield typeof chunk === 'string' 
+      ? new TextEncoder().encode(chunk) 
+      : chunk as Uint8Array;
   }
 }
 
@@ -33,7 +35,7 @@ export async function* streamResponse(
     // Fallback for Node versions below 20
     // Streaming with this method doesn't work as version 20+ does
     const decoder = new TextDecoder("utf-8");
-    const nodeStream = response.body as unknown as NodeJS.ReadableStream;
+    const nodeStream = response.body as any as NodeJS.ReadableStream;
     for await (const chunk of toAsyncIterable(nodeStream)) {
       yield decoder.decode(chunk, { stream: true });
     }
@@ -52,7 +54,7 @@ function parseDataLine(line: string): any {
     }
 
     return data;
-  } catch (e) {
+  } catch (e: any) {
     throw new Error(`Malformed JSON sent from server: ${json}`);
   }
 }

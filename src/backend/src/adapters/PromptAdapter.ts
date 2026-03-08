@@ -58,7 +58,7 @@ export class PromptAdapter implements ILLMAdapter {
                         };
                         return ollamaContent;
                     }
-                } catch (e) {
+                } catch (e: any) {
                     console.error("Ollama format error", e);
                 }
             }

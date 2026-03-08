@@ -1,4 +1,3 @@
-// @ts-nocheck
 const fs = require('fs');
 const path = require('path');
 
@@ -10,7 +9,7 @@ async function main({ file_path, content }) {
         }
         await fs.writeFileSync(file_path, content);
         return `File ${file_path} saved successfully`;
-    } catch (error) {
+    } catch (error: any) {
         return `File ${file_path} save failed: ${error.message}`;
     }
 }

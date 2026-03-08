@@ -155,12 +155,12 @@ export class ToolCall extends ReActAgent {
                 const content = `Date: ${time}\nUser: ${user_content}\nAgent: ${final_answer}`;
                 await this.memory_manager.addLongTermMemory(this.llm_service.chatManager.chat.id, content, time);
             }
-        } catch (e) {
+        } catch (e: any) {
             console.error("Error saving memory", e);
         }
     }
 
-    public memory_update(data: any) {
+    public memory_update(data: Record<string, any>) {
         let messages = this.llm_service.chatManager.getMessages(false);
         let messages_list: Message[] = [];
 
@@ -196,7 +196,7 @@ export class ToolCall extends ReActAgent {
         }
     }
 
-    public environment_update(data: any) {
+    public environment_update(data: Record<string, any>) {
         this.environment_details.time = utils.formatDate();
         this.environment_details.language = data?.language || utils.getLanguage();
         const chatState = this.llm_service.chatManager.chat;
@@ -229,7 +229,7 @@ export class ToolCall extends ReActAgent {
         this.window?.webContents.send('change-mode', shortMode);
     }
 
-    public async step(data: any) {
+    public async step(data: Record<string, any>) {
         if (!this.mcp_prompt && this.prompt_args.mcp_server) {
             await this.mcp_client.initMcp();
             this.mcp_prompt = this.mcp_client.mcpPrompt;
@@ -285,13 +285,13 @@ export class ToolCall extends ReActAgent {
                 this.window?.webContents.send('stream-data', { id: data.id, context_id: String(this.llm_service.chatManager.chat.max_context_id), content: observation, end: false, chat: this.llm_service.chatManager.chat });
             }
 
-            if (this.state === State.PAUSE) {
+            if ((this.state as any) === "pause") {
                 const { question, options } = observation;
                 this.window?.webContents.send('stream-data', { id: data.id, context_id: String(this.llm_service.chatManager.chat.max_context_id), content: question || "", end: true, chat: this.llm_service.chatManager.chat });
                 return options;
             }
 
-            if (this.state === State.FINAL) {
+            if ((this.state as any) === "final") {
                 this.window?.webContents.send('stream-data', { id: data.id, context_id: String(this.llm_service.chatManager.chat.max_context_id), content: observation, end: true, chat: this.llm_service.chatManager.chat });
             } else {
                 this.window?.webContents.send('info-data', { id: data.id, context_id: String(this.llm_service.chatManager.chat.max_context_id), content: this.get_info(data) });
@@ -302,7 +302,7 @@ export class ToolCall extends ReActAgent {
         }
     }
 
-    public async task(data: any) {
+    public async task(data: Record<string, any>) {
         data.prompt = await this.system_prompt();
         const messageOutput = await this.llmCall(data);
         if (messageOutput) {
@@ -344,7 +344,7 @@ export class ToolCall extends ReActAgent {
         return observation;
     }
 
-    public async callReAct(data: any): Promise<any> {
+    public async callReAct(data: Record<string, any>): Promise<any> {
         let step = 0;
         this.state = State.IDLE;
         let tool_call = utils.getConfig("tool_call");
@@ -353,8 +353,7 @@ export class ToolCall extends ReActAgent {
             data.tools = this.get_tools_prompt();
         }
         this.llm_service.chatManager.fixMessages();
-        // @ts-ignore
-        while (this.state !== State.FINAL && this.state !== State.PAUSE) {
+        while (this.state !== (State.FINAL as State) && this.state !== (State.PAUSE as State)) {
             // @ts-ignore
             // 延时1s，避免过快进入死循环
             await new Promise(resolve => setTimeout(resolve, 1000));
@@ -381,8 +380,7 @@ export class ToolCall extends ReActAgent {
             if (!this.prompt_args.subagent) {
                 this.setHistory();
             }
-            // @ts-ignore
-            if (this.state === State.PAUSE) {
+            if ((this.state as any) === "pause") {
                 this.window?.webContents.send("options", { options, id: data.id });
             }
         }

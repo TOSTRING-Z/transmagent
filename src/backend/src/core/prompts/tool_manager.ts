@@ -1,4 +1,3 @@
-// @ts-nocheck
 // 6. 工具管理专家 - 专注于工具生命周期管理
 const prompt = {
     tool_name: 'tool_manager', 

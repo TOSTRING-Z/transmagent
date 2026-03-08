@@ -1,4 +1,3 @@
-// @ts-nocheck
 // 5. 工具文档整理专家 - 专注于获取和整理工具文档
 const prompt = {
     tool_name: 'tool_documentation_collector', 

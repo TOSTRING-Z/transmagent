@@ -1,4 +1,6 @@
 import * as fs from 'fs';
+import { logger } from '../utils/logger';
+
 import * as path from 'path';
 import JSON5 from 'json5';
 import { Message, ChatState } from '../types';
@@ -131,13 +133,13 @@ export class ChatManager {
 
             fs.writeFile(filePath, JSON.stringify(data, null, 2), err => {
                 if (err) {
-                    console.log(err.message);
+                    logger.log(err.message);
                     return;
                 }
-                console.log(`Save success: ${filePath}`);
+                logger.log(`Save success: ${filePath}`);
             });
-        } catch (error) {
-            console.log(error);
+        } catch (error: any) {
+            logger.log(error);
         }
     }
 
@@ -159,8 +161,8 @@ export class ChatManager {
             this.fixMessages();
             this.updateChat();
             return this.messages.filter(message => message.show);
-        } catch (error) {
-            console.log(error);
+        } catch (error: any) {
+            logger.log(error);
             return false;
         }
     }
@@ -169,8 +171,8 @@ export class ChatManager {
         try {
             this.chat = chat;
             return true;
-        } catch (error) {
-            console.log(error);
+        } catch (error: any) {
+            logger.log(error);
             return false;
         }
     }
@@ -187,7 +189,7 @@ export class ChatManager {
                 });
             }
             return this.messages.length;
-        } catch {
+        } catch (e: any) {
             return 0;
         }
     }
@@ -209,7 +211,7 @@ export class ChatManager {
                     data: this.messages.filter(m => m.id === id)
                 };
             }
-        } catch {
+        } catch (e: any) {
             return null;
         }
     }
@@ -228,7 +230,7 @@ export class ChatManager {
                 });
             }
             return this.messages.length;
-        } catch {
+        } catch (e: any) {
             return 0;
         }
     }

@@ -42,7 +42,7 @@ class SkillManager {
               instructions: match[2].trim(),
               path: path.join(this.skillsPath, folder)
             };
-          } catch (e) {
+          } catch (e: any) {
             console.error(`Failed to parse skill in ${folder}:`, e);
           }
         }

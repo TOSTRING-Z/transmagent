@@ -1,4 +1,5 @@
 import express, { Express, Request, Response } from 'express';
+import { logger } from '../utils/logger';
 import bodyParser from 'body-parser';
 import { EventEmitter } from 'events';
 import * as http from 'http';
@@ -114,7 +115,7 @@ export class WebServer extends EventEmitter {
 
     public start(): void {
         this.server = this.app.listen(this.port, () => {
-            console.log(`[WebServer] Listening on port ${this.port}`);
+            logger.log(`[WebServer] Listening on port ${this.port}`);
         });
 
         // 长连接场景：禁用服务器级超时
@@ -134,7 +135,7 @@ export class WebServer extends EventEmitter {
 
         if (this.server) {
             this.server.close(() => {
-                console.log('[WebServer] Server stopped.');
+                logger.log('[WebServer] Server stopped.');
             });
             this.server = null;
         }

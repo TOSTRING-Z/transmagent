@@ -1,4 +1,4 @@
-// @ts-nocheck
+import { logger } from '../utils/logger';
 const { exec } = require('child_process');
 const path = require('path');
 const fs = require('fs');
@@ -58,8 +58,8 @@ function cleanupResources(tempFile, terminalWindow, conn = null) {
         if (tempFile && fs.existsSync(tempFile)) {
             fs.unlinkSync(tempFile);
         }
-    } catch (error) {
-        console.warn('Failed to delete temp file:', error.message);
+    } catch (error: any) {
+        logger.warn('Failed to delete temp file:', error.message);
     }
 
     if (terminalWindow && !terminalWindow.isDestroyed()) {
@@ -68,9 +68,9 @@ function cleanupResources(tempFile, terminalWindow, conn = null) {
 
     if (conn) {
         try {
-            conn.end();
-        } catch (error) {
-            console.warn('Failed to close SSH connection:', error.message);
+            ((conn as any) || {}).end();
+        } catch (error: any) {
+            logger.warn('Failed to close SSH connection:', error.message);
         }
     }
 }
@@ -80,7 +80,7 @@ function main(params) {
         // 参数验证
         try {
             params = validateParams(params);
-        } catch (error) {
+        } catch (error: any) {
             return {
                 success: false,
                 output: '',
@@ -109,8 +109,8 @@ function main(params) {
                 code = `source ${params.bashrc};\n${code}`;
             }
             fs.writeFileSync(tempFile, code);
-            console.log('Temporary file created:', tempFile);
-        } catch (error) {
+            logger.log('Temporary file created:', tempFile);
+        } catch (error: any) {
             return {
                 success: false,
                 output: '',
@@ -119,7 +119,7 @@ function main(params) {
         }
 
         // 创建终端窗口
-        let terminalWindow = null;
+        let terminalWindow: any = null;
         try {
             terminalWindow = new BrowserWindow({
                 width: 800,
@@ -148,7 +148,7 @@ function main(params) {
             terminalWindow.on('closed', () => {
                 terminalWindow = null;
             });
-        } catch (error) {
+        } catch (error: any) {
             cleanupResources(tempFile, null);
             return {
                 success: false,
@@ -165,7 +165,7 @@ function main(params) {
         return new Promise((resolve) => {
             let output = "";
             let error = "";
-            let timeoutId = null;
+            let timeoutId: any = null;
             let isResolved = false;
 
             const finish = (result) => {
@@ -182,7 +182,7 @@ function main(params) {
 
             // 设置超时
             timeoutId = setTimeout(() => {
-                console.log(`Command execution timed out after ${params.timeout} seconds`);
+                logger.log(`Command execution timed out after ${params.timeout} seconds`);
                 finish({
                     success: false, // 超时状态为失败
                     output: threshold(output, params.max_lines, params.max_chars_per_line),
@@ -202,13 +202,13 @@ function main(params) {
             });
 
             const sshConfig = utils.getSshConfig();
-            let conn = null;
+            let conn: any = null;
 
             if (sshConfig?.enabled) {
                 conn = new Client();
 
                 conn.on('ready', () => {
-                    console.log('SSH Connection Ready');
+                    logger.log('SSH Connection Ready');
                     const remoteScriptPath = `/tmp/bash_script_${Date.now()}.sh`;
 
                     conn.sftp((sftpErr, sftp) => {
@@ -232,7 +232,7 @@ function main(params) {
                         });
 
                         writeStream.write(`#!/bin/bash\n${code}`);
-                        writeStream.end();
+                        ((writeStream as any) || {}).end();
 
                         writeStream.on('close', () => {
                             // 执行远程命令
@@ -249,7 +249,7 @@ function main(params) {
                                 terminalWindow?.webContents.send('terminal-data', `${code}\n`);
 
                                 stream.on('close', (exitCode, signal) => {
-                                    console.log(`Command completed: exit code ${exitCode}, signal ${signal}`);
+                                    logger.log(`Command completed: exit code ${exitCode}, signal ${signal}`);
                                     finish({
                                         success: exitCode === 0,
                                         output: threshold(output, params.max_lines, params.max_chars_per_line),
@@ -270,7 +270,7 @@ function main(params) {
                                 // 终端输入处理
                                 const inputHandler = (event, input) => {
                                     if (!input) {
-                                        stream.end();
+                                        ((stream as any) || {}).end();
                                     } else {
                                         stream.write(input);
                                     }
@@ -305,13 +305,13 @@ function main(params) {
                 });
 
                 conn.on('close', () => {
-                    console.log('SSH Connection Closed');
+                    logger.log('SSH Connection Closed');
                 });
 
                 // 建立连接
                 try {
                     conn.connect(sshConfig);
-                } catch (connectErr) {
+                } catch (connectErr: any) {
                     finish({
                         success: false,
                         output: threshold(output, params.max_lines, params.max_chars_per_line),
@@ -352,7 +352,7 @@ function main(params) {
                 // 终端输入处理
                 const inputHandler = (event, input) => {
                     if (!input) {
-                        child.stdin.end();
+                        child.stdin?.end();
                     } else {
                         child.stdin.write(input);
                     }

@@ -1,4 +1,4 @@
-// @ts-nocheck
+import { logger } from '../utils/logger';
 const fs = require('fs');
 const path_ = require('path');
 
@@ -8,7 +8,7 @@ try {
   // 尝试新版本的 glob
   const globModule = require('glob');
   globFunction = globModule.glob || globModule;
-} catch {
+} catch (e: any) {
   throw new Error('Failed to import glob module');
 }
 
@@ -53,7 +53,7 @@ function isTextFile(filePath) {
       if (buffer[i] === 0) return false; // 含有 null 字节，判定为二进制文件
     }
     return true; // 没有 null 字节，认为是文本文件
-  } catch (error) {
+  } catch (error: any) {
     return false; // 读取失败则跳过
   }
 }
@@ -72,7 +72,7 @@ async function main({ path, regex="test$", file_pattern="*.js" }) {
     }
     
     // Initialize results array and compile regex
-    const results = [];
+    const results: any[] = [];
     const regexObj = new RegExp(regex, 'g');
 
     for (const file of files) {
@@ -97,8 +97,8 @@ async function main({ path, regex="test$", file_pattern="*.js" }) {
 
     // Return array of match results
     return results.slice(0, 100);
-  } catch (error) {
-    console.log(error);
+  } catch (error: any) {
+    logger.log(error);
     return error.message;
   }
 }
@@ -157,8 +157,8 @@ if (require.main === module) {
         "regex": "file_pattern",
         "file_pattern": "**/*"
       });
-      console.log('调试结果:', JSON.stringify(result, null, 2));
-    } catch (error) {
+      logger.log('调试结果:', JSON.stringify(result, null, 2));
+    } catch (error: any) {
       console.error('调试错误:', error);
     }
   })();

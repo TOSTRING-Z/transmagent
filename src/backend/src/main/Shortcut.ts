@@ -1,4 +1,5 @@
-import { globalShortcut } from 'electron';
+import { globalShortcut } from 'electron'
+import { logger } from '../utils/logger';
 import { utils } from '../utils/globals';
 import { WindowManager } from './windows/WindowManager';
 import { captureMouse } from '../mouse/CaptureMouse';
@@ -19,13 +20,13 @@ export class Shortcut {
         }
 
         if (globalShortcut.isRegistered(shortcutKey)) {
-            console.log(`[Shortcut] '${shortcutKey}' is already registered.`);
+            logger.log(`[Shortcut] '${shortcutKey}' is already registered.`);
         }
 
         globalShortcut.register(shortcutKey, () => {
             captureMouse()
                 .then((mousePosition: any) => {
-                    console.log("[Shortcut] Mouse captured:", mousePosition);
+                    logger.log("[Shortcut] Mouse captured:", mousePosition);
                     this.windowManager.iconWindow?.create(mousePosition);
                 })
                 .catch((error: any) => {
@@ -33,7 +34,7 @@ export class Shortcut {
                 });
         });
 
-        console.log(`[Shortcut] Registered global shortcut: ${shortcutKey}`);
+        logger.log(`[Shortcut] Registered global shortcut: ${shortcutKey}`);
     }
 
     public destroy(): void {

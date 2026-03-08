@@ -1,10 +1,11 @@
 import * as fs from 'fs';
+import { logger } from '../utils/logger';
 import * as os from 'os';
 import * as path from 'path';
 
 const copyFile = (sourcePath: string, targetPath: string): void => {
     fs.copyFileSync(sourcePath, targetPath);
-    console.log(`[Install] Copied file: ${sourcePath} -> ${targetPath}`);
+    logger.log(`[Install] Copied file: ${sourcePath} -> ${targetPath}`);
 };
 
 const copyDirectory = (sourcePath: string, targetPath: string): void => {
@@ -26,7 +27,7 @@ const copyDirectory = (sourcePath: string, targetPath: string): void => {
             copyFile(sourceItemPath, targetItemPath);
         }
     }
-    console.log(`[Install] Copied directory: ${sourcePath} -> ${targetPath}`);
+    logger.log(`[Install] Copied directory: ${sourcePath} -> ${targetPath}`);
 };
 
 const copyConfig = (name: string): void => {
@@ -40,7 +41,7 @@ const copyConfig = (name: string): void => {
     }
 
     if (!fs.existsSync(sourcePath)) {
-        console.warn(`[Install Warning] Source file/directory does not exist: ${sourcePath}`);
+        logger.warn(`[Install Warning] Source file/directory does not exist: ${sourcePath}`);
         return;
     }
 
@@ -64,11 +65,11 @@ export function install(isDefault: boolean = false): void {
         "prompts"  // 可以是文件或目录
     ];
 
-    console.log("[Install] Checking installation environment...");
+    logger.log("[Install] Checking installation environment...");
     for (const config of configs) {
         if (isFirstInstall(config) || isDefault) {
             copyConfig(config);
         }
     }
-    console.log("[Install] Check complete.");
+    logger.log("[Install] Check complete.");
 }

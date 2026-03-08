@@ -1,4 +1,5 @@
 import { utils } from '../utils/globals'
+import { logger } from '../utils/logger';
 import * as fs from 'fs';
 import { SkillManager } from './SkillManager';
 import { ToolCall } from './ToolCall';
@@ -30,7 +31,7 @@ class Prompts {
       }
       return "";
     } catch (error: any) {
-      console.log(error.message);
+      logger.log(error.message);
       this.agent.alertWindow.create({ type: "error", content: `[ToolCall.get_extra_prompt]: ${error.message}` });
       return "";
     }

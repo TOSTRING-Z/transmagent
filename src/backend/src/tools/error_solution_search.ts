@@ -1,9 +1,10 @@
-// @ts-nocheck
+import { logger } from '../utils/logger';
 const puppeteer = require('puppeteer');
 const { WindowManager } = require("../main/windows/WindowManager");
 
 class ErrorSolutionFinder {
     constructor() {
+        // @ts-ignore
         this.errorKeywords = {
             'R': ['R', 'rlang', 'tidyverse', 'ggplot', 'dplyr', 'shiny', 'bioconductor', 'rstudio'],
             'conda': ['conda', 'anaconda', 'miniconda', 'environment', 'package', 'install', 'CondaHTTPError'],
@@ -15,8 +16,8 @@ class ErrorSolutionFinder {
 
     // 改进的验证完成检测方法
     async waitForVerificationComplete(page) {
-        console.log('🔍 检测到验证页面，请手动完成验证...');
-        console.log('💡 提示: 完成验证后，页面会自动跳转到搜索结果');
+        logger.log('🔍 检测到验证页面，请手动完成验证...');
+        logger.log('💡 提示: 完成验证后，页面会自动跳转到搜索结果');
         WindowManager.instance?.alertWindow.show("log", "Please manually complete the verification");
 
         const startTime = Date.now();
@@ -28,11 +29,11 @@ class ErrorSolutionFinder {
         while (Date.now() - startTime < timeout) {
             try {
                 const currentUrl = await page.url();
-                console.log(`当前URL: ${currentUrl}`);
+                logger.log(`当前URL: ${currentUrl}`);
 
                 // URL 发生变化说明页面在跳转
                 if (currentUrl !== lastUrl) {
-                    console.log('🔄 检测到页面跳转...');
+                    logger.log('🔄 检测到页面跳转...');
                     lastUrl = currentUrl;
                     consecutiveStableChecks = 0;
 
@@ -40,7 +41,7 @@ class ErrorSolutionFinder {
                     if (currentUrl.includes('/search') &&
                         !currentUrl.includes('nocaptcha') &&
                         !currentUrl.includes('challenge')) {
-                        console.log('✅ 已跳转到搜索结果页面');
+                        logger.log('✅ 已跳转到搜索结果页面');
                         await new Promise(resolve => setTimeout(resolve, 3000));
                         return true;
                     }
@@ -86,11 +87,12 @@ class ErrorSolutionFinder {
                         stillVerifying,
                         isSearchPage,
                         title: document.title,
+                        // @ts-ignore
                         bodyText: document.body.textContent.substring(0, 200)
                     };
                 });
 
-                console.log('页面状态:', {
+                logger.log('页面状态:', {
                     hasResults: pageState.hasResults,
                     stillVerifying: pageState.stillVerifying,
                     isSearchPage: pageState.isSearchPage,
@@ -99,18 +101,18 @@ class ErrorSolutionFinder {
 
                 // 如果检测到搜索结果且不在验证页面
                 if (pageState.hasResults && !pageState.stillVerifying && pageState.isSearchPage) {
-                    console.log('✅ 验证完成，检测到搜索结果');
+                    logger.log('✅ 验证完成，检测到搜索结果');
                     await new Promise(resolve => setTimeout(resolve, 3000));
                     return true;
                 }
 
                 // 如果URL稳定且不在验证页面，可能是验证完成但需要手动触发
                 if (consecutiveStableChecks > 3 && !pageState.stillVerifying) {
-                    console.log('🔄 URL稳定，尝试检查是否验证完成...');
+                    logger.log('🔄 URL稳定，尝试检查是否验证完成...');
 
                     // 尝试重新加载页面
                     if (consecutiveStableChecks > 6) {
-                        console.log('🔄 尝试重新加载页面...');
+                        logger.log('🔄 尝试重新加载页面...');
                         await page.reload({ waitUntil: 'domcontentloaded' });
                         await new Promise(resolve => setTimeout(resolve, 5000));
                         consecutiveStableChecks = 0;
@@ -119,22 +121,22 @@ class ErrorSolutionFinder {
 
                 // 等待2秒后再次检查
                 await new Promise(resolve => setTimeout(resolve, 2000));
-                console.log('⏳ 等待验证完成...');
+                logger.log('⏳ 等待验证完成...');
 
-            } catch (error) {
-                console.log('⚠️ 检查过程中出现错误:', error.message);
+            } catch (error: any) {
+                logger.log('⚠️ 检查过程中出现错误:', error.message);
                 // 继续等待
                 await new Promise(resolve => setTimeout(resolve, 2000));
             }
         }
 
-        console.log('⏰ 验证等待超时，尝试继续...');
+        logger.log('⏰ 验证等待超时，尝试继续...');
         return false;
     }
 
     // 使用浏览器爬取 Stack Overflow
     async crawlStackOverflow(searchQuery, maxResults = 5) {
-        let browser = null;
+        let browser: any = null;
         try {
             browser = await puppeteer.launch({
                 headless: false,
@@ -172,19 +174,19 @@ class ErrorSolutionFinder {
             });
 
             const searchUrl = `https://stackoverflow.com/search?q=${encodeURIComponent(searchQuery)}`;
-            console.log(`🔍 正在搜索 Stack Overflow: ${searchQuery}`);
-            console.log(`🌐 搜索URL: ${searchUrl}`);
+            logger.log(`🔍 正在搜索 Stack Overflow: ${searchQuery}`);
+            logger.log(`🌐 搜索URL: ${searchUrl}`);
 
             // 设置页面错误处理
             page.on('console', msg => {
                 if (msg.type() === 'error') {
-                    console.log('❌ 页面错误:', msg.text());
+                    logger.log('❌ 页面错误:', msg.text());
                 }
             });
 
             page.on('response', response => {
                 if (response.status() >= 400) {
-                    console.log('⚠️ 响应错误:', response.status(), response.url());
+                    logger.log('⚠️ 响应错误:', response.status(), response.url());
                 }
             });
 
@@ -195,7 +197,7 @@ class ErrorSolutionFinder {
 
             // 检查初始页面状态
             const initialUrl = await page.url();
-            console.log(`📍 初始页面URL: ${initialUrl}`);
+            logger.log(`📍 初始页面URL: ${initialUrl}`);
 
             const needsVerification = initialUrl.includes('nocaptcha') ||
                 initialUrl.includes('challenge') ||
@@ -203,22 +205,22 @@ class ErrorSolutionFinder {
                 initialUrl.includes('authenticate');
 
             if (needsVerification) {
-                console.log('🛡️ 需要验证，等待手动完成...');
+                logger.log('🛡️ 需要验证，等待手动完成...');
                 const verificationSuccess = await this.waitForVerificationComplete(page);
 
                 if (!verificationSuccess) {
-                    console.log('⚠️ 验证可能未完成，尝试继续...');
+                    logger.log('⚠️ 验证可能未完成，尝试继续...');
                 }
             }
 
             // 最终提取结果
-            console.log('📊 开始提取搜索结果...');
+            logger.log('📊 开始提取搜索结果...');
             const results = await this.extractSearchResults(page, maxResults);
 
-            console.log(`✅ 从 Stack Overflow 找到 ${results.length} 个结果`);
+            logger.log(`✅ 从 Stack Overflow 找到 ${results.length} 个结果`);
             return results;
 
-        } catch (error) {
+        } catch (error: any) {
             console.error('❌ Stack Overflow 爬取错误:', error.message);
             return [];
         } finally {
@@ -235,9 +237,9 @@ class ErrorSolutionFinder {
             await new Promise(resolve => setTimeout(resolve, 5000));
 
             const results = await page.evaluate((maxResults) => {
-                console.log('🔍 在页面中搜索结果元素...');
+                logger.log('🔍 在页面中搜索结果元素...');
 
-                const solutions = [];
+                const solutions: any[] = [];
 
                 // 多种选择器尝试
                 const selectors = [
@@ -249,17 +251,18 @@ class ErrorSolutionFinder {
                     '.result'
                 ];
 
-                let questionElements = [];
+                let questionElements: any[] = [];
                 for (const selector of selectors) {
                     const elements = document.querySelectorAll(selector);
                     if (elements.length > 0) {
-                        console.log(`✅ 使用选择器 "${selector}" 找到 ${elements.length} 个结果`);
+                        logger.log(`✅ 使用选择器 "${selector}" 找到 ${elements.length} 个结果`);
+                        // @ts-ignore
                         questionElements = elements;
                         break;
                     }
                 }
 
-                console.log(`📋 总共找到 ${questionElements.length} 个搜索结果元素`);
+                logger.log(`📋 总共找到 ${questionElements.length} 个搜索结果元素`);
 
                 questionElements.forEach((element,) => {
                     if (solutions.length >= maxResults) return;
@@ -281,13 +284,13 @@ class ErrorSolutionFinder {
                         if (titleElement && titleElement.textContent && titleElement.textContent.trim()) {
                             title = titleElement.textContent.trim();
                             url = titleElement.href;
-                            console.log(`📖 找到标题: ${title.substring(0, 50)}...`);
+                            logger.log(`📖 找到标题: ${title.substring(0, 50)}...`);
                             break;
                         }
                     }
 
                     if (!title || !url) {
-                        console.log('❌ 未找到有效的标题或URL');
+                        logger.log('❌ 未找到有效的标题或URL');
                         return;
                     }
 
@@ -346,14 +349,14 @@ class ErrorSolutionFinder {
                     });
                 });
 
-                console.log(`🎉 最终提取到 ${solutions.length} 个有效结果`);
+                logger.log(`🎉 最终提取到 ${solutions.length} 个有效结果`);
                 return solutions;
 
             }, maxResults);
 
             return results;
 
-        } catch (error) {
+        } catch (error: any) {
             console.error('❌ 提取搜索结果错误:', error.message);
             return [];
         }
@@ -364,10 +367,12 @@ class ErrorSolutionFinder {
             return ['general'];
         }
 
-        const errorTypes = [];
+        const errorTypes: any[] = [];
         const lowerError = errorMessage.toLowerCase();
 
+        // @ts-ignore
         for (const [type, keywords] of Object.entries(this.errorKeywords)) {
+            // @ts-ignore
             if (keywords.some(keyword => lowerError.includes(keyword.toLowerCase()))) {
                 errorTypes.push(type);
             }
@@ -386,7 +391,7 @@ class ErrorSolutionFinder {
                 };
             }
 
-            console.log(`🚀 开始搜索错误解决方案: "${errorMessage}"`);
+            logger.log(`🚀 开始搜索错误解决方案: "${errorMessage}"`);
 
             const solutions = await this.crawlStackOverflow(errorMessage, maxResults);
 
@@ -415,7 +420,7 @@ class ErrorSolutionFinder {
                 solutions: formattedSolutions
             };
 
-        } catch (error) {
+        } catch (error: any) {
             return {
                 success: false,
                 error: error.message,
@@ -437,7 +442,7 @@ function main({ error_message, max_results = 5 }) {
 
         const finder = new ErrorSolutionFinder();
         return finder.getSolutionUrls(error_message, max_results);
-    } catch (error) {
+    } catch (error: any) {
         return {
             success: false,
             error: error.message,
@@ -478,20 +483,20 @@ if (require.main === module) {
             ];
 
             for (const error of exampleErrors) {
-                console.log('='.repeat(60));
-                console.log(`处理错误: ${error}`);
-                console.log('='.repeat(60));
+                logger.log('='.repeat(60));
+                logger.log(`处理错误: ${error}`);
+                logger.log('='.repeat(60));
 
                 const solutions = await main({
                     error_message: error,
                     max_results: 3
                 });
-                console.log(JSON.stringify(solutions, null, 2));
+                logger.log(JSON.stringify(solutions, null, 2));
 
                 // 在每个错误之间等待一下
                 await new Promise(resolve => setTimeout(resolve, 3000));
             }
-        } catch (error) {
+        } catch (error: any) {
             console.error('调试错误:', error);
         }
     })();

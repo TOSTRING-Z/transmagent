@@ -1,4 +1,3 @@
-// @ts-nocheck
 // 3. 编程错误解决方案专家 - 专注于技术问题解决
 const prompt = {
     tool_name: 'error_solution_finder', 

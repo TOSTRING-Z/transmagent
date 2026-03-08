@@ -1,4 +1,6 @@
 import { ChatManager } from './ChatManager';
+import { logger } from '../utils/logger';
+
 import { LLMAdapterFactory } from '../factories/AdapterFactory';
 import { ILLMAdapter } from '../adapters/IAdapter';
 import { ChatRequestData, Message, MessageContent, OpenAIContent } from '../types';
@@ -159,8 +161,10 @@ export class LLMService {
                                 function: { name: tc.function?.name || "", arguments: "" }
                             };
                         }
-                        if (tc.function?.name) messageOutput.tool_calls[tc.index].function.name += tc.function.name;
-                        if (tc.function?.arguments) messageOutput.tool_calls[tc.index].function.arguments += tc.function.arguments;
+                        // @ts-ignore
+                        if (tc.function?.name && messageOutput.tool_calls[tc.index]) messageOutput.tool_calls[tc.index].function.name += tc.function.name;
+                        // @ts-ignore
+                        if (tc.function?.arguments && messageOutput.tool_calls[tc.index]) messageOutput.tool_calls[tc.index].function.arguments += tc.function.arguments;
                     }
                 }
             }
@@ -186,7 +190,7 @@ export class LLMService {
         let respJson: any;
         try {
             respJson = await resp.json();
-        } catch (err) {
+        } catch (err: any) {
             console.error(err);
             return;
         }
@@ -213,7 +217,7 @@ export class LLMService {
 
         // ========== 截断检测与自动续传机制 (Max: 3) ==========
         if (finish_reason === "length" && data.output) {
-            console.log("[LLM Service] Output truncated, starting continuation...");
+            logger.log("[LLM Service] Output truncated, starting continuation...");
             let continuationCount = 0;
             const maxContinuations = 3;
             let continuationMessages = [...body.messages, { role: "assistant", content: data.output }];
@@ -246,13 +250,13 @@ export class LLMService {
                     if (parsedCont.tokens) this.chatManager.chat.tokens = parsedCont.tokens;
 
                     if (parsedCont.finish_reason !== "length") {
-                        console.log(`[Continuation] Completed after ${continuationCount} continuation(s)`);
+                        logger.log(`[Continuation] Completed after ${continuationCount} continuation(s)`);
                         break;
                     }
 
                     continuationMessages.push({ role: "assistant", content: parsedCont.content });
 
-                } catch (error) {
+                } catch (error: any) {
                     console.error("[Continuation Error]", error);
                     break;
                 }

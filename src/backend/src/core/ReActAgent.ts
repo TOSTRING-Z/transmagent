@@ -1,4 +1,5 @@
 import JSON5 from 'json5';
+import { logger } from '../utils/logger';
 import { LLMService } from './LLMService';
 import { utils, inner, CHAT_CONST } from '../utils/globals';
 import { Message, ChatState, MessageContent, TextContent } from '../types';
@@ -17,7 +18,7 @@ const createMockWindow = () => ({
     webContents: {
         send: (channel: string, data: any) => {
             const timestamp = new Date().toLocaleTimeString();
-            console.log(`%c[time]${timestamp} Channel: ${channel}, Data:`, "color: blue; font-weight: bold", data);
+            logger.log(`%c[time]${timestamp} Channel: ${channel}, Data:`, "color: blue; font-weight: bold", data);
         }
     }
 });
@@ -25,7 +26,7 @@ const createMockWindow = () => ({
 const createMockAlertWindow = () => ({
     create: (content: string) => {
         const timestamp = new Date().toLocaleTimeString();
-        console.log(`%c[time]${timestamp} AlertWindow Content:`, "color: green; font-weight: bold", content);
+        logger.log(`%c[time]${timestamp} AlertWindow Content:`, "color: green; font-weight: bold", content);
     }
 });
 
@@ -60,7 +61,7 @@ export class ReActAgent {
             try {
                 const key = cmd.trim();
                 return data[key] !== undefined ? data[key] : match;
-            } catch (e) {
+            } catch (e: any) {
                 console.error(e);
                 return match;
             }
@@ -117,7 +118,7 @@ export class ReActAgent {
         utils.setHistoryData(history_data);
     }
 
-    public async retry(func: (data: any) => Promise<any>, data: any): Promise<any> {
+    public async retry(func: (data: Record<string, any>) => Promise<any>, data: any): Promise<any> {
         data.input = data.output_format !== undefined ? data.output_format : data.query;
         data.system_prompt = data.prompt_format !== undefined ? data.prompt_format : data.prompt;
 
@@ -129,7 +130,6 @@ export class ReActAgent {
         let count = 0;
 
         while (count < retry_time) {
-            // @ts-ignore: 假设 LLMService 有 public stopFlag（需配合修改 LLMService）
             if (this.llm_service.stopFlag) return null;
 
             try {
@@ -138,7 +138,7 @@ export class ReActAgent {
 
                 count++;
                 await utils.delay(2);
-            } catch (err) {
+            } catch (err: any) {
                 console.error("Retry Error:", err);
                 count++;
                 await utils.delay(2);
@@ -147,7 +147,7 @@ export class ReActAgent {
         return null;
     }
 
-    public async llmCall(data: any): Promise<Message | null> {
+    public async llmCall(data: Record<string, any>): Promise<Message | null> {
         const configModels = utils.getConfig("models");
         data.api_url = data.api_url || configModels[data.model]?.api_url;
         data.api_key = data.api_key || configModels[data.model]?.api_key;
@@ -180,7 +180,7 @@ export class ReActAgent {
         return baseResult;
     }
 
-    public async sendData(data: any): Promise<boolean> {
+    public async sendData(data: Record<string, any>): Promise<boolean> {
         let agent_messages = this.llm_service.chatManager.getMessages(true).filter(m => m.id === data.id);
         utils.sendData(inner.url_base.data.collection, {
             "chat_id": this.llm_service.chatManager.chat.id,
@@ -217,7 +217,7 @@ export class ReActAgent {
         return { ...defaults, ...data };
     }
 
-    public async contextAutoOpt(data: any) {
+    public async contextAutoOpt(data: Record<string, any>) {
         const auto_optimization = this.plugins.getTool(utils.getConfig('default')?.auto_optimization)?.func;
         if (!auto_optimization) return;
 
@@ -327,12 +327,12 @@ export class ReActAgent {
                     }
 
                     this.llm_service.chatManager.messages = newMessages;
-                    console.log(`Compression success for id: ${id}`);
+                    logger.log(`Compression success for id: ${id}`);
                     return compressed_message.content as string;
                 }
             }
-        } catch (error) {
-            console.log(`Compression failed for id: ${id}, Error: ${error}`);
+        } catch (error: any) {
+            logger.log(`Compression failed for id: ${id}, Error: ${error}`);
         }
         return null;
     }
@@ -463,7 +463,7 @@ export class ReActAgent {
                                         toolInfo = {
                                             thinking: content,
                                             tool: call?.function?.name,
-                                            params: call?.function?.arguments ? JSON5.parse(call.function.arguments) : {}
+                                            params: call?.function?.arguments ? JSON5.parse(String(call.function.arguments)) : {}
                                         };
                                     } else {
                                         toolInfo = { thinking: content, tool: null, params: null };
@@ -481,17 +481,17 @@ export class ReActAgent {
                                 if (toolInfo.tool === "enter_idle_state") {
                                     this.window.webContents.send('stream-data', { id, context_id, content: toolInfo.params.final_answer, end: true, del });
                                 }
-                            } catch {
-                                this.window.webContents.send('stream-data', { id, context_id, content: null, end: true, del });
+                            } catch (e: any) {
+                                this.window?.webContents.send('stream-data', { id, context_id, content: null, end: true, del });
                             }
                         } else {
                             this.window.webContents.send('stream-data', { id: id, content: content, end: true, del: del });
                         }
                     }
                 });
-                console.log(`Load success: ${filePath}`);
+                logger.log(`Load success: ${filePath}`);
             } else {
-                console.log(`Load failed: ${filePath}`);
+                logger.log(`Load failed: ${filePath}`);
             }
             let { id, context_id, del } = messages[messages.length - 1];
             this.window.webContents.send('stream-data', { id, context_id, content: null, end: true, del });
@@ -499,7 +499,7 @@ export class ReActAgent {
         return max_index;
     }
 
-    public get_info(data: any): string {
+    public get_info(data: Record<string, any>): string {
         const output_format = utils.copy(data.output_format);
         data.output_format = data.output_format?.replaceAll("\\`", "'").replaceAll("`", "'");
 
@@ -507,7 +507,7 @@ export class ReActAgent {
         let info = this.formatTemplate(infoTemplate, data);
 
         data.output_format = output_format; // 恢复原数据
-        console.log(info);
+        logger.log(info);
         return info;
     }
 }

@@ -1,4 +1,3 @@
-// @ts-nocheck
 // 4. 数据可视化专家 - 专注于图表生成
 const prompt = {
     tool_name: 'chart_plotter', 

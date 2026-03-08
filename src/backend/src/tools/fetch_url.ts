@@ -1,4 +1,4 @@
-// @ts-nocheck
+import { logger } from '../utils/logger';
 const cheerio = require('cheerio');
 const S = require('string');
 
@@ -28,10 +28,10 @@ async function fetchUrlContent({ url, text_max_len = 2000 }) {
             text: S(text).collapseWhitespace().s.slice(0, text_max_len)
         };
         
-        console.log('fetch_url result:', result);
+        logger.log('fetch_url result:', result);
         return result;
         
-    } catch (error) {
+    } catch (error: any) {
         console.error('fetch_url error:', error);
         return {
             error: error.message
@@ -43,7 +43,7 @@ async function main(params) {
     try {
         const result = await fetchUrlContent(params);
         return result;
-    } catch (e) {
+    } catch (e: any) {
         console.error(e);
         return {error: e.message};
     }

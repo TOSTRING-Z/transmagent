@@ -1,4 +1,5 @@
 import * as fs from 'fs';
+import { logger } from './logger';
 import * as os from 'os';
 import * as path from 'path';
 import JSON5 from 'json5';
@@ -42,11 +43,11 @@ export class Utils {
             });
 
             if (!response.ok) {
-                console.log(`sendData HTTP error! status: ${response.status}`);
+                logger.log(`sendData HTTP error! status: ${response.status}`);
             }
             return await response.json();
         } catch (error: any) {
-            console.log('sendData Error sending data:', error.message);
+            logger.log('sendData Error sending data:', error.message);
         }
     }
 
@@ -80,7 +81,7 @@ export class Utils {
                     const candidate = text.substring(startIndex, i + 1);
                     try {
                         return JSON.stringify(JSON5.parse(candidate), null, 2);
-                    } catch {
+                    } catch (e: any) {
                         startIndex = text.indexOf('{', i + 1);
                         if (startIndex === -1) return null;
                         i = startIndex - 1;
@@ -89,24 +90,24 @@ export class Utils {
                 }
             }
             return null;
-        } catch {
+        } catch (e: any) {
             return null;
         }
     }
 
     public parseJsonContent(content: string): any {
-        let content_parse = null;
+        let content_parse: any = null;
         try {
             content_parse = JSON5.parse(content);
             return content_parse;
-        } catch {
+        } catch (e: any) {
             try {
                 let content_json = this.extractJson(content);
                 if (content_json) {
                     content_parse = JSON5.parse(content_json);
                 }
                 return content_parse;
-            } catch {
+            } catch (e: any) {
                 return content_parse;
             }
         }
@@ -238,8 +239,8 @@ export class Utils {
                 'en': 'english', 'en-US': 'english', 'en-GB': 'english'
             };
             return languageMap[locale] || languageMap[locale.split('-')[0]] || locale;
-        } catch (error) {
-            console.log(error);
+        } catch (error: any) {
+            logger.log(error);
             return 'chinese';
         }
     }

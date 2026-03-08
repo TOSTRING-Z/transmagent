@@ -1,4 +1,5 @@
 import { parentPort } from 'worker_threads';
+import { logger } from '../utils/logger';
 import { WebServer } from './WebServer';
 
 if (!parentPort) {
@@ -42,7 +43,7 @@ parentPort.on('message', async (task: WorkerTask) => {
         webServer.on('chatRequest', onChatRequest);
         webServer.start();
 
-        console.log('[MainWorker] WebServer started.');
+        logger.log('[MainWorker] WebServer started.');
     } else if (type === 'stop') {
         // 优雅关闭
         if (webServer) {
@@ -50,7 +51,7 @@ parentPort.on('message', async (task: WorkerTask) => {
             webServer.stop();
             webServer = null;
         }
-        console.log('[MainWorker] WebServer stopped.');
+        logger.log('[MainWorker] WebServer stopped.');
     } else if (requestId && webServer) {
         // 主线程返回的业务处理结果
         webServer.handleResponse({ requestId, result });

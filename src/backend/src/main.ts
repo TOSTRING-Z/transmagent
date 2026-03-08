@@ -1,5 +1,6 @@
 // 必须在任何其他代码之前引入 source-map-support
 import sourceMapSupport from 'source-map-support';
+import { logger } from './utils/logger';
 import { app } from 'electron';
 import { install } from './core/Install';
 
@@ -43,7 +44,7 @@ const { Shortcut } = require('./main/Shortcut');
 
 /* App 生命周期管控 */
 app.whenReady().then(() => {
-    console.log("[App] Application is ready. Initializing subsystems...");
+    logger.log("[App] Application is ready. Initializing subsystems...");
 
     const windowManager = new WindowManager();
     const shortcut = new Shortcut(windowManager);

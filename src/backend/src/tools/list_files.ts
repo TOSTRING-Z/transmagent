@@ -1,4 +1,4 @@
-// @ts-nocheck
+import { logger } from '../utils/logger';
 const fs = require('fs');
 const path_ = require('path');
 
@@ -28,7 +28,7 @@ function main(params) {
     const regexObj = regex ? new RegExp(regex) : null;
     try {
       const items = fs.readdirSync(path);
-      const result = [];
+      const result: any[] = [];
 
       items.forEach(item => {
         const fullPath = path_.join(path, item);
@@ -47,9 +47,9 @@ function main(params) {
       if (result.length > (params?.threshold || 50)) {
         return ['Too much content returned, please try another solution!'];
       }
-      // console.log(result)
+      // logger.log(result)
       return result;
-    } catch (error) {
+    } catch (error: any) {
       console.error(`Error listing files in ${path}:`, error);
       return error.message;
     }
@@ -92,13 +92,14 @@ if (require.main === module) {
   (async () => {
     try {
       // 示例用法
+      // @ts-ignore
       const result = await main()({
         "path": "C:\\Users\\tostring\\Desktop\\document\\transagent",
         "recursive": false,
         "regex": null
       });
-      console.log('调试结果:', JSON.stringify(result, null, 2));
-    } catch (error) {
+      logger.log('调试结果:', JSON.stringify(result, null, 2));
+    } catch (error: any) {
       console.error('调试错误:', error);
     }
   })();

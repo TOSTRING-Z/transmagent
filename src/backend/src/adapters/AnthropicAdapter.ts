@@ -249,9 +249,9 @@ export class AnthropicToolCallAdapter implements IToolCallAdapter {
             try {
                 toolInfo = {
                     thinking: message.content as string,
-                    tool: call?.function?.name,
-                    id: call?.id,
-                    params: call?.function?.arguments ? JSON5.parse(call.function.arguments) : {},
+                    tool: call?.function?.name ?? null,
+                    id: call?.id ?? null,
+                    params: call?.function?.arguments ? JSON5.parse(call.function.arguments as string) : {},
                     error: null
                 };
             } catch (error: any) {
@@ -259,8 +259,8 @@ export class AnthropicToolCallAdapter implements IToolCallAdapter {
                 let observation = `Arguments are not a pure JSON text, or there is a problem with the JSON format: ${error.message}`;
                 toolInfo = {
                     thinking: message.content as string,
-                    tool: call?.function?.name,
-                    id: call?.id,
+                    tool: call?.function?.name ?? null,
+                    id: call?.id ?? null,
                     params: {},
                     error: observation
                 };

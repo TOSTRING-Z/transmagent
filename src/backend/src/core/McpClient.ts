@@ -137,7 +137,7 @@ class MCPClient {
                 try {
                     const { prompts } = await client.listPrompts();
                     extraDesc = prompts?.[0]?.description ? `\n\n${prompts[0].description}` : "";
-                } catch (error) {
+                } catch (error: any) {
                     console.warn(`[MCPClient] Failed to fetch prompts for server "${serverName}":`, error);
                 }
             }

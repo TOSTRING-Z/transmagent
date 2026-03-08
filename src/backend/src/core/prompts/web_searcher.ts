@@ -1,4 +1,3 @@
-// @ts-nocheck
 // 2. 网络搜索专家 - 专注于信息检索
 const prompt = {
     tool_name: 'web_searcher', 
