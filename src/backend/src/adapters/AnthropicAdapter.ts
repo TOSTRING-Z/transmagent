@@ -30,13 +30,22 @@ export class AnthropicAdapter implements ILLMAdapter {
 
                 // 3. Assistant 消息中的工具调用 (Tool Use)
                 if (message.role === "assistant" && message.tool_calls) {
-                    const toolUses = message.tool_calls.map((tc: any) => ({
-                        type: "tool_use",
-                        id: tc.id,
-                        name: tc.function?.name,
-                        input: tc.function?.arguments ? JSON5.parse(tc.function.arguments) : {}
-                    }));
-                    // 保留 Assistant 原有的 text content
+                    const toolUses = message.tool_calls.map((tc: any) => {
+                        let args = {};
+                        if (tc.function?.arguments) {
+                            try {
+                                args = typeof tc.function.arguments === 'string' ? JSON.parse(tc.function.arguments) : tc.function.arguments;
+                            } catch(e) {
+                                args = {};
+                            }
+                        }
+                        return {
+                            type: "tool_use",
+                            id: tc.id,
+                            name: tc.function?.name || tc.name,
+                            input: args
+                        };
+                    });
                     messageCopy.content = [...contentArray.filter(c => c.type === 'text'), ...toolUses];
                     return messageCopy;
                 }
@@ -185,10 +194,10 @@ export class AnthropicAdapter implements ILLMAdapter {
         } else if (chunk.type === "message_delta" && chunk.usage?.output_tokens) {
             tokens = chunk.usage.output_tokens;
         } else if (chunk.type === "message_start" && chunk.message?.usage) {
-            tokens = chunk.message.usage.output_tokens;
+            tokens = chunk.message.usage.input_tokens;
         }
 
-        return { content, reasoning_content, tool_calls, tokens };
+        return { content, reasoning_content, tool_calls, tokens, is_incremental_tokens: true };
     }
 
     public parseResponse(respJson: any): any {
@@ -220,7 +229,7 @@ export class AnthropicAdapter implements ILLMAdapter {
         }
 
         if (respJson.usage) {
-            tokens = respJson.usage.output_tokens;
+            tokens = (respJson.usage.input_tokens || 0) + (respJson.usage.output_tokens || 0);
         }
 
         return { content, tool_calls, finish_reason, tokens };
@@ -261,7 +270,7 @@ export class AnthropicToolCallAdapter implements IToolCallAdapter {
                     thinking: message.content as string,
                     tool: call?.function?.name ?? null,
                     id: call?.id ?? null,
-                    params: {},
+                    params: call?.function?.arguments,
                     error: observation
                 };
             }

@@ -1,9 +1,6 @@
-"use strict";
-Object.defineProperty(exports, "__esModule", { value: true });
-exports.confirmRename = exports.renameChat = exports.showHistoryMenu = exports.deleteChat = exports.selectChat = exports.newChat = exports.addChatItem = void 0;
-const globals_1 = require("./globals");
-const utils_1 = require("./utils");
-const ui_1 = require("./ui");
+import { DOM, State } from './globals';
+import { createElement } from './utils';
+import { toggleMode } from './ui';
 const new_item_template = `<div class="history-item" onclick="selectChat('@id')">
     <div class="history-text"></div>
     <div class="history-menu" onclick="showHistoryMenu(event, '@id')">
@@ -18,12 +15,12 @@ const new_item_template = `<div class="history-item" onclick="selectChat('@id')"
       </div>
     </div>
   </div>`;
-function addChatItem(chat) {
-    const item = (0, utils_1.createElement)(new_item_template.replace(/@id/g, chat.id));
+export function addChatItem(chat) {
+    const item = createElement(new_item_template.replace(/@id/g, chat.id));
     item.getElementsByClassName("history-text")[0].innerText = chat.name || "New Chat";
     item.getElementsByClassName("history-text")[0].title = chat.name || "New Chat";
     item.id = chat.id;
-    globals_1.DOM.history_list.insertBefore(item, globals_1.DOM.history_list.firstChild);
+    DOM.history_list.insertBefore(item, DOM.history_list.firstChild);
     // Re-bind events because inline onclicks in string templates might not work as expected in modules scope
     // But wait, inline onclicks rely on global functions. 
     // In a module system, we should attach event listeners manually or expose functions to window.
@@ -36,10 +33,9 @@ function addChatItem(chat) {
     const deleteBtn = item.querySelector('.history-menu-item:nth-child(2)');
     deleteBtn.onclick = (e) => { e.stopPropagation(); deleteChat(chat.id); };
 }
-exports.addChatItem = addChatItem;
-function newChat(chat) {
+export function newChat(chat) {
     addChatItem(chat);
-    const items = globals_1.DOM.history_list.getElementsByClassName("history-item");
+    const items = DOM.history_list.getElementsByClassName("history-item");
     Array.from(items).forEach((item) => {
         if (item.id == chat.id)
             item.classList.add("active");
@@ -47,16 +43,25 @@ function newChat(chat) {
             item.classList.remove("active");
     });
 }
-exports.newChat = newChat;
-async function selectChat(chatId) {
+export async function selectChat(chatId) {
     const chat = await window.electronAPI.loadChat(chatId);
-    globals_1.State.chat = chat;
-    (0, ui_1.toggleMode)(globals_1.State.chat.mode);
-    globals_1.DOM.system_prompt.value = globals_1.State.chat.system_prompt;
-    globals_1.DOM.tokens.innerText = globals_1.State.chat.tokens.toString();
-    globals_1.DOM.msg_count.innerText = globals_1.State.chat.msg_count?.toString() || "0";
-    globals_1.DOM.seconds.innerText = globals_1.State.chat.seconds.toFixed(1);
-    const items = globals_1.DOM.history_list.getElementsByClassName("history-item");
+    State.chat = chat;
+    toggleMode(State.chat.mode);
+    DOM.system_prompt.value = State.chat.system_prompt;
+    DOM.tokens.innerText = State.chat.tokens.toString();
+    DOM.msg_count.innerText = State.chat.msg_count?.toString() || "0";
+    DOM.seconds.innerText = State.chat.seconds.toFixed(1);
+    // ======== 小圆的魔法：同步配置面板的 UI ========
+    const model_select = document.getElementById('ai-model');
+    if (model_select && State.chat.model) {
+        model_select.value = State.chat.model;
+    }
+    const compress_box = document.getElementById('compress-context');
+    if (compress_box) {
+        compress_box.checked = !!State.chat.compress_context;
+    }
+    // ==============================================
+    const items = DOM.history_list.getElementsByClassName("history-item");
     Array.from(items).forEach((item) => {
         if (item.id == chatId)
             item.classList.add("active");
@@ -64,46 +69,40 @@ async function selectChat(chatId) {
             item.classList.remove("active");
     });
 }
-exports.selectChat = selectChat;
-async function deleteChat(chatId) {
+export async function deleteChat(chatId) {
     if (confirm('Are you sure you want to delete this conversation?')) {
         await window.electronAPI.delChat(chatId);
-        const items = globals_1.DOM.history_list.getElementsByClassName("history-item");
+        const items = DOM.history_list.getElementsByClassName("history-item");
         Array.from(items).forEach((item) => {
             if (item.id == chatId)
                 item.remove();
         });
     }
 }
-exports.deleteChat = deleteChat;
-function showHistoryMenu(event, chatId) {
+export function showHistoryMenu(event, chatId) {
     event.stopPropagation();
     const menus = document.querySelectorAll('.history-menu-dropdown');
     menus.forEach((menu) => menu.style.display = 'none');
     const target = event.currentTarget;
     const menu = target.querySelector('.history-menu-dropdown');
     menu.style.display = 'block';
-    globals_1.State.chat.id = chatId;
+    State.chat.id = chatId;
 }
-exports.showHistoryMenu = showHistoryMenu;
-function renameChat(chatId) {
-    globals_1.State.chat.id = chatId;
-    globals_1.DOM.renameDialog.style.display = 'flex';
-    globals_1.DOM.renameInput.focus();
+export function renameChat(chatId) {
+    State.chat.id = chatId;
+    DOM.renameDialog.style.display = 'flex';
+    DOM.renameInput.focus();
 }
-exports.renameChat = renameChat;
-async function confirmRename() {
-    const newName = globals_1.DOM.renameInput.value.trim();
-    if (newName && globals_1.State.chat.id) {
-        await window.electronAPI.renameChat({ id: globals_1.State.chat.id, name: newName });
-        const items = globals_1.DOM.history_list.getElementsByClassName("history-item");
+export async function confirmRename() {
+    const newName = DOM.renameInput.value.trim();
+    if (newName && State.chat.id) {
+        await window.electronAPI.renameChat({ id: State.chat.id, name: newName });
+        const items = DOM.history_list.getElementsByClassName("history-item");
         Array.from(items).forEach((item) => {
-            if (item.id == globals_1.State.chat.id)
+            if (item.id == State.chat.id)
                 item.getElementsByClassName("history-text")[0].innerText = newName;
         });
     }
-    globals_1.DOM.renameDialog.style.display = 'none';
-    globals_1.DOM.renameInput.value = '';
+    DOM.renameDialog.style.display = 'none';
+    DOM.renameInput.value = '';
 }
-exports.confirmRename = confirmRename;
-//# sourceMappingURL=history.js.map

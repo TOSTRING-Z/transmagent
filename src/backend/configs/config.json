@@ -34,7 +34,7 @@
     "version": "deepseek-chat",
     "plugin": "baidu_translate",
     "tool_format": "prompt",
-    "auto_optimization": "auto_optimization",
+    "auto_optimization": "auto_optimization"
   },
   "models": {
     "ollama": {
@@ -86,6 +86,14 @@
     },
     "baidu_translate": {
       "show": true
+    },
+    "screenshot_vision": {
+      "params": {
+        "api_url": "https://api.gptgod.online/v1/chat/completions",
+        "api_key": "...",
+        "model": "gpt-4.1-mini"
+      },
+      "enabled": false
     },
     "browser_client": {
       "enabled": false

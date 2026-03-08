@@ -1,10 +1,7 @@
-"use strict";
-Object.defineProperty(exports, "__esModule", { value: true });
-exports.streamMessageAdd = exports.infoAdd = exports.userAdd = exports.addEventStop = exports.menuEvent = exports.delete_memory = exports.quote_memory = exports.locate_memory = exports.thumbMessage = exports.compression_message = exports.delete_message = void 0;
-const globals_1 = require("./globals");
-const utils_1 = require("./utils");
-const markdown_1 = require("./markdown");
-const ui_1 = require("./ui");
+import { DOM, State } from './globals';
+import { createElement, getIcon } from './utils';
+import { marked } from './markdown';
+import { showLog } from './ui';
 // Templates
 const user_message_template = `<div class="relative space-y-2 space-x-2" data-role="user" data-id="">
   <div class="flex flex-row-reverse w-full">
@@ -40,21 +37,21 @@ const system_message_template = `<div class="relative space-y-2 space-x-2" data-
 </div>`;
 // Helper: Format Message
 async function formatMessage(template, params, role) {
-    const newElement = (0, utils_1.createElement)(template);
+    const newElement = createElement(template);
     let message = newElement.getElementsByClassName("message")[0];
     if (Object.prototype.hasOwnProperty.call(params, "icon")) {
         let menu = newElement.getElementsByClassName("menu")[0];
         menu.src = `img/${params["icon"]}.svg`;
     }
     if (role === "system") {
-        message.innerHTML = await markdown_1.marked.parse(params["message"]);
+        message.innerHTML = await marked.parse(params["message"]);
     }
     else {
         if (params.image_url) {
-            let img = (0, utils_1.createElement)(`<img class="w-1/2 shadow-xl rounded-md mb-1 hover" src="${params.image_url}">`);
+            let img = createElement(`<img class="w-1/2 shadow-xl rounded-md mb-1 hover" src="${params.image_url}">`);
             message.appendChild(img);
         }
-        let text = (0, utils_1.createElement)(`<div class="message-text"></div>`);
+        let text = createElement(`<div class="message-text"></div>`);
         text.innerText = params["message"] || "";
         message.appendChild(text);
     }
@@ -62,7 +59,7 @@ async function formatMessage(template, params, role) {
     return newElement;
 }
 // Action Handlers
-async function delete_message(id) {
+export async function delete_message(id) {
     let elements = document.querySelectorAll(`[data-id="${id}"]`);
     elements.forEach(async function (message_element) {
         if (message_element.classList.contains('message_del')) {
@@ -102,23 +99,22 @@ async function delete_message(id) {
         }
     });
 }
-exports.delete_message = delete_message;
 let compression_tasks = {};
-async function compression_message(id) {
+export async function compression_message(id) {
     let elements = document.querySelectorAll(`[data-id="${id}"]`);
-    (0, ui_1.showLog)('log', `Compressing message (id: ${id})...`);
+    showLog('log', `Compressing message (id: ${id})...`);
     compression_tasks[id] = true;
-    if (globals_1.DOM.submit.classList.contains('running') == false) {
-        globals_1.DOM.submit.classList.add('running');
+    if (DOM.submit.classList.contains('running') == false) {
+        DOM.submit.classList.add('running');
     }
     let { compression_content } = await window.electronAPI.compressionMessage({ id: parseInt(id) });
-    (0, ui_1.showLog)('success', `Message compressed (id: ${id}).`);
+    showLog('success', `Message compressed (id: ${id}).`);
     let keptUser = false;
     elements.forEach(async function (message_element) {
         if (!keptUser) {
             keptUser = true;
             let messageSystem = await formatMessage(system_message_template, {
-                "icon": (0, utils_1.getIcon)(false),
+                "icon": getIcon(false),
                 "id": id,
                 "message": compression_content
             }, "system");
@@ -130,7 +126,7 @@ async function compression_message(id) {
             message_element.parentElement.insertBefore(messageSystem, message_element.nextSibling);
             delete compression_tasks[id];
             if (Object.keys(compression_tasks).length == 0) {
-                globals_1.DOM.submit.classList.remove('running');
+                DOM.submit.classList.remove('running');
             }
         }
         else {
@@ -138,8 +134,7 @@ async function compression_message(id) {
         }
     });
 }
-exports.compression_message = compression_message;
-async function thumbMessage(up, down, data) {
+export async function thumbMessage(up, down, data) {
     let thumb = await window.electronAPI.thumbMessage(data);
     if (thumb === 1) {
         if (!up.classList.contains("success"))
@@ -160,19 +155,16 @@ async function thumbMessage(up, down, data) {
             down.classList.remove("success");
     }
 }
-exports.thumbMessage = thumbMessage;
-function locate_memory(context_id) {
+export function locate_memory(context_id) {
     let elements = document.querySelectorAll(`[info_data-id="${context_id}"]`);
     if (elements.length > 0)
         elements[0].scrollIntoView({ behavior: 'smooth', block: 'center' });
 }
-exports.locate_memory = locate_memory;
-function quote_memory(context_id) {
+export function quote_memory(context_id) {
     const quotedContent = `Please invoke the memory_retrieval tool using context_id: ${context_id}`;
-    globals_1.DOM.input.value = quotedContent + '\n' + globals_1.DOM.input.value;
+    DOM.input.value = quotedContent + '\n' + DOM.input.value;
 }
-exports.quote_memory = quote_memory;
-async function delete_memory(context_id) {
+export async function delete_memory(context_id) {
     let { del_mode } = await window.electronAPI.toggleMemory(context_id);
     let elements = document.querySelectorAll(`[info_data-id="${context_id}"]`);
     elements.forEach(function (element) {
@@ -189,8 +181,7 @@ async function delete_memory(context_id) {
             element.classList.toggle('del');
     });
 }
-exports.delete_memory = delete_memory;
-function menuEvent(messageSystem, message_content, is_plugin) {
+export function menuEvent(messageSystem, message_content, is_plugin) {
     const copy = messageSystem.getElementsByClassName("copy")[0];
     const del = messageSystem.getElementsByClassName("delete")[0];
     const compression = messageSystem.getElementsByClassName("compression")[0];
@@ -208,7 +199,7 @@ function menuEvent(messageSystem, message_content, is_plugin) {
     copy.addEventListener("click", () => {
         const raw = message_content.dataset.content || "";
         navigator.clipboard.writeText(raw).then(() => {
-            (0, ui_1.showLog)('success', 'Copy successful');
+            showLog('success', 'Copy successful');
         }).catch(err => {
             console.log(err);
         });
@@ -231,24 +222,22 @@ function menuEvent(messageSystem, message_content, is_plugin) {
         thumbMessage(thumbs_up, thumbs_down, { id: messageSystem.dataset.id, thumb: -1 });
     });
 }
-exports.menuEvent = menuEvent;
-function addEventStop(messageSystem) {
+export function addEventStop(messageSystem) {
     const message_content = messageSystem.getElementsByClassName('message')[0];
     const thinking = messageSystem?.getElementsByClassName("thinking")[0];
     const btn = messageSystem?.getElementsByClassName("btn")[0];
     btn?.addEventListener("click", async () => {
         await window.electronAPI.streamMessageStop();
-        if (globals_1.State.seconds_timer)
-            clearInterval(globals_1.State.seconds_timer);
+        if (State.seconds_timer)
+            clearInterval(State.seconds_timer);
         thinking?.remove();
         menuEvent(messageSystem, message_content.dataset.content, false); // assuming plugin is false here or passed correctly
-        globals_1.DOM.submit.classList.remove("running");
+        DOM.submit.classList.remove("running");
     });
-    globals_1.DOM.submit.classList.add("running");
+    DOM.submit.classList.add("running");
 }
-exports.addEventStop = addEventStop;
 // Main Chat Functions
-async function userAdd(data) {
+export async function userAdd(data) {
     let messageUser;
     if (typeof (data.content) == "string") {
         messageUser = await formatMessage(user_message_template, {
@@ -264,13 +253,13 @@ async function userAdd(data) {
             "image_url": data.content[1].image_url.url,
         }, "user");
     }
-    globals_1.DOM.messages.appendChild(messageUser);
+    DOM.messages.appendChild(messageUser);
     let messageSystem = await formatMessage(system_message_template, {
-        "icon": (0, utils_1.getIcon)(false),
+        "icon": getIcon(false),
         "id": data.id,
         "message": ""
     }, "system");
-    globals_1.DOM.messages.appendChild(messageSystem);
+    DOM.messages.appendChild(messageSystem);
     addEventStop(messageSystem);
     if (data?.del) {
         messageUser.classList.add("message_del");
@@ -279,8 +268,7 @@ async function userAdd(data) {
         messageSystem.classList.add("message_toggle");
     }
 }
-exports.userAdd = userAdd;
-async function infoAdd(info) {
+export async function infoAdd(info) {
     const messageSystems = document.querySelectorAll(`[data-id='${info.id}']`);
     const messageSystem = messageSystems[1];
     if (messageSystem) {
@@ -290,11 +278,11 @@ async function infoAdd(info) {
             info_div.classList.remove('hidden');
         }
         if (info.content) {
-            if (info.chat && info.chat.tokens !== undefined && globals_1.DOM.tokens) {
-                globals_1.DOM.tokens.innerText = info.chat.tokens.toString();
+            if (info.chat && info.chat.tokens !== undefined && DOM.tokens) {
+                DOM.tokens.innerText = info.chat.tokens.toString();
             }
-            let info_item_content = await markdown_1.marked.parse(info.content);
-            let info_item = (0, utils_1.createElement)(`<div info_data-id="${info.context_id}">
+            let info_item_content = await marked.parse(info.content);
+            let info_item = createElement(`<div info_data-id="${info.context_id}">
     <div class="info-item">
     </div>
   </div>`);
@@ -303,25 +291,24 @@ async function infoAdd(info) {
             info_item.getElementsByClassName('info-item')[0].innerHTML = info_item_content;
             info_content.appendChild(info_item);
             info_content.dataset.content = (info_content.dataset.content || '') + info.content;
-            if (globals_1.State.scroll_top.info)
+            if (State.scroll_top.info)
                 info_content.scrollTop = info_content.scrollHeight;
-            if (globals_1.State.scroll_top.data)
-                globals_1.DOM.top_div.scrollTop = globals_1.DOM.top_div.scrollHeight;
+            if (State.scroll_top.data)
+                DOM.top_div.scrollTop = DOM.top_div.scrollHeight;
         }
     }
 }
-exports.infoAdd = infoAdd;
-async function streamMessageAdd(chunk) {
+export async function streamMessageAdd(chunk) {
     const messageSystems = document.querySelectorAll(`[data-id='${chunk.id}']`);
     const messageSystem = messageSystems[1];
     if (messageSystem) {
         const message_content = messageSystem.getElementsByClassName('message')[0];
         if (chunk.content) {
             if (chunk.chat?.msg_count) {
-                globals_1.DOM.msg_count.innerText = chunk.chat.msg_count;
+                DOM.msg_count.innerText = chunk.chat.msg_count;
             }
-            if (chunk.chat && chunk.chat.tokens !== undefined && globals_1.DOM.tokens) {
-                globals_1.DOM.tokens.innerText = chunk.chat.tokens.toString();
+            if (chunk.chat && chunk.chat.tokens !== undefined && DOM.tokens) {
+                DOM.tokens.innerText = chunk.chat.tokens.toString();
             }
             // remove optionDom if exists (needs global reference or pass it)
             // In original code, optionDom was global. In ui.ts, loadOptions adds it.
@@ -337,13 +324,13 @@ async function streamMessageAdd(chunk) {
             if (chunk_item_query.length > 0) {
                 let existingItem = chunk_item_query[0];
                 chunk_content = (existingItem.dataset.content || '') + chunk.content;
-                chunk_item_content = await markdown_1.marked.parse(chunk_content);
+                chunk_item_content = await marked.parse(chunk_content);
                 chunk_item = existingItem;
                 chunk_item.dataset.content = chunk_content;
                 chunk_item.getElementsByClassName('chunk-content')[0].innerHTML = chunk_item_content;
             }
             else {
-                chunk_item = (0, utils_1.createElement)(`<div chunk_data-id="${context_id}">
+                chunk_item = createElement(`<div chunk_data-id="${context_id}">
           <div class="chunk">
             <div class="chunk-content"></div>
             <div class="chunk-actions">
@@ -356,10 +343,10 @@ async function streamMessageAdd(chunk) {
                 if (chunk?.del)
                     chunk_item.classList.add("del");
                 chunk_content = chunk.content;
-                chunk_item_content = await markdown_1.marked.parse(chunk_content);
+                chunk_item_content = await marked.parse(chunk_content);
                 chunk_item.dataset.content = chunk.content;
                 chunk_item.getElementsByClassName('chunk-content')[0].innerHTML = chunk_item_content;
-                if (!globals_1.State.react_statu || chunk?.is_plugin) {
+                if (!State.react_statu || chunk?.is_plugin) {
                     chunk_item.getElementsByClassName('chunk-actions')[0].style.display = "none";
                 }
                 chunk_item.getElementsByClassName('chunk-delete')[0].addEventListener("click", () => {
@@ -374,13 +361,13 @@ async function streamMessageAdd(chunk) {
                 message_content.appendChild(chunk_item);
             }
             message_content.dataset.content = (message_content.dataset.content || '') + chunk.content;
-            if (globals_1.State.scroll_top.data)
-                globals_1.DOM.top_div.scrollTop = globals_1.DOM.top_div.scrollHeight;
+            if (State.scroll_top.data)
+                DOM.top_div.scrollTop = DOM.top_div.scrollHeight;
         }
         if (chunk.end) {
-            if (globals_1.State.seconds_timer) {
-                clearInterval(globals_1.State.seconds_timer);
-                globals_1.State.seconds_timer = null;
+            if (State.seconds_timer) {
+                clearInterval(State.seconds_timer);
+                State.seconds_timer = null;
             }
             if (!messageSystem.dataset?.event_stop) {
                 messageSystem.dataset.event_stop = "true";
@@ -389,12 +376,10 @@ async function streamMessageAdd(chunk) {
                     thinking.remove();
                 menuEvent(messageSystem, message_content, chunk?.is_plugin);
             }
-            if (globals_1.State.scroll_top.data)
-                globals_1.DOM.top_div.scrollTop = globals_1.DOM.top_div.scrollHeight;
-            globals_1.DOM.submit.classList.remove('running');
+            if (State.scroll_top.data)
+                DOM.top_div.scrollTop = DOM.top_div.scrollHeight;
+            DOM.submit.classList.remove('running');
         }
-        await window.electronAPI.setGlobal(globals_1.State.chat);
+        await window.electronAPI.setGlobal(State.chat);
     }
 }
-exports.streamMessageAdd = streamMessageAdd;
-//# sourceMappingURL=chat.js.map

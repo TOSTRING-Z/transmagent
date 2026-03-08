@@ -37,11 +37,11 @@ function createStore() {
 
 export const store = createStore();
 
-export const inner = {
-    url_base: { data: { collection: '/collection' } },
-    model_name: { plugins: "plugins" },
-    model: { plugins: { versions: [] } }
+export const CONSTANTS = {
+    COLLECTION_URL: '/collection',
+    PLUGIN_MODEL_NAME: 'plugins'
 };
+
 
 export const sysConfig = {
     transagent: "config.json",
@@ -49,9 +49,11 @@ export const sysConfig = {
     multagent: "config_multagent.json",
 };
 
-export const utils = new Utils(inner, store.get('config', sysConfig.transagent));
+export const utils = new Utils(store.get('config', sysConfig.transagent));
 
 export const globalState = {
+    pluginVersions: [] as any[],
+
     config: store.get('config', sysConfig.transagent),
     last_clipboard_content: null as string | null,
     concat: false,

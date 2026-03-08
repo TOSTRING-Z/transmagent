@@ -1,6 +1,6 @@
 import * as fs from 'fs';
 import * as path from 'path';
-import { utils } from '../utils/globals';
+import { utils, globalState } from '../utils/globals';
 
 export interface PluginItem {
     func: (...args: any[]) => any;
@@ -39,11 +39,17 @@ export class Plugins {
         try {
             let plugin: any;
             if (pluginPath && fs.existsSync(pluginPath)) {
+                try {
+                    delete require.cache[require.resolve(pluginPath)];
+                } catch(e) {}
                 plugin = require(pluginPath);
             } else {
                 // 从内置工具目录加载
                 // 编译后路径: dist/core/Plugins.js -> dist/tools/{version}
                 const builtinPath = path.join(__dirname, '..', 'tools', info.version);
+                try {
+                    delete require.cache[require.resolve(builtinPath)];
+                } catch(e) {}
                 plugin = require(builtinPath);
             }
 
@@ -84,5 +90,8 @@ export class Plugins {
                 this.tools[version] = this.loadPlugin(info);
             }
         });
+
+        // 更新全局状态中的插件版本列表供前端使用
+        globalState.pluginVersions = Object.keys(this.tools).map(version => ({ version, show: true }));
     }
 }

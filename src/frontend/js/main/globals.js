@@ -1,7 +1,4 @@
-"use strict";
-Object.defineProperty(exports, "__esModule", { value: true });
-exports.State = exports.DOM = void 0;
-exports.DOM = {
+export const DOM = {
     system_prompt: document.getElementById("system_prompt"),
     file_upload: document.getElementById("file_upload"),
     act_plan: document.getElementById("act_plan"),
@@ -33,10 +30,10 @@ exports.DOM = {
         innerText: '0'
     },
 };
-exports.State = {
+export const State = {
     markdown_statu: true,
     seconds_timer: null,
-    chat: { tokens: 0, seconds: 0, id: null, mode: 'auto', version: null, system_prompt: null },
+    chat: { tokens: 0, seconds: 0, id: null, mode: 'auto', version: null, system_prompt: "" },
     scroll_top: {
         info: true,
         data: true,
@@ -52,4 +49,3 @@ exports.State = {
         img_url: null
     }
 };
-//# sourceMappingURL=globals.js.map

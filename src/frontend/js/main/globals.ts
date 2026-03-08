@@ -39,6 +39,8 @@ export interface ChatState {
   version: string | null;
   system_prompt: string;
   msg_count?: number;
+  model?: string;
+  compress_context?: boolean;
 }
 
 export const State = {

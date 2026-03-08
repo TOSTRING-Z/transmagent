@@ -1,22 +1,19 @@
-"use strict";
-Object.defineProperty(exports, "__esModule", { value: true });
-exports.saveConfig = exports.hideConfig = exports.showConfig = exports.initConfigEvents = void 0;
-const globals_1 = require("./globals");
-const ui_1 = require("./ui");
-const utils_1 = require("./utils");
+import { DOM, State } from './globals';
+import { showLog } from './ui';
+import { createElement } from './utils';
 const editors = {
     envs: null,
     tasks: null,
 };
-function initConfigEvents() {
+export function initConfigEvents() {
     // Environment Variables
-    globals_1.DOM.btn_save_envs.addEventListener('click', async () => {
+    DOM.btn_save_envs.addEventListener('click', async () => {
         const envs = editors.envs.get();
         const statu = await window.electronAPI.Envs({ type: "set", envs: envs });
         if (statu)
-            (0, ui_1.showLog)('success', 'Configuration saved successfully!');
+            showLog('success', 'Configuration saved successfully!');
     });
-    globals_1.DOM.envs.addEventListener('click', async () => {
+    DOM.envs.addEventListener('click', async () => {
         const mEnvs = document.getElementById('m-envs');
         if (mEnvs)
             mEnvs.style.display = 'flex';
@@ -30,13 +27,13 @@ function initConfigEvents() {
         editors.envs.set(config_envs);
     });
     // Tasks List
-    globals_1.DOM.btn_save_tasks.addEventListener('click', async () => {
+    DOM.btn_save_tasks.addEventListener('click', async () => {
         const taskList = editors.tasks.get();
         const statu = await window.electronAPI.Tasks({ type: "set", tasks: taskList });
         if (statu)
-            (0, ui_1.showLog)('success', 'Tasks saved!');
+            showLog('success', 'Tasks saved!');
     });
-    globals_1.DOM.tasks.addEventListener('click', async () => {
+    DOM.tasks.addEventListener('click', async () => {
         const taskList = await window.electronAPI.Tasks({ type: "get" });
         const mTasks = document.getElementById('m-tasks');
         if (mTasks)
@@ -50,9 +47,8 @@ function initConfigEvents() {
         editors.tasks.set(taskList);
     });
 }
-exports.initConfigEvents = initConfigEvents;
 // Configuration Modal
-async function showConfig() {
+export async function showConfig() {
     const mConfig = document.querySelector('#m-config');
     if (mConfig)
         mConfig.style.display = 'flex';
@@ -67,14 +63,34 @@ async function showConfig() {
                 api_url.value = config.models[model]?.api_url || '';
                 api_key.value = config.models[model]?.api_key || '';
             }
-            const option = (0, utils_1.createElement)(`<option value="${model}">${model}</option>`);
+            const option = createElement(`<option value="${model}">${model}</option>`);
             ai_model.appendChild(option);
         }
+    }
+    if (State.chat && State.chat.model) {
+        ai_model.value = State.chat.model;
+        api_url.value = config.models[State.chat.model]?.api_url || '';
+        api_key.value = config.models[State.chat.model]?.api_key || '';
+    }
+    const compress_box_1 = document.getElementById('compress-context');
+    if (compress_box_1 && State.chat) {
+        compress_box_1.checked = !!State.chat.compress_context;
     }
     ai_model.onchange = (event) => {
         api_url.value = config.models[event.target.value]?.api_url || '';
         api_key.value = config.models[event.target.value]?.api_key || '';
     };
+    // ======== 小圆的魔法：根据当前聊天记录同步配置面板上的模型和压缩选项 ========
+    if (State.chat && State.chat.model) {
+        ai_model.value = State.chat.model;
+        api_url.value = config.models[State.chat.model]?.api_url || '';
+        api_key.value = config.models[State.chat.model]?.api_key || '';
+    }
+    const compress_box_2 = document.getElementById('compress-context');
+    if (compress_box_2 && State.chat) {
+        compress_box_2.checked = !!State.chat.compress_context;
+    }
+    // ==========================================================================
     if (config.plugins?.cli_execute) {
         document.getElementById('cli-prompt').value = config.tool_call.cli_prompt || '';
         document.getElementById('ssh-host').value = config.tool_call.ssh_config?.host || '';
@@ -91,12 +107,10 @@ async function showConfig() {
             remoteDiv.style.display = "none";
     }
 }
-exports.showConfig = showConfig;
-function hideConfig() {
+export function hideConfig() {
     document.querySelectorAll('.config-modal').forEach((m) => m.style.display = 'none');
 }
-exports.hideConfig = hideConfig;
-async function saveConfig() {
+export async function saveConfig() {
     const config = await window.electronAPI.getConfig();
     const postConfig = {
         tool_call: {
@@ -129,9 +143,15 @@ async function saveConfig() {
     }
     config.models[ai_config.model].api_url = ai_config.api_url;
     config.models[ai_config.model].api_key = ai_config.api_key;
+    // ======== 小圆的魔法：将当前的设置同步更新到当前的聊天中，并保存 ========
+    const compress_box_3 = document.getElementById('compress-context');
+    if (State.chat) {
+        State.chat.model = ai_config.model;
+        State.chat.compress_context = compress_box_3 ? compress_box_3.checked : false;
+        window.electronAPI.saveChat(State.chat);
+    }
+    // ========================================================================
     await window.electronAPI.setConfig(config);
-    (0, ui_1.showLog)('success', 'Configuration saved successfully!');
+    showLog('success', 'Configuration saved successfully!');
     hideConfig();
 }
-exports.saveConfig = saveConfig;
-//# sourceMappingURL=config.js.map

@@ -1,4 +1,5 @@
 export interface ElectronAPI {
+  saveChat: (chat: any) => Promise<void>;
   handleLog: (callback: (log: { type: string; content: string }) => void) => void;
   showLog: (log: { type: string; content: string }) => void;
   handleDeleteMemory: (callback: (data: { context_ids: number[]; ids: number[] }) => void) => void;

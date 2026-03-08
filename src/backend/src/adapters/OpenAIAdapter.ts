@@ -12,9 +12,19 @@ export class OpenAIAdapter implements ILLMAdapter {
             }
             if (message.role === "tool" && message.tool_call_id) {
                 messageCopy.tool_call_id = message.tool_call_id;
+                if (typeof messageCopy.content !== 'string') {
+                    messageCopy.content = JSON.stringify(messageCopy.content);
+                }
             }
             if (message.role === "assistant" && message.tool_calls) {
-                messageCopy.tool_calls = message.tool_calls;
+                messageCopy.tool_calls = message.tool_calls.map((tc: any) => ({
+                    id: tc.id,
+                    type: "function",
+                    function: {
+                        name: tc.function?.name || tc.name,
+                        arguments: typeof tc.function?.arguments === 'string' ? tc.function.arguments : JSON.stringify(tc.function?.arguments || {})
+                    }
+                }));
             }
 
             // 2. 视觉模型参数处理
@@ -185,7 +195,7 @@ export class OpenAIToolCallAdapter implements IToolCallAdapter {
                     thinking: message.content as string,
                     tool: call?.function?.name ?? null,
                     id: call?.id ?? null,
-                    params: {},
+                    params: call?.function?.arguments,
                     error: observation
                 };
             }

@@ -143,7 +143,7 @@ export class PromptAdapter implements ILLMAdapter {
 export class PromptToolCallAdapter implements IToolCallAdapter {
     formatTools(toolSchemas: any[]): any {
         const tool_prompt: Record<string, string> = {};
-        
+
         for (const schema of toolSchemas) {
             if (schema.type === "raw_string") {
                 tool_prompt[schema.name] = schema.content;
@@ -178,7 +178,13 @@ export class PromptToolCallAdapter implements IToolCallAdapter {
         } catch (error: any) {
             // 解析失败时的兜底错误处理
             let observation = `Function calling is not a pure JSON text, or there is a problem with the JSON format: ${error.message}`;
-            toolInfo = { thinking: null, tool: null, id: null, params: {}, error: observation };
+            toolInfo = {
+                thinking: message.content as string,
+                tool: null,
+                id: null,
+                params: {},
+                error: observation
+            };
         }
         return toolInfo;
     }

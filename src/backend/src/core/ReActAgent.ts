@@ -1,7 +1,7 @@
 import JSON5 from 'json5';
 import { logger } from '../utils/logger';
 import { LLMService } from './LLMService';
-import { utils, inner, CHAT_CONST } from '../utils/globals';
+import { utils, CONSTANTS, CHAT_CONST } from '../utils/globals';
 import { Message, ChatState, MessageContent, TextContent } from '../types';
 import { ToolCallAdapterFactory } from '../factories/AdapterFactory';
 
@@ -182,7 +182,7 @@ export class ReActAgent {
 
     public async sendData(data: Record<string, any>): Promise<boolean> {
         let agent_messages = this.llm_service.chatManager.getMessages(true).filter(m => m.id === data.id);
-        utils.sendData(inner.url_base.data.collection, {
+        utils.sendData(CONSTANTS.COLLECTION_URL, {
             "chat_id": this.llm_service.chatManager.chat.id,
             "message_id": data.id,
             "user_message": data.query,

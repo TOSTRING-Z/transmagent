@@ -102,6 +102,10 @@ export class ToolCall extends ReActAgent {
     }
 
     public get_tools_prompt(): any {
+        if (this.plugins) {
+            this.plugins.init(null, true);
+            this.tools = { ...this.plugins.getTool(), ...this.base_tools };
+        }
         const format = this.llm_service.chatManager.chat.tool_format;
         const tool_schemas: any[] = [];
         const args = this.prompt_args || {};
@@ -382,6 +386,12 @@ export class ToolCall extends ReActAgent {
             }
             if ((this.state as any) === "pause") {
                 this.window?.webContents.send("options", { options, id: data.id });
+            }
+        }
+
+        if (this.state === State.FINAL && this.llm_service.chatManager.chat.compress_context && (this as any).final_answer) {
+            if (!this.prompt_args.subagent) {
+                this.setHistory();
             }
         }
 

@@ -29,7 +29,11 @@ export class ChatManager {
 
     public getMessages(all = true): Message[] {
         if (all) return this.messages;
-        return this.messages.filter(message => !message?.del);
+        let msgs = this.messages.filter(message => !message?.del);
+        if (this.chat && this.chat.compress_context) {
+            msgs = msgs.filter(message => message.react !== true);
+        }
+        return msgs;
     }
 
     public pushMessage(msg: Message) {
@@ -82,6 +86,7 @@ export class ChatManager {
             name: CHAT_CONST.DEFAULT_NAME,
             system_prompt: null,
             max_index: 0,
+            compress_context: params.compress_context ?? false,
             max_context_id: 0,
             mode: "act",
             tokens: 0,

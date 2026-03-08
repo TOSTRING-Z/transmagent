@@ -88,6 +88,7 @@ export default function getBaseTools(toolCallInstance: ToolCall): Record<string,
         "enter_idle_state": {
             func: async ({ final_answer }: { final_answer: string }) => {
                 toolCallInstance.state = State.FINAL;
+                (toolCallInstance as any).final_answer = final_answer;
                 return final_answer;
             },
             getPrompt: () => ({

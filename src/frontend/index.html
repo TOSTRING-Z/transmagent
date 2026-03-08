@@ -104,84 +104,119 @@
     </div>
 
     <!-- 配置弹窗 -->
-    <div class="config-modal" id="m-config" onclick="hideConfig()">
-      <div class="config-content" onclick="event.stopPropagation()">
-        <h2 style="color: var(--primary); margin-bottom: 20px;">
-          <i class="fas fa-tools"></i> Agent Core Configuration
-        </h2>
-
-        <div class="form-group">
-          <h3>LLM Configuration</h3>
-          <div class="form-row">
-            <label>Model:</label>
-            <select id="ai-model">
-            </select>
-          </div>
-          <div class="form-row">
-            <label>API Url:</label>
-            <input type="text" id="api-url" placeholder="Enter your API url">
-          </div>
-          <div class="form-row">
-            <label>API Key:</label>
-            <input type="text" id="api-key" placeholder="Enter your API key">
-          </div>
+    <!-- 小圆华丽升级的配置面板 -->
+    <div class="config-modal" id="m-config" onclick="hideConfig()" style="display: none; justify-content: center; align-items: center; background: rgba(0,0,0,0.5); position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; z-index: 1000;">
+      <div class="modern-config" onclick="event.stopPropagation()">
+        <div class="config-header">
+          <h2><i class="fas fa-sliders-h"></i> Agent Configuration</h2>
+          <button class="close-btn" onclick="hideConfig()"><i class="fas fa-times"></i></button>
         </div>
-        <div id="remote-div">
-          <div class="form-group">
-            <h3>SSH Configuration</h3>
-            <div class="form-row">
-              <label>Host:</label>
-              <input type="text" id="ssh-host" value="172.27.0.3">
+        
+        <div class="config-body">
+          <!-- AI Model -->
+          <div class="config-card">
+            <div class="card-header">
+              <h3><i class="fas fa-robot"></i> Core Intelligence</h3>
+              <p class="card-desc">Select and configure the underlying language model.</p>
             </div>
-            <div class="form-row">
-              <label>Port:</label>
-              <input type="number" id="ssh-port" value="3002">
+            <div class="modern-row">
+              <label>Model Engine</label>
+              <select id="ai-model" class="modern-input"></select>
             </div>
-            <div class="form-row">
-              <label>Username:</label>
-              <input type="text" id="ssh-username" value="root">
+            <div class="modern-row">
+              <label>API URL</label>
+              <input type="text" id="api-url" class="modern-input" placeholder="Leave empty to use default endpoint">
             </div>
-            <div class="form-row">
-              <label>Password:</label>
-              <input type="text" id="ssh-password" value="password">
+            <div class="modern-row">
+              <label>API Key</label>
+              <input type="password" id="api-key" class="modern-input" placeholder="Your secret key">
             </div>
-            <div class="form-row">
-              <div class="form-row">
-                <label for="ssh-enabled">enabled:</label>
+          </div>
+
+          <!-- Memory Optimization -->
+          <div class="config-card">
+            <div class="card-header">
+              <h3><i class="fas fa-brain"></i> Advanced Options</h3>
+              <p class="card-desc">Optimize memory usage and agent behaviors.</p>
+            </div>
+            <div class="modern-row toggle-row">
+              <div class="toggle-info">
+                <label for="compress-context">Context Compression</label>
+                <span class="info-text">Remove thought processes from history to save tokens.</span>
+              </div>
+              <label class="switch">
+                <input type="checkbox" id="compress-context">
+                <span class="slider round"></span>
+              </label>
+            </div>
+          </div>
+
+          <!-- Plugin: CLI / SSH -->
+          <div class="config-card">
+            <div class="card-header">
+              <h3><i class="fas fa-terminal"></i> CLI & SSH Connection</h3>
+            </div>
+            <div class="modern-row toggle-row mb-3" style="margin-bottom: 15px;">
+              <div class="toggle-info">
+                <label for="ssh-enabled">Enable Remote Execution (SSH)</label>
+                <span class="info-text">Execute CLI commands on a remote server.</span>
+              </div>
+              <label class="switch">
                 <input type="checkbox" id="ssh-enabled">
+                <span class="slider round"></span>
+              </label>
+            </div>
+            <div class="modern-row">
+              <label>CLI Prompt File</label>
+              <input type="text" id="cli-prompt" class="modern-input">
+            </div>
+            <div class="modern-row">
+              <label>SSH Host</label>
+              <input type="text" id="ssh-host" class="modern-input" placeholder="127.0.0.1">
+            </div>
+            <div class="modern-row">
+              <label>SSH Port</label>
+              <input type="number" id="ssh-port" class="modern-input" placeholder="22">
+            </div>
+            <div class="modern-row">
+              <label>SSH Username</label>
+              <input type="text" id="ssh-username" class="modern-input" placeholder="root">
+            </div>
+            <div class="modern-row">
+              <label>SSH Password</label>
+              <input type="password" id="ssh-password" class="modern-input">
+            </div>
+          </div>
+
+          <!-- MCP Services: BioTools -->
+          <div class="config-card">
+            <div class="card-header">
+              <h3><i class="fas fa-dna"></i> MCP Server: BioTools</h3>
+            </div>
+            <div class="modern-row toggle-row mb-3" style="margin-bottom: 15px;">
+              <div class="toggle-info">
+                <label for="mcp_server-biotools-disabled">Disable BioTools</label>
+                <span class="info-text">Turn off this service globally.</span>
               </div>
-            </div>
-          </div>
-
-          <div class="form-group">
-            <h3>CLI Prompt</h3>
-            <div class="form-row">
-              <label>Prompt File Path:</label>
-              <input type="text" id="cli-prompt" placeholder="/path/to/cli_prompt.md">
-            </div>
-          </div>
-
-          <div class="form-group">
-            <h3>Biotools MCP server</h3>
-            <div class="form-row">
-              <label>Url:</label>
-              <input type="text" id="mcp_server-biotools-url" placeholder="Enter your biotools mcp sse url">
-            </div>
-            <div class="form-row">
-              <div class="form-row">
-                <label for="mcp_server-biotools-disabled">disabled:</label>
+              <label class="switch">
                 <input type="checkbox" id="mcp_server-biotools-disabled">
-              </div>
+                <span class="slider round"></span>
+              </label>
+            </div>
+            <div class="modern-row">
+              <label>Server URL</label>
+              <input type="text" id="mcp_server-biotools-url" class="modern-input" placeholder="http://localhost:8080">
             </div>
           </div>
         </div>
-
-        <div class="modal-actions">
-          <button class="dialog-btn" onclick="hideConfig()">Cancel</button>
-          <button class="dialog-btn dialog-confirm" id="save-config" onclick="saveConfig()">Save Configuration</button>
+        
+        <div class="modern-actions">
+          <button class="btn-cancel" onclick="hideConfig()">Cancel</button>
+          <button class="btn-save" id="save-config" onclick="saveConfig()"><i class="fas fa-save"></i> Save Settings</button>
         </div>
       </div>
     </div>
+
 
     <div class="container-fluid min-h-screen flex">
       <div class="w-full flex-grow">

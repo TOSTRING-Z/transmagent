@@ -272,6 +272,20 @@ ${DOM.input.value}`;
     DOM.tokens.innerText = State.chat.tokens.toString();
     DOM.msg_count.innerText = State.chat.msg_count?.toString() || "0";
     DOM.seconds.innerText = State.chat.seconds.toFixed(1);
+    const model_select = document.getElementById("ai-model");
+    if (model_select && State.chat.model) {
+      model_select.value = State.chat.model;
+    }
+    const compress_box = document.getElementById("compress-context");
+    if (compress_box) {
+      if (State.chat.id) {
+        const stored = localStorage.getItem("compress_" + State.chat.id);
+        if (stored !== null) {
+          State.chat.compress_context = stored === "true";
+        }
+      }
+      compress_box.checked = !!State.chat.compress_context;
+    }
     const items = DOM.history_list.getElementsByClassName("history-item");
     Array.from(items).forEach((item) => {
       if (item.id == chatId)
@@ -380,23 +394,48 @@ ${DOM.input.value}`;
         ai_model.appendChild(option);
       }
     }
+    if (State.chat && State.chat.model) {
+      ai_model.value = State.chat.model;
+      api_url.value = config.models[State.chat.model]?.api_url || "";
+      api_key.value = config.models[State.chat.model]?.api_key || "";
+    }
+    const compress_box = document.getElementById("compress-context");
+    if (compress_box) {
+      if (State.chat && State.chat.compress_context !== void 0) {
+        compress_box.checked = !!State.chat.compress_context;
+      } else {
+        compress_box.checked = !!config.compress_context;
+      }
+    }
     ai_model.onchange = (event) => {
       api_url.value = config.models[event.target.value]?.api_url || "";
       api_key.value = config.models[event.target.value]?.api_key || "";
     };
-    if (config.plugins?.cli_execute) {
-      document.getElementById("cli-prompt").value = config.tool_call.cli_prompt || "";
-      document.getElementById("ssh-host").value = config.tool_call.ssh_config?.host || "";
-      document.getElementById("ssh-port").value = config.tool_call.ssh_config?.port || "";
-      document.getElementById("ssh-username").value = config.tool_call.ssh_config?.username || "";
-      document.getElementById("ssh-password").value = config.tool_call.ssh_config?.password || "";
-      document.getElementById("ssh-enabled").checked = !!config.tool_call.ssh_config?.enabled;
-      document.getElementById("mcp_server-biotools-url").value = config.mcp_server.biotools.url || "";
-      document.getElementById("mcp_server-biotools-enabled").checked = !!config.mcp_server?.biotools.enabled;
-    } else {
-      const remoteDiv = document.getElementById("remote-div");
-      if (remoteDiv)
-        remoteDiv.style.display = "none";
+    const cli_prompt = document.getElementById("cli-prompt");
+    if (cli_prompt)
+      cli_prompt.value = config.tool_call?.cli_prompt || "";
+    const ssh_host = document.getElementById("ssh-host");
+    if (ssh_host)
+      ssh_host.value = config.tool_call?.ssh_config?.host || "";
+    const ssh_port = document.getElementById("ssh-port");
+    if (ssh_port)
+      ssh_port.value = config.tool_call?.ssh_config?.port || "";
+    const ssh_username = document.getElementById("ssh-username");
+    if (ssh_username)
+      ssh_username.value = config.tool_call?.ssh_config?.username || "";
+    const ssh_password = document.getElementById("ssh-password");
+    if (ssh_password)
+      ssh_password.value = config.tool_call?.ssh_config?.password || "";
+    const ssh_enabled = document.getElementById("ssh-enabled");
+    if (ssh_enabled)
+      ssh_enabled.checked = !!config.tool_call?.ssh_config?.enabled;
+    const biotools_url = document.getElementById("mcp_server-biotools-url");
+    if (biotools_url)
+      biotools_url.value = config.mcp_server?.biotools?.url || "";
+    const biotools_disabled = document.getElementById("mcp_server-biotools-disabled");
+    if (biotools_disabled) {
+      const enabled = config.mcp_server?.biotools?.enabled !== false;
+      biotools_disabled.checked = !enabled;
     }
   }
   function hideConfig() {
@@ -404,39 +443,43 @@ ${DOM.input.value}`;
   }
   async function saveConfig() {
     const config = await window.electronAPI.getConfig();
-    const postConfig = {
-      tool_call: {
-        cli_prompt: document.getElementById("cli-prompt").value,
-        ssh_config: {
-          host: document.getElementById("ssh-host").value,
-          port: parseInt(document.getElementById("ssh-port").value),
-          username: document.getElementById("ssh-username").value,
-          password: document.getElementById("ssh-password").value,
-          enabled: document.getElementById("ssh-enabled").checked
-        }
-      },
-      mcp_server: {
-        biotools: {
-          url: document.getElementById("mcp_server-biotools-url").value,
-          disabled: document.getElementById("mcp_server-biotools-disabled").checked
-        }
-      }
-    };
-    let ai_config = {
-      model: document.getElementById("ai-model").value,
-      api_url: document.getElementById("api-url").value,
-      api_key: document.getElementById("api-key").value
-    };
-    if (config.plugins?.cli_execute) {
-      config.tool_call.ssh_config = postConfig.tool_call.ssh_config;
-      config.tool_call.cli_prompt = postConfig.tool_call.cli_prompt;
-      config.mcp_server.biotools.url = postConfig.mcp_server.biotools.url;
-      config.mcp_server.biotools.disabled = postConfig.mcp_server.biotools.disabled;
+    const ai_model = document.getElementById("ai-model").value;
+    const api_url = document.getElementById("api-url").value;
+    const api_key = document.getElementById("api-key").value;
+    if (!config.models)
+      config.models = {};
+    if (!config.models[ai_model])
+      config.models[ai_model] = { api_url: "", api_key: "" };
+    config.models[ai_model].api_url = api_url;
+    config.models[ai_model].api_key = api_key;
+    const compress_box = document.getElementById("compress-context");
+    const is_compressed = compress_box ? compress_box.checked : false;
+    config.compress_context = is_compressed;
+    if (typeof State !== "undefined" && State.chat) {
+      State.chat.model = ai_model;
+      State.chat.compress_context = is_compressed;
+      window.electronAPI.setGlobal(State.chat);
     }
-    config.models[ai_config.model].api_url = ai_config.api_url;
-    config.models[ai_config.model].api_key = ai_config.api_key;
+    if (!config.tool_call)
+      config.tool_call = {};
+    config.tool_call.cli_prompt = document.getElementById("cli-prompt")?.value || "";
+    if (!config.tool_call.ssh_config)
+      config.tool_call.ssh_config = {};
+    config.tool_call.ssh_config.host = document.getElementById("ssh-host")?.value || "";
+    config.tool_call.ssh_config.port = Number(document.getElementById("ssh-port")?.value) || 22;
+    config.tool_call.ssh_config.username = document.getElementById("ssh-username")?.value || "";
+    config.tool_call.ssh_config.password = document.getElementById("ssh-password")?.value || "";
+    config.tool_call.ssh_config.enabled = !!document.getElementById("ssh-enabled")?.checked;
+    if (!config.mcp_server)
+      config.mcp_server = {};
+    if (!config.mcp_server.biotools)
+      config.mcp_server.biotools = {};
+    config.mcp_server.biotools.url = document.getElementById("mcp_server-biotools-url")?.value || "";
+    const biotools_disabled = document.getElementById("mcp_server-biotools-disabled");
+    config.mcp_server.biotools.enabled = biotools_disabled ? !biotools_disabled.checked : true;
     await window.electronAPI.setConfig(config);
-    showLog("success", "Configuration saved successfully!");
+    if (typeof showLog === "function")
+      showLog("success", "Configuration saved successfully!");
     hideConfig();
   }
 

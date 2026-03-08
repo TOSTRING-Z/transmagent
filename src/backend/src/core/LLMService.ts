@@ -85,6 +85,8 @@ export class LLMService {
             } else {
                 const errorText = await resp.text();
                 messageOutput.content = `HTTP Error ${resp.status}: ${errorText}`;
+                data.output = messageOutput.content;
+                return messageOutput;
             }
 
 
@@ -141,7 +143,7 @@ export class LLMService {
         for await (const chunk of streamRes) {
             if (this.stopFlag) return;
 
-            const { content, reasoning_content, tool_calls, tokens } = adapter.parseStreamChunk(chunk);
+            const { content, reasoning_content, tool_calls, tokens, is_incremental_tokens } = adapter.parseStreamChunk(chunk);
 
             // 组装文本
             let textDelta = content || reasoning_content || "";
@@ -170,9 +172,7 @@ export class LLMService {
             }
 
             // 更新 token
-            if (tokens) {
-                this.chatManager.chat.tokens = tokens;
-            }
+            if (tokens) { if (is_incremental_tokens) { this.chatManager.chat.tokens = (this.chatManager.chat.tokens || 0) + tokens; } else { this.chatManager.chat.tokens = tokens; } }
 
             // IPC 向前台推流
             if (!data?.react && !data?.return_response) {

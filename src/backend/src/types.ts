@@ -56,7 +56,7 @@ export interface ToolInfo {
     thinking: string | null;
     tool: string | null;
     id: string | null;
-    params: Record<string, any>;
+    params: Record<string, any> | any;
     error: string | null;
 }
 
@@ -85,6 +85,7 @@ export interface ChatState {
     tokens: number;
     seconds: number;
     msg_count: number;
+    compress_context?: boolean;
     envs: Record<string, any>;
     vars: Record<string, any>;
     model: string;
@@ -120,4 +121,5 @@ export interface StreamChunkResult {
     reasoning_content?: string;
     tool_calls?: ToolCall[];
     tokens?: number;
+    is_incremental_tokens?: boolean;
 }

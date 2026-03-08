@@ -7,13 +7,11 @@ import { formatString } from './format';
 
 export class Utils {
     private static instance: Utils;
-    public inner: any;
-    public configName: string | undefined;
+        public configName: string | undefined;
 
-    constructor(inner: any, configName: string) {
+    constructor(configName: string) {
         if (!Utils.instance) {
-            this.inner = inner;
-            this.configName = configName;
+                this.configName = configName;
             Utils.instance = this;
         }
         return Utils.instance;

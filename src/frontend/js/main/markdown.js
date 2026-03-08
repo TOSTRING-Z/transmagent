@@ -1,7 +1,5 @@
-"use strict";
-Object.defineProperty(exports, "__esModule", { value: true });
-exports.initMermaid = exports.marked = void 0;
-const ui_1 = require("./ui");
+// @ts-nocheck
+import { showLog } from './ui';
 const { Marked } = globalThis.marked;
 const { markedHighlight } = globalThis.markedHighlight;
 // PDF Rendering Logic
@@ -53,7 +51,7 @@ async function renderPDF(id) {
 globalThis.copyCode = (btn) => {
     const codeToCopy = decodeURIComponent(btn.getAttribute('data-code') || '');
     navigator.clipboard.writeText(codeToCopy).then(() => {
-        (0, ui_1.showLog)('success', 'Copy successful');
+        showLog('success', 'Copy successful');
     }).catch(err => {
         console.log('Copy failed', err);
     });
@@ -193,7 +191,7 @@ function preprocess(src) {
     return src;
 }
 // Initialize Marked
-exports.marked = new Marked(markedHighlight({
+export const marked = new Marked(markedHighlight({
     async: true,
     langPrefix: "hljs language-",
     async highlight(code, lang) {
@@ -216,13 +214,11 @@ exports.marked = new Marked(markedHighlight({
         return hljsResult.value;
     }
 }));
-exports.marked.use({ hooks: { preprocess } });
-exports.marked.use(globalThis.markedKatex({ nonStandard: true, async: true }));
-exports.marked.use({ walkTokens, renderer, async: true, extensions: [thinkExtension] });
-const initMermaid = () => {
+marked.use({ hooks: { preprocess } });
+marked.use(globalThis.markedKatex({ nonStandard: true, async: true }));
+marked.use({ walkTokens, renderer, async: true, extensions: [thinkExtension] });
+export const initMermaid = () => {
     if (globalThis.mermaid) {
         globalThis.mermaid.initialize({ startOnLoad: false });
     }
 };
-exports.initMermaid = initMermaid;
-//# sourceMappingURL=markdown.js.map

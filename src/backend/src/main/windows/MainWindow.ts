@@ -8,7 +8,7 @@ import { Worker } from 'worker_threads';
 
 import { BaseWindow } from "./BaseWindow";
 import { WindowManager } from "./WindowManager";
-import { store, globalState, inner, utils, sysConfig } from '../../utils/globals';
+import { store, globalState, CONSTANTS, utils, sysConfig } from '../../utils/globals';
 import { LLMService } from '../../core/LLMService';
 import { State } from "../../core/ReActAgent";
 import { ToolCall } from '../../core/ToolCall';
@@ -364,7 +364,7 @@ export class MainWindow extends BaseWindow {
             if (result?.type === "messages") {
                 const messages = result.data;
                 this.tool_call.setHistory();
-                utils.sendData(inner.url_base.data.collection, {
+                utils.sendData(CONSTANTS.COLLECTION_URL, {
                     "chat_id": this.llm_service.chatManager.chat.id,
                     "message_id": data.id,
                     "user_message": messages[0].content,
@@ -455,6 +455,13 @@ export class MainWindow extends BaseWindow {
         ipcMain.on('set-global', (_, chat) => {
             this.llm_service.chatManager.chat.tokens = chat.tokens;
             this.llm_service.chatManager.chat.seconds = chat.seconds;
+            if (chat.compress_context !== undefined) {
+                this.llm_service.chatManager.chat.compress_context = chat.compress_context;
+            }
+            if (chat.model !== undefined) {
+                this.llm_service.chatManager.chat.model = chat.model;
+            }
+            if (this.tool_call) this.tool_call.setHistory(this.llm_service.chatManager.chat);
         });
 
         ipcMain.on('show-log', (_, data) => this.windowManager.alertWindow?.create(data));
@@ -576,7 +583,7 @@ export class MainWindow extends BaseWindow {
     private getVersionsSubmenu(): MenuItemConstructorOptions[] {
         let versions;
         if ((globalState as any).is_plugin) {
-            versions = inner.model[(inner.model_name as any).plugins]["versions"].filter((v: any) => v?.show);
+            versions = globalState.pluginVersions.filter((v: any) => v?.show);
         } else {
             versions = utils.getConfig("models")[this.llm_service.chatManager.chat.model]["versions"];
         }
@@ -840,7 +847,7 @@ export class MainWindow extends BaseWindow {
 
         for (const key in config.chain_call) {
             const item = config.chain_call[key];
-            let extra = item?.model === (inner.model_name as any).plugins
+            let extra = item?.model === CONSTANTS.PLUGIN_MODEL_NAME
                 ? (this.plugins.getTool(item.version)?.extra || [])
                 : [{ "type": "system-prompt" }];
             extra.forEach((e: any) => config.extra.push(e));
