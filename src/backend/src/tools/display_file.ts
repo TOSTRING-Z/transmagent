@@ -1,43 +1,65 @@
+import * as os from 'os';
+import * as fs from 'fs';
+import * as path from 'path';
+import * as readline from 'readline';
+import { Client, ConnectConfig } from 'ssh2';
+// 根据你的实际项目路径，如果是默认导入请注意调整
 import { logger } from '../utils/logger';
-const path = require('path');
-const { Client } = require('ssh2');
-const { utils } = require('../utils/globals');
-const os = require('os');
-const fs = require('fs');
-const readline = require('readline');
-const { WindowManager } = require("../main/windows/WindowManager");
+import { utils } from '../utils/globals';
+import { WindowManager } from '../main/windows/WindowManager';
+
+// 接口定义
+export interface DisplayOptions {
+    start_line?: string | number;
+    end_line?: string | number;
+    max_line_length?: string | number;
+    max_cols?: string | number;
+    file_type?: string;
+}
+
+export interface NormalizedOptions {
+    startLine: number;
+    endLine: number;
+    maxLineLength: number;
+    maxCols: number;
+    fileType: string;
+}
+
+export interface ProcessResult {
+    success: boolean;
+    content: string;
+    error?: string;
+    metadata?: any;
+}
 
 class DisplayFile {
-    constructor(localPath = null) {
-        // @ts-ignore
+    private static instance: DisplayFile | null = null;
+    private baseLocalPath!: string;
+
+    constructor(localPath?: string | null) {
         if (!DisplayFile.instance) {
-            // @ts-ignore
             this.baseLocalPath = localPath || os.tmpdir();
             // 确保目录存在
-            // @ts-ignore
             fs.mkdirSync(this.baseLocalPath, { recursive: true });
-            // @ts-ignore
             DisplayFile.instance = this;
         }
-        // @ts-ignore
         return DisplayFile.instance;
     }
 
     /**
      * 统一入口
      */
-    async display(filePath, options = {}) {
+    public async display(filePath: string, options: DisplayOptions = {}): Promise<ProcessResult> {
         const normalizedOptions = this._normalizeOptions(options);
         const sshConfig = utils.getSshConfig();
 
         let targetPath = filePath;
         let isRemote = false;
-        let downloadInfo: any = null;
+        let downloadInfo: { size: number; duration: string } | null = null;
 
         if (sshConfig?.enabled && sshConfig?.host) {
             isRemote = true;
             const localFileName = path.basename(filePath);
-            // @ts-ignore
             targetPath = path.join(this.baseLocalPath, localFileName);
 
             this._emitProgress('start');
@@ -47,14 +69,14 @@ class DisplayFile {
                 this._emitProgress('end', { file_path: filePath });
             } catch (err: any) {
                 this._emitProgress('error', { error: err.message });
-                return { success: false, error: `SSH Download Failed: ${err.message}` };
+                return { success: false, content: '', error: `SSH Download Failed: ${err.message}` };
             }
         }
 
         const result = await this._processLocalFile(targetPath, normalizedOptions);
 
         if (result.success) {
-            const footer: any[] = [];
+            const footer: string[] = [];
             if (isRemote) {
                 footer.push(`\n**Remote Source**: \`${filePath}\``);
                 footer.push(`**Local Cache**: [${path.basename(targetPath)}](${targetPath})`);
@@ -72,7 +94,7 @@ class DisplayFile {
         return result;
     }
 
-    async _downloadViaSSH(remotePath, localPath, sshConfig) {
+    private async _downloadViaSSH(remotePath: string, localPath: string, sshConfig: any): Promise<{ size: number; duration: string }> {
         return new Promise((resolve, reject) => {
             const conn = new Client();
             const cleanup = () => { if (conn) conn.end(); };
@@ -89,7 +111,7 @@ class DisplayFile {
                         let lastStepTime = Date.now();
 
                         sftp.fastGet(remotePath, localPath, {
-                            step: (transferred) => {
+                            step: (transferred: number) => {
                                 const now = Date.now();
                                 if (now - lastStepTime > 500 || transferred === totalSize) {
                                     const progress = totalSize > 0 ? (transferred / totalSize) * 100 : 0;
@@ -110,11 +132,11 @@ class DisplayFile {
             }).on('error', (err) => {
                 cleanup();
                 reject(err);
-            }).connect({ ...sshConfig, readyTimeout: 20000 });
+            }).connect({ ...sshConfig, readyTimeout: 20000 } as ConnectConfig);
         });
     }
 
-    async _processLocalFile(filePath, options) {
+    private async _processLocalFile(filePath: string, options: NormalizedOptions): Promise<ProcessResult> {
         try {
             if (!fs.existsSync(filePath)) throw new Error(`File not found: ${filePath}`);
 
@@ -146,14 +168,14 @@ class DisplayFile {
         }
     }
 
-    _handleMedia(filePath) {
+    private _handleMedia(filePath: string): string {
         return `![${path.basename(filePath)}](${filePath})`;
     }
 
-    async _handleTextStream(filePath, { startLine, endLine, maxLineLength }, type = 'text') {
+    private async _handleTextStream(filePath: string, { startLine, endLine, maxLineLength }: NormalizedOptions, type = 'text'): Promise<string> {
         const fileStream = fs.createReadStream(filePath, { encoding: 'utf8' });
         const rl = readline.createInterface({ input: fileStream, crlfDelay: Infinity });
-        const lines: any[] = [];
+        const lines: string[] = [];
         let lineIdx = 0;
         let isTruncated = false;
 
@@ -179,7 +201,7 @@ class DisplayFile {
         return type === 'markdown' ? content : `\`\`\`text\n${content}\n\`\`\``;
     }
 
-    async _handleTable(filePath, options) {
+    private async _handleTable(filePath: string, options: NormalizedOptions): Promise<string> {
         const ext = path.extname(filePath).toLowerCase();
         if (['.csv', '.tsv'].includes(ext)) {
             return this._handleCSV(filePath, ext === '.tsv' ? '\t' : ',', options);
@@ -189,12 +211,13 @@ class DisplayFile {
         throw new Error(`Unsupported table format: ${ext}`);
     }
 
-    async _handleCSV(filePath, delimiter, { startLine, endLine, maxLineLength, maxCols }) {
-        const getHeader = async () => {
+    private async _handleCSV(filePath: string, delimiter: string, { startLine, endLine, maxLineLength, maxCols }: NormalizedOptions): Promise<string> {
+        const getHeader = async (): Promise<string[]> => {
             const stream = fs.createReadStream(filePath, { encoding: 'utf8' });
             const rl = readline.createInterface({ input: stream, crlfDelay: Infinity });
             for await (const line of rl) {
-                rl.close(); stream.destroy();
+                rl.close();
+                stream.destroy();
                 return this._parseCSVLine(line, delimiter);
             }
             return [];
@@ -209,11 +232,11 @@ class DisplayFile {
             headers = headers.slice(0, maxCols);
         }
 
-        const rows: any[] = [];
+        const rows: Record<string, string>[] = [];
         const fileStream = fs.createReadStream(filePath, { encoding: 'utf8' });
         const rl = readline.createInterface({ input: fileStream, crlfDelay: Infinity });
         let lineIdx = 0;
-        let dataStartLine = Math.max(2, startLine);
+        const dataStartLine = Math.max(2, startLine);
 
         for await (const line of rl) {
             lineIdx++;
@@ -222,7 +245,7 @@ class DisplayFile {
             if (endLine > 0 && lineIdx > endLine) break;
 
             const values = this._parseCSVLine(line, delimiter);
-            const row = {};
+            const row: Record<string, string> = {};
             headers.forEach((h, i) => { row[h] = values[i] || ''; });
             rows.push(row);
         }
@@ -234,7 +257,8 @@ class DisplayFile {
         return md;
     }
 
-    _handleExcel(filePath, { startLine, endLine, maxLineLength, maxCols }) {
+    private _handleExcel(filePath: string, { startLine, endLine, maxLineLength, maxCols }: NormalizedOptions): string {
+        // eslint-disable-next-line @typescript-eslint/no-var-requires
         const XLSX = require('xlsx');
         const workbook = XLSX.readFile(filePath);
         const sheet = workbook.Sheets[workbook.SheetNames[0]];
@@ -258,18 +282,18 @@ class DisplayFile {
         });
 
         if (jsonData.length === 0) return "Empty or range mismatch";
-        const headers = Object.keys(jsonData[0]);
+        const headers = Object.keys(jsonData[0] as object);
 
-        let md = this._generateMarkdownTable(jsonData, headers, maxLineLength, totalRows > actualEnd);
+        let md = this._generateMarkdownTable(jsonData as Record<string, any>[], headers, maxLineLength, totalRows > actualEnd);
         if (maxCols > 0 && totalCols > maxCols) {
             md += `\n\n> *Column output truncated. Showing first ${maxCols} of ${totalCols} columns.*`;
         }
         return md;
     }
 
-    _generateMarkdownTable(data, headers, maxLen, isTruncated) {
+    private _generateMarkdownTable(data: Record<string, any>[], headers: string[], maxLen: number, isTruncated: boolean): string {
         if (!data.length) return "No data";
-        const formatCell = (val) => {
+        const formatCell = (val: any) => {
             const s = String(val == null ? '' : val).replace(/\n/g, ' ');
             return s.length > maxLen ? s.substring(0, maxLen) + '...' : s;
         };
@@ -280,8 +304,8 @@ class DisplayFile {
         return md;
     }
 
-    _parseCSVLine(line, delimiter) {
-        const res: any[] = [];
+    private _parseCSVLine(line: string, delimiter: string): string[] {
+        const res: string[] = [];
         let cur = '', inQuote = false;
         for (let i = 0; i < line.length; i++) {
             const char = line[i];
@@ -293,60 +317,60 @@ class DisplayFile {
         return res;
     }
 
-    _normalizeOptions(raw) {
+    private _normalizeOptions(raw: DisplayOptions): NormalizedOptions {
         let { start_line, end_line, max_line_length, max_cols, file_type } = raw;
-        const start = parseInt(start_line) || 0;
-        let end = parseInt(end_line) || 10;
+        const start = parseInt(start_line as string) || 0;
+        let end = parseInt(end_line as string) || 10;
         if (start >= end && end !== 0) end = start + 20;
 
         return {
             startLine: Math.max(1, start),
             endLine: Math.max(0, end),
-            maxLineLength: parseInt(max_line_length) || 500,
-            maxCols: max_cols !== undefined ? parseInt(max_cols) : 20,
+            maxLineLength: parseInt(max_line_length as string) || 500,
+            maxCols: max_cols !== undefined ? parseInt(max_cols as string) : 20,
             fileType: file_type || 'auto'
         };
     }
 
-    _detectFileType(filePath) {
+    private _detectFileType(filePath: string): string {
         const ext = path.extname(filePath).toLowerCase();
-        const map = {
+        const map: Record<string, string[]> = {
             image: ['.png', '.jpg', '.jpeg', '.gif', '.svg'],
             table: ['.xls', '.xlsx', '.csv', '.tsv'],
             pdf: ['.pdf'],
             markdown: ['.md']
         };
-        for (const [type, exts] of Object.entries(map)) if (exts.includes(ext)) return type;
+        for (const [type, exts] of Object.entries(map)) {
+            if (exts.includes(ext)) return type;
+        }
         return 'text';
     }
 
-    _formatFileSize(bytes) {
+    private _formatFileSize(bytes: number): string {
         const units = ['B', 'KB', 'MB', 'GB'];
         let i = 0;
         while (bytes >= 1024 && i < units.length - 1) { bytes /= 1024; i++; }
         return `${bytes.toFixed(2)} ${units[i]}`;
     }
 
-    _emitProgress(state, data = {}) {
+    private _emitProgress(state: string, data: any = {}) {
         if (WindowManager?.instance?.mainWindow?.window?.webContents) {
             WindowManager.instance.mainWindow.window.webContents.send('upload-progress', { state, ...data });
         }
     }
 }
 
-// @ts-ignore
-DisplayFile.instance = null;
-
-function main(params) {
-    return async function (args) {
+export function main(params?: { local_path?: string }) {
+    return async function (args: { file_path: string } & DisplayOptions) {
+        // 重置单例以防多次调用路径污染
+        (DisplayFile as any).instance = null;
         const display = new DisplayFile(params?.local_path);
         const result = await display.display(args.file_path, args);
-        // @ts-ignore
         return result.success ? result.content : `Error: ${result.error}`;
-    }
+    };
 }
 
-function getPrompt() {
+export function getPrompt() {
     return {
         "name": "display_file",
         "description": "Display various files (images, tables, text) in Markdown. Supports SSH and local files.",
@@ -364,9 +388,9 @@ function getPrompt() {
     };
 }
 
+// 本地测试代码
 if (require.main === module) {
     (async () => {
-        // Mock environment for testing
         const testPath = path.join(os.tmpdir(), 'test_sample.csv');
         fs.writeFileSync(testPath, 'Name,Age,Role\nAlice,30,Dev\nBob,25,"Designer, Lead"');
         const runner = main({ local_path: os.tmpdir() });
@@ -377,13 +401,8 @@ if (require.main === module) {
             max_line_length: 20,
             max_cols: 2,
             file_type: 'table'
-
         });
 
         logger.log(res);
-
     })();
-
 }
-
-export { main, getPrompt };

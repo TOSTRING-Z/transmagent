@@ -249,13 +249,22 @@ export class ToolCall extends ReActAgent {
         this.environment_update(data);
         this.memory_update(data);
 
-        const toolInfo = await this.task(data);
+        data.prompt = await this.system_prompt();
+        const messageOutput = await this.llmCall(data);
+        let toolInfo: ToolInfo | null = null;
+        let assistantMessage!: Message;
+        if (messageOutput) {
+            assistantMessage = { ...messageOutput, ...{ id: data.id, context_id: String(this.llm_service.chatManager.chat.max_context_id), tool_format: this.llm_service.chatManager.chat.tool_format, show: true, react: true } }
+            toolInfo = await this.getToolInfo(data, assistantMessage);
+        }
 
         if (toolInfo?.error) {
+            this.llm_service.chatManager.pushMessage(assistantMessage);
             this.llm_service.chatManager.pushMessage({ role: "tool", content: toolInfo.error, tool_call_id: toolInfo?.id, tool_call_name: toolInfo?.tool, id: data.id, context_id: String(this.llm_service.chatManager.chat.max_context_id), show: true, react: true });
             this.window?.webContents.send('stream-data', { id: data.id, context_id: String(this.llm_service.chatManager.chat.max_context_id), content: toolInfo.error, chat: this.llm_service.chatManager.chat });
         }
         else if (toolInfo?.tool) {
+            this.llm_service.chatManager.pushMessage(assistantMessage);
             let observation = await this.act(toolInfo);
             let warning_info: { warning: string; options: string[] } | null = null;
             if (this.thinking_repetitions.length >= (utils.getConfig("tool_call")?.max_thinking_repetitions || 3)) {
@@ -301,36 +310,32 @@ export class ToolCall extends ReActAgent {
                 this.window?.webContents.send('info-data', { id: data.id, context_id: String(this.llm_service.chatManager.chat.max_context_id), content: this.get_info(data) });
             }
         } else if (toolInfo?.thinking) {
+            assistantMessage.react = false;
+            this.llm_service.chatManager.pushMessage(assistantMessage);
             this.window?.webContents.send('stream-data', { id: data.id, context_id: String(this.llm_service.chatManager.chat.max_context_id), content: null, end: true, chat: this.llm_service.chatManager.chat });
             this.state = State.FINAL;
         }
     }
 
-    public async task(data: Record<string, any>) {
-        data.prompt = await this.system_prompt();
-        const messageOutput = await this.llmCall(data);
-        if (messageOutput) {
-            const message = { ...messageOutput, ...{ id: data.id, context_id: String(this.llm_service.chatManager.chat.max_context_id), tool_format: this.llm_service.chatManager.chat.tool_format, show: true, react: true } }
-            this.llm_service.chatManager.pushMessage(message);
-            const adapter: IToolCallAdapter = ToolCallAdapterFactory.getAdapter(this.llm_service.chatManager.chat.tool_format);
-            const toolInfo = adapter.getToolInfo(message);
-            let toolInfoStr = JSON.stringify(toolInfo, null, 2).replaceAll("\\`", "'").replaceAll("`", "'");
-            data.output_format = toolInfoStr;
-            this.window?.webContents.send('info-data', { id: data.id, context_id: String(this.llm_service.chatManager.chat.max_context_id), content: this.get_info(data) });
-            // 统计重复思考以打断死循环
-            if (this.thinking_repetitions.length === 0 || this.thinking_repetitions[0] === toolInfo.thinking) {
-                this.thinking_repetitions.push(toolInfo.thinking);
-            } else {
-                this.repetitions_delay_empty += 1;
-                if (this.repetitions_delay_empty >= (utils.getConfig("tool_call")?.repetitions_delay_empty || 2)) {
-                    this.thinking_repetitions.length = 0;
-                    this.repetitions_delay_empty = 0;
-                }
+    public async getToolInfo(data: Record<string, any>, assistantMessage) {
+        const adapter: IToolCallAdapter = ToolCallAdapterFactory.getAdapter(this.llm_service.chatManager.chat.tool_format);
+        const toolInfo = adapter.getToolInfo(assistantMessage);
+        let toolInfoStr = JSON.stringify(toolInfo, null, 2).replaceAll("\\`", "'").replaceAll("`", "'");
+        data.output_format = toolInfoStr;
+        this.window?.webContents.send('info-data', { id: data.id, context_id: String(this.llm_service.chatManager.chat.max_context_id), content: this.get_info(data) });
+        // 统计重复思考以打断死循环
+        if (this.thinking_repetitions.length === 0 || this.thinking_repetitions[0] === toolInfo.thinking) {
+            this.thinking_repetitions.push(toolInfo.thinking);
+        } else {
+            this.repetitions_delay_empty += 1;
+            if (this.repetitions_delay_empty >= (utils.getConfig("tool_call")?.repetitions_delay_empty || 2)) {
+                this.thinking_repetitions.length = 0;
+                this.repetitions_delay_empty = 0;
             }
-            this.window?.webContents.send('stream-data', { id: data.id, context_id: String(this.llm_service.chatManager.chat.max_context_id), content: `${toolInfo.thinking}\n\n---\n\n`, chat: this.llm_service.chatManager.chat });
-
-            return toolInfo;
         }
+        this.window?.webContents.send('stream-data', { id: data.id, context_id: String(this.llm_service.chatManager.chat.max_context_id), content: `${toolInfo.thinking}\n\n---\n\n`, chat: this.llm_service.chatManager.chat });
+
+        return toolInfo;
     }
 
     public async act(toolInfo: ToolInfo): Promise<any> {
@@ -389,7 +394,7 @@ export class ToolCall extends ReActAgent {
             }
         }
 
-        if (this.state === State.FINAL && this.llm_service.chatManager.chat.compress_context && (this as any).final_answer) {
+        if (this.state === State.FINAL) {
             if (!this.prompt_args.subagent) {
                 this.setHistory();
             }

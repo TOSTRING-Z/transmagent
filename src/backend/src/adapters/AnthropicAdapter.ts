@@ -239,7 +239,7 @@ export class AnthropicAdapter implements ILLMAdapter {
 export class AnthropicToolCallAdapter implements IToolCallAdapter {
     formatTools(toolSchemas: any[]): any {
         return toolSchemas.map(schema => {
-            if (schema.type === "raw_string" || schema.name === "enter_idle_state") return null;
+            if (schema.type === "raw_string") return null;
             return {
                 type: "custom",
                 name: schema.name,

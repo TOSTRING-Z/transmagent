@@ -85,25 +85,6 @@ export default function getBaseTools(toolCallInstance: ToolCall): Record<string,
             })
         },
 
-        "enter_idle_state": {
-            func: async ({ final_answer }: { final_answer: string }) => {
-                toolCallInstance.state = State.FINAL;
-                (toolCallInstance as any).final_answer = final_answer;
-                return final_answer;
-            },
-            getPrompt: () => ({
-                name: "enter_idle_state",
-                description: "Terminate the current task sequence and return the final result. Trigger: When all subtasks are complete and verified.",
-                parameters: {
-                    type: "object",
-                    properties: {
-                        final_answer: { type: "string", description: "Comprehensive summary of results in Markdown format." }
-                    },
-                    required: ["final_answer"]
-                }
-            })
-        },
-
         "context_retrieval": {
             func: async ({ context_id }: { context_id: string | number }) => {
                 // 修复：指向 ChatManager 获取历史记录

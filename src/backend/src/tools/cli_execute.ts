@@ -1,13 +1,38 @@
+import { exec, ChildProcess } from 'child_process';
+import * as path from 'path';
+import * as fs from 'fs';
+import * as os from 'os';
+import { BrowserWindow, ipcMain, IpcMainEvent } from 'electron';
+import { Client, ClientChannel } from 'ssh2';
+import { utils } from '../utils/globals';
 import { logger } from '../utils/logger';
-const { exec } = require('child_process');
-const path = require('path');
-const fs = require('fs');
-const os = require('os');
-const { BrowserWindow, ipcMain } = require('electron');
-const { Client } = require('ssh2');
-const { utils } = require('../utils/globals');
 
-function threshold(data, max_lines = 40, max_chars_per_line = 200) {
+// --- 类型定义 ---
+export interface CliExecuteParams {
+    timeout?: number;
+    delay_time?: number;
+    max_lines?: number;
+    max_chars_per_line?: number;
+    bashrc?: string;
+    show?: boolean;
+    bash?: string;
+}
+
+export interface ExecuteArgs {
+    code: string;
+    timeout?: number;
+}
+
+export interface ExecuteResult {
+    success: boolean;
+    output: string;
+    error: string;
+    timeout?: boolean;
+    message?: string;
+}
+
+// --- 辅助函数 ---
+function threshold(data: string, max_lines = 40, max_chars_per_line = 200): string {
     if (!data) return data;
 
     let lines = data.split('\n');
@@ -29,37 +54,31 @@ function threshold(data, max_lines = 40, max_chars_per_line = 200) {
     return result.trim();
 }
 
-function validateParams(params) {
+function validateParams(params: CliExecuteParams | undefined): Required<CliExecuteParams> {
     if (!params) {
         throw new Error('Parameters are required');
     }
+    
+    const validated: Required<CliExecuteParams> = {
+        timeout: (typeof params.timeout === 'number' && params.timeout >= 60) ? params.timeout : 60,
+        delay_time: (typeof params.delay_time === 'number' && params.delay_time >= 2) ? params.delay_time : 2,
+        max_lines: (typeof params.max_lines === 'number' && params.max_lines >= 10) ? params.max_lines : 10,
+        max_chars_per_line: (typeof params.max_chars_per_line === 'number' && params.max_chars_per_line >= 100) ? params.max_chars_per_line : 100,
+        bashrc: params.bashrc || '',
+        show: !!params.show,
+        bash: params.bash || 'bash'
+    };
 
-    if (typeof params.timeout !== 'number' || params.timeout < 60) {
-        params.timeout = 60;
-    }
-
-    if (typeof params.delay_time !== 'number' || params.delay_time < 2) {
-        params.delay_time = 2;
-    }
-
-    if (typeof params.max_lines !== 'number' || params.max_lines < 10) {
-        params.max_lines = 10;
-    }
-
-    if (typeof params.max_chars_per_line !== 'number' || params.max_chars_per_line < 100) {
-        params.max_chars_per_line = 100;
-    }
-
-    return params;
+    return validated;
 }
 
-function cleanupResources(tempFile, terminalWindow, conn = null) {
+function cleanupResources(tempFile: string, terminalWindow: BrowserWindow | null, conn: Client | null = null) {
     try {
         if (tempFile && fs.existsSync(tempFile)) {
             fs.unlinkSync(tempFile);
         }
     } catch (error: any) {
-        logger.warn('Failed to delete temp file:', error.message);
+        logger.warn(`Failed to delete temp file: ${error.message}`);
     }
 
     if (terminalWindow && !terminalWindow.isDestroyed()) {
@@ -68,58 +87,45 @@ function cleanupResources(tempFile, terminalWindow, conn = null) {
 
     if (conn) {
         try {
-            ((conn as any) || {}).end();
+            conn.end();
         } catch (error: any) {
-            logger.warn('Failed to close SSH connection:', error.message);
+            logger.warn(`Failed to close SSH connection: ${error.message}`);
         }
     }
 }
 
-function main(params) {
-    return async ({ code, timeout }) => {
-        // 参数验证
+// --- 主执行逻辑 ---
+export function main(initialParams: CliExecuteParams = {}) {
+    return async ({ code, timeout }: ExecuteArgs): Promise<ExecuteResult> => {
+        let params: Required<CliExecuteParams>;
+        
         try {
-            params = validateParams(params);
+            params = validateParams(initialParams);
         } catch (error: any) {
-            return {
-                success: false,
-                output: '',
-                error: error.message
-            };
+            return { success: false, output: '', error: error.message };
         }
 
-        // 代码验证
         if (!code || typeof code !== 'string') {
-            return {
-                success: false,
-                output: '',
-                error: 'Valid code parameter is required'
-            };
+            return { success: false, output: '', error: 'Valid code parameter is required' };
         }
 
-        // 如果传入timeout参数，则覆盖默认值
-        if (timeout && typeof timeout === 'number' && timeout > params.timeout) {
+        if (typeof timeout === 'number' && timeout > params.timeout) {
             params.timeout = timeout;
         }
 
-        // 创建临时文件
-        const tempFile = path.join(os.tmpdir(), `temp_${Date.now()}.sh`);
+        const tempFile = path.join(os.tmpdir(), `temp_${Date.now()}_${Math.floor(Math.random() * 1000)}.sh`);
         try {
-            if (params?.bashrc) {
-                code = `source ${params.bashrc};\n${code}`;
+            let finalCode = code;
+            if (params.bashrc) {
+                finalCode = `source ${params.bashrc};\n${code}`;
             }
-            fs.writeFileSync(tempFile, code);
-            logger.log('Temporary file created:', tempFile);
+            fs.writeFileSync(tempFile, finalCode);
+            logger.log(`Temporary file created: ${tempFile}`);
         } catch (error: any) {
-            return {
-                success: false,
-                output: '',
-                error: `Failed to create temporary file: ${error.message}`
-            };
+            return { success: false, output: '', error: `Failed to create temporary file: ${error.message}` };
         }
 
-        // 创建终端窗口
-        let terminalWindow: any = null;
+        let terminalWindow: BrowserWindow | null = null;
         try {
             terminalWindow = new BrowserWindow({
                 width: 800,
@@ -127,7 +133,7 @@ function main(params) {
                 frame: false,
                 transparent: true,
                 resizable: true,
-                show: false, // 初始不显示，避免干扰用户
+                show: false,
                 webPreferences: {
                     nodeIntegration: true,
                     contextIsolation: false
@@ -136,73 +142,72 @@ function main(params) {
 
             terminalWindow.loadFile('src/frontend/terminal.html');
 
-            // 加载完成后显示窗口，但不获取焦点
             terminalWindow.once('ready-to-show', () => {
-                if (params?.show) {
+                if (params.show && terminalWindow && !terminalWindow.isDestroyed()) {
                     terminalWindow.show();
                 }
             });
-            terminalWindow.on('ready-to-show', () => {
-                // terminalWindow.webContents.openDevTools();
-            });
+
             terminalWindow.on('closed', () => {
                 terminalWindow = null;
             });
         } catch (error: any) {
             cleanupResources(tempFile, null);
-            return {
-                success: false,
-                output: '',
-                error: `Failed to create terminal window: ${error.message}`
-            };
+            return { success: false, output: '', error: `Failed to create terminal window: ${error.message}` };
         }
-
-        // 窗口事件监听
-        ipcMain.on('minimize-window', () => {
-            terminalWindow?.minimize();
-        });
 
         return new Promise((resolve) => {
             let output = "";
-            let error = "";
-            let timeoutId: any = null;
+            let errorMsg = "";
+            let timeoutId: NodeJS.Timeout | null = null;
             let isResolved = false;
-
-            const finish = (result) => {
-                if (isResolved) return;
-                isResolved = true;
-
-                if (timeoutId) {
-                    clearTimeout(timeoutId);
-                }
-
-                cleanupResources(tempFile, terminalWindow, conn);
-                resolve(result);
-            };
-
-            // 设置超时
-            timeoutId = setTimeout(() => {
-                logger.log(`Command execution timed out after ${params.timeout} seconds`);
-                finish({
-                    success: false, // 超时状态为失败
-                    output: threshold(output, params.max_lines, params.max_chars_per_line),
-                    error: threshold(error, params.max_lines, params.max_chars_per_line),
-                    timeout: true, // 添加超时标志
-                    message: `Command execution timed out after ${params.timeout} seconds, but returning current console output`
-                });
-            }, params.timeout * 1000);
-
-            // 关闭窗口事件
-            ipcMain.once('close-window', () => {
+            let conn: Client | null = null;
+            
+            // 集中管理需要注销的 IPC 监听器
+            const handleMinimize = () => { terminalWindow?.minimize(); };
+            const handleCloseWindow = () => {
                 finish({
                     success: false,
                     output: threshold(output, params.max_lines, params.max_chars_per_line),
                     error: 'Execution cancelled by user'
                 });
-            });
+            };
+            
+            ipcMain.on('minimize-window', handleMinimize);
+            ipcMain.once('close-window', handleCloseWindow);
+
+            const finish = (result: ExecuteResult) => {
+                if (isResolved) return;
+                isResolved = true;
+
+                if (timeoutId) clearTimeout(timeoutId);
+                
+                // 彻底清理所有主进程事件监听器
+                ipcMain.off('minimize-window', handleMinimize);
+                ipcMain.removeListener('close-window', handleCloseWindow);
+                if (inputHandler) ipcMain.off('terminal-input', inputHandler);
+                if (signalHandler) ipcMain.off('terminal-signal', signalHandler);
+
+                cleanupResources(tempFile, terminalWindow, conn);
+                resolve(result);
+            };
+
+            timeoutId = setTimeout(() => {
+                logger.log(`Command execution timed out after ${params.timeout} seconds`);
+                finish({
+                    success: false,
+                    output: threshold(output, params.max_lines, params.max_chars_per_line),
+                    error: threshold(errorMsg, params.max_lines, params.max_chars_per_line),
+                    timeout: true,
+                    message: `Command execution timed out after ${params.timeout} seconds, but returning current console output`
+                });
+            }, params.timeout * 1000);
 
             const sshConfig = utils.getSshConfig();
-            let conn: any = null;
+            
+            // 提取共享的输入输出处理句柄
+            let inputHandler: ((event: IpcMainEvent, input: string) => void) | null = null;
+            let signalHandler: ((event: IpcMainEvent, signal: string) => void) | null = null;
 
             if (sshConfig?.enabled) {
                 conn = new Client();
@@ -211,19 +216,17 @@ function main(params) {
                     logger.log('SSH Connection Ready');
                     const remoteScriptPath = `/tmp/bash_script_${Date.now()}.sh`;
 
-                    conn.sftp((sftpErr, sftp) => {
+                    conn!.sftp((sftpErr, sftp) => {
                         if (sftpErr) {
-                            finish({
+                            return finish({
                                 success: false,
                                 output: threshold(output, params.max_lines, params.max_chars_per_line),
                                 error: `SFTP error: ${sftpErr.message}`
                             });
-                            return;
                         }
 
-                        // 上传脚本文件
                         const writeStream = sftp.createWriteStream(remoteScriptPath);
-                        writeStream.on('error', (writeErr) => {
+                        writeStream.on('error', (writeErr: Error) => {
                             finish({
                                 success: false,
                                 output: threshold(output, params.max_lines, params.max_chars_per_line),
@@ -232,71 +235,58 @@ function main(params) {
                         });
 
                         writeStream.write(`#!/bin/bash\n${code}`);
-                        ((writeStream as any) || {}).end();
+                        writeStream.end();
 
                         writeStream.on('close', () => {
-                            // 执行远程命令
-                            conn.exec(`chmod +x ${remoteScriptPath} && ${remoteScriptPath}; rm -f ${remoteScriptPath}`, (execErr, stream) => {
+                            conn!.exec(`chmod +x ${remoteScriptPath} && ${remoteScriptPath}; rm -f ${remoteScriptPath}`, (execErr, stream: ClientChannel) => {
                                 if (execErr) {
-                                    finish({
+                                    return finish({
                                         success: false,
                                         output: threshold(output, params.max_lines, params.max_chars_per_line),
                                         error: `Execution error: ${execErr.message}`
                                     });
-                                    return;
                                 }
 
                                 terminalWindow?.webContents.send('terminal-data', `${code}\n`);
 
-                                stream.on('close', (exitCode, signal) => {
-                                    logger.log(`Command completed: exit code ${exitCode}, signal ${signal}`);
+                                stream.on('close', (exitCode: number, signalName: string) => {
+                                    logger.log(`Command completed: exit code ${exitCode}, signal ${signalName}`);
                                     finish({
                                         success: exitCode === 0,
                                         output: threshold(output, params.max_lines, params.max_chars_per_line),
-                                        error: threshold(error, params.max_lines, params.max_chars_per_line)
+                                        error: threshold(errorMsg, params.max_lines, params.max_chars_per_line)
                                     });
                                 });
 
-                                stream.on('data', (data) => {
-                                    output += data.toString();
-                                    terminalWindow?.webContents.send('terminal-data', data.toString());
+                                stream.on('data', (data: Buffer) => {
+                                    const str = data.toString();
+                                    output += str;
+                                    terminalWindow?.webContents.send('terminal-data', str);
                                 });
 
-                                stream.stderr.on('data', (data) => {
-                                    error += data.toString();
-                                    terminalWindow?.webContents.send('terminal-data', data.toString());
+                                stream.stderr.on('data', (data: Buffer) => {
+                                    const str = data.toString();
+                                    errorMsg += str;
+                                    terminalWindow?.webContents.send('terminal-data', str);
                                 });
 
-                                // 终端输入处理
-                                const inputHandler = (event, input) => {
-                                    if (!input) {
-                                        ((stream as any) || {}).end();
-                                    } else {
-                                        stream.write(input);
-                                    }
+                                inputHandler = (event, input) => {
+                                    if (!input) stream.end();
+                                    else stream.write(input);
                                 };
 
-                                const signalHandler = (event, signal) => {
-                                    if (signal === "ctrl_c") {
-                                        stream.close();
-                                    }
+                                signalHandler = (event, signal) => {
+                                    if (signal === "ctrl_c") stream.close();
                                 };
 
                                 ipcMain.on('terminal-input', inputHandler);
                                 ipcMain.on('terminal-signal', signalHandler);
-
-                                // 清理事件监听器
-                                stream.on('close', () => {
-                                    ipcMain.removeListener('terminal-input', inputHandler);
-                                    ipcMain.removeListener('terminal-signal', signalHandler);
-                                });
                             });
                         });
                     });
                 });
 
-                conn.on('error', (err) => {
-                    console.error('SSH Connection Error:', err);
+                conn.on('error', (err: Error) => {
                     finish({
                         success: false,
                         output: threshold(output, params.max_lines, params.max_chars_per_line),
@@ -304,11 +294,6 @@ function main(params) {
                     });
                 });
 
-                conn.on('close', () => {
-                    logger.log('SSH Connection Closed');
-                });
-
-                // 建立连接
                 try {
                     conn.connect(sshConfig);
                 } catch (connectErr: any) {
@@ -321,9 +306,9 @@ function main(params) {
 
             } else {
                 // 本地执行
-                const child = exec(`${params.bash || 'bash'} ${tempFile}`);
+                const child: ChildProcess = exec(`${params.bash} ${tempFile}`);
 
-                child.on('error', (childErr) => {
+                child.on('error', (childErr: Error) => {
                     finish({
                         success: false,
                         output: threshold(output, params.max_lines, params.max_chars_per_line),
@@ -331,75 +316,59 @@ function main(params) {
                     });
                 });
 
-                child.stdout.on('data', (data) => {
-                    output += data.toString();
-                    terminalWindow?.webContents.send('terminal-data', data.toString());
+                child.stdout?.on('data', (data: Buffer | string) => {
+                    const str = data.toString();
+                    output += str;
+                    terminalWindow?.webContents.send('terminal-data', str);
                 });
 
-                child.stderr.on('data', (data) => {
-                    error += data.toString();
-                    terminalWindow?.webContents.send('terminal-data', data.toString());
+                child.stderr?.on('data', (data: Buffer | string) => {
+                    const str = data.toString();
+                    errorMsg += str;
+                    terminalWindow?.webContents.send('terminal-data', str);
                 });
 
-                child.on('close', (exitCode) => {
+                child.on('close', (exitCode: number | null) => {
                     finish({
                         success: exitCode === 0,
                         output: threshold(output, params.max_lines, params.max_chars_per_line),
-                        error: threshold(error, params.max_lines, params.max_chars_per_line)
+                        error: threshold(errorMsg, params.max_lines, params.max_chars_per_line)
                     });
                 });
 
-                // 终端输入处理
-                const inputHandler = (event, input) => {
-                    if (!input) {
-                        child.stdin?.end();
-                    } else {
-                        child.stdin.write(input);
-                    }
+                inputHandler = (event, input) => {
+                    if (!input) child.stdin?.end();
+                    else child.stdin?.write(input);
                 };
 
-                const signalHandler = (event, signal) => {
-                    if (signal === "ctrl_c") {
-                        child.kill('SIGINT');
-                    }
+                signalHandler = (event, signal) => {
+                    if (signal === "ctrl_c") child.kill('SIGINT');
                 };
 
                 ipcMain.on('terminal-input', inputHandler);
                 ipcMain.on('terminal-signal', signalHandler);
-
-                // 清理事件监听器
-                child.on('close', () => {
-                    ipcMain.removeListener('terminal-input', inputHandler);
-                    ipcMain.removeListener('terminal-signal', signalHandler);
-                });
             }
         });
     };
 }
 
-function getPrompt() {
+export function getPrompt() {
     return {
-    "name": "cli_execute",
-    "description": "A command-line tool for executing bash commands in Linux environments, providing secure and efficient command execution capabilities.",
-    "parameters": {
-        "type": "object",
-        "properties": {
-            "code": {
-                "type": "string",
-                "description": "(Required) Executable bash code snippet (please strictly follow the code format, incorrect indentation and line breaks will cause code execution to fail)"
+        "name": "cli_execute",
+        "description": "A command-line tool for executing bash commands in Linux environments, providing secure and efficient command execution capabilities.",
+        "parameters": {
+            "type": "object",
+            "properties": {
+                "code": {
+                    "type": "string",
+                    "description": "(Required) Executable bash code snippet (please strictly follow the code format, incorrect indentation and line breaks will cause code execution to fail)"
+                },
+                "timeout": {
+                    "type": "number",
+                    "description": "(Optional) Maximum execution time in seconds (default: At least 3600 seconds). If the command times out, the current console output will be returned with a failure status."
+                }
             },
-            "timeout": {
-                "type": "number",
-                "description": "(Optional) Maximum execution time in seconds (default: At least 3600 seconds). If the command times out, the current console output will be returned with a failure status."
-            }
-        },
-        "required": [
-            "code"
-        ]
-    }
-};
+            "required": ["code"]
+        }
+    };
 }
-
-export {
-    main, getPrompt
-};

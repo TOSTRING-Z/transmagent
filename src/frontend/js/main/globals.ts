@@ -26,6 +26,8 @@ export const DOM = {
   btn_new_chat: document.getElementById("new-chat") as HTMLElement,
   renameDialog: document.getElementById('renameDialog') as HTMLElement,
   renameInput: document.getElementById('renameInput') as HTMLInputElement,
+  model_select: document.getElementById('ai-model') as HTMLSelectElement,
+  compress_box: document.getElementById('compress-context') as HTMLInputElement,
   msg_count: document.getElementById("msg_count") as HTMLElement || {
     innerText: '0'
   } as any,
@@ -38,9 +40,9 @@ export interface ChatState {
   mode: string;
   version: string | null;
   system_prompt: string;
+  model: string;
+  compress_context: boolean;
   msg_count?: number;
-  model?: string;
-  compress_context?: boolean;
 }
 
 export const State = {

@@ -1,149 +1,168 @@
+import { spawn, ChildProcessWithoutNullStreams } from 'child_process';
+import { tmpdir } from 'os';
+import { writeFileSync, unlinkSync, existsSync } from 'fs';
+import * as path from 'path';
+import { BrowserWindow, ipcMain, IpcMainEvent } from 'electron';
 import { logger } from '../utils/logger';
-const { spawn } = require('child_process');
 
-let terminalWindow: any = null;
-const { tmpdir } = require('os');
-const { writeFileSync, unlinkSync } = require('fs');
-const path = require('path');
-const { BrowserWindow, ipcMain } = require('electron');
-
-function threshold(data, threshold) {
-    if (!!data && data?.length > threshold) {
-        return "Returned content is too large, please try another solution!";
-    } else {
-        return data;
-    }
+// 定义传入参数的接口
+export interface PythonExecuteParams {
+    python_bin: string;
+    threshold?: number;
+    show?: boolean;
+    delay_time?: number;
 }
 
-function main(params) {
-    return async ({ code }) => {
-        // Create temporary file
-        const tempFile = path.join(tmpdir(), `temp_${Date.now()}.py`)
-        writeFileSync(tempFile, code)
-        logger.log(tempFile)
+export interface ExecuteArgs {
+    code: string;
+}
 
-        let terminalWindow: any = null;
-        let child: any = null;
-        // Create terminal window
+export interface ExecuteResult {
+    success: boolean;
+    output: string;
+    error: string;
+}
+
+function applyThreshold(data: string, limit?: number): string {
+    if (limit && data && data.length > limit) {
+        return "Returned content is too large, please try another solution!";
+    }
+    return data;
+}
+
+export function main(params: PythonExecuteParams) {
+    return async ({ code }: ExecuteArgs): Promise<string> => {
+        // 创建临时文件
+        const tempFile = path.join(tmpdir(), `temp_${Date.now()}_${Math.floor(Math.random() * 1000)}.py`);
+        writeFileSync(tempFile, code);
+        logger.log(`Created temp python file: ${tempFile}`);
+
+        let terminalWindow: BrowserWindow | null = null;
+        let child: ChildProcessWithoutNullStreams | null = null;
+
+        // 创建终端窗口
         terminalWindow = new BrowserWindow({
             width: 800,
             height: 600,
-            frame: false, // 隐藏默认标题栏和边框
-            transparent: true, // 可选：实现透明效果
+            frame: false,
+            transparent: true,
             show: false,
-            resizable: true, // 允许调整窗口大小
+            resizable: true,
             webPreferences: {
                 nodeIntegration: true,
-                contextIsolation: false // 允许在渲染进程使用Electron API
+                contextIsolation: false
             }
         });
 
         terminalWindow.loadFile('src/frontend/terminal.html');
 
-        // 或者你也可以在窗口显示后立即打开开发者工具
-        terminalWindow.on('ready-to-show', () => {
-            // terminalWindow.webContents.openDevTools();
-        });
-
-        // 加载完成后显示窗口，但不获取焦点
         terminalWindow.once('ready-to-show', () => {
-            if (params?.show) {
+            if (params?.show && terminalWindow) {
                 terminalWindow.show();
             }
         });
 
-        ipcMain.on('minimize-window', () => {
-            terminalWindow?.minimize()
-        })
-
-        ipcMain.on('close-window', () => {
-            child?.kill();
-            terminalWindow?.close()
-        })
-
         return new Promise((resolve) => {
-            // 强制 Python 输出使用 UTF-8 编码，避免在 Windows 下出现 GBK 乱码
+            // 定义具体的 IPC 处理函数，以便后续可以移除它们防止内存泄漏
+            const handleMinimize = () => { terminalWindow?.minimize(); };
+            const handleClose = () => {
+                child?.kill();
+                terminalWindow?.close();
+            };
+            const handleInput = (event: IpcMainEvent, input: string) => {
+                if (!input) {
+                    child?.stdin.end();
+                } else {
+                    child?.stdin.write(`${input}`);
+                }
+            };
+            const handleSignal = (event: IpcMainEvent, input: string) => {
+                if (input === "ctrl_c") {
+                    child?.kill();
+                }
+            };
+
+            // 挂载 IPC 监听器
+            ipcMain.on('minimize-window', handleMinimize);
+            ipcMain.on('close-window', handleClose);
+            ipcMain.on('terminal-input', handleInput);
+            ipcMain.on('terminal-signal', handleSignal);
+
+            // 清理函数：移除所有注册的 IPC 监听器
+            let isCleanedUp = false;
+            const cleanupListeners = () => {
+                if (isCleanedUp) return;
+                isCleanedUp = true;
+
+                ipcMain.off('minimize-window', handleMinimize);
+                ipcMain.off('close-window', handleClose);
+                ipcMain.off('terminal-input', handleInput);
+                ipcMain.off('terminal-signal', handleSignal);
+            };
+
             const env = { ...process.env, PYTHONIOENCODING: 'utf-8' };
-            child = spawn(params.python_bin, [tempFile], { env });
-            
-            // 设置流编码为 utf8，确保 data.toString() 总是能正确处理多字节字符
+            child = spawn(params.python_bin || 'python', [tempFile], { env });
+
             child.stdout.setEncoding('utf8');
             child.stderr.setEncoding('utf8');
 
-            terminalWindow.webContents.send('terminal-data', `${code}\n`);
-
-            ipcMain.on('terminal-input', (event, input) => {
-                if (!input) {
-                    child.stdin.end();
-                } else {
-                    child.stdin.write(`${input}`);
-                }
-            });
-            ipcMain.on('terminal-signal', (event, input) => {
-                switch (input) {
-                    case "ctrl_c":
-                        child.kill();
-                        break;
-
-                    default:
-                        break;
-                }
-            });
+            terminalWindow?.webContents.send('terminal-data', `${code}\n`);
 
             let output = "";
-            let error = "";
+            let errorMsg = "";
 
-            child.stdout.on('data', (data) => {
-                const str = data.toString();
-                output += str;
-                terminalWindow?.webContents.send('terminal-data', str);
+            child.stdout.on('data', (data: string) => {
+                output += data;
+                terminalWindow?.webContents.send('terminal-data', data);
             });
 
-            child.stderr.on('data', (data) => {
-                const str = data.toString();
-                error += str;
-                terminalWindow?.webContents.send('terminal-data', str);
+            child.stderr.on('data', (data: string) => {
+                errorMsg += data;
+                terminalWindow?.webContents.send('terminal-data', data);
             });
 
-            child.on('close', (code) => {
-                unlinkSync(tempFile);
+            child.on('close', (exitCode) => {
+                cleanupListeners(); // 进程结束时清理 IPC 监听器
+
+                if (existsSync(tempFile)) {
+                    unlinkSync(tempFile);
+                }
+
+                const delayMs = (params.delay_time || 0) * 1000;
+
                 setTimeout(() => {
-                    if (terminalWindow)
+                    if (terminalWindow && !terminalWindow.isDestroyed()) {
                         terminalWindow.close();
+                    }
                     resolve(JSON.stringify({
-                        success: code === 0,
-                        output: threshold(output, params.threshold),
-                        error: error
+                        success: exitCode === 0,
+                        output: applyThreshold(output, params.threshold),
+                        error: errorMsg
                     }));
-                }, params.delay_time * 1000);
+                }, delayMs);
             });
 
-            terminalWindow.on('close', () => {
+            terminalWindow?.on('closed', () => {
                 terminalWindow = null;
-            })
+                cleanupListeners(); // 确保窗口意外关闭时也能清理
+            });
         });
-    }
+    };
 }
 
-function getPrompt() {
+export function getPrompt() {
     return {
-    "name": "python_execute",
-    "description": "Execute Python code locally, such as file reading, data analysis, and code execution.",
-    "parameters": {
-        "type": "object",
-        "properties": {
-            "code": {
-                "type": "string",
-                "description": "(Required) Executable Python code snippet (Python code output must retain \"\\n\" and spaces, please strictly follow the code format, incorrect indentation and line breaks will cause code execution to fail)"
-            }
-        },
-        "required": [
-            "code"
-        ]
-    }
-};
+        "name": "python_execute",
+        "description": "Execute Python code locally, such as file reading, data analysis, and code execution.",
+        "parameters": {
+            "type": "object",
+            "properties": {
+                "code": {
+                    "type": "string",
+                    "description": "(Required) Executable Python code snippet (Python code output must retain \"\\n\" and spaces, please strictly follow the code format, incorrect indentation and line breaks will cause code execution to fail)"
+                }
+            },
+            "required": ["code"]
+        }
+    };
 }
-
-export {
-    main, getPrompt
-};

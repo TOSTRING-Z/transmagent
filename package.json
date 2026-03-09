@@ -113,13 +113,16 @@
     "@electron-forge/maker-squirrel": "^7.8.0",
     "@electron-forge/maker-zip": "^7.8.0",
     "@eslint/js": "^9.25.1",
+    "@types/jest": "^30.0.0",
     "@types/node": "^22.15.2",
     "@types/source-map-support": "^0.5.10",
     "electron": "^35.7.5",
     "electron-builder": "^26.0.12",
     "eslint": "^9.25.1",
     "globals": "^16.0.0",
+    "jest": "^30.2.0",
     "node-abi": "^4.3.0",
-    "tailwindcss": "^3.4.17"
+    "tailwindcss": "^3.4.17",
+    "ts-jest": "^29.4.6"
   }
 }

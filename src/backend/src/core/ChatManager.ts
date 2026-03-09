@@ -28,10 +28,29 @@ export class ChatManager {
     }
 
     public getMessages(all = true): Message[] {
-        if (all) return this.messages;
-        let msgs = this.messages.filter(message => !message?.del);
-        if (this.chat && this.chat.compress_context) {
-            msgs = msgs.filter(message => message.react !== true);
+        if (all) return utils.copy(this.messages);
+        let msgs = utils.copy(this.messages.filter(message => !message?.del));
+        return msgs;
+    }
+
+    public compressContext(messages): Message[] {
+        let msgs = utils.copy(messages);
+        const lastMessage = msgs[msgs.length - 1];
+        if (this.chat.compress_context) {
+            msgs = msgs.filter(message => {
+                // 最后一条消息若是react
+                if (lastMessage.react) {
+                    if (lastMessage.id === message.id) {
+                        return true;
+                    }
+                }
+                return message.react !== true
+            }).map(message => {
+                if (message.role === "assistant") {
+                    message.content = "The user compressed the execution process of the current task. The compressed document is as follows:\n\n---\n\n" + (message.content as string).trim();
+                }
+                return message;
+            });
         }
         return msgs;
     }
@@ -75,7 +94,8 @@ export class ChatManager {
             model: defaultConfig["model"] || "gpt-4",
             version: defaultConfig["version"] || "latest",
             tool_format: defaultConfig["tool_format"] || "prompt",
-            is_plugin: defaultConfig["model"] === "plugins"
+            is_plugin: defaultConfig["model"] === "plugins",
+            compress_context: defaultConfig["compress_context"] || false,
         };
     }
 
@@ -86,7 +106,6 @@ export class ChatManager {
             name: CHAT_CONST.DEFAULT_NAME,
             system_prompt: null,
             max_index: 0,
-            compress_context: params.compress_context ?? false,
             max_context_id: 0,
             mode: "act",
             tokens: 0,
@@ -102,6 +121,7 @@ export class ChatManager {
             version: defaultConfig.version,
             tool_format: defaultConfig.tool_format,
             is_plugin: defaultConfig.is_plugin,
+            compress_context: defaultConfig.compress_context,
             ...params
         } as ChatState;
     }
@@ -262,7 +282,8 @@ export class ChatManager {
     }
 
     public getMemory(memoryLength: number): Message[] {
-        let messages = utils.copy(this.getMessages(false));
+        let messages = this.getMessages(false);
+        messages = this.compressContext(messages);
         // 截取最近记忆
         return messages.slice(Math.max(messages.length - memoryLength, 0), messages.length);
     }

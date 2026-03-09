@@ -9,7 +9,7 @@ import { ToolWindow } from "./ToolWindow";
 import { SubAgentWindow } from "./SubAgentWindow";
 
 export class WindowManager {
-    private static instance: WindowManager;
+    public static instance: WindowManager;
 
     public mainWindow!: MainWindow;
     public alertWindow!: AlertWindow;

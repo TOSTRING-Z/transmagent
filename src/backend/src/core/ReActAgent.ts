@@ -90,7 +90,7 @@ export class ReActAgent {
             if (!id_exist) {
                 history_data.data.push(chat);
             } else {
-                history_data.data = history_data.data.map((h: any) => h.id === chat!.id ? chat : h);
+                history_data.data = history_data.data.map((h: any) => h.id === chat.id ? chat : h);
             }
 
             utils.setHistoryData(history_data);
@@ -389,13 +389,7 @@ export class ReActAgent {
 
     public loadChat(id: string): ChatState {
         const history_path = utils.getHistoryPath(id);
-        const max_index = this.load_message(history_path);
-
-        const history_data = utils.getHistoryData();
-        const history = history_data.data.find((h: any) => h.id == id);
-        let chatName = (history && history.name) ? history.name : CHAT_CONST.DEFAULT_NAME;
-
-        this.llm_service.chatManager.chat = this.llm_service.chatManager.getChatInit({ ...history, name: chatName, max_index: max_index });
+        this.load_message(history_path);
         return this.llm_service.chatManager.chat;
     }
 
@@ -478,9 +472,6 @@ export class ReActAgent {
                                 this.window.webContents.send('info-data', { id, context_id, content: `Step ${i}, id: ${id}, context_id: ${context_id}, Output:\n\n\`\`\`json\n${toolInfoStr}\n\`\`\`\n\n`, del });
                                 this.window.webContents.send('stream-data', { id, context_id, content: thinking, end: true, del });
 
-                                if (toolInfo.tool === "enter_idle_state") {
-                                    this.window.webContents.send('stream-data', { id, context_id, content: toolInfo.params.final_answer, end: true, del });
-                                }
                             } catch (e: any) {
                                 this.window?.webContents.send('stream-data', { id, context_id, content: null, end: true, del });
                             }

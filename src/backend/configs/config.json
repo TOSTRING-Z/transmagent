@@ -34,6 +34,7 @@
     "version": "deepseek-chat",
     "plugin": "baidu_translate",
     "tool_format": "prompt",
+    "compress_context": false,
     "auto_optimization": "auto_optimization"
   },
   "models": {

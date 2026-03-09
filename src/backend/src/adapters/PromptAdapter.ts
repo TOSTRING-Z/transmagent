@@ -1,6 +1,7 @@
 import { ILLMAdapter, IToolCallAdapter } from './IAdapter';
 import { ChatRequestData, Message, MessageContent, OllamaContent, OpenAIContent, StreamChunkResult, ImageContent, TextContent, ToolInfo } from '../types';
 import JSON5 from 'json5';
+import { utils } from '../utils/globals';
 
 export class PromptAdapter implements ILLMAdapter {
     formatMessages(messages: Message[], params: any, env_message?: Message): any[] {
@@ -171,20 +172,35 @@ export class PromptToolCallAdapter implements IToolCallAdapter {
     }
     public getToolInfo(message: Message): ToolInfo {
         let aiRespnse: any = null;
-        let toolInfo: ToolInfo | null = null;
+        let toolInfo!: ToolInfo;
         try {
-            aiRespnse = JSON5.parse(message.content as string);
+            aiRespnse = utils.parseJsonContent(message.content as string);
+            if (!aiRespnse) {
+                aiRespnse = JSON5.parse(message.content as string);
+            }
             toolInfo = { thinking: aiRespnse.thinking, tool: aiRespnse?.tool, id: null, params: aiRespnse?.params || {}, error: null };
         } catch (error: any) {
-            // 解析失败时的兜底错误处理
-            let observation = `Function calling is not a pure JSON text, or there is a problem with the JSON format: ${error.message}`;
-            toolInfo = {
-                thinking: message.content as string,
-                tool: null,
-                id: null,
-                params: {},
-                error: observation
-            };
+            if ((message.content as string).startsWith("```json") || ((message.content as string).startsWith("{") && (message.content as string).endsWith("}"))) {
+                toolInfo = {
+                    thinking: `\`\`\`text
+                    ${message.content as string}
+                    \`\`\`
+                    
+                    **Function calling is not a pure JSON text, or there is a problem with the JSON format.**`,
+                    tool: null,
+                    id: null,
+                    params: {},
+                    error: `Error Message: ${error.message}`
+                };
+            } else {
+                toolInfo = {
+                    thinking: message.content as string,
+                    tool: null,
+                    id: null,
+                    params: {},
+                    error: null
+                };
+            }
         }
         return toolInfo;
     }

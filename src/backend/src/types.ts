@@ -85,7 +85,7 @@ export interface ChatState {
     tokens: number;
     seconds: number;
     msg_count: number;
-    compress_context?: boolean;
+    compress_context: boolean;
     envs: Record<string, any>;
     vars: Record<string, any>;
     model: string;

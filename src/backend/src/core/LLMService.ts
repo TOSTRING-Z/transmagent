@@ -48,6 +48,7 @@ export class LLMService {
             if (data.system_prompt) {
                 messagesList.push({ role: "system", content: data.system_prompt, id: data.id, show: true, react: false });
             }
+            
             messagesList = messagesList.concat(this.chatManager.getMemory(data.memory_length || 10));
 
             const messageInput: Message = { role: "user", content: content, id: data.id, show: true, react: false };

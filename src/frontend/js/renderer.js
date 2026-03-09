@@ -29,6 +29,8 @@
     btn_new_chat: document.getElementById("new-chat"),
     renameDialog: document.getElementById("renameDialog"),
     renameInput: document.getElementById("renameInput"),
+    model_select: document.getElementById("ai-model"),
+    compress_box: document.getElementById("compress-context"),
     msg_count: document.getElementById("msg_count") || {
       innerText: "0"
     }
@@ -272,20 +274,8 @@ ${DOM.input.value}`;
     DOM.tokens.innerText = State.chat.tokens.toString();
     DOM.msg_count.innerText = State.chat.msg_count?.toString() || "0";
     DOM.seconds.innerText = State.chat.seconds.toFixed(1);
-    const model_select = document.getElementById("ai-model");
-    if (model_select && State.chat.model) {
-      model_select.value = State.chat.model;
-    }
-    const compress_box = document.getElementById("compress-context");
-    if (compress_box) {
-      if (State.chat.id) {
-        const stored = localStorage.getItem("compress_" + State.chat.id);
-        if (stored !== null) {
-          State.chat.compress_context = stored === "true";
-        }
-      }
-      compress_box.checked = !!State.chat.compress_context;
-    }
+    DOM.model_select.value = State.chat.model;
+    DOM.compress_box.checked = State.chat.compress_context || false;
     const items = DOM.history_list.getElementsByClassName("history-item");
     Array.from(items).forEach((item) => {
       if (item.id == chatId)
@@ -399,13 +389,8 @@ ${DOM.input.value}`;
       api_url.value = config.models[State.chat.model]?.api_url || "";
       api_key.value = config.models[State.chat.model]?.api_key || "";
     }
-    const compress_box = document.getElementById("compress-context");
-    if (compress_box) {
-      if (State.chat && State.chat.compress_context !== void 0) {
-        compress_box.checked = !!State.chat.compress_context;
-      } else {
-        compress_box.checked = !!config.compress_context;
-      }
+    if (State.chat && State.chat.compress_context !== void 0) {
+      DOM.compress_box.checked = State.chat.compress_context;
     }
     ai_model.onchange = (event) => {
       api_url.value = config.models[event.target.value]?.api_url || "";
@@ -434,8 +419,7 @@ ${DOM.input.value}`;
       biotools_url.value = config.mcp_server?.biotools?.url || "";
     const biotools_disabled = document.getElementById("mcp_server-biotools-disabled");
     if (biotools_disabled) {
-      const enabled = config.mcp_server?.biotools?.enabled !== false;
-      biotools_disabled.checked = !enabled;
+      biotools_disabled.checked = config.mcp_server?.biotools?.disabled;
     }
   }
   function hideConfig() {
@@ -452,14 +436,10 @@ ${DOM.input.value}`;
       config.models[ai_model] = { api_url: "", api_key: "" };
     config.models[ai_model].api_url = api_url;
     config.models[ai_model].api_key = api_key;
-    const compress_box = document.getElementById("compress-context");
-    const is_compressed = compress_box ? compress_box.checked : false;
-    config.compress_context = is_compressed;
-    if (typeof State !== "undefined" && State.chat) {
-      State.chat.model = ai_model;
-      State.chat.compress_context = is_compressed;
-      window.electronAPI.setGlobal(State.chat);
-    }
+    config.compress_context = DOM.compress_box.checked;
+    State.chat.model = ai_model;
+    State.chat.compress_context = DOM.compress_box.checked;
+    window.electronAPI.setGlobal(State.chat);
     if (!config.tool_call)
       config.tool_call = {};
     config.tool_call.cli_prompt = document.getElementById("cli-prompt")?.value || "";
@@ -476,7 +456,7 @@ ${DOM.input.value}`;
       config.mcp_server.biotools = {};
     config.mcp_server.biotools.url = document.getElementById("mcp_server-biotools-url")?.value || "";
     const biotools_disabled = document.getElementById("mcp_server-biotools-disabled");
-    config.mcp_server.biotools.enabled = biotools_disabled ? !biotools_disabled.checked : true;
+    config.mcp_server.biotools.disabled = biotools_disabled.checked;
     await window.electronAPI.setConfig(config);
     if (typeof showLog === "function")
       showLog("success", "Configuration saved successfully!");
@@ -1065,7 +1045,6 @@ $$
           DOM.top_div.scrollTop = DOM.top_div.scrollHeight;
         DOM.submit.classList.remove("running");
       }
-      await window.electronAPI.setGlobal(State.chat);
     }
   }
 

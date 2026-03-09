@@ -172,7 +172,7 @@ export class OpenAIAdapter implements ILLMAdapter {
 export class OpenAIToolCallAdapter implements IToolCallAdapter {
     formatTools(toolSchemas: any[]): any {
         return toolSchemas.map(schema => {
-            if (schema.type === "raw_string" || schema.name === "enter_idle_state") return null;
+            if (schema.type === "raw_string") return null;
             return { type: "function", function: schema };
         }).filter(Boolean);
     }

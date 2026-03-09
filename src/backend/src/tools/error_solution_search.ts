@@ -1,10 +1,53 @@
+import * as puppeteer from 'puppeteer';
 import { logger } from '../utils/logger';
-const puppeteer = require('puppeteer');
-const { WindowManager } = require("../main/windows/WindowManager");
+import { WindowManager } from '../main/windows/WindowManager';
+
+// --- 类型定义 ---
+export interface ErrorSolutionParams {
+    error_message: string;
+    max_results?: number;
+}
+
+export interface SolutionMetadata {
+    rank: number;
+    votes: number;
+    answers: number;
+    views: number;
+    is_answered: boolean;
+}
+
+export interface FormattedSolution {
+    site: string;
+    title: string;
+    url: string;
+    type: string;
+    source_type: string;
+    metadata: SolutionMetadata;
+}
+
+export interface SearchResult {
+    success: boolean;
+    error?: string;
+    error_type?: string[];
+    search_strategy?: string;
+    sources_searched?: string[];
+    solutions_count?: number;
+    solutions: FormattedSolution[];
+}
+
+export interface RawSolution {
+    title: string;
+    url: string;
+    votes: number;
+    answers: number;
+    views: number;
+    is_answered: boolean;
+}
 
 class ErrorSolutionFinder {
+    private errorKeywords: Record<string, string[]>;
+
     constructor() {
-        // @ts-ignore
         this.errorKeywords = {
             'R': ['R', 'rlang', 'tidyverse', 'ggplot', 'dplyr', 'shiny', 'bioconductor', 'rstudio'],
             'conda': ['conda', 'anaconda', 'miniconda', 'environment', 'package', 'install', 'CondaHTTPError'],
@@ -14,11 +57,15 @@ class ErrorSolutionFinder {
         };
     }
 
-    // 改进的验证完成检测方法
-    async waitForVerificationComplete(page) {
+    // 检测验证页面
+    async waitForVerificationComplete(page: puppeteer.Page): Promise<boolean> {
         logger.log('🔍 检测到验证页面，请手动完成验证...');
         logger.log('💡 提示: 完成验证后，页面会自动跳转到搜索结果');
-        WindowManager.instance?.alertWindow.show("log", "Please manually complete the verification");
+        
+        // 可选：通知前端
+        if (WindowManager?.instance?.alertWindow) {
+            WindowManager.instance.alertWindow.show("log", "Please manually complete the verification");
+        }
 
         const startTime = Date.now();
         const timeout = 180000; // 3分钟超时
@@ -31,13 +78,11 @@ class ErrorSolutionFinder {
                 const currentUrl = await page.url();
                 logger.log(`当前URL: ${currentUrl}`);
 
-                // URL 发生变化说明页面在跳转
                 if (currentUrl !== lastUrl) {
                     logger.log('🔄 检测到页面跳转...');
                     lastUrl = currentUrl;
                     consecutiveStableChecks = 0;
 
-                    // 检查是否跳转到搜索结果页面
                     if (currentUrl.includes('/search') &&
                         !currentUrl.includes('nocaptcha') &&
                         !currentUrl.includes('challenge')) {
@@ -49,23 +94,19 @@ class ErrorSolutionFinder {
                     consecutiveStableChecks++;
                 }
 
-                // 检查页面内容是否包含搜索结果
+                // 检查页面内容
                 const pageState = await page.evaluate(() => {
-                    // 检查搜索结果元素
                     const resultSelectors = [
                         '.s-post-summary',
                         '.question-summary',
                         '.js-search-result',
                         '[data-result-id]',
-                        '#mainbar', // 主内容区域
-                        '.content'  // 内容区域
+                        '#mainbar', 
+                        '.content'  
                     ];
 
-                    const hasResults = resultSelectors.some(selector =>
-                        document.querySelector(selector)
-                    );
+                    const hasResults = resultSelectors.some(selector => !!document.querySelector(selector));
 
-                    // 检查是否还在验证页面
                     const verificationSelectors = [
                         '#recaptcha',
                         '.challenge-form',
@@ -74,11 +115,8 @@ class ErrorSolutionFinder {
                         '[class*="verification"]'
                     ];
 
-                    const stillVerifying = verificationSelectors.some(selector =>
-                        document.querySelector(selector)
-                    );
+                    const stillVerifying = verificationSelectors.some(selector => !!document.querySelector(selector));
 
-                    // 检查页面标题
                     const title = document.title.toLowerCase();
                     const isSearchPage = title.includes('search') || title.includes('stack overflow');
 
@@ -87,8 +125,7 @@ class ErrorSolutionFinder {
                         stillVerifying,
                         isSearchPage,
                         title: document.title,
-                        // @ts-ignore
-                        bodyText: document.body.textContent.substring(0, 200)
+                        bodyText: document.body.textContent ? document.body.textContent.substring(0, 200) : ''
                     };
                 });
 
@@ -99,18 +136,14 @@ class ErrorSolutionFinder {
                     title: pageState.title
                 });
 
-                // 如果检测到搜索结果且不在验证页面
                 if (pageState.hasResults && !pageState.stillVerifying && pageState.isSearchPage) {
                     logger.log('✅ 验证完成，检测到搜索结果');
                     await new Promise(resolve => setTimeout(resolve, 3000));
                     return true;
                 }
 
-                // 如果URL稳定且不在验证页面，可能是验证完成但需要手动触发
                 if (consecutiveStableChecks > 3 && !pageState.stillVerifying) {
                     logger.log('🔄 URL稳定，尝试检查是否验证完成...');
-
-                    // 尝试重新加载页面
                     if (consecutiveStableChecks > 6) {
                         logger.log('🔄 尝试重新加载页面...');
                         await page.reload({ waitUntil: 'domcontentloaded' });
@@ -119,13 +152,11 @@ class ErrorSolutionFinder {
                     }
                 }
 
-                // 等待2秒后再次检查
                 await new Promise(resolve => setTimeout(resolve, 2000));
                 logger.log('⏳ 等待验证完成...');
 
             } catch (error: any) {
-                logger.log('⚠️ 检查过程中出现错误:', error.message);
-                // 继续等待
+                logger.log(`⚠️ 检查过程中出现错误: ${error.message}`);
                 await new Promise(resolve => setTimeout(resolve, 2000));
             }
         }
@@ -134,9 +165,8 @@ class ErrorSolutionFinder {
         return false;
     }
 
-    // 使用浏览器爬取 Stack Overflow
-    async crawlStackOverflow(searchQuery, maxResults = 5) {
-        let browser: any = null;
+    async crawlStackOverflow(searchQuery: string, maxResults = 5): Promise<RawSolution[]> {
+        let browser: puppeteer.Browser | null = null;
         try {
             browser = await puppeteer.launch({
                 headless: false,
@@ -155,19 +185,12 @@ class ErrorSolutionFinder {
 
             const page = await browser.newPage();
 
-            // 隐藏自动化特征
             await page.evaluateOnNewDocument(() => {
-                Object.defineProperty(navigator, 'webdriver', {
-                    get: () => undefined,
-                });
-                Object.defineProperty(navigator, 'languages', {
-                    get: () => ['en-US', 'en'],
-                });
+                Object.defineProperty(navigator, 'webdriver', { get: () => undefined });
+                Object.defineProperty(navigator, 'languages', { get: () => ['en-US', 'en'] });
             });
 
             await page.setUserAgent('Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36');
-
-            // 设置额外的HTTP头
             await page.setExtraHTTPHeaders({
                 'Accept-Language': 'en-US,en;q=0.9',
                 'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8'
@@ -177,25 +200,18 @@ class ErrorSolutionFinder {
             logger.log(`🔍 正在搜索 Stack Overflow: ${searchQuery}`);
             logger.log(`🌐 搜索URL: ${searchUrl}`);
 
-            // 设置页面错误处理
             page.on('console', msg => {
-                if (msg.type() === 'error') {
-                    logger.log('❌ 页面错误:', msg.text());
-                }
+                if (msg.type() === 'error') logger.log('❌ 页面错误:', msg.text());
             });
 
             page.on('response', response => {
                 if (response.status() >= 400) {
-                    logger.log('⚠️ 响应错误:', response.status(), response.url());
+                    logger.log('⚠️ 响应错误:', String(response.status()), response.url());
                 }
             });
 
-            await page.goto(searchUrl, {
-                waitUntil: 'networkidle2',
-                timeout: 30000
-            });
+            await page.goto(searchUrl, { waitUntil: 'networkidle2', timeout: 30000 });
 
-            // 检查初始页面状态
             const initialUrl = await page.url();
             logger.log(`📍 初始页面URL: ${initialUrl}`);
 
@@ -207,13 +223,11 @@ class ErrorSolutionFinder {
             if (needsVerification) {
                 logger.log('🛡️ 需要验证，等待手动完成...');
                 const verificationSuccess = await this.waitForVerificationComplete(page);
-
                 if (!verificationSuccess) {
                     logger.log('⚠️ 验证可能未完成，尝试继续...');
                 }
             }
 
-            // 最终提取结果
             logger.log('📊 开始提取搜索结果...');
             const results = await this.extractSearchResults(page, maxResults);
 
@@ -221,7 +235,7 @@ class ErrorSolutionFinder {
             return results;
 
         } catch (error: any) {
-            console.error('❌ Stack Overflow 爬取错误:', error.message);
+            logger.error(`❌ Stack Overflow 爬取错误: ${error.message}`);
             return [];
         } finally {
             if (browser) {
@@ -230,18 +244,12 @@ class ErrorSolutionFinder {
         }
     }
 
-    // 提取搜索结果
-    async extractSearchResults(page, maxResults) {
+    async extractSearchResults(page: puppeteer.Page, maxResults: number): Promise<RawSolution[]> {
         try {
-            // 确保页面完全加载
             await new Promise(resolve => setTimeout(resolve, 5000));
 
-            const results = await page.evaluate((maxResults) => {
-                logger.log('🔍 在页面中搜索结果元素...');
-
-                const solutions: any[] = [];
-
-                // 多种选择器尝试
+            const results = await page.evaluate((maxAllowed: number) => {
+                const solutions: RawSolution[] = [];
                 const selectors = [
                     '.s-post-summary',
                     '.question-summary',
@@ -251,25 +259,20 @@ class ErrorSolutionFinder {
                     '.result'
                 ];
 
-                let questionElements: any[] = [];
+                let questionElements: Element[] = [];
                 for (const selector of selectors) {
                     const elements = document.querySelectorAll(selector);
                     if (elements.length > 0) {
-                        logger.log(`✅ 使用选择器 "${selector}" 找到 ${elements.length} 个结果`);
-                        // @ts-ignore
-                        questionElements = elements;
+                        questionElements = Array.from(elements);
                         break;
                     }
                 }
 
-                logger.log(`📋 总共找到 ${questionElements.length} 个搜索结果元素`);
-
-                questionElements.forEach((element,) => {
-                    if (solutions.length >= maxResults) return;
+                questionElements.forEach((element) => {
+                    if (solutions.length >= maxAllowed) return;
 
                     let title = '', url = '', votes = 0, answers = 0, views = 0;
 
-                    // 提取标题和链接
                     const titleSelectors = [
                         '.s-post-summary--content-title a',
                         '.result-link a',
@@ -280,52 +283,42 @@ class ErrorSolutionFinder {
                     ];
 
                     for (const selector of titleSelectors) {
-                        const titleElement = element.querySelector(selector);
+                        const titleElement = element.querySelector(selector) as HTMLAnchorElement;
                         if (titleElement && titleElement.textContent && titleElement.textContent.trim()) {
                             title = titleElement.textContent.trim();
                             url = titleElement.href;
-                            logger.log(`📖 找到标题: ${title.substring(0, 50)}...`);
                             break;
                         }
                     }
 
-                    if (!title || !url) {
-                        logger.log('❌ 未找到有效的标题或URL');
-                        return;
-                    }
+                    if (!title || !url) return;
 
-                    // 提取统计数据
                     const statsSelectors = ['.s-post-summary--stats', '.stats', '.statscontainer'];
                     for (const statsSelector of statsSelectors) {
                         const statsElement = element.querySelector(statsSelector);
                         if (statsElement) {
-                            // 投票数
                             const voteSelectors = ['.s-post-summary--stats-item__emphasized', '.vote-count-post', '.votes'];
                             for (const voteSelector of voteSelectors) {
                                 const voteElement = statsElement.querySelector(voteSelector);
-                                if (voteElement) {
-                                    const voteText = voteElement.textContent.trim();
-                                    votes = parseInt(voteText) || 0;
+                                if (voteElement && voteElement.textContent) {
+                                    votes = parseInt(voteElement.textContent.trim()) || 0;
                                     break;
                                 }
                             }
 
-                            // 答案数
                             const answerSelectors = ['.s-post-summary--stats-item.has-answers', '.answered', '.status'];
                             for (const answerSelector of answerSelectors) {
                                 const answerElement = statsElement.querySelector(answerSelector);
-                                if (answerElement) {
-                                    const answerText = answerElement.textContent.trim();
-                                    answers = parseInt(answerText) || 0;
+                                if (answerElement && answerElement.textContent) {
+                                    answers = parseInt(answerElement.textContent.trim()) || 0;
                                     break;
                                 }
                             }
 
-                            // 浏览数
                             const viewSelectors = ['.s-post-summary--stats-item:last-child', '.views'];
                             for (const viewSelector of viewSelectors) {
                                 const viewElement = statsElement.querySelector(viewSelector);
-                                if (viewElement) {
+                                if (viewElement && viewElement.textContent) {
                                     const viewText = viewElement.textContent.trim();
                                     if (viewText.includes('k')) {
                                         views = parseFloat(viewText) * 1000;
@@ -349,30 +342,26 @@ class ErrorSolutionFinder {
                     });
                 });
 
-                logger.log(`🎉 最终提取到 ${solutions.length} 个有效结果`);
                 return solutions;
-
             }, maxResults);
 
             return results;
 
         } catch (error: any) {
-            console.error('❌ 提取搜索结果错误:', error.message);
+            logger.error(`❌ 提取搜索结果错误: ${error.message}`);
             return [];
         }
     }
 
-    analyzeErrorType(errorMessage) {
+    analyzeErrorType(errorMessage: string): string[] {
         if (!errorMessage || typeof errorMessage !== 'string') {
             return ['general'];
         }
 
-        const errorTypes: any[] = [];
+        const errorTypes: string[] = [];
         const lowerError = errorMessage.toLowerCase();
 
-        // @ts-ignore
         for (const [type, keywords] of Object.entries(this.errorKeywords)) {
-            // @ts-ignore
             if (keywords.some(keyword => lowerError.includes(keyword.toLowerCase()))) {
                 errorTypes.push(type);
             }
@@ -381,7 +370,7 @@ class ErrorSolutionFinder {
         return errorTypes.length > 0 ? errorTypes : ['general'];
     }
 
-    async getSolutionUrls(errorMessage, maxResults = 5) {
+    async getSolutionUrls(errorMessage: string, maxResults = 5): Promise<SearchResult> {
         try {
             if (!errorMessage || typeof errorMessage !== 'string') {
                 return {
@@ -395,8 +384,7 @@ class ErrorSolutionFinder {
 
             const solutions = await this.crawlStackOverflow(errorMessage, maxResults);
 
-            // 格式化结果
-            const formattedSolutions = solutions.map((solution, index) => ({
+            const formattedSolutions: FormattedSolution[] = solutions.map((solution, index) => ({
                 site: 'Stack Overflow',
                 title: solution.title,
                 url: solution.url,
@@ -430,7 +418,7 @@ class ErrorSolutionFinder {
     }
 }
 
-function main({ error_message, max_results = 5 }) {
+export async function main({ error_message, max_results = 5 }: ErrorSolutionParams): Promise<SearchResult> {
     try {
         if (!error_message) {
             return {
@@ -441,7 +429,7 @@ function main({ error_message, max_results = 5 }) {
         }
 
         const finder = new ErrorSolutionFinder();
-        return finder.getSolutionUrls(error_message, max_results);
+        return await finder.getSolutionUrls(error_message, max_results);
     } catch (error: any) {
         return {
             success: false,
@@ -451,58 +439,25 @@ function main({ error_message, max_results = 5 }) {
     }
 }
 
-function getPrompt() {
+export function getPrompt() {
     return {
-    "name": "error_solution_search",
-    "description": "Find programming error solutions from Stack Overflow using browser automation\nKey Features: \u2714 Uses browser automation to crawl Stack Overflow solutions  \n\u2714 Automatically handles verification challenges  \n\u2714 Analyzes error type automatically  \n\u2714 Returns actual solution pages with metadata\nFeatures: \u2714 Uses browser automation to crawl Stack Overflow solutions  \n\u2714 Automatically handles verification challenges  \n\u2714 Analyzes error type automatically  \n\u2714 Returns actual solution pages with metadata",
-    "parameters": {
-        "type": "object",
-        "properties": {
-            "error_message": {
-                "type": "string",
-                "description": "The error message to analyze (required)"
+        "name": "error_solution_search",
+        "description": "Find programming error solutions from Stack Overflow using browser automation\nKey Features: \u2714 Uses browser automation to crawl Stack Overflow solutions  \n\u2714 Automatically handles verification challenges  \n\u2714 Analyzes error type automatically  \n\u2714 Returns actual solution pages with metadata\nFeatures: \u2714 Uses browser automation to crawl Stack Overflow solutions  \n\u2714 Automatically handles verification challenges  \n\u2714 Analyzes error type automatically  \n\u2714 Returns actual solution pages with metadata",
+        "parameters": {
+            "type": "object",
+            "properties": {
+                "error_message": {
+                    "type": "string",
+                    "description": "The error message to analyze (required)"
+                },
+                "max_results": {
+                    "type": "number",
+                    "description": "Maximum number of solution URLs to return (optional, default: 5)"
+                }
             },
-            "max_results": {
-                "type": "number",
-                "description": "Maximum number of solution URLs to return (optional, default: 5)"
-            }
-        },
-        "required": [
-            "error_message"
-        ]
-    }
-};
-}
-
-// 测试函数
-if (require.main === module) {
-    (async () => {
-        try {
-            const exampleErrors = [
-                "Error: package 'dplyr' is not available for R version 4.2.1",
-            ];
-
-            for (const error of exampleErrors) {
-                logger.log('='.repeat(60));
-                logger.log(`处理错误: ${error}`);
-                logger.log('='.repeat(60));
-
-                const solutions = await main({
-                    error_message: error,
-                    max_results: 3
-                });
-                logger.log(JSON.stringify(solutions, null, 2));
-
-                // 在每个错误之间等待一下
-                await new Promise(resolve => setTimeout(resolve, 3000));
-            }
-        } catch (error: any) {
-            console.error('调试错误:', error);
+            "required": [
+                "error_message"
+            ]
         }
-    })();
+    };
 }
-
-export {
-    main,
-    getPrompt
-};

@@ -50,7 +50,7 @@ export function initConfigEvents() {
 export async function showConfig() {
   const mConfig = document.querySelector('#m-config') as HTMLElement;
   if (mConfig) mConfig.style.display = 'flex';
-  
+
   const config = await window.electronAPI.getConfig();
   const ai_model = document.getElementById("ai-model") as HTMLSelectElement;
   const api_url = document.getElementById("api-url") as HTMLInputElement;
@@ -67,52 +67,46 @@ export async function showConfig() {
       ai_model.appendChild(option);
     }
   }
-  
+
   if (State.chat && State.chat.model) {
     ai_model.value = State.chat.model;
     api_url.value = config.models[State.chat.model]?.api_url || '';
     api_key.value = config.models[State.chat.model]?.api_key || '';
   }
-  
-  const compress_box = document.getElementById('compress-context') as HTMLInputElement;
-  if (compress_box) {
-    if (State.chat && State.chat.compress_context !== undefined) {
-      compress_box.checked = !!State.chat.compress_context;
-    } else {
-      compress_box.checked = !!config.compress_context;
-    }
+
+  if (State.chat && State.chat.compress_context !== undefined) {
+    DOM.compress_box.checked = State.chat.compress_context;
   }
-  
+
   ai_model.onchange = (event: any) => {
     api_url.value = config.models[event.target.value]?.api_url || '';
     api_key.value = config.models[event.target.value]?.api_key || '';
   };
-  
+
   const cli_prompt = document.getElementById('cli-prompt') as HTMLInputElement;
   if (cli_prompt) cli_prompt.value = config.tool_call?.cli_prompt || '';
-  
+
   const ssh_host = document.getElementById('ssh-host') as HTMLInputElement;
   if (ssh_host) ssh_host.value = config.tool_call?.ssh_config?.host || '';
-  
+
   const ssh_port = document.getElementById('ssh-port') as HTMLInputElement;
   if (ssh_port) ssh_port.value = config.tool_call?.ssh_config?.port || '';
-  
+
   const ssh_username = document.getElementById('ssh-username') as HTMLInputElement;
   if (ssh_username) ssh_username.value = config.tool_call?.ssh_config?.username || '';
-  
+
   const ssh_password = document.getElementById('ssh-password') as HTMLInputElement;
   if (ssh_password) ssh_password.value = config.tool_call?.ssh_config?.password || '';
-  
+
   const ssh_enabled = document.getElementById('ssh-enabled') as HTMLInputElement;
   if (ssh_enabled) ssh_enabled.checked = !!config.tool_call?.ssh_config?.enabled;
 
   const biotools_url = document.getElementById('mcp_server-biotools-url') as HTMLInputElement;
   if (biotools_url) biotools_url.value = config.mcp_server?.biotools?.url || '';
-  
+
   const biotools_disabled = document.getElementById('mcp_server-biotools-disabled') as HTMLInputElement;
   if (biotools_disabled) {
-    const enabled = config.mcp_server?.biotools?.enabled !== false;
-    biotools_disabled.checked = !enabled;
+    biotools_disabled.checked = config.mcp_server?.biotools?.disabled;
   }
 }
 
@@ -129,26 +123,18 @@ export async function saveConfig() {
 
   if (!config.models) config.models = {};
   if (!config.models[ai_model]) config.models[ai_model] = { api_url: '', api_key: '' };
-  
+
   config.models[ai_model].api_url = api_url;
   config.models[ai_model].api_key = api_key;
+  config.compress_context = DOM.compress_box.checked;
 
-  const compress_box = document.getElementById('compress-context') as HTMLInputElement;
-  const is_compressed = compress_box ? compress_box.checked : false;
-  config.compress_context = is_compressed;
-
-  // @ts-ignore
-  if (typeof State !== 'undefined' && State.chat) {
-    // @ts-ignore
-    State.chat.model = ai_model;
-    // @ts-ignore
-    State.chat.compress_context = is_compressed;
-    window.electronAPI.setGlobal(State.chat);
-  }
+  State.chat.model = ai_model;
+  State.chat.compress_context = DOM.compress_box.checked;
+  window.electronAPI.setGlobal(State.chat);
 
   if (!config.tool_call) config.tool_call = {};
   config.tool_call.cli_prompt = (document.getElementById('cli-prompt') as HTMLInputElement)?.value || '';
-  
+
   if (!config.tool_call.ssh_config) config.tool_call.ssh_config = {};
   config.tool_call.ssh_config.host = (document.getElementById('ssh-host') as HTMLInputElement)?.value || '';
   config.tool_call.ssh_config.port = Number((document.getElementById('ssh-port') as HTMLInputElement)?.value) || 22;
@@ -159,12 +145,12 @@ export async function saveConfig() {
   if (!config.mcp_server) config.mcp_server = {};
   if (!config.mcp_server.biotools) config.mcp_server.biotools = {};
   config.mcp_server.biotools.url = (document.getElementById('mcp_server-biotools-url') as HTMLInputElement)?.value || '';
-  
+
   const biotools_disabled = document.getElementById('mcp_server-biotools-disabled') as HTMLInputElement;
-  config.mcp_server.biotools.enabled = biotools_disabled ? !biotools_disabled.checked : true;
+  config.mcp_server.biotools.disabled = biotools_disabled.checked;
 
   await window.electronAPI.setConfig(config);
-  
+
   // @ts-ignore
   if (typeof showLog === 'function') showLog('success', 'Configuration saved successfully!');
   hideConfig();

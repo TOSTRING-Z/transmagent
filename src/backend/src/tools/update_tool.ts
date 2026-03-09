@@ -1,16 +1,39 @@
+import * as fs from 'fs';
 import { logger } from '../utils/logger';
-const fs = require('fs');
-const { utils } = require('../utils/globals');
+import { utils } from '../utils/globals';
 
-async function main({ tool_name, tool_documentation }) {
+// --- 类型定义 ---
+export interface UpdateToolParams {
+    tool_name: string;
+    tool_documentation: string;
+}
+
+export interface UpdateToolResult {
+    success: boolean;
+    action?: 'updated' | 'added';
+    tool?: string;
+    message?: string;
+    error?: string;
+}
+
+export async function main(params: UpdateToolParams): Promise<UpdateToolResult> {
     try {
+        const { tool_name, tool_documentation } = params;
+
         if (!tool_name || !tool_documentation) {
             throw new Error("Both tool_name and tool_documentation parameters are required");
         }
 
-        const prompt_file = utils.getConfig("tool_call").cli_prompt || utils.getDefault("cli_prompt.md");
+        // 安全获取 prompt 配置文件路径
+        const config = utils.getConfig("tool_call") || {};
+        const prompt_file = config.cli_prompt || utils.getDefault("cli_prompt.md");
         
-        // Read the current CLI prompt file
+        if (!fs.existsSync(prompt_file)) {
+            // 如果文件不存在，初始化一个空文件
+            fs.writeFileSync(prompt_file, '', 'utf8');
+        }
+
+        // 读取当前 CLI prompt 文件
         let content = fs.readFileSync(prompt_file, 'utf8');
         
         // 使用逐行分析的方法来精确匹配工具部分
@@ -18,6 +41,9 @@ async function main({ tool_name, tool_documentation }) {
         let inTargetTool = false;
         let toolStartIndex = -1;
         let toolEndIndex = -1;
+
+        // 匹配工具名的正则，支持字母、数字、下划线和连字符
+        const newToolRegex = /^- [a-zA-Z0-9_-]+:/;
 
         for (let i = 0; i < lines.length; i++) {
             const line = lines[i];
@@ -41,8 +67,7 @@ async function main({ tool_name, tool_documentation }) {
                 if (trimmedLine === '') {
                     if (i + 1 < lines.length) {
                         const nextLine = lines[i + 1];
-                        // 如果下一行是新的工具（以 "- toolname:" 格式），则当前工具结束
-                        if (nextLine.match(/^- \w+:/)) {
+                        if (newToolRegex.test(nextLine)) {
                             toolEndIndex = i;
                             break;
                         }
@@ -51,7 +76,7 @@ async function main({ tool_name, tool_documentation }) {
                 }
                 
                 // 检查是否遇到新的工具（非当前工具的缩进内容）
-                if (line.match(/^- \w+:/) && !line.startsWith('  - ') && !line.startsWith('    - ')) {
+                if (newToolRegex.test(line) && !line.startsWith('  - ') && !line.startsWith('    - ')) {
                     toolEndIndex = i;
                     break;
                 }
@@ -65,7 +90,6 @@ async function main({ tool_name, tool_documentation }) {
 
         if (toolStartIndex !== -1) {
             logger.log('找到现有工具，进行更新...');
-            logger.log('工具位置:', toolStartIndex, '到', toolEndIndex);
             
             // 构建替换后的内容
             const beforeTool = lines.slice(0, toolStartIndex).join('\n');
@@ -75,7 +99,6 @@ async function main({ tool_name, tool_documentation }) {
             const cleanBeforeTool = beforeTool.trimEnd();
             let cleanAfterTool = afterTool;
             
-            // 如果afterTool以空行开始，去掉开头的空行
             if (cleanAfterTool.startsWith('\n\n')) {
                 cleanAfterTool = cleanAfterTool.substring(2);
             } else if (cleanAfterTool.startsWith('\n')) {
@@ -90,13 +113,11 @@ async function main({ tool_name, tool_documentation }) {
             
         } else {
             logger.log('未找到现有工具，添加到文件末尾...');
-            // Tool doesn't exist - directly append to the end of file
-            // 清理末尾的多余空行后再添加
             const cleanContent = content.trimEnd();
-            content = cleanContent + '\n\n' + tool_documentation.trim();
+            content = cleanContent + (cleanContent ? '\n\n' : '') + tool_documentation.trim();
         }
         
-        // Write updated content back to file
+        // 将更新后的内容写回文件
         fs.writeFileSync(prompt_file, content, 'utf8');
         
         return {
@@ -107,6 +128,7 @@ async function main({ tool_name, tool_documentation }) {
         };
         
     } catch (error: any) {
+        logger.error(`Update tool failed: ${error.message}`);
         return {
             success: false,
             error: error.message
@@ -114,53 +136,26 @@ async function main({ tool_name, tool_documentation }) {
     }
 }
 
-function getPrompt() {
+export function getPrompt() {
     return {
-    "name": "update_tool",
-    "description": "Update or add tool documentation in the CLI prompt configuration file. If the tool exists, updates its usage documentation; if not, adds the new tool at the end of the file.",
-    "parameters": {
-        "type": "object",
-        "properties": {
-            "tool_name": {
-                "type": "string",
-                "description": "(Required) Name of the tool to update or add"
+        "name": "update_tool",
+        "description": "Update or add tool documentation in the CLI prompt configuration file. If the tool exists, updates its usage documentation; if not, adds the new tool at the end of the file.",
+        "parameters": {
+            "type": "object",
+            "properties": {
+                "tool_name": {
+                    "type": "string",
+                    "description": "(Required) Name of the tool to update or add"
+                },
+                "tool_documentation": {
+                    "type": "string",
+                    "description": "(Required) Complete documentation for the tool usage, MUST strictly follow the exact format below"
+                }
             },
-            "tool_documentation": {
-                "type": "string",
-                "description": "(Required) Complete documentation for the tool usage, MUST strictly follow the exact format below"
-            }
-        },
-        "required": [
-            "tool_name",
-            "tool_documentation"
-        ]
-    }
-};
+            "required": [
+                "tool_name",
+                "tool_documentation"
+            ]
+        }
+    };
 }
-
-// 测试函数
-if (require.main === module) {
-  // 当直接运行此文件时，执行调试测试
-  (async () => {
-    try {
-      // 示例用法 - 测试添加新工具
-      const result = await main({
-        tool_name: "test_tool",
-        tool_documentation: `- test_tool: This is a test tool for debugging
-  - Input: \`input.txt\` (test input file)
-  - Output: \`output.txt\` (test output file)  
-  - Use: \`echo "test command"\`
-  - Note:
-    - This is a test note
-    - For debugging purposes only`
-      });
-      logger.log('调试结果:', JSON.stringify(result, null, 2));
-    } catch (error: any) {
-      console.error('调试错误:', error);
-    }
-  })();
-}
-
-export {
-    main, getPrompt
-};

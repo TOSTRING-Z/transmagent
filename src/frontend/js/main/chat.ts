@@ -379,6 +379,6 @@ export async function streamMessageAdd(chunk: any) {
         DOM.top_div.scrollTop = DOM.top_div.scrollHeight;
       DOM.submit.classList.remove('running');
     }
-    await window.electronAPI.setGlobal(State.chat);
+    // await window.electronAPI.setGlobal(State.chat);
   }
 }

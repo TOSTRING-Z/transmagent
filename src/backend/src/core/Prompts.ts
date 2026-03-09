@@ -45,7 +45,7 @@ class Prompts {
 
   getSystemPrompts(toolsData) {
 
-    const coreTools = ["add_subtasks", "record_subtasks", "ask_followup_question", "waiting_feedback", "plan_mode_response", "enter_idle_state", "context_retrieval", "search_long_term_memory", "write_important_memory", "mcp_server"];
+    const coreTools = ["add_subtasks", "record_subtasks", "ask_followup_question", "waiting_feedback", "plan_mode_response", "context_retrieval", "search_long_term_memory", "write_important_memory", "mcp_server"];
     const core_tool_prompt = Object.entries(toolsData)
       .filter(([key]) => coreTools.includes(key))
       .map(([_, val]) => val)
@@ -108,17 +108,23 @@ ${!this.agent.prompt_args.subagent && utils.getConfig('embedding')?.enabled ? `
 `:""}
 ${this.agent.llm_service.chatManager.chat.tool_format === 'prompt' ? `
 
-# 🛠️ Strict Output Format (Zero Tolerance)
+# 🛠️ Strict Response Format (Zero Tolerance)
 
-**CRITICAL OVERRIDE**: Your output must be **VALID, RAW JSON ONLY**.
-Any deviation (Markdown tags, extra text) causes system failure.
+**CRITICAL OVERRIDE**: Your output must be **ONLY ONE** of the following:
+- **VALID, RAW JSON** (if using a tool)
+- **Plain text summary** (if task is complete)
 
-**Schema**:
+**Tool Use Schema**:
 {
   "thinking": "Concise reasoning for this step.",
   "tool": "tool_name",
   "params": { "key": "value" }
 }
+
+**Completion Response**:
+[Direct text summary of what was accomplished]
+
+Any deviation (Markdown tags, mixing formats, extra text) causes system failure.
 ` : `
 # 🛠️ Native Tool Calling Protocol
 

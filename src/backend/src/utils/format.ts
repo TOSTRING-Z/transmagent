@@ -5,7 +5,7 @@ export function formatString(template: string, data: Record<string, any>): strin
             const values = Object.values(data);
             return new Function(...keys, `return \`$${match}\`;`)(...values);
         } catch (e: any) {
-            console.error(`Format error: ${e.message}`);
+            // console.error(`Format error: ${e.message}`);
             return match;
         }
     });
