@@ -10,6 +10,7 @@ import MemoryManager from '../data/MemoryManager';
 import getBaseTools from './base_tools';
 import { ToolCallAdapterFactory } from '../factories/AdapterFactory';
 import { IToolCallAdapter } from '../adapters/IAdapter';
+import { Plugins } from './Plugins';
 
 export interface PromptArgs {
     agent_prompt?: string | null;
@@ -31,13 +32,15 @@ export interface EnvironmentDetails {
 }
 
 export class ToolCall extends ReActAgent {
+    public plugins: Plugins;
     public mcp_client: MCPClient;
     public prompt_args: PromptArgs;
     public modes: Record<string, string>;
     public system_prompt!: () => Promise<string> | string;
     public mcp_prompt!: string;
-    public base_tools: any;
     public tools: Record<string, any>;
+    public baseTools: Record<string, any>;
+    public agentTools: Record<string, any>;
     public prompts: Prompts;
     public memory_manager: MemoryManager;
     public task_prompt: (toolsData) => string;
@@ -49,8 +52,8 @@ export class ToolCall extends ReActAgent {
     public environment_details!: EnvironmentDetails;
 
     constructor(
-        plugins: any,
-        tools: Record<string, any> = {},
+        plugins: Plugins,
+        agentTools: Record<string, any> = {},
         llm_service: LLMService,
         window: any,
         alertWindow: any,
@@ -62,7 +65,8 @@ export class ToolCall extends ReActAgent {
             agent_mode: "transagent"
         }
     ) {
-        super(plugins, llm_service, window, alertWindow);
+        super(llm_service, window, alertWindow);
+        this.plugins = plugins;
         this.mcp_client = new MCPClient(this);
         this.prompt_args = prompt_args;
 
@@ -75,8 +79,9 @@ export class ToolCall extends ReActAgent {
 
         this.init_var();
 
-        this.base_tools = getBaseTools(this);
-        this.tools = { ...tools, ...this.base_tools };
+        this.baseTools = getBaseTools(this);
+        this.agentTools = agentTools;
+        this.tools = { ...this.plugins.getTool(), ...this.agentTools, ...this.baseTools };
 
         this.prompts = new Prompts(this);
         this.memory_manager = new MemoryManager(utils);
@@ -104,7 +109,7 @@ export class ToolCall extends ReActAgent {
     public get_tools_prompt(): any {
         if (this.plugins) {
             this.plugins.init(null, true);
-            this.tools = { ...this.plugins.getTool(), ...this.base_tools };
+            this.tools = { ...this.plugins.getTool(), ...this.agentTools, ...this.baseTools };
         }
         const format = this.llm_service.chatManager.chat.tool_format;
         const tool_schemas: any[] = [];
@@ -113,7 +118,7 @@ export class ToolCall extends ReActAgent {
         const modes = this.modes || {};
         const isSubagent = !!args.subagent;
         const currentMode = env.mode;
-
+        
         // 1. 收集并过滤工具
         for (let key in this.tools) {
             if (key === 'mcp_server') {
@@ -135,7 +140,7 @@ export class ToolCall extends ReActAgent {
                 if (isSubagent) continue;
             }
 
-            if (this.tools[key]?.getPrompt) {
+            if (this.tools[key]?.getPrompt && this.tools[key]?.enabled !== false) {
                 const schemaOrStr = this.tools[key].getPrompt();
                 if (typeof schemaOrStr === 'string') {
                     tool_schemas.push({ type: "raw_string", name: key, content: schemaOrStr });

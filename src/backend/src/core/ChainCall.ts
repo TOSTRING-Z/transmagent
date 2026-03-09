@@ -2,12 +2,15 @@ import { ReActAgent, State } from './ReActAgent';
 import { utils, CHAT_CONST } from '../utils/globals';
 import { formatString } from '../utils/format';
 import { LLMService } from './LLMService';
+import { Plugins } from './Plugins';
 
 export class ChainCall extends ReActAgent {
+    public plugins: Plugins;
     public is_plugin: boolean;
 
-    constructor(plugins: any, llm_service: LLMService, window: any, alertWindow: any) {
-        super(plugins, llm_service, window, alertWindow);
+    constructor(plugins: Plugins, llm_service: LLMService, window: any, alertWindow: any) {
+        super(llm_service, window, alertWindow);
+        this.plugins = plugins;
         this.is_plugin = false;
     }
 

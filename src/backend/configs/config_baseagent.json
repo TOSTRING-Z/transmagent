@@ -12,9 +12,6 @@
     "python_execute": {
       "enabled": true
     },
-    "analyze_code": {
-      "enabled": true
-    },
     "search_files": {
       "enabled": true
     },

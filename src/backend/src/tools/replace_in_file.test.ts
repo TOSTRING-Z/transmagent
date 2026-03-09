@@ -21,7 +21,7 @@ describe('replace_in_file Tool', () => {
         }
     });
 
-    it('1. 应该能够成功替换单个代码块', () => {
+    it('1. 应该能够成功替换单个代码块', async () => {
         const diff = `
 <<<<<<< SEARCH
   console.log("Hello World");
@@ -29,7 +29,7 @@ describe('replace_in_file Tool', () => {
   console.log("Hello TypeScript");
 >>>>>>> REPLACE
 `;
-        const result = main({ file_path: targetFilePath, diff });
+        const result = await main()({ file_path: targetFilePath, diff });
         
         expect(result).toBe(`File ${targetFilePath} modified successfully`);
         
@@ -38,7 +38,7 @@ describe('replace_in_file Tool', () => {
         expect(updatedContent).not.toContain('console.log("Hello World");');
     });
 
-    it('2. 应该能够成功替换多个代码块', () => {
+    it('2. 应该能够成功替换多个代码块', async () => {
         const diff = `
 <<<<<<< SEARCH
 function hello() {
@@ -52,7 +52,7 @@ module.exports = hello;
 export default greet;
 >>>>>>> REPLACE
 `;
-        const result = main({ file_path: targetFilePath, diff });
+        const result = await main()({ file_path: targetFilePath, diff });
         
         expect(result).toBe(`File ${targetFilePath} modified successfully`);
         
@@ -61,7 +61,7 @@ export default greet;
         expect(updatedContent).toContain('export default greet;');
     });
 
-    it('3. 当 SEARCH 块找不到对应内容时，应该返回失败信息', () => {
+    it('3. 当 SEARCH 块找不到对应内容时，应该返回失败信息', async () => {
         const diff = `
 <<<<<<< SEARCH
   console.log("This does not exist");
@@ -69,7 +69,7 @@ export default greet;
   console.log("Will fail");
 >>>>>>> REPLACE
 `;
-        const result = main({ file_path: targetFilePath, diff });
+        const result = await main()({ file_path: targetFilePath, diff });
         
         expect(result).toContain('modification failed');
         expect(result).toContain('Search content not found');
@@ -79,7 +79,7 @@ export default greet;
         expect(updatedContent).toContain('console.log("Hello World");');
     });
 
-    it('4. 当替换内容与原内容相同时，应提示未发生修改', () => {
+    it('4. 当替换内容与原内容相同时，应提示未发生修改', async () => {
         const diff = `
 <<<<<<< SEARCH
   console.log("Hello World");
@@ -87,18 +87,18 @@ export default greet;
   console.log("Hello World");
 >>>>>>> REPLACE
 `;
-        const result = main({ file_path: targetFilePath, diff });
+        const result = await main()({ file_path: targetFilePath, diff });
         
         expect(result).toContain('not modified');
     });
 
-    it('5. 当提供了不符合格式的 diff 时，应返回格式错误', () => {
+    it('5. 当提供了不符合格式的 diff 时，应返回格式错误', async () => {
         const diff = `
 <<<<<<< SEARCH
   console.log("Hello World");
   // 缺少 ======= 和 >>>>>>> REPLACE
 `;
-        const result = main({ file_path: targetFilePath, diff });
+        const result = await main()({ file_path: targetFilePath, diff });
         
         expect(result).toContain('modification failed: Invalid diff format');
     });

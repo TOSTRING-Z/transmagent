@@ -13,6 +13,7 @@
     "highlight.js": "^11.11.1",
     "marked": "^17.0.4",
     "naive-ui": "^2.44.1",
+    "render": "link:",
     "vfonts": "^0.0.3",
     "vue": "^3.5.25"
   },

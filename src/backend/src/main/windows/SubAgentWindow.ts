@@ -8,7 +8,6 @@ import { utils, sysConfig } from '../../utils/globals';
 import { LLMService } from '../../core/LLMService';
 import { ToolCall } from '../../core/ToolCall';
 import { Plugins } from '../../core/Plugins';
-import { main } from '../../tools/analyze_code';
 
 interface AgentTool {
     tool_call: ToolCall;

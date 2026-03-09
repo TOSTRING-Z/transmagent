@@ -69,94 +69,96 @@ function isTextFile(filePath: string): boolean {
     }
 }
 
-export async function main({ path: targetPath, regex = "test$", file_pattern = "*.js" }: SearchFilesParams): Promise<SearchResult[] | string> {
-    try {
-        // 1. 安全解析目标路径
-        const resolvedTarget = path.resolve(targetPath);
-        if (!fs.existsSync(resolvedTarget)) {
-            throw new Error(`Directory not found: ${resolvedTarget}`);
-        }
+export function main() {
+    return async ({ path: targetPath, regex = "test$", file_pattern = "*.js" }: SearchFilesParams): Promise<SearchResult[] | string> => {
+        try {
+            // 1. 安全解析目标路径
+            const resolvedTarget = path.resolve(targetPath);
+            if (!fs.existsSync(resolvedTarget)) {
+                throw new Error(`Directory not found: ${resolvedTarget}`);
+            }
 
-        // 2. 动态兼容加载 Glob 模块 (适配 v8 ~ v10)
-        // eslint-disable-next-line @typescript-eslint/no-var-requires
-        const globModule = require('glob');
-        const globOptions = { cwd: resolvedTarget, nodir: true, absolute: true };
-        
-        let files: string[] = [];
+            // 2. 动态兼容加载 Glob 模块 (适配 v8 ~ v10)
+            // eslint-disable-next-line @typescript-eslint/no-var-requires
+            const globModule = require('glob');
+            const globOptions = { cwd: resolvedTarget, nodir: true, absolute: true };
 
-        if (globModule.globSync || globModule.sync) {
-            // 同步接口优先 (稳定且无异步队列丢失问题)
-            const syncFn = globModule.globSync || globModule.sync;
-            files = syncFn(file_pattern, globOptions);
-        } else {
-            // 异步接口兜底
-            files = await new Promise((resolve, reject) => {
-                const result = globModule(file_pattern, globOptions, (err: any, matches: string[]) => {
-                    if (err) reject(err);
-                    else resolve(matches);
+            let files: string[] = [];
+
+            if (globModule.globSync || globModule.sync) {
+                // 同步接口优先 (稳定且无异步队列丢失问题)
+                const syncFn = globModule.globSync || globModule.sync;
+                files = syncFn(file_pattern, globOptions);
+            } else {
+                // 异步接口兜底
+                files = await new Promise((resolve, reject) => {
+                    const result = globModule(file_pattern, globOptions, (err: any, matches: string[]) => {
+                        if (err) reject(err);
+                        else resolve(matches);
+                    });
+                    // 兼容返回 Promise 的新版 Glob
+                    if (result && typeof result.then === 'function') {
+                        result.then(resolve).catch(reject);
+                    }
                 });
-                // 兼容返回 Promise 的新版 Glob
-                if (result && typeof result.then === 'function') {
-                    result.then(resolve).catch(reject);
-                }
-            });
-        }
+            }
 
-        if (!Array.isArray(files)) files = [];
+            if (!Array.isArray(files)) files = [];
 
-        // 3. 【终极防御机制】：强制丢弃所有逃逸出 targetPath 目录之外的文件
-        const validFiles = Array.from(new Set(files))
-            .map(f => path.resolve(resolvedTarget, f)) // 统一转换为绝对路径
-            .filter(f => {
-                // 利用 path.relative 判定层级，杜绝 / \ 分隔符差异和大小写差异引发的漏洞
-                const rel = path.relative(resolvedTarget, f);
-                return rel && !rel.startsWith('..') && !path.isAbsolute(rel);
-            });
-
-        if (validFiles.length === 0) {
-            throw new Error('No files found matching the pattern');
-        }
-
-        const results: SearchResult[] = [];
-        const regexObj = new RegExp(regex, 'g');
-
-        // 4. 读取与正则匹配
-        for (const file of validFiles) {
-            if (!isTextFile(file)) continue;
-
-            const content = fs.readFileSync(file, 'utf8');
-            let match;
-            
-            regexObj.lastIndex = 0; 
-            
-            while ((match = regexObj.exec(content)) !== null) {
-                // 防护：防止类似于 `.*` 或 `^` 这种零宽度正则导致的 Node.js 进程卡死（死循环）
-                if (match.index === regexObj.lastIndex) {
-                    regexObj.lastIndex++;
-                }
-                if (match[0].length === 0) continue;
-
-                const start = Math.max(0, match.index - 10);
-                const end = Math.min(content.length, match.index + match[0].length + 10);
-                const context = content.substring(start, end);
-                
-                results.push({
-                    file: path.relative(resolvedTarget, file),
-                    match: match[0],
-                    context: context,
-                    line: (content.substring(0, match.index).match(/\n/g) || []).length + 1
+            // 3. 【终极防御机制】：强制丢弃所有逃逸出 targetPath 目录之外的文件
+            const validFiles = Array.from(new Set(files))
+                .map(f => path.resolve(resolvedTarget, f)) // 统一转换为绝对路径
+                .filter(f => {
+                    // 利用 path.relative 判定层级，杜绝 / \ 分隔符差异和大小写差异引发的漏洞
+                    const rel = path.relative(resolvedTarget, f);
+                    return rel && !rel.startsWith('..') && !path.isAbsolute(rel);
                 });
 
-                // 性能保护：防止单文件包含百万级匹配项导致 OOM
+            if (validFiles.length === 0) {
+                throw new Error('No files found matching the pattern');
+            }
+
+            const results: SearchResult[] = [];
+            const regexObj = new RegExp(regex, 'g');
+
+            // 4. 读取与正则匹配
+            for (const file of validFiles) {
+                if (!isTextFile(file)) continue;
+
+                const content = fs.readFileSync(file, 'utf8');
+                let match;
+
+                regexObj.lastIndex = 0;
+
+                while ((match = regexObj.exec(content)) !== null) {
+                    // 防护：防止类似于 `.*` 或 `^` 这种零宽度正则导致的 Node.js 进程卡死（死循环）
+                    if (match.index === regexObj.lastIndex) {
+                        regexObj.lastIndex++;
+                    }
+                    if (match[0].length === 0) continue;
+
+                    const start = Math.max(0, match.index - 10);
+                    const end = Math.min(content.length, match.index + match[0].length + 10);
+                    const context = content.substring(start, end);
+
+                    results.push({
+                        file: path.relative(resolvedTarget, file),
+                        match: match[0],
+                        context: context,
+                        line: (content.substring(0, match.index).match(/\n/g) || []).length + 1
+                    });
+
+                    // 性能保护：防止单文件包含百万级匹配项导致 OOM
+                    if (results.length >= 100) break;
+                }
                 if (results.length >= 100) break;
             }
-            if (results.length >= 100) break;
-        }
 
-        return results.slice(0, 100);
-    } catch (error: any) {
-        logger.error(`Search files error: ${error.message}`);
-        return error.message;
+            return results.slice(0, 100);
+        } catch (error: any) {
+            logger.error(`Search files error: ${error.message}`);
+            return error.message;
+        }
     }
 }
 

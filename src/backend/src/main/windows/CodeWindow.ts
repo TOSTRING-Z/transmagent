@@ -134,7 +134,7 @@ export class CodeWindow extends BaseWindow {
             try {
                 this.llm_service_completion?.stopMessage();
                 this.llm_service_completion = new LLMService();
-                this.react_agent_completion = new ReActAgent({}, this.llm_service_completion);
+                this.react_agent_completion = new ReActAgent(this.llm_service_completion);
 
                 const prompt = utils.getConfig("code")?.completion?.prompt || "You are a code/text completion engine. Output code directly, no Markdown. If no completion is needed, return an empty string.";
                 const query = `${prefix}<CURSOR>${suffix}`;
@@ -153,7 +153,7 @@ export class CodeWindow extends BaseWindow {
             try {
                 this.llm_service_refactor?.stopMessage();
                 this.llm_service_refactor = new LLMService();
-                this.react_agent_refactor = new ReActAgent({}, this.llm_service_refactor);
+                this.react_agent_refactor = new ReActAgent(this.llm_service_refactor);
 
                 const prompt = utils.getConfig("code")?.refactor?.prompt || `You are a strict code linter. Return JSON: {"errors": [{"text": "erroneous_code", "fix": "fixed_code"}]}.`;
                 const data = this.react_agent_refactor.getDataDefault({
@@ -170,7 +170,7 @@ export class CodeWindow extends BaseWindow {
         ipcMain.handle('code-modify', async (_, { selectedText, instruction }: { selectedText: string; instruction: string }) => {
             try {
                 const llm_service = new LLMService();
-                const react_agent = new ReActAgent({}, llm_service);
+                const react_agent = new ReActAgent(llm_service);
                 const prompt = utils.getConfig("code")?.modify?.prompt || "You are an intelligent code assistant. Return only the modified code, no Markdown markers.";
                 const query = `[CODE START]\n${selectedText}\n[CODE END]\n\nUser instruction: ${instruction}\n\nPlease modify the code above:`;
                 const data = react_agent.getDataDefault({
@@ -207,7 +207,7 @@ export class CodeWindow extends BaseWindow {
         ipcMain.handle('detect-language', async (_, code: string) => {
             try {
                 const llm_service = new LLMService();
-                const react_agent = new ReActAgent({}, llm_service);
+                const react_agent = new ReActAgent(llm_service);
                 const prompt = "You are a programming language detector. Output ONLY the lowercase language name.";
                 const snippet = code?.length > 1000 ? code.slice(0, 1000) : code;
                 const data = react_agent.getDataDefault({

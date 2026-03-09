@@ -1,19 +1,21 @@
 import { execSync } from 'child_process';
 import axios from 'axios';
 import * as os from 'os';
+import * as fs from 'fs';
 
-interface VisionParams {
-    api_url: string;
+// --- 类型定义 ---
+export interface VisionParams {
+    api_url?: string;
     api_key: string;
     model?: string;
 }
 
-interface ToolArgs {
+export interface ToolArgs {
     prompt: string;
 }
 
 export function main(params: VisionParams) {
-    return async (args: ToolArgs) => {
+    return async (args: ToolArgs): Promise<string> => {
         try {
             const { prompt } = args;
             if (!prompt) {
@@ -31,6 +33,7 @@ export function main(params: VisionParams) {
             let base64Image = "";
             const platform = os.platform();
             
+            // 截图逻辑
             if (platform === 'win32') {
                 const psCommand = `
 Add-Type -AssemblyName System.Windows.Forms,System.Drawing;
@@ -51,13 +54,13 @@ $bytes = $stream.ToArray();
             } else if (platform === 'darwin') {
                 const tmpfile = `/tmp/screenshot_${Date.now()}.png`;
                 execSync(`screencapture -x ${tmpfile}`);
-                base64Image = require('fs').readFileSync(tmpfile, { encoding: 'base64' });
-                require('fs').unlinkSync(tmpfile);
+                base64Image = fs.readFileSync(tmpfile, { encoding: 'base64' });
+                fs.unlinkSync(tmpfile);
             } else if (platform === 'linux') {
                 const tmpfile = `/tmp/screenshot_${Date.now()}.png`;
                 execSync(`scrot ${tmpfile} || gnome-screenshot -f ${tmpfile}`);
-                base64Image = require('fs').readFileSync(tmpfile, { encoding: 'base64' });
-                require('fs').unlinkSync(tmpfile);
+                base64Image = fs.readFileSync(tmpfile, { encoding: 'base64' });
+                fs.unlinkSync(tmpfile);
             } else {
                 return `Error: Unsupported OS platform for screenshot: ${platform}`;
             }
@@ -66,6 +69,7 @@ $bytes = $stream.ToArray();
                 return "Error: Failed to capture screenshot.";
             }
 
+            // 构建请求体
             const requestBody = {
                 model: model,
                 messages: [
@@ -85,6 +89,7 @@ $bytes = $stream.ToArray();
                 max_tokens: 1000
             };
 
+            // 发起 Vision API 请求
             const response = await axios.post(apiUrl, requestBody, {
                 headers: {
                     "Content-Type": "application/json",
@@ -96,7 +101,8 @@ $bytes = $stream.ToArray();
             return `【Vision Result】\n${resultText}`;
 
         } catch (error: any) {
-            return `Error calling Vision API: ${error.message}\n${error.response?.data ? JSON.stringify(error.response.data) : ''}`;
+            const errorData = error.response?.data ? JSON.stringify(error.response.data) : '';
+            return `Error calling Vision API: ${error.message}\n${errorData}`.trim();
         }
     };
 }

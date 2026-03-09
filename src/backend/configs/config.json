@@ -34,8 +34,7 @@
     "version": "deepseek-chat",
     "plugin": "baidu_translate",
     "tool_format": "prompt",
-    "compress_context": false,
-    "auto_optimization": "auto_optimization"
+    "compress_context": false
   },
   "models": {
     "ollama": {
@@ -78,13 +77,6 @@
     }
   },
   "plugins": {
-    "auto_optimization": {
-      "params": {
-        "retry_time": 3,
-        "url": "http://127.0.0.1:3004/predict"
-      },
-      "show": false
-    },
     "baidu_translate": {
       "show": true
     },
@@ -116,11 +108,8 @@
         "timeout": 3600,
         "delay_time": 5,
         "show": true,
-        "threshold": 10000
+        "threshold": 40000
       },
-      "enabled": false
-    },
-    "analyze_code": {
       "enabled": false
     },
     "search_files": {

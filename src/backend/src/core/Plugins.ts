@@ -6,6 +6,7 @@ export interface PluginItem {
     func: (...args: any[]) => any;
     extra?: any;
     getPrompt?: () => any;
+    enabled?: boolean;
 }
 
 interface PluginInfo {
@@ -35,13 +36,14 @@ export class Plugins {
     private loadPlugin(info: PluginInfo): PluginItem {
         const pluginPath = info.path;
         const pluginParams = info.params;
+        const enabled = info?.enabled === false ? false : true
 
         try {
             let plugin: any;
             if (pluginPath && fs.existsSync(pluginPath)) {
                 try {
                     delete require.cache[require.resolve(pluginPath)];
-                } catch(e) {}
+                } catch (e) { }
                 plugin = require(pluginPath);
             } else {
                 // 从内置工具目录加载
@@ -49,14 +51,15 @@ export class Plugins {
                 const builtinPath = path.join(__dirname, '..', 'tools', info.version);
                 try {
                     delete require.cache[require.resolve(builtinPath)];
-                } catch(e) {}
+                } catch (e) { }
                 plugin = require(builtinPath);
             }
 
             const item: PluginItem = {
                 func: pluginParams ? plugin.main(pluginParams) : plugin.main,
                 extra: info.extra,
-                getPrompt: plugin.getPrompt
+                getPrompt: plugin.getPrompt,
+                enabled: enabled
             };
             return item;
         } catch (error: any) {

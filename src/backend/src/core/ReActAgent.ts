@@ -4,6 +4,7 @@ import { LLMService } from './LLMService';
 import { utils, CONSTANTS, CHAT_CONST } from '../utils/globals';
 import { Message, ChatState, MessageContent, TextContent } from '../types';
 import { ToolCallAdapterFactory } from '../factories/AdapterFactory';
+import { Plugins } from './Plugins';
 
 export enum State {
     IDLE = 'idle',
@@ -32,20 +33,17 @@ const createMockAlertWindow = () => ({
 
 export class ReActAgent {
     public state: State;
-    public plugins: any;
     public llm_service: LLMService;
     public window: any;
     public alertWindow: any;
     public context_id?: string; // 用于记录当前的 memory id
 
     constructor(
-        plugins: any,
         llm_service: LLMService,
         window: any = createMockWindow(),
         alertWindow: any = createMockAlertWindow()
     ) {
         this.state = State.IDLE;
-        this.plugins = plugins;
         this.llm_service = llm_service;
         this.window = window;
         // 将窗口句柄注入到 llm_service（若 LLMService 中声明了 window 属性）
@@ -200,8 +198,8 @@ export class ReActAgent {
             file_path: data?.file_path,
             api_url: null,
             api_key: null,
-            model: utils.copy(data?.model || this.llm_service.chatManager.chat.model),
-            version: utils.copy(data?.version || this.llm_service.chatManager.chat.version),
+            model: this.llm_service.chatManager.chat.model,
+            version: this.llm_service.chatManager.chat.version,
             output_template: null,
             input_template: null,
             prompt_template: null,
@@ -217,65 +215,12 @@ export class ReActAgent {
         return { ...defaults, ...data };
     }
 
-    public async contextAutoOpt(data: Record<string, any>) {
-        const auto_optimization = this.plugins.getTool(utils.getConfig('default')?.auto_optimization)?.func;
-        if (!auto_optimization) return;
-
-        const messages = this.llm_service.chatManager.getMessages(true);
-        let ids: { ids: string[], context_ids: string[] } = { ids: [], context_ids: [] };
-
-        for (const message of messages) {
-            // @ts-ignore
-            if (this.llm_service.stopFlag) {
-                this.window?.webContents.send('stream-data', { id: data.id, content: "The user interrupted the task.", end: true });
-                break;
-            }
-
-            let history: any, name: 'ids' | 'context_ids' | undefined, content: any;
-
-            if (typeof message.content === 'string') {
-                const content_json = utils.extractJson(message.content);
-                if (content_json) content = JSON5.parse(content_json);
-            }
-
-            if (message.role === 'user' && message.react === false) {
-                history = message.content;
-                name = 'ids';
-            } else if (content && content.thinking) {
-                history = content.thinking;
-                name = 'context_ids';
-            }
-
-            if (history && name) {
-                const pred = await auto_optimization({ query: data.query, history });
-                if (pred === null) {
-                    this.window?.webContents.send('log', 'Error in loading context automatic optimization model!');
-                    break;
-                }
-
-                const messages_by_id = messages.filter(msg => msg.id === message.id && msg.context_id === message.context_id);
-
-                if (pred === 0) {
-                    messages_by_id.forEach(msg => { msg.del = true; });
-                    if (name === 'ids') ids.ids.push(message.id!);
-                    else ids.context_ids.push(message.context_id!);
-                } else {
-                    messages_by_id.forEach(msg => { if (msg?.del) delete msg.del; });
-                }
-            }
-        }
-
-        ids.ids = [...new Set(ids.ids)];
-        ids.context_ids = [...new Set(ids.context_ids)];
-        this.window?.webContents.send('delete-memory', ids);
-    }
-
     public async compression_message({ id }: { id: string }): Promise<string | null> {
         try {
             const will_compress_messages = this.llm_service.chatManager.getMessages().filter(m => m.id === id);
             if (will_compress_messages.length > 0) {
                 const temp_llm_service = new LLMService();
-                const react_agent = new ReActAgent(this.plugins, temp_llm_service);
+                const react_agent = new ReActAgent(temp_llm_service);
 
                 let combined_content = will_compress_messages.map(msg =>
                     typeof msg.content === 'string' ? msg.content : JSON.stringify(msg.content)
@@ -345,7 +290,7 @@ export class ReActAgent {
 
         const temp_llm_service = new LLMService();
         temp_llm_service.chatManager.chat.tool_format = this.llm_service.chatManager.chat.tool_format; // 继承当前 chat 的工具格式
-        const react_agent = new ReActAgent(this.plugins, temp_llm_service);
+        const react_agent = new ReActAgent(temp_llm_service);
 
         // 1. 构建上下文
         const user_content = this.llm_service.chatManager.messages.find(m => m?.role === "user")?.content || "";

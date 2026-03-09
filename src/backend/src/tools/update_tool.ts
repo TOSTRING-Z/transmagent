@@ -16,123 +16,125 @@ export interface UpdateToolResult {
     error?: string;
 }
 
-export async function main(params: UpdateToolParams): Promise<UpdateToolResult> {
-    try {
-        const { tool_name, tool_documentation } = params;
+export function main() {
+    return async (params: UpdateToolParams): Promise<UpdateToolResult> => {
+        try {
+            const { tool_name, tool_documentation } = params;
 
-        if (!tool_name || !tool_documentation) {
-            throw new Error("Both tool_name and tool_documentation parameters are required");
-        }
-
-        // 安全获取 prompt 配置文件路径
-        const config = utils.getConfig("tool_call") || {};
-        const prompt_file = config.cli_prompt || utils.getDefault("cli_prompt.md");
-        
-        if (!fs.existsSync(prompt_file)) {
-            // 如果文件不存在，初始化一个空文件
-            fs.writeFileSync(prompt_file, '', 'utf8');
-        }
-
-        // 读取当前 CLI prompt 文件
-        let content = fs.readFileSync(prompt_file, 'utf8');
-        
-        // 使用逐行分析的方法来精确匹配工具部分
-        const lines = content.split('\n');
-        let inTargetTool = false;
-        let toolStartIndex = -1;
-        let toolEndIndex = -1;
-
-        // 匹配工具名的正则，支持字母、数字、下划线和连字符
-        const newToolRegex = /^- [a-zA-Z0-9_-]+:/;
-
-        for (let i = 0; i < lines.length; i++) {
-            const line = lines[i];
-            const trimmedLine = line.trim();
-            
-            // 检查是否找到目标工具的开始
-            if (line.startsWith(`- ${tool_name}:`)) {
-                inTargetTool = true;
-                toolStartIndex = i;
-                continue;
+            if (!tool_name || !tool_documentation) {
+                throw new Error("Both tool_name and tool_documentation parameters are required");
             }
-            
-            if (inTargetTool) {
-                // 如果遇到***，则工具结束
-                if (trimmedLine === '***') {
-                    toolEndIndex = i;
-                    break;
-                }
-                
-                // 如果是空行，检查下一行是否是新的工具
-                if (trimmedLine === '') {
-                    if (i + 1 < lines.length) {
-                        const nextLine = lines[i + 1];
-                        if (newToolRegex.test(nextLine)) {
-                            toolEndIndex = i;
-                            break;
-                        }
-                    }
+
+            // 安全获取 prompt 配置文件路径
+            const config = utils.getConfig("tool_call") || {};
+            const prompt_file = config.cli_prompt || utils.getDefault("cli_prompt.md");
+
+            if (!fs.existsSync(prompt_file)) {
+                // 如果文件不存在，初始化一个空文件
+                fs.writeFileSync(prompt_file, '', 'utf8');
+            }
+
+            // 读取当前 CLI prompt 文件
+            let content = fs.readFileSync(prompt_file, 'utf8');
+
+            // 使用逐行分析的方法来精确匹配工具部分
+            const lines = content.split('\n');
+            let inTargetTool = false;
+            let toolStartIndex = -1;
+            let toolEndIndex = -1;
+
+            // 匹配工具名的正则，支持字母、数字、下划线和连字符
+            const newToolRegex = /^- [a-zA-Z0-9_-]+:/;
+
+            for (let i = 0; i < lines.length; i++) {
+                const line = lines[i];
+                const trimmedLine = line.trim();
+
+                // 检查是否找到目标工具的开始
+                if (line.startsWith(`- ${tool_name}:`)) {
+                    inTargetTool = true;
+                    toolStartIndex = i;
                     continue;
                 }
-                
-                // 检查是否遇到新的工具（非当前工具的缩进内容）
-                if (newToolRegex.test(line) && !line.startsWith('  - ') && !line.startsWith('    - ')) {
-                    toolEndIndex = i;
-                    break;
+
+                if (inTargetTool) {
+                    // 如果遇到***，则工具结束
+                    if (trimmedLine === '***') {
+                        toolEndIndex = i;
+                        break;
+                    }
+
+                    // 如果是空行，检查下一行是否是新的工具
+                    if (trimmedLine === '') {
+                        if (i + 1 < lines.length) {
+                            const nextLine = lines[i + 1];
+                            if (newToolRegex.test(nextLine)) {
+                                toolEndIndex = i;
+                                break;
+                            }
+                        }
+                        continue;
+                    }
+
+                    // 检查是否遇到新的工具（非当前工具的缩进内容）
+                    if (newToolRegex.test(line) && !line.startsWith('  - ') && !line.startsWith('    - ')) {
+                        toolEndIndex = i;
+                        break;
+                    }
                 }
             }
-        }
 
-        // 如果找到了工具开始但没找到结束，说明工具在文件末尾
-        if (inTargetTool && toolEndIndex === -1) {
-            toolEndIndex = lines.length;
-        }
+            // 如果找到了工具开始但没找到结束，说明工具在文件末尾
+            if (inTargetTool && toolEndIndex === -1) {
+                toolEndIndex = lines.length;
+            }
 
-        if (toolStartIndex !== -1) {
-            logger.log('找到现有工具，进行更新...');
-            
-            // 构建替换后的内容
-            const beforeTool = lines.slice(0, toolStartIndex).join('\n');
-            const afterTool = toolEndIndex !== -1 ? lines.slice(toolEndIndex).join('\n') : '';
-            
-            // 清理前后的多余空行
-            const cleanBeforeTool = beforeTool.trimEnd();
-            let cleanAfterTool = afterTool;
-            
-            if (cleanAfterTool.startsWith('\n\n')) {
-                cleanAfterTool = cleanAfterTool.substring(2);
-            } else if (cleanAfterTool.startsWith('\n')) {
-                cleanAfterTool = cleanAfterTool.substring(1);
+            if (toolStartIndex !== -1) {
+                logger.log('找到现有工具，进行更新...');
+
+                // 构建替换后的内容
+                const beforeTool = lines.slice(0, toolStartIndex).join('\n');
+                const afterTool = toolEndIndex !== -1 ? lines.slice(toolEndIndex).join('\n') : '';
+
+                // 清理前后的多余空行
+                const cleanBeforeTool = beforeTool.trimEnd();
+                let cleanAfterTool = afterTool;
+
+                if (cleanAfterTool.startsWith('\n\n')) {
+                    cleanAfterTool = cleanAfterTool.substring(2);
+                } else if (cleanAfterTool.startsWith('\n')) {
+                    cleanAfterTool = cleanAfterTool.substring(1);
+                }
+
+                // 构建最终内容，确保只有一个空行分隔
+                content = cleanBeforeTool + '\n\n' + tool_documentation.trim();
+                if (cleanAfterTool) {
+                    content += '\n\n' + cleanAfterTool;
+                }
+
+            } else {
+                logger.log('未找到现有工具，添加到文件末尾...');
+                const cleanContent = content.trimEnd();
+                content = cleanContent + (cleanContent ? '\n\n' : '') + tool_documentation.trim();
             }
-            
-            // 构建最终内容，确保只有一个空行分隔
-            content = cleanBeforeTool + '\n\n' + tool_documentation.trim();
-            if (cleanAfterTool) {
-                content += '\n\n' + cleanAfterTool;
-            }
-            
-        } else {
-            logger.log('未找到现有工具，添加到文件末尾...');
-            const cleanContent = content.trimEnd();
-            content = cleanContent + (cleanContent ? '\n\n' : '') + tool_documentation.trim();
+
+            // 将更新后的内容写回文件
+            fs.writeFileSync(prompt_file, content, 'utf8');
+
+            return {
+                success: true,
+                action: toolStartIndex !== -1 ? 'updated' : 'added',
+                tool: tool_name,
+                message: `Tool '${tool_name}' has been ${toolStartIndex !== -1 ? 'updated' : 'added'} successfully`
+            };
+
+        } catch (error: any) {
+            logger.error(`Update tool failed: ${error.message}`);
+            return {
+                success: false,
+                error: error.message
+            };
         }
-        
-        // 将更新后的内容写回文件
-        fs.writeFileSync(prompt_file, content, 'utf8');
-        
-        return {
-            success: true,
-            action: toolStartIndex !== -1 ? 'updated' : 'added',
-            tool: tool_name,
-            message: `Tool '${tool_name}' has been ${toolStartIndex !== -1 ? 'updated' : 'added'} successfully`
-        };
-        
-    } catch (error: any) {
-        logger.error(`Update tool failed: ${error.message}`);
-        return {
-            success: false,
-            error: error.message
-        };
     }
 }
 

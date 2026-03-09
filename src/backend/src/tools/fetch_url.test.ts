@@ -43,7 +43,7 @@ describe('fetch_url tool', () => {
             text: async () => mockHtml
         });
 
-        const result = await main({ url: 'https://example.com' });
+        const result = await main()({ url: 'https://example.com' });
 
         expect(result.error).toBeUndefined();
         expect(result.url).toBe('https://example.com');
@@ -62,7 +62,7 @@ describe('fetch_url tool', () => {
         });
 
         // 限制只返回前 10 个字符
-        const result = await main({ url: 'https://example.com', text_max_len: 10 });
+        const result = await main()({ url: 'https://example.com', text_max_len: 10 });
         
         expect(result.text?.length).toBe(10);
         expect(result.text).toBe('A A A A A ');
@@ -74,7 +74,7 @@ describe('fetch_url tool', () => {
             status: 404
         });
 
-        const result = await main({ url: 'https://example.com/404' });
+        const result = await main()({ url: 'https://example.com/404' });
         
         expect(result.text).toBeUndefined();
         expect(result.error).toBe('HTTP error! status: 404');
@@ -83,7 +83,7 @@ describe('fetch_url tool', () => {
     it('4. 遇到网络底层异常应捕获并返回', async () => {
         (global.fetch as jest.Mock).mockRejectedValue(new Error('fetch failed'));
 
-        const result = await main({ url: 'https://example.com/timeout' });
+        const result = await main()({ url: 'https://example.com/timeout' });
         
         expect(result.text).toBeUndefined();
         expect(result.error).toBe('fetch failed');
@@ -91,7 +91,7 @@ describe('fetch_url tool', () => {
 
     it('5. 缺少 URL 参数时应直接返回错误', async () => {
         // 故意传入空对象
-        const result = await main({} as any);
+        const result = await main()({} as any);
         expect(result.error).toBe('URL parameter is required');
     });
 

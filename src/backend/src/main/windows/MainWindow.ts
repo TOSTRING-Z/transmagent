@@ -161,23 +161,23 @@ export class MainWindow extends BaseWindow {
         this.plugins.init();
         this.llm_service = new LLMService([], this.window);
 
-        let tools = this.plugins.getTool();
+        let agentTools = {};
         let agent_mode = "transagent";
         let mcp_server = true;
 
         if (this.funcItems.react.transagent.statu && utils.getConfig("tool_call")?.subagent) {
-            tools = { ...tools, "tool_manager": this.windowManager.subAgentWindow?.agentTools?.["tool_manager"] };
+            agentTools = { "tool_manager": this.windowManager.subAgentWindow?.agentTools?.["tool_manager"] };
         }
         if (this.funcItems.react.multagent.statu) {
             agent_mode = "multagent";
             mcp_server = false;
-            tools = { ...tools, ...this.windowManager.subAgentWindow?.getMainSubAgent() };
+            agentTools = { ...this.windowManager.subAgentWindow?.getMainSubAgent() };
         }
         if (this.funcItems.react.baseagent.statu) {
             agent_mode = "baseagent";
         }
 
-        this.tool_call = new ToolCall(this.plugins, tools, this.llm_service, this.window, this.windowManager.alertWindow, {
+        this.tool_call = new ToolCall(this.plugins, agentTools, this.llm_service, this.window, this.windowManager.alertWindow, {
             agent_prompt: null,
             mcp_server: mcp_server,
             todolist: true,
@@ -323,8 +323,6 @@ export class MainWindow extends BaseWindow {
             if (process.platform !== 'win32') this.window?.show();
             else this.window?.focus();
 
-            if (globalState.status.auto_opt) await this.tool_call.contextAutoOpt(data);
-
             data = this.tool_call.getDataDefault({
                 ...data
             });
@@ -336,10 +334,10 @@ export class MainWindow extends BaseWindow {
                 this.window?.webContents.send('stream-data', { id: data.id, content: content, end: true, is_plugin: data.is_plugin });
             } else if (this.funcItems.react.statu) {
                 await this.tool_call.callReAct(data);
-                this.tool_call.save_long_term_memory(data.query, data.output_formats.find((_: string) => _.includes("final_answer")));
+                this.tool_call.save_long_term_memory(data.query, data.output);
             } else {
                 await this.chain_call.callChain(data);
-                this.tool_call.save_long_term_memory(data.query, data.output_formats[0]);
+                this.tool_call.save_long_term_memory(data.query, data.output);
             }
         });
 

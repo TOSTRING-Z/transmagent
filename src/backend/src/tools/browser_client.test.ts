@@ -6,17 +6,17 @@ describe('BrowserClient & ContentExtractor 单元测试', () => {
 
     // 确保所有测试结束后，浏览器一定会被清理关闭
     afterAll(async () => {
-        await main({ operation: 'close' });
+        await main()({ operation: 'close' });
     });
 
     it('1. 应该能够成功打开浏览器', async () => {
-        const result = await main({ operation: 'open' });
+        const result = await main()({ operation: 'open' });
         expect(result.success).toBe(true);
         expect(result.message).toContain('成功');
     });
 
     it('2. 应该能够在浏览器上下文中执行 JavaScript', async () => {
-        const result = await main({
+        const result = await main()({
             operation: 'execute_js',
             js: '2 + 2',
             wait_after_execution: 0
@@ -44,7 +44,7 @@ describe('BrowserClient & ContentExtractor 单元测试', () => {
         `;
         const dataUrl = `data:text/html;charset=utf-8,${encodeURIComponent(html)}`;
 
-        const result = await main({
+        const result = await main()({
             operation: 'get_content',
             action: 'extractText',
             url: dataUrl
@@ -66,7 +66,7 @@ describe('BrowserClient & ContentExtractor 单元测试', () => {
     });
 
     it('4. 应该能够获取 DOM 元素信息', async () => {
-        const result = await main({
+        const result = await main()({
             operation: 'get_element_info',
             selector: 'h1'
         });
@@ -80,12 +80,12 @@ describe('BrowserClient & ContentExtractor 单元测试', () => {
     });
 
     it('5. 应该能够正常关闭浏览器', async () => {
-        const result = await main({ operation: 'close' });
+        const result = await main()({ operation: 'close' });
         expect(result.success).toBe(true);
     });
 
     it('6. 在浏览器关闭后调用其他操作应返回失败信息', async () => {
-        const result = await main({
+        const result = await main()({
             operation: 'execute_js',
             js: 'console.log("test")'
         });

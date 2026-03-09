@@ -1,7 +1,6 @@
 import { main, getPrompt } from './error_solution_search';
 import * as puppeteer from 'puppeteer';
 
-// 设置全局测试超时为 30 秒
 jest.setTimeout(30000);
 
 jest.mock('../utils/logger', () => ({
@@ -52,20 +51,24 @@ describe('error_solution_search tool', () => {
         (puppeteer.launch as jest.Mock).mockResolvedValue(mockBrowser);
     });
 
+    afterEach(() => {
+        // 清理 Date.now 的 mock
+        jest.restoreAllMocks();
+    });
+
     it('1. 参数检查：不提供 error_message 时返回错误', async () => {
-        const result = await main({} as any);
+        const result = await main()({} as any);
         expect(result.success).toBe(false);
         expect(result.error).toBe('error_message parameter is required');
     });
 
     it('2. 应该能够分析出正确的错误类型 (Error Type)', async () => {
-        // 模拟提取结果为空，只关注 error_type 分析
         mockPage.evaluate.mockResolvedValue([]);
 
-        const resultPython = await main({ error_message: 'ModuleNotFoundError: No module named numpy' });
+        const resultPython = await main()({ error_message: 'ModuleNotFoundError: No module named numpy' });
         expect(resultPython.error_type).toContain('python');
 
-        const resultR = await main({ error_message: "Error: package 'dplyr' is not available" });
+        const resultR = await main()({ error_message: "Error: package 'dplyr' is not available" });
         expect(resultR.error_type).toContain('R');
     });
 
@@ -81,41 +84,57 @@ describe('error_solution_search tool', () => {
             }
         ]);
 
-        const result = await main({ error_message: 'test error', max_results: 1 });
+        const result = await main()({ error_message: 'test error', max_results: 1 });
         expect(result.success).toBe(true);
         expect(result.solutions.length).toBeGreaterThan(0);
         expect(result.solutions[0].title).toBe('Fixed Error');
     });
 
     it('4. 验证码页面超时处理', async () => {
-        // 模拟初始进入验证码页
         mockPage.url.mockResolvedValue('https://stackoverflow.com/nocaptcha');
         
-        // 模拟页面状态始终处于“正在验证”
-        mockPage.evaluate.mockResolvedValue({
-            hasResults: false,
-            stillVerifying: true,
-            isSearchPage: false,
-            title: 'Captcha'
+        // 【核心修复】：根据 evaluate 传入的页面执行函数内容，智能返回不同类型的数据
+        mockPage.evaluate.mockImplementation((fn: any) => {
+            const fnStr = fn.toString();
+            // 如果是在做状态检测
+            if (fnStr.includes('stillVerifying')) {
+                return {
+                    hasResults: false,
+                    stillVerifying: true,
+                    isSearchPage: false,
+                    title: 'Captcha'
+                };
+            }
+            // 如果是在提取搜索结果
+            return [];
         });
 
-        // 这里不使用 FakeTimers，因为业务逻辑里有多个 await Promise，FakeTimers 容易死锁
-        // 我们改为通过逻辑让其快速超时或手动控制
-        const result = await main({ error_message: 'test' });
+        // 劫持 Date.now() 直接穿透超时
+        jest.spyOn(Date, 'now')
+            .mockImplementationOnce(() => 1000)
+            .mockImplementation(() => 200000);
+
+        const result = await main()({ error_message: 'test' });
         
         expect(result.success).toBe(true); 
+        expect(result.solutions_count).toBe(0);
         expect(mockBrowser.close).toHaveBeenCalled();
     });
 
     it('5. 启动失败异常捕获', async () => {
-        // 模拟 launch 彻底抛出异常
         (puppeteer.launch as jest.Mock).mockImplementationOnce(() => {
             throw new Error('Chrome binary not found');
         });
 
-        const result = await main({ error_message: 'test error' });
+        const result = await main()({ error_message: 'test error' });
         
         expect(result.success).toBe(false);
         expect(result.error).toContain('Chrome binary not found');
+    });
+
+    it('6. getPrompt 应该返回正确的工具定义 Schema', () => {
+        const prompt = getPrompt();
+        expect(prompt.name).toBe('error_solution_search');
+        expect(prompt.parameters.required).toContain('error_message');
     });
 });

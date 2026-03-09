@@ -47,7 +47,7 @@ describe('search_files tool', () => {
     });
 
     it('1. 应该能够成功匹配文本文件中的关键字并返回正确的行号与上下文', async () => {
-        const result = await main({
+        const result = await main()({
             path: tempDir,
             regex: 'Hello World', // 【修复】：使用具体关键字，而不是 .+
             file_pattern: '**/*'
@@ -66,7 +66,7 @@ describe('search_files tool', () => {
     });
 
     it('2. 应该能够使用递归 glob pattern 搜索子目录', async () => {
-        const result = await main({
+        const result = await main()({
             path: tempDir,
             regex: 'test document',
             file_pattern: '**/*.md'
@@ -82,7 +82,7 @@ describe('search_files tool', () => {
 
     it('3. 应该智能过滤黑名单扩展名和包含 Null 字节的二进制文件', async () => {
         // 搜索所有的文件，不限制 file_pattern
-        const result = await main({
+        const result = await main()({
             path: tempDir,
             regex: '.*', // 匹配所有非空字符
             file_pattern: '**/*'
@@ -103,7 +103,7 @@ describe('search_files tool', () => {
     });
 
     it('4. 如果没有找到匹配的文件，应该返回明确的错误提示', async () => {
-        const result = await main({
+        const result = await main()({
             path: tempDir,
             regex: 'test',
             file_pattern: '**/*.python' // 不存在此类文件

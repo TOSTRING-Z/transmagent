@@ -61,7 +61,7 @@ class ErrorSolutionFinder {
     async waitForVerificationComplete(page: puppeteer.Page): Promise<boolean> {
         logger.log('🔍 检测到验证页面，请手动完成验证...');
         logger.log('💡 提示: 完成验证后，页面会自动跳转到搜索结果');
-        
+
         // 可选：通知前端
         if (WindowManager?.instance?.alertWindow) {
             WindowManager.instance.alertWindow.show("log", "Please manually complete the verification");
@@ -101,8 +101,8 @@ class ErrorSolutionFinder {
                         '.question-summary',
                         '.js-search-result',
                         '[data-result-id]',
-                        '#mainbar', 
-                        '.content'  
+                        '#mainbar',
+                        '.content'
                     ];
 
                     const hasResults = resultSelectors.some(selector => !!document.querySelector(selector));
@@ -236,7 +236,8 @@ class ErrorSolutionFinder {
 
         } catch (error: any) {
             logger.error(`❌ Stack Overflow 爬取错误: ${error.message}`);
-            return [];
+            // 【核心修复】：必须抛出错误，不要静默返回空数组
+            throw error;
         } finally {
             if (browser) {
                 await browser.close();
@@ -418,24 +419,26 @@ class ErrorSolutionFinder {
     }
 }
 
-export async function main({ error_message, max_results = 5 }: ErrorSolutionParams): Promise<SearchResult> {
-    try {
-        if (!error_message) {
+export function main() {
+    return async ({ error_message, max_results = 5 }: ErrorSolutionParams): Promise<SearchResult> => {
+        try {
+            if (!error_message) {
+                return {
+                    success: false,
+                    error: 'error_message parameter is required',
+                    solutions: []
+                };
+            }
+
+            const finder = new ErrorSolutionFinder();
+            return await finder.getSolutionUrls(error_message, max_results);
+        } catch (error: any) {
             return {
                 success: false,
-                error: 'error_message parameter is required',
+                error: error.message,
                 solutions: []
             };
         }
-
-        const finder = new ErrorSolutionFinder();
-        return await finder.getSolutionUrls(error_message, max_results);
-    } catch (error: any) {
-        return {
-            success: false,
-            error: error.message,
-            solutions: []
-        };
     }
 }
 

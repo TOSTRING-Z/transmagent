@@ -694,7 +694,7 @@ class ContentExtractor {
                     };
             }
         } catch (error: any) {
-            console.error(`执行操作 ${operation} 时发生错误:`, error);
+            logger.error(`执行操作 ${operation} 时发生错误:`, error);
             return {
                 success: false,
                 message: `操作执行失败: ${error.message}`,
@@ -1125,10 +1125,12 @@ function getPrompt() {
 }
 
 
-// 实例化导出
-const extractor = new ContentExtractor();
 
-export const main = async (params: any) => {
-    return await extractor.main(params);
+export function main() {
+    // 实例化导出
+    const extractor = new ContentExtractor();
+    return async (params: any) => {
+        return await extractor.main(params);
+    }
 };
 export { getPrompt };

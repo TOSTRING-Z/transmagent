@@ -44,7 +44,7 @@ function shouldExclude(filePath: string, isDir: boolean): boolean {
 }
 
 export function main(params: ListFilesParams = {}) {
-    return (args: ListFilesArgs): string[] => {
+    return async (args: ListFilesArgs): Promise<string[]> => {
         const threshold = params.threshold || 50;
         const regexObj = args.regex ? new RegExp(args.regex) : null;
         const result: string[] = [];

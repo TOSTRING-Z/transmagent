@@ -22,7 +22,7 @@ describe('write_to_file tool', () => {
         const filePath = path.join(tempDir, 'test.txt');
         const content = 'Hello, TypeScript!';
 
-        const result = await main({ file_path: filePath, content });
+        const result = await main()({ file_path: filePath, content });
 
         // 断言返回结果
         expect(result).toBe(`File ${filePath} saved successfully`);
@@ -37,7 +37,7 @@ describe('write_to_file tool', () => {
         const deepFilePath = path.join(tempDir, 'deep', 'nested', 'folder', 'test.ts');
         const content = 'console.log("Deep Folder");';
 
-        const result = await main({ file_path: deepFilePath, content });
+        const result = await main()({ file_path: deepFilePath, content });
 
         expect(result).toBe(`File ${deepFilePath} saved successfully`);
         
@@ -49,7 +49,7 @@ describe('write_to_file tool', () => {
     it('3. 当没有提供 content 时，应该默认写入空字符串', async () => {
         const filePath = path.join(tempDir, 'empty.txt');
 
-        const result = await main({ file_path: filePath });
+        const result = await main()({ file_path: filePath });
 
         expect(result).toBe(`File ${filePath} saved successfully`);
         
@@ -58,7 +58,7 @@ describe('write_to_file tool', () => {
     });
 
     it('4. 如果缺失必填的 file_path 参数，应该返回失败信息', async () => {
-        const result = await main({ file_path: '' }); // 模拟传入空路径
+        const result = await main()({ file_path: '' }); // 模拟传入空路径
 
         expect(result).toContain('save failed');
         expect(result).toContain('file_path is required');
@@ -69,7 +69,7 @@ describe('write_to_file tool', () => {
         const invalidFilePath = path.join(tempDir, 'is_a_dir');
         fs.mkdirSync(invalidFilePath); // 先创建一个同名目录
 
-        const result = await main({ file_path: invalidFilePath, content: 'test' });
+        const result = await main()({ file_path: invalidFilePath, content: 'test' });
 
         expect(result).toContain('save failed');
         // 验证错误信息包含文件系统抛出的错误 (EISDIR: illegal operation on a directory)

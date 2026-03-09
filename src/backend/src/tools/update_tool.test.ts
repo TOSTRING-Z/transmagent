@@ -58,7 +58,7 @@ System Instruction: You are a helpful assistant.
 
     it('1. 当工具不存在时，应该追加到文件末尾', async () => {
         const newToolDoc = `- new_tool: This is a new tool\n  - param: test`;
-        const result = await main({
+        const result = await main()({
             tool_name: 'new_tool',
             tool_documentation: newToolDoc
         });
@@ -74,7 +74,7 @@ System Instruction: You are a helpful assistant.
 
     it('2. 应该能够成功更新位于中间位置的工具内容', async () => {
         const updatedDoc = `- legacy-tool: Updated legacy tool description\n  - param: updated`;
-        const result = await main({
+        const result = await main()({
             tool_name: 'legacy-tool',
             tool_documentation: updatedDoc
         });
@@ -95,7 +95,7 @@ System Instruction: You are a helpful assistant.
 
     it('3. 应该能够成功更新位于末尾边界位置的工具内容', async () => {
         const updatedDoc = `- last_tool: Updated final tool\n  - use: updated test`;
-        const result = await main({
+        const result = await main()({
             tool_name: 'last_tool',
             tool_documentation: updatedDoc
         });
@@ -112,7 +112,7 @@ System Instruction: You are a helpful assistant.
     });
 
     it('4. 如果缺失必填参数，应该抛出明确错误', async () => {
-        const result = await main({
+        const result = await main()({
             tool_name: '', // 缺失名字
             tool_documentation: '- missing: test'
         });
@@ -126,7 +126,7 @@ System Instruction: You are a helpful assistant.
         fs.unlinkSync(tempPromptFile);
         
         const newToolDoc = `- init_tool: create from scratch`;
-        const result = await main({
+        const result = await main()({
             tool_name: 'init_tool',
             tool_documentation: newToolDoc
         });

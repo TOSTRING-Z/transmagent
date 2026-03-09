@@ -22,7 +22,7 @@ describe('list_files tool', () => {
         // 1. 创建普通文件
         fs.writeFileSync(path.join(tempDir, 'index.js'), 'console.log("hello");');
         fs.writeFileSync(path.join(tempDir, 'readme.md'), '# Title');
-        
+
         // 2. 创建应该被过滤的媒体文件
         fs.writeFileSync(path.join(tempDir, 'video.mp4'), 'fake_video');
         fs.writeFileSync(path.join(tempDir, 'icon.png'), 'fake_image');
@@ -44,9 +44,9 @@ describe('list_files tool', () => {
         fs.rmSync(tempDir, { recursive: true, force: true });
     });
 
-    it('1. 非递归扫描模式 (recursive: false)', () => {
+    it('1. 非递归扫描模式 (recursive: false)', async () => {
         const execute = main({});
-        const results = execute({ path: tempDir, recursive: false });
+        const results = await execute({ path: tempDir, recursive: false });
 
         // 应该返回根目录下的普通文件和文件夹本身（但不进去）
         const baseNames = results.map(r => path.basename(r));
@@ -60,50 +60,50 @@ describe('list_files tool', () => {
         expect(baseNames).not.toContain('.vscode');
     });
 
-    it('2. 递归扫描模式 (recursive: true)', () => {
+    it('2. 递归扫描模式 (recursive: true)', async () => {
         const execute = main({});
-        const results = execute({ path: tempDir, recursive: true });
+        const results = await execute({ path: tempDir, recursive: true });
 
         const baseNames = results.map(r => path.basename(r));
-        
+
         // 应该包含深层的文件
         expect(baseNames).toContain('utils.ts');
         expect(baseNames).toContain('app.js');
-        
+
         // 黑名单目录内的文件必须彻底隔离
         expect(baseNames).not.toContain('settings.json');
     });
 
-    it('3. 使用正则表达式过滤文件名', () => {
+    it('3. 使用正则表达式过滤文件名', async () => {
         const execute = main({});
-        const results = execute({ 
-            path: tempDir, 
-            recursive: true, 
+        const results = await execute({
+            path: tempDir,
+            recursive: true,
             regex: '\\.js$' // 只匹配 .js 结尾的文件
         });
 
         const baseNames = results.map(r => path.basename(r));
-        
+
         expect(baseNames).toContain('index.js');
         expect(baseNames).toContain('app.js');
-        
+
         // 不满足正则的合法文件也应被排除
         expect(baseNames).not.toContain('utils.ts');
         expect(baseNames).not.toContain('readme.md');
     });
 
-    it('4. 超出 threshold 阈值应返回提示信息', () => {
+    it('4. 超出 threshold 阈值应返回提示信息', async () => {
         // 设置极低的阈值为 1
         const execute = main({ threshold: 1 });
-        const results = execute({ path: tempDir, recursive: true });
+        const results = await execute({ path: tempDir, recursive: true });
 
         expect(results.length).toBe(1);
         expect(results[0]).toBe('Too much content returned, please try another solution!');
     });
 
-    it('5. 遇到无效路径应该返回错误信息包裹', () => {
+    it('5. 遇到无效路径应该返回错误信息包裹', async () => {
         const execute = main({});
-        const results = execute({ path: path.join(tempDir, 'fake_missing_folder') });
+        const results = await execute({ path: path.join(tempDir, 'fake_missing_folder') });
 
         expect(results.length).toBe(1);
         expect(results[0]).toContain('Path does not exist');
