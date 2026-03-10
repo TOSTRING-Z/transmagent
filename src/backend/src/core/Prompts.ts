@@ -137,7 +137,7 @@ ${this.agent.llm_service.chatManager.chat.tool_format === 'prompt' ? `
 ${core_tool_prompt}
 
 ## Domain Tools
-${tool_prompt}
+${tool_prompt}`: ""}
 
 ${!this.agent.prompt_args.subagent && this.agent.prompt_args.agent_mode === "transagent" ? `
 ## CLI / Bash Access
@@ -148,7 +148,7 @@ ${!this.agent.prompt_args.subagent && this.agent.prompt_args.agent_mode === "tra
 ${this.agent.prompt_args.mcp_server ? `
 ## MCP Services
 **Note**: Use \`mcp_server\` to access these external tools.
-{mcp_prompt}`: ""}` : ""}
+{mcp_prompt}`: ""}
 
 ${this.getSkillPrompt() || "\n*No active skills detected.*"}
 
