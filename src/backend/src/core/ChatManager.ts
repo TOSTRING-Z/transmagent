@@ -44,9 +44,9 @@ export class ChatManager {
                         return true;
                     }
                 }
-                return message.react !== true
+                return !message.react;
             }).map(message => {
-                if (message.role === "assistant") {
+                if (message.role === "assistant" && !message.react) {
                     message.content = "The user compressed the execution process of the current task. The compressed document is as follows:\n\n---\n\n" + (message.content as string).trim();
                 }
                 return message;
