@@ -24,7 +24,7 @@ export interface ElectronAPI {
   handleQuery: (callback: (data: { data: any; api_callback?: boolean }) => void) => void;
   queryText: (data: any) => void;
   handleExtraLoad: (callback: (data: any[]) => void) => void;
-  handleOptions: (callback: (data: { options: string[]; id: string }) => void) => void;
+  handleOptions: (callback: (data: { options: string[]; id: string, tool_call_id: string, tool_call_name: string, is_tool_response: boolean }) => void) => void;
   clickSubmit: (data: any) => void;
   setPrompt: (callback: (prompt: string) => void) => void;
   handleClear: (callback: () => void) => void;
@@ -39,6 +39,7 @@ export interface ElectronAPI {
   delChat: (chatId: string) => Promise<void>;
   renameChat: (data: { id: string; name: string }) => Promise<void>;
   handleAutoRenameChat: (callback: (chat: any) => void) => void;
+  submitToolResponse: (data: {tool_call_id: string,tool_call_name: string,content: string,id: string}) => void;
 }
 
 declare global {
