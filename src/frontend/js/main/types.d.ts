@@ -18,14 +18,14 @@ export interface ElectronAPI {
   handleMarkDownFormat: (callback: (status: boolean) => void) => void;
   handleReactStatu: (callback: (status: boolean) => void) => void;
   streamData: (callback: (chunk: any) => void) => void;
+  toolData: (callback: (chunk: any) => void) => void;
   infoData: (callback: (info: any) => void) => void;
   userData: (callback: (data: any) => void) => void;
   streamMessageStop: () => Promise<void>;
-  handleQuery: (callback: (data: { data: any; api_callback?: boolean }) => void) => void;
-  queryText: (data: any) => void;
+  startAgentLoop: (callback: (data: any) => void) => void;
+  agentLoop: (data: any) => void;
   handleExtraLoad: (callback: (data: any[]) => void) => void;
-  handleOptions: (callback: (data: { options: string[]; id: string, tool_call_id: string, tool_call_name: string, is_tool_response: boolean }) => void) => void;
-  clickSubmit: (data: any) => void;
+  handleOptions: (callback: (data: { options: string[]; group_id: string }) => void) => void;
   setPrompt: (callback: (prompt: string) => void) => void;
   handleClear: (callback: () => void) => void;
   uploadProgress: (callback: (info: any) => void) => void;
@@ -39,7 +39,6 @@ export interface ElectronAPI {
   delChat: (chatId: string) => Promise<void>;
   renameChat: (data: { id: string; name: string }) => Promise<void>;
   handleAutoRenameChat: (callback: (chat: any) => void) => void;
-  submitToolResponse: (data: {tool_call_id: string,tool_call_name: string,content: string,id: string}) => void;
 }
 
 declare global {

@@ -80,7 +80,7 @@ export default function getBaseTools(toolCallInstance: ToolCall): Record<string,
                         response: { type: "string", description: "The architectural proposal or clarifying question." },
                         options: { type: "array", items: { type: "string" }, description: "Guided paths for the plan." }
                     },
-                    required: ["response"]
+                    required: ["response", "options"]
                 }
             })
         },

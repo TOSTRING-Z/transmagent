@@ -119,7 +119,7 @@ export async function compression_message(id: any) {
         "id": id,
         "message": compression_content
       }, "system");
-      addEventStop(messageSystem);
+      addRunning(messageSystem);
       const thinking = messageSystem.getElementsByClassName("thinking")[0];
       thinking.remove();
       const message_content = messageSystem.getElementsByClassName('message')[0] as HTMLElement;
@@ -217,33 +217,34 @@ export function menuEvent(messageSystem: HTMLElement, message_content: HTMLEleme
   });
 }
 
-export function addEventStop(messageSystem: HTMLElement) {
+export function addRunning(messageSystem: HTMLElement) {
+  DOM.submit.classList.add("running");
   const message_content = messageSystem.getElementsByClassName('message')[0] as HTMLElement;
   const thinking = messageSystem?.getElementsByClassName("thinking")[0];
+  thinking.classList.remove('hidden');
   const btn = messageSystem?.getElementsByClassName("btn")[0];
   btn?.addEventListener("click", async () => {
     await window.electronAPI.streamMessageStop();
     if (State.seconds_timer) clearInterval(State.seconds_timer);
-    thinking?.remove();
+    thinking.classList.add('hidden');
     menuEvent(messageSystem, message_content.dataset.content as any, false); // assuming plugin is false here or passed correctly
     DOM.submit.classList.remove("running");
   });
-  DOM.submit.classList.add("running");
 }
 
 // Main Chat Functions
 
-export async function userAdd(data: any) {
+export async function userData(data: any) {
   let messageUser;
   if (typeof (data.content) == "string") {
     messageUser = await formatMessage(user_message_template, {
-      "id": data.id,
+      "id": data.group_id,
       "message": data.content,
       "image_url": data?.img_url,
     }, "user");
   } else {
     messageUser = await formatMessage(user_message_template, {
-      "id": data.id,
+      "id": data.group_id,
       "message": data.content[0].text.content,
       "image_url": data.content[1].image_url.url,
     }, "user");
@@ -251,11 +252,11 @@ export async function userAdd(data: any) {
   DOM.messages.appendChild(messageUser);
   let messageSystem = await formatMessage(system_message_template, {
     "icon": getIcon(false),
-    "id": data.id,
+    "id": data.group_id,
     "message": ""
   }, "system");
   DOM.messages.appendChild(messageSystem);
-  addEventStop(messageSystem);
+  addRunning(messageSystem);
   if (data?.del) {
     messageUser.classList.add("message_del");
     messageSystem.classList.add("message_del");
@@ -264,8 +265,8 @@ export async function userAdd(data: any) {
   }
 }
 
-export async function infoAdd(info: any) {
-  const messageSystems = document.querySelectorAll(`[data-id='${info.id}']`);
+export async function infoData(info: any) {
+  const messageSystems = document.querySelectorAll(`[data-id='${info.group_id}']`);
   const messageSystem = messageSystems[1];
   if (messageSystem) {
     const info_content = messageSystem.getElementsByClassName('info-content')[0] as HTMLElement;
@@ -295,8 +296,15 @@ export async function infoAdd(info: any) {
   }
 }
 
-export async function streamMessageAdd(chunk: any) {
-  const messageSystems = document.querySelectorAll(`[data-id='${chunk.id}']`);
+export async function toolData(chunk: any) {
+  const messageSystems = document.querySelectorAll(`[data-id='${chunk.group_id}']`);
+  const messageSystem = messageSystems[1] as HTMLElement;
+  addRunning(messageSystem);
+  streamData(chunk);
+}
+
+export async function streamData(chunk: any) {
+  const messageSystems = document.querySelectorAll(`[data-id='${chunk.group_id}']`);
   const messageSystem = messageSystems[1] as HTMLElement;
   if (messageSystem) {
     const message_content = messageSystem.getElementsByClassName('message')[0] as HTMLElement;
@@ -315,7 +323,7 @@ export async function streamMessageAdd(chunk: any) {
       const optionDom = document.querySelector('.base-container');
       if(optionDom) optionDom.remove();
 
-      let context_id = Object.prototype.hasOwnProperty.call(chunk, "context_id") ? chunk.context_id : chunk.id;
+      let context_id = Object.prototype.hasOwnProperty.call(chunk, "context_id") ? chunk.context_id : chunk.group_id;
 
       let chunk_content = null;
       let chunk_item_content = null;
@@ -369,10 +377,10 @@ export async function streamMessageAdd(chunk: any) {
         clearInterval(State.seconds_timer);
         State.seconds_timer = null;
       }
+      const thinking = messageSystem.getElementsByClassName("thinking")[0];
+      thinking.classList.add('hidden');
       if (!messageSystem.dataset?.event_stop) {
         messageSystem.dataset.event_stop = "true";
-        const thinking = messageSystem.getElementsByClassName("thinking")[0];
-        if (thinking) thinking.remove();
         menuEvent(messageSystem, message_content, chunk?.is_plugin);
       }
       if (State.scroll_top.data)
@@ -381,4 +389,23 @@ export async function streamMessageAdd(chunk: any) {
     }
     // await window.electronAPI.setGlobal(State.chat);
   }
+}
+
+export async function startAgentLoop(data:any) {
+  DOM.pause.style.display = "none";
+  DOM.pause.innerHTML = "";
+  const optionDom = document.querySelector('.base-container');
+  if (optionDom) optionDom.remove();
+
+  if (State.seconds_timer) clearInterval(State.seconds_timer);
+  State.seconds_timer = setInterval(() => {
+    State.chat.seconds += 0.1;
+    DOM.seconds.innerText = State.chat.seconds.toFixed(1);
+    if (State.chat.version && DOM.version) DOM.version.innerText = State.chat.version;
+  }, 100);
+
+  DOM.tokens.innerText = State.chat.tokens.toString();
+  DOM.version.innerText = data.version;
+  data.prompt = DOM.system_prompt.value;
+  DOM.top_div.scrollTop = DOM.top_div.scrollHeight;
 }

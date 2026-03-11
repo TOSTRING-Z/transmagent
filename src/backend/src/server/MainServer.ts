@@ -36,22 +36,16 @@ export class MainServer {
                 max_step: data?.max_step
             };
 
-            this.mainWindow.send_query(
-                cdata,
-                chatManager.chat.model,
-                chatManager.chat.version,
-                false
-            );
+            this.mainWindow.startAgentLoop(cdata);
 
             const _data = this.mainWindow.tool_call.getDataDefault(cdata);
-            _data.id = String(chatManager.chat.max_index);
 
             this.mainWindow.tool_call.callReAct(_data)
                 .then((result: any) => {
                     this.mainWindow.tool_call.setHistory();
 
                     let message_list = chatManager.getMessages(true)
-                        .filter((message: any) => message.id === result.id);
+                        .filter((message: any) => message.group_id === result.group_id);
 
                     message_list = this.mainWindow.llm_service.adapter.formatMessages(
                         message_list,

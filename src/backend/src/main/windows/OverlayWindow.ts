@@ -67,10 +67,8 @@ export class OverlayWindow extends BaseWindow {
 
         ipcMain.on('query-img', (_, img_url: string) => {
             const mainWin = this.windowManager.mainWindow;
-            mainWin.send_query(
-                { img_url },
-                mainWin.llm_service.chatManager.chat.model,
-                mainWin.llm_service.chatManager.chat.version
+            mainWin.sendQuery(
+                { img_url }
             );
             this.destroy();
         });

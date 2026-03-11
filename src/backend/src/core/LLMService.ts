@@ -3,17 +3,18 @@ import { logger } from '../utils/logger';
 
 import { LLMAdapterFactory } from '../factories/AdapterFactory';
 import { ILLMAdapter } from '../adapters/IAdapter';
-import { ChatRequestData, Message, MessageContent, OpenAIContent } from '../types';
+import { ChatRequestData, Message, MessageContent } from '../types';
 import { streamJSON, streamSse } from '../utils/stream';
 import { formatString } from '../utils/format'; // 原型扩展 format 的替代品
+import { BrowserWindow } from 'electron';
 
 export class LLMService {
-    private window: any;
+    private window: BrowserWindow | null;
     public chatManager: ChatManager;
     public stopFlag: boolean = false;
     public adapter: ILLMAdapter;
 
-    constructor(messages: Message[] = [], window: any = null) {
+    constructor(messages: Message[] = [], window: BrowserWindow | null = null) {
         this.window = window;
         this.chatManager = new ChatManager(messages);
         this.adapter = LLMAdapterFactory.getAdapter("prompt"); // 默认适配器
@@ -46,17 +47,17 @@ export class LLMService {
             // 3. 构建消息上下文记录
             let messagesList: Message[] = [];
             if (data.system_prompt) {
-                messagesList.push({ role: "system", content: data.system_prompt, id: data.id, show: true, react: false });
+                messagesList.push({ role: "system", content: data.system_prompt, show: true, react: false });
             }
             
             messagesList = messagesList.concat(this.chatManager.getMemory(data.memory_length || 10));
 
-            const messageInput: Message = { role: "user", content: content, id: data.id, show: true, react: false };
+            const messageInput: Message = { role: "user", content: content, group_id: this.chatManager.chat.group_id, show: true, react: false };
             if (data?.push_message) {
                 messagesList.push(messageInput);
             }
 
-            let messageOutput: Message = { role: 'assistant', content: '', id: data.id, show: true, react: false };
+            let messageOutput: Message = { role: 'assistant', content: '', group_id: this.chatManager.chat.group_id, show: true, react: false };
 
             // 4. 构建 HTTP 发送载荷
             const formattedMessages = this.adapter.formatMessages(messagesList, data.params, data?.env_message);
@@ -65,7 +66,7 @@ export class LLMService {
 
             if (this.stopFlag) {
                 this.stopFlag = false;
-                messageOutput = { role: 'assistant', content: "The user interrupted the task.", id: data.id, show: true, react: false };
+                messageOutput = { role: 'assistant', content: "The user interrupted the task.", group_id: this.chatManager.chat.group_id, show: true, react: false };
                 return messageOutput;
             }
 
@@ -92,7 +93,7 @@ export class LLMService {
 
 
             if (this.stopFlag) {
-                messageOutput = { role: 'assistant', content: "The user interrupted the task.", id: data.id, show: true, react: false };
+                messageOutput = { role: 'assistant', content: "The user interrupted the task.", group_id: this.chatManager.chat.group_id, show: true, react: false };
                 return messageOutput;
             }
 
@@ -109,8 +110,8 @@ export class LLMService {
 
                 const finalResponseText = data.output_template ? formatString(data.output_template, { ...data }) : data.output;
 
-                this.window?.webContents.send('stream-data', {
-                    id: data.id,
+                this.window?.webContents.send('streamData', {
+                    group_id: this.chatManager.chat.group_id,
                     content: data.react ? finalResponseText : "",
                     end: true,
                     chat: this.chatManager.chat
@@ -122,8 +123,8 @@ export class LLMService {
         } catch (error: any) {
             console.error(error);
             if (!data?.return_response) {
-                this.window?.webContents.send('info-data', {
-                    id: data.id,
+                this.window?.webContents.send('infoData', {
+                    group_id: this.chatManager.chat.group_id,
                     content: `Response error: ${error.message}\n`
                 });
             }
@@ -177,8 +178,8 @@ export class LLMService {
 
             // IPC 向前台推流
             if (!data?.react && !data?.return_response) {
-                this.window?.webContents.send('stream-data', {
-                    id: data.id,
+                this.window?.webContents.send('streamData', {
+                    group_id: this.chatManager.chat.group_id,
                     content: textDelta,
                     end: false,
                     chat: this.chatManager.chat
@@ -197,8 +198,8 @@ export class LLMService {
         }
 
         if (respJson.error && !data?.return_response) {
-            this.window?.webContents.send('info-data', {
-                id: data.id,
+            this.window?.webContents.send('infoData', {
+                group_id: this.chatManager.chat.group_id,
                 content: `POST Error:\n\`\`\`\n${respJson.error.message}\n\`\`\`\n`
             });
             return;
@@ -213,7 +214,7 @@ export class LLMService {
         if (tokens) this.chatManager.chat.tokens = tokens;
 
         if (!data?.react && !data?.return_response) {
-            this.window?.webContents.send('stream-data', { id: data.id, content: data.output, end: false, chat: this.chatManager.chat });
+            this.window?.webContents.send('streamData', { group_id: this.chatManager.chat.group_id, content: data.output, end: false, chat: this.chatManager.chat });
         }
 
         // ========== 截断检测与自动续传机制 (Max: 3) ==========
@@ -243,8 +244,8 @@ export class LLMService {
                     messageOutput.content = data.output; // 全量积累
 
                     if (!data?.react && !data?.return_response) {
-                        this.window?.webContents.send('stream-data', {
-                            id: data.id, content: parsedCont.content, end: false, chat: this.chatManager.chat
+                        this.window?.webContents.send('streamData', {
+                            group_id: this.chatManager.chat.group_id, content: parsedCont.content, end: false, chat: this.chatManager.chat
                         });
                     }
 

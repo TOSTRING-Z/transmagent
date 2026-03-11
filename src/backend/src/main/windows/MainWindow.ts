@@ -137,8 +137,8 @@ export class MainWindow extends BaseWindow {
                 if (this.tool_call && (this.tool_call.state === State.IDLE || this.tool_call.state === State.FINAL)) {
                     try {
                         let time = this.tool_call.environment_details.time;
-                        let data = { query: `[${time}] This is a heartbeat timestamp. Please keep the system active.` };
-                        this.send_query(data, this.llm_service.chatManager.chat.model, this.llm_service.chatManager.chat.version);
+                        let query = { query: `[${time}] This is a heartbeat timestamp. Please keep the system active.` };
+                        this.sendQuery(query);
                     } catch (e: any) {
                         console.error("[Heartbeat] Execution failed:", e);
                     }
@@ -262,6 +262,26 @@ export class MainWindow extends BaseWindow {
         globalState.last_clipboard_content = clipboard.readText();
     }
 
+    public async agentLoop(data) {
+        if (process.platform !== 'win32') this.window?.show();
+        else this.window?.focus();
+        data = this.tool_call.getDataDefault({
+            ...data
+        });
+        data.query = this.funcItems.text.event(data.query);
+        this.llm_service.startMessage();
+
+        if (data?.is_plugin) {
+            await this.chain_call.pluginCall(data);
+        } else if (this.funcItems.react.statu) {
+            await this.tool_call.callReAct(data);
+            this.tool_call.save_long_term_memory(data.query, data.output);
+        } else {
+            await this.chain_call.callChain(data);
+            this.tool_call.save_long_term_memory(data.query, data.output);
+        }
+    }
+
     public setup() {
         ipcMain.on('open-code-editor', (event, filePath) => {
             if (this.windowManager.codeWindow) this.windowManager.codeWindow.openFile(filePath);
@@ -319,27 +339,7 @@ export class MainWindow extends BaseWindow {
             });
         });
 
-        ipcMain.handle('query-text', async (_event, data) => {
-            if (process.platform !== 'win32') this.window?.show();
-            else this.window?.focus();
-
-            data = this.tool_call.getDataDefault({
-                ...data
-            });
-            data.query = this.funcItems.text.event(data.query);
-            this.llm_service.startMessage();
-
-            if (data?.is_plugin) {
-                let content = await this.chain_call.pluginCall(data);
-                this.window?.webContents.send('stream-data', { id: data.id, content: content, end: true, is_plugin: data.is_plugin });
-            } else if (this.funcItems.react.statu) {
-                await this.tool_call.callReAct(data);
-                this.tool_call.save_long_term_memory(data.query, data.output);
-            } else {
-                await this.chain_call.callChain(data);
-                this.tool_call.save_long_term_memory(data.query, data.output);
-            }
-        });
+        ipcMain.handle('agentLoop', async (_event, data) => this.agentLoop(data));
 
         // ============================================
         // 适配后的 ChatManager 调用 (替换 toggleMessage 等)
@@ -388,36 +388,6 @@ export class MainWindow extends BaseWindow {
         ipcMain.on("stream-message-stop", () => {
             this.llm_service.stopMessage();
             this.windowManager.subAgentWindow?.destroy();
-        });
-
-        ipcMain.on('submit', (_event, formData) => {
-            this.send_query(formData, this.llm_service.chatManager.chat.model, this.llm_service.chatManager.chat.version);
-        });
-        ipcMain.on('submit-tool-response', (_event, data) => {
-            // 处理工具选项响应
-            const { tool_call_id, tool_call_name, content, id } = data;
-            
-            // 创建工具消息对象
-            const toolMessage = {
-                role: "tool" as const,
-                content: content,
-                tool_call_id: tool_call_id,
-                tool_call_name: tool_call_name,
-                id: id,
-                context_id: String(this.llm_service.chatManager.chat.max_context_id),
-                show: true,
-                react: true
-            };
-            
-            // 将工具消息推送到聊天管理器
-            this.llm_service.chatManager.pushMessage(toolMessage);
-            
-            // 继续执行（如果之前是暂停状态）
-            if (this.tool_call.state === "pause") {
-                this.tool_call.state = State.IDLE;
-                // 触发下一步执行
-                this.tool_call.callReAct({ query: content, id: id });
-            }
         });
 
         ipcMain.on('change-mode', (_event, mode) => {
@@ -491,9 +461,13 @@ export class MainWindow extends BaseWindow {
         ipcMain.on('show-log', (_, data) => this.windowManager.alertWindow?.create(data));
     }
 
-    public send_query(data: any, model: string, version: string, api_callback = true) {
-        data = { ...data, model, version, is_plugin: model === "plugins", id: String(++this.llm_service.chatManager.chat.max_index) };
-        this.window?.webContents.send('query', { data, api_callback });
+    public startAgentLoop(data: any) {
+        this.window?.webContents.send('startAgentLoop', data);
+    }
+
+    public sendQuery(data: any) {
+        this.startAgentLoop(data);
+        this.agentLoop(data);
     }
 
     private getClipEvent(e: FuncItemNode) {
@@ -772,6 +746,7 @@ export class MainWindow extends BaseWindow {
                             const chat_id = this.llm_service.chatManager.chat.id;
                             this.llm_service.chatManager.init();
                             this.llm_service.chatManager.chat.id = chat_id;
+                            this.tool_call.init_var();
                             this.tool_call.setHistory();
                             this.tool_call.change_mode();
                             this.updateVersionsSubmenu();

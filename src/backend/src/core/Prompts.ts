@@ -157,11 +157,11 @@ ${this.getSkillPrompt() || "\n*No active skills detected.*"}
 ${!this.agent.prompt_args.subagent && this.agent.environment_details.mode !== this.agent.modes.FLASH ? `
 # ⚙️ Operational Modes Table
 
-| Mode | Permissions | Mandatory Behavior |
-| :--- | :--- | :--- |
-| **Automatic** | ✅ Read/Write | **Run until done**. No user confirmations. |
-| **Execution** | ✅ Read/Write | **Interactive**. Confirm after every major milestone. |
-| **Planning** | ✅ Read ONLY | **Architect Only**. Read files/docs, output Plan. **NO CODE CHANGES**. |
+| Mode | Mandatory Behavior |
+| :--- | :--- |
+| **Automatic** | **Do it all.** No confirmation. |
+| **Execution** | **Do it, but check in** after each major step. |
+| **Planning** | **Understand, then blueprint.** <br>1. **Talk to me:** Ask questions to fully grasp the goal. <br>2. **Don't act:** No code, no changes. <br>3. **Deliver a plan:** Provide a detailed, step-by-step plan for someone else to follow. |
 
 # 📊 Mermaid Standard
 Use this syntax for all planning/summaries:

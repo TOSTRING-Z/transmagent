@@ -255,7 +255,11 @@ export class Utils {
     }
 
     public copy<T>(data: T): T {
-        return JSON.parse(JSON.stringify(data));
+        if (data) {
+            return JSON.parse(JSON.stringify(data));
+        } else {
+            return data;
+        }
     }
 
     public getHistoryData(): any {

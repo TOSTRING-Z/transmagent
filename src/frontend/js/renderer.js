@@ -68,401 +68,6 @@
     return is_plugin ? "api" : "ai";
   }
 
-  // main/ui.ts
-  function showLog(type, content) {
-    window.electronAPI.showLog({ type, content });
-  }
-  function toggleMode(mode, send = true) {
-    if (send)
-      window.electronAPI.changeMode(mode);
-    DOM.auto.classList.remove("active");
-    DOM.act.classList.remove("active");
-    DOM.plan.classList.remove("active");
-    DOM.flash.classList.remove("active");
-    switch (mode) {
-      case "auto":
-        DOM.auto.classList.add("active");
-        break;
-      case "act":
-        DOM.act.classList.add("active");
-        break;
-      case "plan":
-        DOM.plan.classList.add("active");
-        break;
-      case "flash":
-        DOM.flash.classList.add("active");
-        break;
-    }
-  }
-  function autoResizeTextarea(textarea) {
-    if (!textarea)
-      return;
-    textarea.style.height = "auto";
-    const input_h = DOM.input ? DOM.input.clientHeight : 40;
-    const minHeight = 40;
-    const maxHeight = minHeight * 3;
-    const scrollHeight = textarea.scrollHeight;
-    const newHeight = Math.max(minHeight, Math.min(scrollHeight, maxHeight));
-    textarea.style.height = newHeight + "px";
-    if (DOM.top_div && DOM.bottom_div) {
-      DOM.top_div.style.height = window.innerHeight - DOM.bottom_div.clientHeight + "px";
-    }
-  }
-  function init_size() {
-    if (!DOM.input || !DOM.system_prompt || !DOM.top_div || !DOM.bottom_div)
-      return;
-    const bottomHeight = DOM.bottom_div.clientHeight;
-    DOM.top_div.style.height = window.innerHeight - bottomHeight + "px";
-  }
-  function toggleSidebar() {
-    const sidebar = document.querySelector(".sidebar");
-    if (sidebar) {
-      sidebar.classList.toggle("collapsed");
-      const icon = document.querySelector(".collapse-btn i");
-      if (icon) {
-        icon.classList.toggle("fa-chevron-left");
-        icon.classList.toggle("fa-chevron-right");
-      }
-    }
-  }
-  var htmlContent = `
-<div class="base-container">
-    <div class="base-header">
-      <div class="base-icon">B</div>
-      <h1 class="base-title">I am TransMAgent, an AI agent specialized in transcriptional regulation analysis.</h1>
-    </div>
-    <div class="options-container">
-      <div data-query="Coverage analysis of SNPs on the GATA2 gene" class="option-card">
-        <div class="option-icon">\u{1F4CD}</div>
-        <h3 class="option-title">Regional annotation analysis</h3>
-        <p class="option-desc">Enhancer annotation, transcription factor binding prediction, SNP site analysis"</p>
-      </div>
-      <div data-query="Analyze TP53 gene expression across tissues and generate a heatmap visualization" class="option-card">
-        <div class="option-icon">\u{1F4C8}</div>
-        <h3 class="option-title">Gene expression analysis</h3>
-        <p class="option-desc">Tissue/cell/disease-specific expression profiling, co-expression network analysis, and expression pattern visualization</p>
-      </div>
-      <div data-query="Analyze the enhancer coverage of ESR1, GATA3, FOXA1, and EP300 genes, and identify motifs in overlapping enhancers" class="option-card">
-        <div class="option-icon">\u{1F9EC}</div>
-        <h3 class="option-title">Sequence data analysis</h3>
-        <p class="option-desc">Motif discovery, sequence alignment, deepTools analysis</p>
-      </div>
-    </div>
-  </div>
-`;
-  function loadOptions() {
-    DOM.messages.innerHTML = "";
-    DOM.pause.style.display = "none";
-    DOM.pause.innerHTML = "";
-    State.chat.seconds = 0;
-    if (State.seconds_timer)
-      clearInterval(State.seconds_timer);
-    State.chat.tokens = 0;
-    State.chat.msg_count = 0;
-    DOM.tokens.innerText = "0";
-    DOM.seconds.innerText = "0";
-    DOM.msg_count.innerText = "0";
-    const optionDom = createElement(htmlContent);
-    const optionCards = optionDom.querySelectorAll(".option-card");
-    optionCards.forEach((card) => {
-      card.addEventListener("click", () => {
-        const query = card.dataset.query;
-        if (query) {
-          State.formData.query = query;
-          State.formData.prompt = DOM.system_prompt.value;
-          window.electronAPI.clickSubmit(State.formData);
-        }
-      });
-      card.style.cursor = "pointer";
-      card.style.transition = "transform 0.2s";
-      card.addEventListener("mouseenter", () => {
-        card.style.transform = "scale(1.02)";
-      });
-      card.addEventListener("mouseleave", () => {
-        card.style.transform = "scale(1)";
-      });
-    });
-    DOM.messages.append(optionDom);
-  }
-  function hideRenameDialog() {
-    DOM.renameDialog.style.display = "none";
-    DOM.renameInput.value = "";
-  }
-  function updateProgress(info) {
-    switch (info.state) {
-      case "start":
-        DOM.progress_bar.style.width = `0%`;
-        DOM.progress_bar.textContent = `0%`;
-        DOM.progress_container.style.display = "block";
-        break;
-      case "progress":
-        DOM.progress_bar.style.width = `${info.progress}%`;
-        DOM.progress_bar.textContent = `${info.progress}%`;
-        DOM.progress_container.style.display = "block";
-        break;
-      case "end":
-        DOM.progress_bar.style.width = `100%`;
-        DOM.progress_bar.textContent = `100%`;
-        setTimeout(() => {
-          DOM.progress_container.style.display = "none";
-          if (info?.remotePath)
-            DOM.input.value = `Upload: ${info.remotePath}
-${DOM.input.value}`;
-        }, 500);
-        break;
-      case "error":
-        DOM.progress_bar.style.backgroundColor = "#ff4757";
-        DOM.progress_bar.textContent = `\u4E0A\u4F20\u5931\u8D25: ${info.error}`;
-        setTimeout(() => {
-          DOM.progress_container.style.display = "none";
-          DOM.progress_bar.style.backgroundColor = "";
-        }, 3e3);
-        break;
-    }
-  }
-
-  // main/history.ts
-  var new_item_template = `<div class="history-item" onclick="selectChat('@id')">
-    <div class="history-text"></div>
-    <div class="history-menu" onclick="showHistoryMenu(event, '@id')">
-      <i class="fas fa-ellipsis-v"></i>
-      <div class="history-menu-dropdown">
-        <div class="history-menu-item" onclick="renameChat('@id')">
-          <i class="fas fa-edit"></i> Rename
-        </div>
-        <div class="history-menu-item" onclick="deleteChat('@id')">
-          <i class="fas fa-trash"></i> Delete
-        </div>
-      </div>
-    </div>
-  </div>`;
-  function addChatItem(chat) {
-    const item = createElement(new_item_template.replace(/@id/g, chat.id));
-    item.getElementsByClassName("history-text")[0].innerText = chat.name || "New Chat";
-    item.getElementsByClassName("history-text")[0].title = chat.name || "New Chat";
-    item.id = chat.id;
-    DOM.history_list.insertBefore(item, DOM.history_list.firstChild);
-    item.onclick = () => selectChat(chat.id);
-    const menu = item.querySelector(".history-menu");
-    menu.onclick = (e) => showHistoryMenu(e, chat.id);
-    const renameBtn = item.querySelector(".history-menu-item:nth-child(1)");
-    renameBtn.onclick = (e) => {
-      e.stopPropagation();
-      renameChat(chat.id);
-    };
-    const deleteBtn = item.querySelector(".history-menu-item:nth-child(2)");
-    deleteBtn.onclick = (e) => {
-      e.stopPropagation();
-      deleteChat(chat.id);
-    };
-  }
-  function newChat(chat) {
-    addChatItem(chat);
-    const items = DOM.history_list.getElementsByClassName("history-item");
-    Array.from(items).forEach((item) => {
-      if (item.id == chat.id)
-        item.classList.add("active");
-      else
-        item.classList.remove("active");
-    });
-  }
-  async function selectChat(chatId) {
-    const chat = await window.electronAPI.loadChat(chatId);
-    State.chat = chat;
-    toggleMode(State.chat.mode);
-    DOM.system_prompt.value = State.chat.system_prompt;
-    DOM.tokens.innerText = State.chat.tokens.toString();
-    DOM.msg_count.innerText = State.chat.msg_count?.toString() || "0";
-    DOM.seconds.innerText = State.chat.seconds.toFixed(1);
-    DOM.model_select.value = State.chat.model;
-    DOM.compress_box.checked = State.chat.compress_context || false;
-    const items = DOM.history_list.getElementsByClassName("history-item");
-    Array.from(items).forEach((item) => {
-      if (item.id == chatId)
-        item.classList.add("active");
-      else
-        item.classList.remove("active");
-    });
-  }
-  async function deleteChat(chatId) {
-    if (confirm("Are you sure you want to delete this conversation?")) {
-      await window.electronAPI.delChat(chatId);
-      const items = DOM.history_list.getElementsByClassName("history-item");
-      Array.from(items).forEach((item) => {
-        if (item.id == chatId)
-          item.remove();
-      });
-    }
-  }
-  function showHistoryMenu(event, chatId) {
-    event.stopPropagation();
-    const menus = document.querySelectorAll(".history-menu-dropdown");
-    menus.forEach((menu2) => menu2.style.display = "none");
-    const target = event.currentTarget;
-    const menu = target.querySelector(".history-menu-dropdown");
-    menu.style.display = "block";
-    State.chat.id = chatId;
-  }
-  function renameChat(chatId) {
-    State.chat.id = chatId;
-    DOM.renameDialog.style.display = "flex";
-    DOM.renameInput.focus();
-  }
-  async function confirmRename() {
-    const newName = DOM.renameInput.value.trim();
-    if (newName && State.chat.id) {
-      await window.electronAPI.renameChat({ id: State.chat.id, name: newName });
-      const items = DOM.history_list.getElementsByClassName("history-item");
-      Array.from(items).forEach((item) => {
-        if (item.id == State.chat.id)
-          item.getElementsByClassName("history-text")[0].innerText = newName;
-      });
-    }
-    DOM.renameDialog.style.display = "none";
-    DOM.renameInput.value = "";
-  }
-
-  // main/config.ts
-  var editors = {
-    envs: null,
-    tasks: null
-  };
-  function initConfigEvents() {
-    DOM.btn_save_envs.addEventListener("click", async () => {
-      const envs = editors.envs.get();
-      const statu = await window.electronAPI.Envs({ type: "set", envs });
-      if (statu)
-        showLog("success", "Configuration saved successfully!");
-    });
-    DOM.envs.addEventListener("click", async () => {
-      const mEnvs = document.getElementById("m-envs");
-      if (mEnvs)
-        mEnvs.style.display = "flex";
-      const config_envs = await window.electronAPI.Envs({ type: "get" });
-      const editor_env = document.getElementById("editor_env");
-      editors.envs = editors.envs || new JSONEditor(editor_env, {
-        mode: "tree",
-        modes: ["tree", "code"]
-      });
-      editors.envs.set(config_envs);
-    });
-    DOM.btn_save_tasks.addEventListener("click", async () => {
-      const taskList = editors.tasks.get();
-      const statu = await window.electronAPI.Tasks({ type: "set", tasks: taskList });
-      if (statu)
-        showLog("success", "Tasks saved!");
-    });
-    DOM.tasks.addEventListener("click", async () => {
-      const taskList = await window.electronAPI.Tasks({ type: "get" });
-      const mTasks = document.getElementById("m-tasks");
-      if (mTasks)
-        mTasks.style.display = "flex";
-      const editor_tasks = document.getElementById("editor_tasks");
-      editors.tasks = editors.tasks || new JSONEditor(editor_tasks, {
-        mode: "tree",
-        modes: ["tree", "code"]
-      });
-      editors.tasks.set(taskList);
-    });
-  }
-  async function showConfig() {
-    const mConfig = document.querySelector("#m-config");
-    if (mConfig)
-      mConfig.style.display = "flex";
-    const config = await window.electronAPI.getConfig();
-    const ai_model = document.getElementById("ai-model");
-    const api_url = document.getElementById("api-url");
-    const api_key = document.getElementById("api-key");
-    ai_model.innerHTML = "";
-    for (const model in config.models) {
-      if (Object.prototype.hasOwnProperty.call(config.models[model], "api_key")) {
-        if (!api_url.value && !api_key.value) {
-          api_url.value = config.models[model]?.api_url || "";
-          api_key.value = config.models[model]?.api_key || "";
-        }
-        const option = createElement(`<option value="${model}">${model}</option>`);
-        ai_model.appendChild(option);
-      }
-    }
-    if (State.chat && State.chat.model) {
-      ai_model.value = State.chat.model;
-      api_url.value = config.models[State.chat.model]?.api_url || "";
-      api_key.value = config.models[State.chat.model]?.api_key || "";
-    }
-    if (State.chat && State.chat.compress_context !== void 0) {
-      DOM.compress_box.checked = State.chat.compress_context;
-    }
-    ai_model.onchange = (event) => {
-      api_url.value = config.models[event.target.value]?.api_url || "";
-      api_key.value = config.models[event.target.value]?.api_key || "";
-    };
-    const cli_prompt = document.getElementById("cli-prompt");
-    if (cli_prompt)
-      cli_prompt.value = config.tool_call?.cli_prompt || "";
-    const ssh_host = document.getElementById("ssh-host");
-    if (ssh_host)
-      ssh_host.value = config.tool_call?.ssh_config?.host || "";
-    const ssh_port = document.getElementById("ssh-port");
-    if (ssh_port)
-      ssh_port.value = config.tool_call?.ssh_config?.port || "";
-    const ssh_username = document.getElementById("ssh-username");
-    if (ssh_username)
-      ssh_username.value = config.tool_call?.ssh_config?.username || "";
-    const ssh_password = document.getElementById("ssh-password");
-    if (ssh_password)
-      ssh_password.value = config.tool_call?.ssh_config?.password || "";
-    const ssh_enabled = document.getElementById("ssh-enabled");
-    if (ssh_enabled)
-      ssh_enabled.checked = !!config.tool_call?.ssh_config?.enabled;
-    const biotools_url = document.getElementById("mcp_server-biotools-url");
-    if (biotools_url)
-      biotools_url.value = config.mcp_server?.biotools?.url || "";
-    const biotools_disabled = document.getElementById("mcp_server-biotools-disabled");
-    if (biotools_disabled) {
-      biotools_disabled.checked = config.mcp_server?.biotools?.disabled;
-    }
-  }
-  function hideConfig() {
-    document.querySelectorAll(".config-modal").forEach((m) => m.style.display = "none");
-  }
-  async function saveConfig() {
-    const config = await window.electronAPI.getConfig();
-    const ai_model = document.getElementById("ai-model").value;
-    const api_url = document.getElementById("api-url").value;
-    const api_key = document.getElementById("api-key").value;
-    if (!config.models)
-      config.models = {};
-    if (!config.models[ai_model])
-      config.models[ai_model] = { api_url: "", api_key: "" };
-    config.models[ai_model].api_url = api_url;
-    config.models[ai_model].api_key = api_key;
-    config.compress_context = DOM.compress_box.checked;
-    State.chat.model = ai_model;
-    State.chat.compress_context = DOM.compress_box.checked;
-    window.electronAPI.setGlobal(State.chat);
-    if (!config.tool_call)
-      config.tool_call = {};
-    config.tool_call.cli_prompt = document.getElementById("cli-prompt")?.value || "";
-    if (!config.tool_call.ssh_config)
-      config.tool_call.ssh_config = {};
-    config.tool_call.ssh_config.host = document.getElementById("ssh-host")?.value || "";
-    config.tool_call.ssh_config.port = Number(document.getElementById("ssh-port")?.value) || 22;
-    config.tool_call.ssh_config.username = document.getElementById("ssh-username")?.value || "";
-    config.tool_call.ssh_config.password = document.getElementById("ssh-password")?.value || "";
-    config.tool_call.ssh_config.enabled = !!document.getElementById("ssh-enabled")?.checked;
-    if (!config.mcp_server)
-      config.mcp_server = {};
-    if (!config.mcp_server.biotools)
-      config.mcp_server.biotools = {};
-    config.mcp_server.biotools.url = document.getElementById("mcp_server-biotools-url")?.value || "";
-    const biotools_disabled = document.getElementById("mcp_server-biotools-disabled");
-    config.mcp_server.biotools.disabled = biotools_disabled.checked;
-    await window.electronAPI.setConfig(config);
-    if (typeof showLog === "function")
-      showLog("success", "Configuration saved successfully!");
-    hideConfig();
-  }
-
   // main/markdown.ts
   var { Marked } = globalThis.marked;
   var { markedHighlight } = globalThis.markedHighlight;
@@ -792,7 +397,7 @@ $$
           "id": id,
           "message": compression_content
         }, "system");
-        addEventStop(messageSystem);
+        addRunning(messageSystem);
         const thinking = messageSystem.getElementsByClassName("thinking")[0];
         thinking.remove();
         const message_content = messageSystem.getElementsByClassName("message")[0];
@@ -893,31 +498,32 @@ $$
       thumbMessage(thumbs_up, thumbs_down, { id: messageSystem.dataset.id, thumb: -1 });
     });
   }
-  function addEventStop(messageSystem) {
+  function addRunning(messageSystem) {
+    DOM.submit.classList.add("running");
     const message_content = messageSystem.getElementsByClassName("message")[0];
     const thinking = messageSystem?.getElementsByClassName("thinking")[0];
+    thinking.classList.remove("hidden");
     const btn = messageSystem?.getElementsByClassName("btn")[0];
     btn?.addEventListener("click", async () => {
       await window.electronAPI.streamMessageStop();
       if (State.seconds_timer)
         clearInterval(State.seconds_timer);
-      thinking?.remove();
+      thinking.classList.add("hidden");
       menuEvent(messageSystem, message_content.dataset.content, false);
       DOM.submit.classList.remove("running");
     });
-    DOM.submit.classList.add("running");
   }
-  async function userAdd(data) {
+  async function userData(data) {
     let messageUser;
     if (typeof data.content == "string") {
       messageUser = await formatMessage(user_message_template, {
-        "id": data.id,
+        "id": data.group_id,
         "message": data.content,
         "image_url": data?.img_url
       }, "user");
     } else {
       messageUser = await formatMessage(user_message_template, {
-        "id": data.id,
+        "id": data.group_id,
         "message": data.content[0].text.content,
         "image_url": data.content[1].image_url.url
       }, "user");
@@ -925,11 +531,11 @@ $$
     DOM.messages.appendChild(messageUser);
     let messageSystem = await formatMessage(system_message_template, {
       "icon": getIcon(false),
-      "id": data.id,
+      "id": data.group_id,
       "message": ""
     }, "system");
     DOM.messages.appendChild(messageSystem);
-    addEventStop(messageSystem);
+    addRunning(messageSystem);
     if (data?.del) {
       messageUser.classList.add("message_del");
       messageSystem.classList.add("message_del");
@@ -937,8 +543,8 @@ $$
       messageSystem.classList.add("message_toggle");
     }
   }
-  async function infoAdd(info) {
-    const messageSystems = document.querySelectorAll(`[data-id='${info.id}']`);
+  async function infoData(info) {
+    const messageSystems = document.querySelectorAll(`[data-id='${info.group_id}']`);
     const messageSystem = messageSystems[1];
     if (messageSystem) {
       const info_content = messageSystem.getElementsByClassName("info-content")[0];
@@ -967,8 +573,14 @@ $$
       }
     }
   }
-  async function streamMessageAdd(chunk) {
-    const messageSystems = document.querySelectorAll(`[data-id='${chunk.id}']`);
+  async function toolData(chunk) {
+    const messageSystems = document.querySelectorAll(`[data-id='${chunk.group_id}']`);
+    const messageSystem = messageSystems[1];
+    addRunning(messageSystem);
+    streamData(chunk);
+  }
+  async function streamData(chunk) {
+    const messageSystems = document.querySelectorAll(`[data-id='${chunk.group_id}']`);
     const messageSystem = messageSystems[1];
     if (messageSystem) {
       const message_content = messageSystem.getElementsByClassName("message")[0];
@@ -982,7 +594,7 @@ $$
         const optionDom = document.querySelector(".base-container");
         if (optionDom)
           optionDom.remove();
-        let context_id = Object.prototype.hasOwnProperty.call(chunk, "context_id") ? chunk.context_id : chunk.id;
+        let context_id = Object.prototype.hasOwnProperty.call(chunk, "context_id") ? chunk.context_id : chunk.group_id;
         let chunk_content = null;
         let chunk_item_content = null;
         let chunk_item = null;
@@ -1034,11 +646,10 @@ $$
           clearInterval(State.seconds_timer);
           State.seconds_timer = null;
         }
+        const thinking = messageSystem.getElementsByClassName("thinking")[0];
+        thinking.classList.add("hidden");
         if (!messageSystem.dataset?.event_stop) {
           messageSystem.dataset.event_stop = "true";
-          const thinking = messageSystem.getElementsByClassName("thinking")[0];
-          if (thinking)
-            thinking.remove();
           menuEvent(messageSystem, message_content, chunk?.is_plugin);
         }
         if (State.scroll_top.data)
@@ -1046,6 +657,421 @@ $$
         DOM.submit.classList.remove("running");
       }
     }
+  }
+  async function startAgentLoop(data) {
+    DOM.pause.style.display = "none";
+    DOM.pause.innerHTML = "";
+    const optionDom = document.querySelector(".base-container");
+    if (optionDom)
+      optionDom.remove();
+    if (State.seconds_timer)
+      clearInterval(State.seconds_timer);
+    State.seconds_timer = setInterval(() => {
+      State.chat.seconds += 0.1;
+      DOM.seconds.innerText = State.chat.seconds.toFixed(1);
+      if (State.chat.version && DOM.version)
+        DOM.version.innerText = State.chat.version;
+    }, 100);
+    DOM.tokens.innerText = State.chat.tokens.toString();
+    DOM.version.innerText = data.version;
+    data.prompt = DOM.system_prompt.value;
+    DOM.top_div.scrollTop = DOM.top_div.scrollHeight;
+  }
+
+  // main/ui.ts
+  function showLog(type, content) {
+    window.electronAPI.showLog({ type, content });
+  }
+  function toggleMode(mode, send = true) {
+    if (send)
+      window.electronAPI.changeMode(mode);
+    DOM.auto.classList.remove("active");
+    DOM.act.classList.remove("active");
+    DOM.plan.classList.remove("active");
+    DOM.flash.classList.remove("active");
+    switch (mode) {
+      case "auto":
+        DOM.auto.classList.add("active");
+        break;
+      case "act":
+        DOM.act.classList.add("active");
+        break;
+      case "plan":
+        DOM.plan.classList.add("active");
+        break;
+      case "flash":
+        DOM.flash.classList.add("active");
+        break;
+    }
+  }
+  function autoResizeTextarea(textarea) {
+    if (!textarea)
+      return;
+    textarea.style.height = "auto";
+    const input_h = DOM.input ? DOM.input.clientHeight : 40;
+    const minHeight = 40;
+    const maxHeight = minHeight * 3;
+    const scrollHeight = textarea.scrollHeight;
+    const newHeight = Math.max(minHeight, Math.min(scrollHeight, maxHeight));
+    textarea.style.height = newHeight + "px";
+    if (DOM.top_div && DOM.bottom_div) {
+      DOM.top_div.style.height = window.innerHeight - DOM.bottom_div.clientHeight + "px";
+    }
+  }
+  function init_size() {
+    if (!DOM.input || !DOM.system_prompt || !DOM.top_div || !DOM.bottom_div)
+      return;
+    const bottomHeight = DOM.bottom_div.clientHeight;
+    DOM.top_div.style.height = window.innerHeight - bottomHeight + "px";
+  }
+  function toggleSidebar() {
+    const sidebar = document.querySelector(".sidebar");
+    if (sidebar) {
+      sidebar.classList.toggle("collapsed");
+      const icon = document.querySelector(".collapse-btn i");
+      if (icon) {
+        icon.classList.toggle("fa-chevron-left");
+        icon.classList.toggle("fa-chevron-right");
+      }
+    }
+  }
+  var htmlContent = `
+<div class="base-container">
+    <div class="base-header">
+      <div class="base-icon">B</div>
+      <h1 class="base-title">I am TransMAgent, an AI agent specialized in transcriptional regulation analysis.</h1>
+    </div>
+    <div class="options-container">
+      <div data-query="Coverage analysis of SNPs on the GATA2 gene" class="option-card">
+        <div class="option-icon">\u{1F4CD}</div>
+        <h3 class="option-title">Regional annotation analysis</h3>
+        <p class="option-desc">Enhancer annotation, transcription factor binding prediction, SNP site analysis"</p>
+      </div>
+      <div data-query="Analyze TP53 gene expression across tissues and generate a heatmap visualization" class="option-card">
+        <div class="option-icon">\u{1F4C8}</div>
+        <h3 class="option-title">Gene expression analysis</h3>
+        <p class="option-desc">Tissue/cell/disease-specific expression profiling, co-expression network analysis, and expression pattern visualization</p>
+      </div>
+      <div data-query="Analyze the enhancer coverage of ESR1, GATA3, FOXA1, and EP300 genes, and identify motifs in overlapping enhancers" class="option-card">
+        <div class="option-icon">\u{1F9EC}</div>
+        <h3 class="option-title">Sequence data analysis</h3>
+        <p class="option-desc">Motif discovery, sequence alignment, deepTools analysis</p>
+      </div>
+    </div>
+  </div>
+`;
+  function loadOptions() {
+    DOM.messages.innerHTML = "";
+    DOM.pause.style.display = "none";
+    DOM.pause.innerHTML = "";
+    State.chat.seconds = 0;
+    if (State.seconds_timer)
+      clearInterval(State.seconds_timer);
+    State.chat.tokens = 0;
+    State.chat.msg_count = 0;
+    DOM.tokens.innerText = "0";
+    DOM.seconds.innerText = "0";
+    DOM.msg_count.innerText = "0";
+    const optionDom = createElement(htmlContent);
+    const optionCards = optionDom.querySelectorAll(".option-card");
+    optionCards.forEach((card) => {
+      card.addEventListener("click", () => {
+        const query = card.dataset.query;
+        if (query) {
+          State.formData.query = query;
+          State.formData.prompt = DOM.system_prompt.value;
+          startAgentLoop(State.formData);
+          window.electronAPI.agentLoop(State.formData);
+        }
+      });
+      card.style.cursor = "pointer";
+      card.style.transition = "transform 0.2s";
+      card.addEventListener("mouseenter", () => {
+        card.style.transform = "scale(1.02)";
+      });
+      card.addEventListener("mouseleave", () => {
+        card.style.transform = "scale(1)";
+      });
+    });
+    DOM.messages.append(optionDom);
+  }
+  function hideRenameDialog() {
+    DOM.renameDialog.style.display = "none";
+    DOM.renameInput.value = "";
+  }
+  function updateProgress(info) {
+    switch (info.state) {
+      case "start":
+        DOM.progress_bar.style.width = `0%`;
+        DOM.progress_bar.textContent = `0%`;
+        DOM.progress_container.style.display = "block";
+        break;
+      case "progress":
+        DOM.progress_bar.style.width = `${info.progress}%`;
+        DOM.progress_bar.textContent = `${info.progress}%`;
+        DOM.progress_container.style.display = "block";
+        break;
+      case "end":
+        DOM.progress_bar.style.width = `100%`;
+        DOM.progress_bar.textContent = `100%`;
+        setTimeout(() => {
+          DOM.progress_container.style.display = "none";
+          if (info?.remotePath)
+            DOM.input.value = `Upload: ${info.remotePath}
+${DOM.input.value}`;
+        }, 500);
+        break;
+      case "error":
+        DOM.progress_bar.style.backgroundColor = "#ff4757";
+        DOM.progress_bar.textContent = `\u4E0A\u4F20\u5931\u8D25: ${info.error}`;
+        setTimeout(() => {
+          DOM.progress_container.style.display = "none";
+          DOM.progress_bar.style.backgroundColor = "";
+        }, 3e3);
+        break;
+    }
+  }
+
+  // main/history.ts
+  var new_item_template = `<div class="history-item" onclick="selectChat('@id')">
+    <div class="history-text"></div>
+    <div class="history-menu" onclick="showHistoryMenu(event, '@id')">
+      <i class="fas fa-ellipsis-v"></i>
+      <div class="history-menu-dropdown">
+        <div class="history-menu-item" onclick="renameChat('@id')">
+          <i class="fas fa-edit"></i> Rename
+        </div>
+        <div class="history-menu-item" onclick="deleteChat('@id')">
+          <i class="fas fa-trash"></i> Delete
+        </div>
+      </div>
+    </div>
+  </div>`;
+  function addChatItem(chat) {
+    const item = createElement(new_item_template.replace(/@id/g, chat.id));
+    item.getElementsByClassName("history-text")[0].innerText = chat.name || "New Chat";
+    item.getElementsByClassName("history-text")[0].title = chat.name || "New Chat";
+    item.id = chat.id;
+    DOM.history_list.insertBefore(item, DOM.history_list.firstChild);
+    item.onclick = () => selectChat(chat.id);
+    const menu = item.querySelector(".history-menu");
+    menu.onclick = (e) => showHistoryMenu(e, chat.id);
+    const renameBtn = item.querySelector(".history-menu-item:nth-child(1)");
+    renameBtn.onclick = (e) => {
+      e.stopPropagation();
+      renameChat(chat.id);
+    };
+    const deleteBtn = item.querySelector(".history-menu-item:nth-child(2)");
+    deleteBtn.onclick = (e) => {
+      e.stopPropagation();
+      deleteChat(chat.id);
+    };
+  }
+  function newChat(chat) {
+    addChatItem(chat);
+    const items = DOM.history_list.getElementsByClassName("history-item");
+    Array.from(items).forEach((item) => {
+      if (item.id == chat.id)
+        item.classList.add("active");
+      else
+        item.classList.remove("active");
+    });
+  }
+  async function selectChat(chatId) {
+    const chat = await window.electronAPI.loadChat(chatId);
+    State.chat = chat;
+    toggleMode(State.chat.mode);
+    DOM.system_prompt.value = State.chat.system_prompt;
+    DOM.tokens.innerText = State.chat.tokens.toString();
+    DOM.msg_count.innerText = State.chat.msg_count?.toString() || "0";
+    DOM.seconds.innerText = State.chat.seconds.toFixed(1);
+    DOM.model_select.value = State.chat.model;
+    DOM.compress_box.checked = State.chat.compress_context || false;
+    const items = DOM.history_list.getElementsByClassName("history-item");
+    Array.from(items).forEach((item) => {
+      if (item.id == chatId)
+        item.classList.add("active");
+      else
+        item.classList.remove("active");
+    });
+  }
+  async function deleteChat(chatId) {
+    if (confirm("Are you sure you want to delete this conversation?")) {
+      await window.electronAPI.delChat(chatId);
+      const items = DOM.history_list.getElementsByClassName("history-item");
+      Array.from(items).forEach((item) => {
+        if (item.id == chatId)
+          item.remove();
+      });
+    }
+  }
+  function showHistoryMenu(event, chatId) {
+    event.stopPropagation();
+    const menus = document.querySelectorAll(".history-menu-dropdown");
+    menus.forEach((menu2) => menu2.style.display = "none");
+    const target = event.currentTarget;
+    const menu = target.querySelector(".history-menu-dropdown");
+    menu.style.display = "block";
+    State.chat.id = chatId;
+  }
+  function renameChat(chatId) {
+    State.chat.id = chatId;
+    DOM.renameDialog.style.display = "flex";
+    DOM.renameInput.focus();
+  }
+  async function confirmRename() {
+    const newName = DOM.renameInput.value.trim();
+    if (newName && State.chat.id) {
+      await window.electronAPI.renameChat({ id: State.chat.id, name: newName });
+      const items = DOM.history_list.getElementsByClassName("history-item");
+      Array.from(items).forEach((item) => {
+        if (item.id == State.chat.id)
+          item.getElementsByClassName("history-text")[0].innerText = newName;
+      });
+    }
+    DOM.renameDialog.style.display = "none";
+    DOM.renameInput.value = "";
+  }
+
+  // main/config.ts
+  var editors = {
+    envs: null,
+    tasks: null
+  };
+  function initConfigEvents() {
+    DOM.btn_save_envs.addEventListener("click", async () => {
+      const envs = editors.envs.get();
+      const statu = await window.electronAPI.Envs({ type: "set", envs });
+      if (statu)
+        showLog("success", "Configuration saved successfully!");
+    });
+    DOM.envs.addEventListener("click", async () => {
+      const mEnvs = document.getElementById("m-envs");
+      if (mEnvs)
+        mEnvs.style.display = "flex";
+      const config_envs = await window.electronAPI.Envs({ type: "get" });
+      const editor_env = document.getElementById("editor_env");
+      editors.envs = editors.envs || new JSONEditor(editor_env, {
+        mode: "tree",
+        modes: ["tree", "code"]
+      });
+      editors.envs.set(config_envs);
+    });
+    DOM.btn_save_tasks.addEventListener("click", async () => {
+      const taskList = editors.tasks.get();
+      const statu = await window.electronAPI.Tasks({ type: "set", tasks: taskList });
+      if (statu)
+        showLog("success", "Tasks saved!");
+    });
+    DOM.tasks.addEventListener("click", async () => {
+      const taskList = await window.electronAPI.Tasks({ type: "get" });
+      const mTasks = document.getElementById("m-tasks");
+      if (mTasks)
+        mTasks.style.display = "flex";
+      const editor_tasks = document.getElementById("editor_tasks");
+      editors.tasks = editors.tasks || new JSONEditor(editor_tasks, {
+        mode: "tree",
+        modes: ["tree", "code"]
+      });
+      editors.tasks.set(taskList);
+    });
+  }
+  async function showConfig() {
+    const mConfig = document.querySelector("#m-config");
+    if (mConfig)
+      mConfig.style.display = "flex";
+    const config = await window.electronAPI.getConfig();
+    const ai_model = document.getElementById("ai-model");
+    const api_url = document.getElementById("api-url");
+    const api_key = document.getElementById("api-key");
+    ai_model.innerHTML = "";
+    for (const model in config.models) {
+      if (Object.prototype.hasOwnProperty.call(config.models[model], "api_key")) {
+        if (!api_url.value && !api_key.value) {
+          api_url.value = config.models[model]?.api_url || "";
+          api_key.value = config.models[model]?.api_key || "";
+        }
+        const option = createElement(`<option value="${model}">${model}</option>`);
+        ai_model.appendChild(option);
+      }
+    }
+    if (State.chat && State.chat.model) {
+      ai_model.value = State.chat.model;
+      api_url.value = config.models[State.chat.model]?.api_url || "";
+      api_key.value = config.models[State.chat.model]?.api_key || "";
+    }
+    if (State.chat && State.chat.compress_context !== void 0) {
+      DOM.compress_box.checked = State.chat.compress_context;
+    }
+    ai_model.onchange = (event) => {
+      api_url.value = config.models[event.target.value]?.api_url || "";
+      api_key.value = config.models[event.target.value]?.api_key || "";
+    };
+    const cli_prompt = document.getElementById("cli-prompt");
+    if (cli_prompt)
+      cli_prompt.value = config.tool_call?.cli_prompt || "";
+    const ssh_host = document.getElementById("ssh-host");
+    if (ssh_host)
+      ssh_host.value = config.tool_call?.ssh_config?.host || "";
+    const ssh_port = document.getElementById("ssh-port");
+    if (ssh_port)
+      ssh_port.value = config.tool_call?.ssh_config?.port || "";
+    const ssh_username = document.getElementById("ssh-username");
+    if (ssh_username)
+      ssh_username.value = config.tool_call?.ssh_config?.username || "";
+    const ssh_password = document.getElementById("ssh-password");
+    if (ssh_password)
+      ssh_password.value = config.tool_call?.ssh_config?.password || "";
+    const ssh_enabled = document.getElementById("ssh-enabled");
+    if (ssh_enabled)
+      ssh_enabled.checked = !!config.tool_call?.ssh_config?.enabled;
+    const biotools_url = document.getElementById("mcp_server-biotools-url");
+    if (biotools_url)
+      biotools_url.value = config.mcp_server?.biotools?.url || "";
+    const biotools_disabled = document.getElementById("mcp_server-biotools-disabled");
+    if (biotools_disabled) {
+      biotools_disabled.checked = config.mcp_server?.biotools?.disabled;
+    }
+  }
+  function hideConfig() {
+    document.querySelectorAll(".config-modal").forEach((m) => m.style.display = "none");
+  }
+  async function saveConfig() {
+    const config = await window.electronAPI.getConfig();
+    const ai_model = document.getElementById("ai-model").value;
+    const api_url = document.getElementById("api-url").value;
+    const api_key = document.getElementById("api-key").value;
+    if (!config.models)
+      config.models = {};
+    if (!config.models[ai_model])
+      config.models[ai_model] = { api_url: "", api_key: "" };
+    config.models[ai_model].api_url = api_url;
+    config.models[ai_model].api_key = api_key;
+    config.compress_context = DOM.compress_box.checked;
+    State.chat.model = ai_model;
+    State.chat.compress_context = DOM.compress_box.checked;
+    window.electronAPI.setGlobal(State.chat);
+    if (!config.tool_call)
+      config.tool_call = {};
+    config.tool_call.cli_prompt = document.getElementById("cli-prompt")?.value || "";
+    if (!config.tool_call.ssh_config)
+      config.tool_call.ssh_config = {};
+    config.tool_call.ssh_config.host = document.getElementById("ssh-host")?.value || "";
+    config.tool_call.ssh_config.port = Number(document.getElementById("ssh-port")?.value) || 22;
+    config.tool_call.ssh_config.username = document.getElementById("ssh-username")?.value || "";
+    config.tool_call.ssh_config.password = document.getElementById("ssh-password")?.value || "";
+    config.tool_call.ssh_config.enabled = !!document.getElementById("ssh-enabled")?.checked;
+    if (!config.mcp_server)
+      config.mcp_server = {};
+    if (!config.mcp_server.biotools)
+      config.mcp_server.biotools = {};
+    config.mcp_server.biotools.url = document.getElementById("mcp_server-biotools-url")?.value || "";
+    const biotools_disabled = document.getElementById("mcp_server-biotools-disabled");
+    config.mcp_server.biotools.disabled = biotools_disabled.checked;
+    await window.electronAPI.setConfig(config);
+    if (typeof showLog === "function")
+      showLog("success", "Configuration saved successfully!");
+    hideConfig();
   }
 
   // main/main.ts
@@ -1107,9 +1133,8 @@ $$
       } else {
         State.formData.query = DOM.input.value;
         State.formData.prompt = DOM.system_prompt.value;
-        window.electronAPI.clickSubmit(State.formData);
-        DOM.pause.style.display = "none";
-        DOM.pause.innerHTML = "";
+        startAgentLoop(State.formData);
+        window.electronAPI.agentLoop(State.formData);
       }
     });
     DOM.auto_opt.addEventListener("click", async (e) => {
@@ -1194,36 +1219,11 @@ $$
   window.electronAPI.handleChangeMode((mode) => toggleMode(mode, false));
   window.electronAPI.handleMarkDownFormat((status) => State.markdown_statu = status);
   window.electronAPI.handleReactStatu((status) => State.react_statu = status);
-  window.electronAPI.streamData((chunk) => streamMessageAdd(chunk));
-  window.electronAPI.infoData((info) => infoAdd(info));
-  window.electronAPI.userData((data) => userAdd(data));
-  window.electronAPI.handleQuery(async ({ data, api_callback = true }) => {
-    DOM.pause.style.display = "none";
-    DOM.pause.innerHTML = "";
-    const optionDom = document.querySelector(".base-container");
-    if (optionDom)
-      optionDom.remove();
-    if (State.seconds_timer)
-      clearInterval(State.seconds_timer);
-    State.seconds_timer = setInterval(() => {
-      State.chat.seconds += 0.1;
-      DOM.seconds.innerText = State.chat.seconds.toFixed(1);
-      if (State.chat.version && DOM.version)
-        DOM.version.innerText = State.chat.version;
-    }, 100);
-    DOM.tokens.innerText = State.chat.tokens.toString();
-    DOM.version.innerText = data.version;
-    data.prompt = DOM.system_prompt.value;
-    let user_content = data.img_url ? DOM.input.value : data.query;
-    await userAdd({
-      id: data.id,
-      content: user_content,
-      img_url: data.img_url
-    });
-    DOM.top_div.scrollTop = DOM.top_div.scrollHeight;
-    if (api_callback)
-      window.electronAPI.queryText(data);
-  });
+  window.electronAPI.streamData((chunk) => streamData(chunk));
+  window.electronAPI.toolData((chunk) => toolData(chunk));
+  window.electronAPI.infoData((info) => infoData(info));
+  window.electronAPI.userData((data) => userData(data));
+  window.electronAPI.startAgentLoop(async (data) => startAgentLoop(data));
   window.electronAPI.handleExtraLoad((data) => {
     DOM.system_prompt.style.display = "none";
     DOM.file_upload.style.display = "none";
@@ -1243,13 +1243,13 @@ $$
     });
     init_size();
   });
-  window.electronAPI.handleOptions(({ options, id, tool_call_id, tool_call_name, is_tool_response }) => {
+  window.electronAPI.handleOptions(({ options, group_id }) => {
     DOM.pause.style.display = "flex";
     let option_querys = [];
     options.forEach((value) => {
       const option = document.createElement("div");
       option.className = "btn";
-      option.dataset.id = id;
+      option.dataset.id = group_id;
       option.innerText = value;
       option.addEventListener("click", function() {
         if (this.classList.contains("active")) {
@@ -1264,24 +1264,14 @@ $$
     });
     const send = document.createElement("div");
     send.className = "btn success";
-    send.dataset.id = id;
+    send.dataset.id = group_id;
     send.innerText = "Send";
     send.addEventListener("click", async function() {
-      if (is_tool_response) {
-        window.electronAPI.submitToolResponse({
-          tool_call_id,
-          tool_call_name,
-          content: option_querys.join("\n"),
-          id
-        });
-      } else {
-        State.formData.query = option_querys.join("\n");
-        State.formData.prompt = DOM.system_prompt.value;
-        window.electronAPI.clickSubmit(State.formData);
-      }
+      State.formData.query = option_querys.join("\n");
+      State.formData.prompt = DOM.system_prompt.value;
+      startAgentLoop(State.formData);
+      window.electronAPI.agentLoop(State.formData);
       option_querys = [];
-      DOM.pause.style.display = "none";
-      DOM.pause.innerHTML = "";
     });
     DOM.pause.appendChild(send);
     if (State.scroll_top.data)

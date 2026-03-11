@@ -15,6 +15,7 @@ export class ChainCall extends ReActAgent {
     }
 
     public async pluginCall(data: Record<string, any>): Promise<any> {
+        this.window.webContents.send('userData', { group_id: this.llm_service.chatManager.chat.group_id, context_id: this.llm_service.chatManager.chat.context_id, content: data.query, del: false });
         data.prompt_format = "";
         
         let func = this.plugins.getTool(data.version)?.func;
@@ -38,7 +39,8 @@ export class ChainCall extends ReActAgent {
         }
         
         data.output_formats.push(utils.copy(data.output_format));
-        return data.output_format;
+
+        this.window?.webContents.send('streamData', { group_id: this.llm_service.chatManager.chat.group_id, content: data.output_format, end: true, is_plugin: data.is_plugin });
     }
 
     public async step(data: Record<string, any>): Promise<void> {
@@ -64,12 +66,13 @@ export class ChainCall extends ReActAgent {
         // 适配新架构的 chat 访问
         this.llm_service.chatManager.chat.system_prompt = data.prompt;
         this.state = State.IDLE;
+        this.window.webContents.send('userData', { group_id: this.llm_service.chatManager.chat.group_id, context_id: this.llm_service.chatManager.chat.context_id, content: data.query, del: false });
         
         let chain_calls = utils.getConfig("chain_call");
         
         for (const step in chain_calls) {
             if (this.llm_service.stopFlag) {
-                this.window?.webContents.send('stream-data', { id: data.id, content: "The user interrupted the task.", end: true });
+                this.window?.webContents.send('streamData', { group_id: this.llm_service.chatManager.chat.group_id, content: "The user interrupted the task.", end: true });
                 break;
             }
             
@@ -101,17 +104,17 @@ export class ChainCall extends ReActAgent {
             this.setHistory();
             if ((this.state as any) === "final") {
                 if (this.is_plugin) {
-                    this.window?.webContents.send('stream-data', { id: data.id, content: data.output_format, end: true });
+                    this.window?.webContents.send('streamData', { group_id: this.llm_service.chatManager.chat.group_id, content: data.output_format, end: true });
                 }
                 break;
             }
             if ((this.state as any) === "error") {
-                this.window?.webContents.send('stream-data', { id: data.id, content: "Error occurred!", end: true });
+                this.window?.webContents.send('streamData', { group_id: this.llm_service.chatManager.chat.group_id, content: "Error occurred!", end: true });
                 break;
             }
 
             let info = this.get_info(data);
-            this.window?.webContents.send('info-data', { id: data.id, content: info });
+            this.window?.webContents.send('infoData', { group_id: this.llm_service.chatManager.chat.group_id, content: info });
         }
         
         this.sendData(data);

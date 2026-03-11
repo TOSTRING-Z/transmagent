@@ -180,7 +180,7 @@ export class PromptToolCallAdapter implements IToolCallAdapter {
             }
             toolInfo = { thinking: aiRespnse.thinking, tool: aiRespnse?.tool, id: null, params: aiRespnse?.params || {}, error: null };
         } catch (error: any) {
-            if ((message.content as string).startsWith("```json") || ((message.content as string).startsWith("{") && (message.content as string).endsWith("}"))) {
+            if ((message.content as string).startsWith("```json") || (message.content as string).startsWith("{")) {
                 toolInfo = {
                     thinking: `\`\`\`text
                     ${message.content as string}

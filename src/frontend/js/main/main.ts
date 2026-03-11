@@ -2,7 +2,7 @@ import { DOM, State } from './globals';
 import { init_size, autoResizeTextarea, loadOptions, showLog, toggleMode, toggleSidebar, updateProgress, showRenameDialog, hideRenameDialog } from './ui';
 import { addChatItem, newChat, selectChat, deleteChat, renameChat, confirmRename, showHistoryMenu } from './history';
 import { initConfigEvents, showConfig, saveConfig, hideConfig } from './config';
-import { userAdd, infoAdd, streamMessageAdd, delete_memory, menuEvent, addEventStop } from './chat';
+import { userData, infoData, streamData, startAgentLoop, menuEvent, addRunning, toolData } from './chat';
 import { initMermaid, marked } from './markdown';
 import { getFileName, getIcon, formatString } from './utils';
 
@@ -71,7 +71,7 @@ document.addEventListener("DOMContentLoaded", () => {
   DOM.submit.addEventListener("click", async () => {
     if (DOM.submit.classList.contains("running")) {
       const messageSystemList = document.querySelectorAll('[data-role="system"]');
-      if(messageSystemList.length > 0) {
+      if (messageSystemList.length > 0) {
         const messageSystem = messageSystemList[messageSystemList.length - 1];
         const btn = messageSystem.getElementsByClassName("btn")[0] as HTMLElement;
         btn?.click();
@@ -79,9 +79,8 @@ document.addEventListener("DOMContentLoaded", () => {
     } else {
       State.formData.query = DOM.input.value;
       State.formData.prompt = DOM.system_prompt.value;
-      window.electronAPI.clickSubmit(State.formData);
-      DOM.pause.style.display = "none";
-      DOM.pause.innerHTML = "";
+      startAgentLoop(State.formData);
+      window.electronAPI.agentLoop(State.formData);
     }
   });
 
@@ -93,10 +92,10 @@ document.addEventListener("DOMContentLoaded", () => {
 
   // Sidebar & Config Buttons
   const collapseBtn = document.querySelector('.collapse-btn');
-  if(collapseBtn) collapseBtn.addEventListener('click', toggleSidebar);
-  
+  if (collapseBtn) collapseBtn.addEventListener('click', toggleSidebar);
+
   const configBtn = document.querySelector('.config-btn');
-  if(configBtn) configBtn.addEventListener('click', showConfig);
+  if (configBtn) configBtn.addEventListener('click', showConfig);
 
   DOM.btn_new_chat.addEventListener("click", async () => {
     const chat = await window.electronAPI.newChat();
@@ -105,15 +104,15 @@ document.addEventListener("DOMContentLoaded", () => {
 
   // Rename Dialog
   const confirmRenameBtn = document.getElementById('confirmRename');
-  if(confirmRenameBtn) confirmRenameBtn.addEventListener('click', confirmRename);
+  if (confirmRenameBtn) confirmRenameBtn.addEventListener('click', confirmRename);
   const cancelRenameBtn = document.getElementById('cancelRename');
-  if(cancelRenameBtn) cancelRenameBtn.addEventListener('click', hideRenameDialog);
-  
+  if (cancelRenameBtn) cancelRenameBtn.addEventListener('click', hideRenameDialog);
+
   // Config Modal
   const saveConfigBtn = document.getElementById('save-config');
-  if(saveConfigBtn) saveConfigBtn.addEventListener('click', saveConfig);
+  if (saveConfigBtn) saveConfigBtn.addEventListener('click', saveConfig);
   const cancelConfigBtn = document.getElementById('cancel-config');
-  if(cancelConfigBtn) cancelConfigBtn.addEventListener('click', hideConfig);
+  if (cancelConfigBtn) cancelConfigBtn.addEventListener('click', hideConfig);
   document.addEventListener('keydown', (event) => {
     if (event.key === 'Escape') hideConfig();
   });
@@ -156,14 +155,14 @@ window.electronAPI.initInfo((info) => {
   DOM.version.innerText = info.version;
   DOM.history_list.innerHTML = ""; // Clear list before adding
   info.chats.forEach((chat: any) => addChatItem(chat));
-  
+
   if (State.seconds_timer) clearInterval(State.seconds_timer);
   State.seconds_timer = null;
-  
+
   State.chat = info.chat;
   DOM.tokens.innerText = State.chat.tokens.toString();
   DOM.seconds.innerText = State.chat.seconds.toString();
-  
+
   State.status = info.status;
   if (State.status.auto_opt) DOM.auto_opt.classList.add("active");
   else DOM.auto_opt.classList.remove("active");
@@ -175,74 +174,15 @@ window.electronAPI.handleMarkDownFormat((status) => State.markdown_statu = statu
 
 window.electronAPI.handleReactStatu((status) => State.react_statu = status);
 
-window.electronAPI.streamData((chunk) => streamMessageAdd(chunk));
+window.electronAPI.streamData((chunk) => streamData(chunk));
 
-window.electronAPI.infoData((info) => infoAdd(info));
+window.electronAPI.toolData((chunk) => toolData(chunk));
 
-window.electronAPI.userData((data) => userAdd(data));
+window.electronAPI.infoData((info) => infoData(info));
 
-window.electronAPI.handleQuery(async ({ data, api_callback = true }) => {
-  DOM.pause.style.display = "none";
-  DOM.pause.innerHTML = "";
-  const optionDom = document.querySelector('.base-container');
-  if(optionDom) optionDom.remove();
+window.electronAPI.userData((data) => userData(data));
 
-  if (State.seconds_timer) clearInterval(State.seconds_timer);
-  State.seconds_timer = setInterval(() => {
-    State.chat.seconds += 0.1;
-    DOM.seconds.innerText = State.chat.seconds.toFixed(1);
-  if (State.chat.version && DOM.version) DOM.version.innerText = State.chat.version;
-  }, 100);
-
-  DOM.tokens.innerText = State.chat.tokens.toString();
-  DOM.version.innerText = data.version;
-  
-  data.prompt = DOM.system_prompt.value;
-  let user_content = data.img_url ? DOM.input.value : data.query;
-  
-  // Optimistically add user message
-  // Note: userAdd expects object structure matching what formatMessage needs
-  // We need to construct a pseudo-data object if handleQuery doesn't provide fully formatted one yet?
-  // Usually handleQuery data comes from backend which is consistent. 
-  // Let's assume data structure is correct or used `userAdd` logic:
-  // The original code calls `messages.appendChild(await user_message.formatMessage(...))`
-  // We can just use userAdd if data structure matches, or manually call userAdd logic here.
-  // Since `userAdd` is exported, let's reuse it or manual append if params differ.
-  // Original code manual append:
-  /*
-  messages.appendChild(await user_message.formatMessage({
-    "id": data.id,
-    "message": user_content,
-    "image_url": data.img_url,
-  }, "user"));
-  */
-  // We can adapt `userAdd` or just replicate:
-  await userAdd({
-      id: data.id,
-      content: user_content,
-      img_url: data.img_url
-  });
-  // But wait, userAdd logic handles content as string or array. Here it is string. 
-
-  // System placeholder
-  /*
-  let messageSystem = await system_message.formatMessage({
-    "icon": getIcon(data.is_plugin),
-    "id": data.id,
-    "message": ""
-  }, "system")
-  addEventStop(messageSystem);
-  messages.appendChild(messageSystem);
-  */
-  // We don't have a direct function for adding EMPTY system message in chat.ts, 
-  // `userAdd` adds both user and empty system message! 
-  // Let's check chat.ts `userAdd`: 
-  // It appends user message AND system message. 
-  // So calling `userAdd` is enough!
-  
-  DOM.top_div.scrollTop = DOM.top_div.scrollHeight;
-  if (api_callback) window.electronAPI.queryText(data);
-});
+window.electronAPI.startAgentLoop(async (data) => startAgentLoop(data));
 
 window.electronAPI.handleExtraLoad((data) => {
   DOM.system_prompt.style.display = "none";
@@ -264,14 +204,14 @@ window.electronAPI.handleExtraLoad((data) => {
   init_size();
 });
 
-window.electronAPI.handleOptions(({ options, id, tool_call_id, tool_call_name, is_tool_response }) => {
+window.electronAPI.handleOptions(({ options, group_id }) => {
   DOM.pause.style.display = "flex";
   let option_querys: string[] = [];
-  
+
   options.forEach(value => {
     const option = document.createElement("div");
     option.className = "btn";
-    option.dataset.id = id;
+    option.dataset.id = group_id;
     option.innerText = value;
     option.addEventListener("click", function () {
       if (this.classList.contains("active")) {
@@ -284,32 +224,20 @@ window.electronAPI.handleOptions(({ options, id, tool_call_id, tool_call_name, i
     });
     DOM.pause.appendChild(option);
   });
-  
+
   const send = document.createElement("div");
   send.className = "btn success";
-  send.dataset.id = id;
+  send.dataset.id = group_id;
   send.innerText = "Send";
   send.addEventListener("click", async function () {
-        if (is_tool_response) {
-          // 发送工具消息
-          window.electronAPI.submitToolResponse({
-            tool_call_id,
-            tool_call_name,
-            content: option_querys.join("\n"),
-            id
-          });
-        } else {
-          // 发送用户消息（原有逻辑）
-          State.formData.query = option_querys.join("\n");
-          State.formData.prompt = DOM.system_prompt.value;
-          window.electronAPI.clickSubmit(State.formData);
-        }
+    State.formData.query = option_querys.join("\n");
+    State.formData.prompt = DOM.system_prompt.value;
+    startAgentLoop(State.formData);
+    window.electronAPI.agentLoop(State.formData);
     option_querys = [];
-    DOM.pause.style.display = "none";
-    DOM.pause.innerHTML = "";
   });
   DOM.pause.appendChild(send);
-  
+
   if (State.scroll_top.data) DOM.top_div.scrollTop = DOM.top_div.scrollHeight;
 });
 
@@ -326,8 +254,8 @@ window.electronAPI.handleSelectChat((chat) => selectChat(chat.id));
 window.electronAPI.handleSetChat(async (chat) => {
   const items = DOM.history_list.getElementsByClassName("history-item");
   Array.from(items).forEach((item: any) => {
-    if (item.id == State.chat.id) 
-        (item.getElementsByClassName("history-text")[0] as HTMLElement).innerText = chat.name;
+    if (item.id == State.chat.id)
+      (item.getElementsByClassName("history-text")[0] as HTMLElement).innerText = chat.name;
   });
   State.chat = chat;
   toggleMode(State.chat.mode);
@@ -343,8 +271,8 @@ window.electronAPI.handleAutoRenameChat(async (chat) => {
   await window.electronAPI.renameChat({ id: State.chat.id!, name: chat.name });
   const items = DOM.history_list.getElementsByClassName("history-item");
   Array.from(items).forEach((item: any) => {
-    if (item.id == State.chat.id) 
-        (item.getElementsByClassName("history-text")[0] as HTMLElement).innerText = chat.name;
+    if (item.id == State.chat.id)
+      (item.getElementsByClassName("history-text")[0] as HTMLElement).innerText = chat.name;
   });
 });
 

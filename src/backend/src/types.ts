@@ -61,7 +61,7 @@ export interface ToolInfo {
 }
 
 export interface Message {
-    id?: string;
+    group_id?: string;
     context_id?: string | null;
     tool_format?: "openai" | "prompt" | "anthropic" | string;
     role: "system" | "user" | "assistant" | "tool";
@@ -79,8 +79,9 @@ export interface ChatState {
     id: string;
     name: string;
     system_prompt: string | null;
-    max_index: number;
-    max_context_id: number;
+    step: number;
+    group_id: string;
+    context_id: string;
     mode: string;
     tokens: number;
     seconds: number;

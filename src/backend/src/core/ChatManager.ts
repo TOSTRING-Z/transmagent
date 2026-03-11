@@ -40,7 +40,7 @@ export class ChatManager {
             msgs = msgs.filter(message => {
                 // 最后一条消息若是react
                 if (lastMessage.react) {
-                    if (lastMessage.id === message.id) {
+                    if (lastMessage.group_id === message.group_id) {
                         return true;
                     }
                 }
@@ -56,22 +56,19 @@ export class ChatManager {
     }
 
     public pushMessage(msg: Message) {
-        if (msg.role === "assistant") {
-            this.chat.max_context_id += 1;
-        }
         this.messages.push(msg);
         this.updateChat();
     }
 
-    public popMessage(id?: string, context_id?: string): Message | null {
+    public popMessage(group_id?: string, context_id?: string): Message | null {
         if (this.messages.length > 0) {
-            if (!id && !context_id) {
+            if (!group_id && !context_id) {
                 const popped = this.messages.pop();
                 this.updateChat();
                 return popped || null;
             } else {
                 this.messages = this.messages.filter(message => {
-                    return !(message.id === id || message.context_id === context_id);
+                    return !(message.group_id === group_id || message.context_id === context_id);
                 });
                 this.updateChat();
                 return null;
@@ -105,8 +102,7 @@ export class ChatManager {
             id: this.getChatId(),
             name: CHAT_CONST.DEFAULT_NAME,
             system_prompt: null,
-            max_index: 0,
-            max_context_id: 0,
+            context_id: 0,
             mode: "act",
             tokens: 0,
             seconds: 0,
@@ -129,7 +125,7 @@ export class ChatManager {
     public fixMessages() {
         const lastMessage: Message = this.messages[this.messages.length - 1];
         if (lastMessage?.role === "tool" && lastMessage?.tool_call_id) {
-            this.pushMessage({ role: 'assistant', content: "The user interrupted the task.", id: lastMessage.id, show: true, react: false });
+            this.pushMessage({ role: 'assistant', content: "The user interrupted the task.", group_id: lastMessage.group_id, show: true, react: false });
         }
         if (lastMessage?.role === "assistant" && lastMessage?.tool_calls) {
             delete lastMessage.tool_call_id;
@@ -137,7 +133,7 @@ export class ChatManager {
             lastMessage.content += "\n\n**The user interrupted the task.**";
         }
         if (lastMessage?.role === "user") {
-            this.popMessage(lastMessage.id);
+            this.popMessage(lastMessage.group_id);
         }
     }
 
@@ -149,7 +145,7 @@ export class ChatManager {
             const data = {
                 messages: this.messages.map(message => {
                     if (!message?.context_id && message.role == "assistant") {
-                        message.context_id = message.id;
+                        message.context_id = message.group_id;
                     }
                     return message;
                 }),
@@ -168,7 +164,7 @@ export class ChatManager {
         }
     }
 
-    public loadMessages(filePath: string): Message[] | boolean {
+    public loadMessages(filePath: string): Message[] {
         try {
             if (!fs.existsSync(filePath)) {
                 return [];
@@ -188,7 +184,7 @@ export class ChatManager {
             return this.messages.filter(message => message.show);
         } catch (error: any) {
             logger.log(error);
-            return false;
+            return [];
         }
     }
 
@@ -202,14 +198,14 @@ export class ChatManager {
         }
     }
 
-    public toggleMessage({ id, del, del_mode }: { id: string, del?: boolean, del_mode?: boolean }): number {
+    public toggleMessage({ group_id, del, del_mode }: { group_id: string, del?: boolean, del_mode?: boolean }): number {
         try {
             if (del_mode) {
-                this.messages = this.messages.filter(message => message.id != id);
+                this.messages = this.messages.filter(message => message.group_id != group_id);
                 this.updateChat();
             } else {
                 this.messages = this.messages.map(message => {
-                    if (message.id == id && del !== undefined) message.del = del;
+                    if (message.group_id == group_id && del !== undefined) message.del = del;
                     return message;
                 });
             }
@@ -219,21 +215,21 @@ export class ChatManager {
         }
     }
 
-    public thumbMessage({ id, thumb }: { id: string, thumb: number }): any {
+    public thumbMessage({ group_id, thumb }: { group_id: string, thumb: number }): any {
         try {
             if (thumb === 0) {
                 return {
                     type: "thumb",
-                    data: this.messages.find(m => m.id === id)?.thumb || 0
+                    data: this.messages.find(m => m.group_id === group_id)?.thumb || 0
                 };
             } else {
                 this.messages = this.messages.map(message => {
-                    if (message.id === id) message.thumb = thumb; // 1:up 0:null -1:down
+                    if (message.group_id === group_id) message.thumb = thumb; // 1:up 0:null -1:down
                     return message;
                 });
                 return {
                     type: "messages",
-                    data: this.messages.filter(m => m.id === id)
+                    data: this.messages.filter(m => m.group_id === group_id)
                 };
             }
         } catch (e: any) {

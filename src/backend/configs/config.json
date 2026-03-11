@@ -167,7 +167,7 @@
     "subagent": true,
     "subagent_llm_init": false,
     "env_message": true,
-    "max_thinking_repetitions": 3,
+    "max_thinking_repetitions": 5,
     "repetitions_delay_empty": 2,
     "tmpdir": "/tmp",
     "language": "english",

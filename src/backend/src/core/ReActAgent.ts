@@ -179,7 +179,7 @@ export class ReActAgent {
     }
 
     public async sendData(data: Record<string, any>): Promise<boolean> {
-        let agent_messages = this.llm_service.chatManager.getMessages(true).filter(m => m.id === data.id);
+        let agent_messages = this.llm_service.chatManager.getMessages(true).filter(m => m.group_id === data.id);
         utils.sendData(CONSTANTS.COLLECTION_URL, {
             "chat_id": this.llm_service.chatManager.chat.id,
             "message_id": data.id,
@@ -200,6 +200,7 @@ export class ReActAgent {
             api_key: null,
             model: this.llm_service.chatManager.chat.model,
             version: this.llm_service.chatManager.chat.version,
+            is_plugin: this.llm_service.chatManager.chat.model === "plugins",
             output_template: null,
             input_template: null,
             prompt_template: null,
@@ -217,7 +218,7 @@ export class ReActAgent {
 
     public async compression_message({ id }: { id: string }): Promise<string | null> {
         try {
-            const will_compress_messages = this.llm_service.chatManager.getMessages().filter(m => m.id === id);
+            const will_compress_messages = this.llm_service.chatManager.getMessages().filter(m => m.group_id === id);
             if (will_compress_messages.length > 0) {
                 const temp_llm_service = new LLMService();
                 const react_agent = new ReActAgent(temp_llm_service);
@@ -249,13 +250,13 @@ export class ReActAgent {
                     };
 
                     let allMessages = this.llm_service.chatManager.getMessages(true);
-                    const originalFirstIndex = allMessages.findIndex(m => m.id === id);
+                    const originalFirstIndex = allMessages.findIndex(m => m.group_id === id);
 
                     const newMessages: Message[] = [];
                     let keptUser = false;
 
                     for (const m of allMessages) {
-                        if (m.id !== id) {
+                        if (m.group_id !== id) {
                             newMessages.push(m);
                         } else if (!keptUser && m.role === 'user') {
                             newMessages.push(m);
@@ -264,7 +265,7 @@ export class ReActAgent {
                     }
 
                     if (keptUser) {
-                        const insertPos = newMessages.findIndex(m => m.id === id && m.role === 'user');
+                        const insertPos = newMessages.findIndex(m => m.group_id === id && m.role === 'user');
                         newMessages.splice(insertPos + 1, 0, compressed_message);
                     } else {
                         const insertPos = originalFirstIndex === -1 ? newMessages.length : originalFirstIndex;
@@ -338,101 +339,78 @@ export class ReActAgent {
         return this.llm_service.chatManager.chat;
     }
 
-    public load_message(filePath: string): number {
-        let max_index = 0;
+    public load_message(filePath: string) {
         this.window.webContents.send('clear');
         let messages = this.llm_service.chatManager.loadMessages(filePath);
 
-        if (typeof messages === 'boolean') {
-            return max_index;
-        }
-
         if (messages.length > 0) {
-            const maxIdMsg = messages.reduce((max, current) => {
-                return parseInt(current.id || "0") > parseInt(max.id || "0") ? current : max;
-            }, messages[0]);
+            messages.forEach((message, i) => {
+                let { role, content, group_id, context_id, react, del } = message;
 
-            if (maxIdMsg.id) {
-                max_index = parseInt(maxIdMsg.id);
-                const reactMsg = messages.find(m => m.react);
-
-                if (reactMsg) {
-                    const maxMemoryId = messages.reduce((max, current) => {
-                        return parseInt(current.context_id || "0") > parseInt(max.context_id || "0") ? current : max;
-                    }, messages[0]);
-                    this.context_id = maxMemoryId.context_id || undefined;
+                if (role === "user") {
+                    this.window.webContents.send('userData', { group_id, context_id, content, del });
                 }
+                else if (role === "tool") {
+                    const parameters = utils.parseJsonContent(content as string);
+                    const tool_call_name = message.tool_call_name || "unknown_tool";
 
-                messages.forEach((message, i) => {
-                    let { role, content, id, context_id, react, del } = message;
-
-                    if (role === "user") {
-                        this.window.webContents.send('user-data', { id, context_id, content, del });
+                    switch (tool_call_name) {
+                        case "display_file":
+                            this.window.webContents.send('streamData', { group_id, context_id, content: `${content}\n\n`, end: true, del });
+                            break;
+                        case "add_subtasks":
+                        case "complete_subtasks":
+                            this.window.webContents.send('streamData', { group_id, context_id, content: `\`\`\`json\n${content}\n\`\`\`\n\n`, end: true, del });
+                            break;
                     }
-                    else if (role === "tool") {
-                        const parameters = utils.parseJsonContent(content as string);
-                        const tool_call_name = message.tool_call_name || "unknown_tool";
 
-                        switch (tool_call_name) {
-                            case "display_file":
-                                this.window.webContents.send('stream-data', { id, context_id, content: `${content}\n\n`, end: true, del });
-                                break;
-                            case "add_subtasks":
-                            case "complete_subtasks":
-                                this.window.webContents.send('stream-data', { id, context_id, content: `\`\`\`json\n${content}\n\`\`\`\n\n`, end: true, del });
-                                break;
-                        }
+                    if (["workflow_planner", "tool_manager", "web_searcher", "chart_plotter", "task_executor", "tool_documentation_collector", "url_summarizer"].includes(tool_call_name)) {
+                        this.window.webContents.send('streamData', { group_id, context_id, content: `${content}\n\n`, end: true, del });
+                    }
+                    if (["ask_followup_question", "waiting_feedback", "plan_mode_response"].includes(tool_call_name)) {
+                        this.window.webContents.send('streamData', { group_id, context_id, content: `${parameters.question}\n\n`, end: true, del });
+                    }
 
-                        if (["workflow_planner", "tool_manager", "web_searcher", "chart_plotter", "task_executor", "tool_documentation_collector", "url_summarizer"].includes(tool_call_name)) {
-                            this.window.webContents.send('stream-data', { id, context_id, content: `${content}\n\n`, end: true, del });
-                        }
-                        if (["ask_followup_question", "waiting_feedback", "plan_mode_response"].includes(tool_call_name)) {
-                            this.window.webContents.send('stream-data', { id, context_id, content: `${parameters.question}\n\n`, end: true, del });
-                        }
-
-                        let content_format = (content as string).replaceAll("\\`", "'").replaceAll("`", "'");
-                        this.window.webContents.send('info-data', { id, context_id, content: `Step ${i}, id: ${id}, context_id: ${context_id}, Output:\n\n\`\`\`json\n${content_format}\n\`\`\`\n\n`, del });
-                    } else { // assistant
-                        if (react) {
-                            try {
-                                let toolInfo;
-                                if (message?.tool_format && message.tool_format !== "prompt") {
-                                    if (message?.tool_calls) {
-                                        let call = message.tool_calls[0];
-                                        toolInfo = {
-                                            thinking: content,
-                                            tool: call?.function?.name,
-                                            params: call?.function?.arguments ? JSON5.parse(String(call.function.arguments)) : {}
-                                        };
-                                    } else {
-                                        toolInfo = { thinking: content, tool: null, params: null };
-                                    }
+                    let content_format = (content as string).replaceAll("\\`", "'").replaceAll("`", "'");
+                    this.window.webContents.send('infoData', { group_id, context_id, content: `Step ${i}, group_id: ${group_id}, context_id: ${context_id}, Output:\n\n\`\`\`json\n${content_format}\n\`\`\`\n\n`, del });
+                } else { // assistant
+                    if (react) {
+                        try {
+                            let toolInfo;
+                            if (message?.tool_format && message.tool_format !== "prompt") {
+                                if (message?.tool_calls) {
+                                    let call = message.tool_calls[0];
+                                    toolInfo = {
+                                        thinking: content,
+                                        tool: call?.function?.name,
+                                        params: call?.function?.arguments ? JSON5.parse(String(call.function.arguments)) : {}
+                                    };
                                 } else {
-                                    toolInfo = utils.parseJsonContent(content as string);
+                                    toolInfo = { thinking: content, tool: null, params: null };
                                 }
-
-                                const thinking = `${toolInfo?.thinking || `Tool call: ${toolInfo.tool || "error"}`}\n\n---\n\n`;
-                                let toolInfoStr = JSON.stringify(toolInfo, null, 2).replaceAll("\\`", "'").replaceAll("`", "'");
-
-                                this.window.webContents.send('info-data', { id, context_id, content: `Step ${i}, id: ${id}, context_id: ${context_id}, Output:\n\n\`\`\`json\n${toolInfoStr}\n\`\`\`\n\n`, del });
-                                this.window.webContents.send('stream-data', { id, context_id, content: thinking, end: true, del });
-
-                            } catch (e: any) {
-                                this.window?.webContents.send('stream-data', { id, context_id, content: null, end: true, del });
+                            } else {
+                                toolInfo = utils.parseJsonContent(content as string);
                             }
-                        } else {
-                            this.window.webContents.send('stream-data', { id: id, content: content, end: true, del: del });
+
+                            const thinking = `${toolInfo?.thinking || `Tool call: ${toolInfo.tool || "error"}`}\n\n---\n\n`;
+                            let toolInfoStr = JSON.stringify(toolInfo, null, 2).replaceAll("\\`", "'").replaceAll("`", "'");
+
+                            this.window.webContents.send('infoData', { group_id, context_id, content: `Step ${i}, group_id: ${group_id}, context_id: ${context_id}, Output:\n\n\`\`\`json\n${toolInfoStr}\n\`\`\`\n\n`, del });
+                            this.window.webContents.send('streamData', { group_id, context_id, content: thinking, end: true, del });
+
+                        } catch (e: any) {
+                            this.window?.webContents.send('streamData', { group_id, context_id, content: null, end: true, del });
                         }
+                    } else {
+                        this.window.webContents.send('streamData', { group_id: group_id, content: content, end: true, del: del });
                     }
-                });
-                logger.log(`Load success: ${filePath}`);
-            } else {
-                logger.log(`Load failed: ${filePath}`);
-            }
-            let { id, context_id, del } = messages[messages.length - 1];
-            this.window.webContents.send('stream-data', { id, context_id, content: null, end: true, del });
+                }
+            });
+            logger.log(`Load success: ${filePath}`);
+
+            let { group_id: group_id, context_id, del } = messages[messages.length - 1];
+            this.window.webContents.send('streamData', { group_id, context_id, content: null, end: true, del });
         }
-        return max_index;
     }
 
     public get_info(data: Record<string, any>): string {

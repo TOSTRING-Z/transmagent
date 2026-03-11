@@ -73,10 +73,8 @@ export class IconWindow extends BaseWindow {
         ipcMain.on('translation-clicked', () => {
             globalState.concat = false;
             const mainWin = this.windowManager.mainWindow;
-            mainWin.send_query(
+            mainWin.sendQuery(
                 { query: globalState.last_clipboard_content || "" },
-                "plugins",
-                utils.getConfig("default")["plugin"]
             );
             this.destroy();
         });
@@ -84,10 +82,8 @@ export class IconWindow extends BaseWindow {
         ipcMain.on('submit-clicked', () => {
             globalState.concat = false;
             const mainWin = this.windowManager.mainWindow;
-            mainWin.send_query(
-                { query: globalState.last_clipboard_content || "" },
-                mainWin.llm_service.chatManager.chat.model,
-                mainWin.llm_service.chatManager.chat.version
+            mainWin.sendQuery(
+                { query: globalState.last_clipboard_content || "" }
             );
             this.destroy();
         });

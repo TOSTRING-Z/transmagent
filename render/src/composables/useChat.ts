@@ -1,7 +1,7 @@
 import { ref, onMounted, onUnmounted, nextTick, type Ref } from 'vue';
 
 export interface ChatMessage {
-  id: string;
+  group_id: string;
   role: 'user' | 'system' | string;
   content: string;
   infoContent?: string;
@@ -20,9 +20,9 @@ export function useChat(topDivRef?: Ref<HTMLElement | null>, options?: {
   const seconds = ref(0);
   const progress = ref(0);
 
-  const streamEvent = options?.streamEvent || 'stream-data';
-  const infoEvent = options?.infoEvent || 'info-data';
-  const userEvent = options?.userEvent || 'user-data';
+  const streamEvent = options?.streamEvent || 'streamData';
+  const infoEvent = options?.infoEvent || 'infoData';
+  const userEvent = options?.userEvent || 'userData';
   const sendEvent = options?.sendEvent || 'user-send-message';
 
   let ipcRenderer: any = null;
@@ -48,10 +48,10 @@ export function useChat(topDivRef?: Ref<HTMLElement | null>, options?: {
   };
 
   const onStreamData = (_event: any, chunk: any) => {
-    let targetMsg = messages.value.find(m => m.id === chunk.id);
+    let targetMsg = messages.value.find(m => m.group_id === chunk.id);
     if (!targetMsg) {
       targetMsg = {
-        id: chunk.id,
+        group_id: chunk.id,
         role: 'system',
         content: '',
         thinking: true
@@ -70,7 +70,7 @@ export function useChat(topDivRef?: Ref<HTMLElement | null>, options?: {
   };
 
   const onInfoData = (_event: any, info: any) => {
-    let targetMsg = messages.value.find(m => m.id === info.id);
+    let targetMsg = messages.value.find(m => m.group_id === info.id);
     if (targetMsg && info.content) {
       targetMsg.infoContent = (targetMsg.infoContent || '') + info.content;
       scrollToBottom();
@@ -80,7 +80,7 @@ export function useChat(topDivRef?: Ref<HTMLElement | null>, options?: {
   const onUserData = (_event: any, data: any) => {
     const content = typeof data.content === 'string' ? data.content : data.content?.text?.content || '';
     messages.value.push({
-      id: data.id,
+      group_id: data.id,
       role: 'user',
       content: content,
     });
@@ -90,7 +90,7 @@ export function useChat(topDivRef?: Ref<HTMLElement | null>, options?: {
   const sendMessage = (val: string, mode: string = 'act') => {
     const msgId = Date.now().toString();
     messages.value.push({
-      id: msgId,
+      group_id: msgId,
       role: 'user',
       content: val,
     });

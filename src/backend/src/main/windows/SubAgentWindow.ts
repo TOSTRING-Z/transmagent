@@ -111,7 +111,7 @@ export class SubAgentWindow extends BaseWindow {
                 win.show();
                 win.focus();
                 win.webContents.send('window-info', { id: win.id, name: agentToolName });
-                win.webContents.send('user-data', { id: 0, context_id: 0, content: query });
+                win.webContents.send('userData', { group_id: 0, context_id: 0, content: query });
 
                 agentTool.tool_call.changeWindow(win);
 
@@ -121,7 +121,7 @@ export class SubAgentWindow extends BaseWindow {
                 const mainChat = this.windowManager.mainWindow.llm_service.chatManager.chat;
                 agentTool.tool_call.llm_service.chatManager.chat.tool_format = mainChat.tool_format;
                 agentTool.tool_call.llm_service.startMessage();
-                let data = agentTool.tool_call.getDataDefault({ query, id: 0, model: mainChat.model, version: mainChat.version });
+                let data = agentTool.tool_call.getDataDefault({ query, model: mainChat.model, version: mainChat.version });
                 data = await agentTool.tool_call.callReAct(data);
                 const res_json = utils.parseJsonContent(data.output_format);
                 resolve(res_json?.thinking || data.output_format);
