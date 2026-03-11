@@ -198,7 +198,7 @@ export class ChatManager {
         }
     }
 
-    public toggleMessage({ group_id, del, del_mode }: { group_id: string, del?: boolean, del_mode?: boolean }): number {
+    public toggleMessageGroup({ group_id, del, del_mode }: { group_id: string, del?: boolean, del_mode?: boolean }): number {
         try {
             if (del_mode) {
                 this.messages = this.messages.filter(message => message.group_id != group_id);
@@ -215,7 +215,7 @@ export class ChatManager {
         }
     }
 
-    public thumbMessage({ group_id, thumb }: { group_id: string, thumb: number }): any {
+    public thumbMessageGroup({ group_id, thumb }: { group_id: string, thumb: number }): any {
         try {
             if (thumb === 0) {
                 return {
@@ -237,7 +237,7 @@ export class ChatManager {
         }
     }
 
-    public toggleMemory({ context_id, del_mode }: { context_id: string, del_mode?: boolean }): number {
+    public toggleContextMessage({ context_id, del_mode }: { context_id: string, del_mode?: boolean }): number {
         try {
             if (del_mode) {
                 this.messages = this.messages.filter(message => message.context_id != context_id);

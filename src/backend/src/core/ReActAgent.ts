@@ -216,9 +216,9 @@ export class ReActAgent {
         return { ...defaults, ...data };
     }
 
-    public async compression_message({ id }: { id: string }): Promise<string | null> {
+    public async compressionGroupMessage({ group_id }: { group_id: string }): Promise<string | null> {
         try {
-            const will_compress_messages = this.llm_service.chatManager.getMessages().filter(m => m.group_id === id);
+            const will_compress_messages = this.llm_service.chatManager.getMessages().filter(m => m.group_id === group_id);
             if (will_compress_messages.length > 0) {
                 const temp_llm_service = new LLMService();
                 const react_agent = new ReActAgent(temp_llm_service);
@@ -250,13 +250,13 @@ export class ReActAgent {
                     };
 
                     let allMessages = this.llm_service.chatManager.getMessages(true);
-                    const originalFirstIndex = allMessages.findIndex(m => m.group_id === id);
+                    const originalFirstIndex = allMessages.findIndex(m => m.group_id === group_id);
 
                     const newMessages: Message[] = [];
                     let keptUser = false;
 
                     for (const m of allMessages) {
-                        if (m.group_id !== id) {
+                        if (m.group_id !== group_id) {
                             newMessages.push(m);
                         } else if (!keptUser && m.role === 'user') {
                             newMessages.push(m);
@@ -265,7 +265,7 @@ export class ReActAgent {
                     }
 
                     if (keptUser) {
-                        const insertPos = newMessages.findIndex(m => m.group_id === id && m.role === 'user');
+                        const insertPos = newMessages.findIndex(m => m.group_id === group_id && m.role === 'user');
                         newMessages.splice(insertPos + 1, 0, compressed_message);
                     } else {
                         const insertPos = originalFirstIndex === -1 ? newMessages.length : originalFirstIndex;
@@ -273,12 +273,12 @@ export class ReActAgent {
                     }
 
                     this.llm_service.chatManager.messages = newMessages;
-                    logger.log(`Compression success for id: ${id}`);
+                    logger.log(`Compression success for id: ${group_id}`);
                     return compressed_message.content as string;
                 }
             }
         } catch (error: any) {
-            logger.log(`Compression failed for id: ${id}, Error: ${error}`);
+            logger.log(`Compression failed for id: ${group_id}, Error: ${error}`);
         }
         return null;
     }

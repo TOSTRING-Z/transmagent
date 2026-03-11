@@ -56,7 +56,7 @@ export class Plugins {
             }
 
             const item: PluginItem = {
-                func: pluginParams ? plugin.main(pluginParams) : plugin.main,
+                func: plugin.main(pluginParams),
                 extra: info.extra,
                 getPrompt: plugin.getPrompt,
                 enabled: enabled
@@ -89,8 +89,16 @@ export class Plugins {
                 enabled = !!info.enabled;
             }
 
-            if (enabled || forceLoad) {
+            if (forceLoad) {
                 this.tools[version] = this.loadPlugin(info);
+            } else if (enabled) {
+                if (!(version in this.tools)) {
+                    this.tools[version] = this.loadPlugin(info);
+                }
+            } else {
+                if (version in this.tools) {
+                    delete this.tools[version];
+                }
             }
         });
 

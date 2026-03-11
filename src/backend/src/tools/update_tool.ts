@@ -141,17 +141,32 @@ export function main() {
 export function getPrompt() {
     return {
         "name": "update_tool",
-        "description": "Update or add tool documentation in the CLI prompt configuration file. If the tool exists, updates its usage documentation; if not, adds the new tool at the end of the file.",
+        "description": "Updates or adds a tool's documentation in the CLI prompt configuration file. This instructs the AI on how to use the tool in future turns. Always provide the full, updated documentation block.",
         "parameters": {
             "type": "object",
             "properties": {
                 "tool_name": {
                     "type": "string",
-                    "description": "(Required) Name of the tool to update or add"
+                    "description": "The exact name of the tool (e.g., 'test_tool', 'replace_in_file')."
                 },
                 "tool_documentation": {
                     "type": "string",
-                    "description": "(Required) Complete documentation for the tool usage, MUST strictly follow the exact format below"
+                    "description": `The complete Markdown documentation block for the tool. 
+                    
+MUST strictly follow this exact nested list format and indentation (use spaces, NOT tabs):
+- [tool_name]: [Brief description of the tool's purpose]
+  - Input: [Describe inputs, e.g., \`file_path\` (required)]
+  - Output: [Describe outputs, e.g., Success/Error message]
+  - Use: [Provide an example of how to invoke it, e.g., JSON payload or command]
+  - Note:
+    - [Constraint or tip 1]
+    - [Constraint or tip 2]
+
+Critical Rules:
+1. The first line MUST start with '- tool_name:'.
+2. Sub-items (Input, Output, Use, Note) MUST be indented with exactly 2 spaces.
+3. Sub-notes MUST be indented with exactly 4 spaces.
+4. Do not include markdown code block backticks (\`\`\`markdown) around the entire output, just provide the raw text.`
                 }
             },
             "required": [

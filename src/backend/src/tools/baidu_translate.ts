@@ -71,11 +71,11 @@ function format(result) {
             if (word) {
                 let en = result['dict_result']['simple_means']['symbols'][0]['ph_en']
                 let am = result['dict_result']['simple_means']['symbols'][0]['ph_am']
-                if (en) 
+                if (en)
                     text += `UK[${en}]\n`
                 if (am)
                     text += `US[${am}]\n`
-                if (word)   
+                if (word)
                     text += `${word}`
             }
         }
@@ -91,49 +91,51 @@ function format(result) {
     }
 }
 
-async function main({ input }) {
-    try {
-        let mode = getMode(input)
-        const sign = hash(input).toString() as any;
-        const params = new URLSearchParams();
-        params.append('from', mode[0]);
-        params.append('to', mode[1]);
-        params.append('sign', sign);
-        params.append('simple_means_flag', '3');
-        params.append('token', 'f1ea842a77d73327b3124c62454b13df');
-        params.append('domain', 'common');
-        params.append('transtype', 'realtime');
-        params.append('query', input);
+function main() {
+    async ({ input }) => {
+        try {
+            let mode = getMode(input)
+            const sign = hash(input).toString() as any;
+            const params = new URLSearchParams();
+            params.append('from', mode[0]);
+            params.append('to', mode[1]);
+            params.append('sign', sign);
+            params.append('simple_means_flag', '3');
+            params.append('token', 'f1ea842a77d73327b3124c62454b13df');
+            params.append('domain', 'common');
+            params.append('transtype', 'realtime');
+            params.append('query', input);
 
-        const response = await fetch(TRANSLATION_API_URL, {
-            method: 'POST',
-            headers: {
-                "Accept": "*/*",
-                "Accept-Language": "zh-CN,zh;q=0.8,zh-TW;q=0.7,zh-HK;q=0.5,en-US;q=0.3,en;q=0.2",
-                "Cache-Control": "no-cache",
-                "Connection": "keep-alive",
-                "Content-Type": "application/x-www-form-urlencoded; charset=UTF-8",
-                "Cookie": "BAIDUID=A8A82BD2F42CC6BD4E0FD54ABB746B32:FG=1",
-                "Host": "fanyi.baidu.com",
-                "Origin": "https://fanyi.baidu.com",
-                "Pragma": "no-cache",
-                "Referer": "https://fanyi.baidu.com/?aldtype=16047",
-                "Sec-Fetch-Dest": "empty",
-                "Sec-Fetch-Mode": "cors",
-                "Sec-Fetch-Site": "same-origin",
-                "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:120.0) Gecko/20100101 Firefox/120.0",
-                "X-Requested-With": "XMLHttpRequest",
-            },
-            body: (params.toString() as any).replaceAll('+', '%20'),
-        });
+            const response = await fetch(TRANSLATION_API_URL, {
+                method: 'POST',
+                headers: {
+                    "Accept": "*/*",
+                    "Accept-Language": "zh-CN,zh;q=0.8,zh-TW;q=0.7,zh-HK;q=0.5,en-US;q=0.3,en;q=0.2",
+                    "Cache-Control": "no-cache",
+                    "Connection": "keep-alive",
+                    "Content-Type": "application/x-www-form-urlencoded; charset=UTF-8",
+                    "Cookie": "BAIDUID=A8A82BD2F42CC6BD4E0FD54ABB746B32:FG=1",
+                    "Host": "fanyi.baidu.com",
+                    "Origin": "https://fanyi.baidu.com",
+                    "Pragma": "no-cache",
+                    "Referer": "https://fanyi.baidu.com/?aldtype=16047",
+                    "Sec-Fetch-Dest": "empty",
+                    "Sec-Fetch-Mode": "cors",
+                    "Sec-Fetch-Site": "same-origin",
+                    "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:120.0) Gecko/20100101 Firefox/120.0",
+                    "X-Requested-With": "XMLHttpRequest",
+                },
+                body: (params.toString() as any).replaceAll('+', '%20'),
+            });
 
-        const data = await response.json();
-        return decodeHtmlEntities(format(data));
-    } catch (error: any) {
-        logger.log(error);
-        return null;
+            const data = await response.json();
+            return decodeHtmlEntities(format(data));
+        } catch (error: any) {
+            logger.log(error);
+            return null;
+        }
+
     }
-
 }
 
 export {

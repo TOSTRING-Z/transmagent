@@ -342,29 +342,29 @@ export class MainWindow extends BaseWindow {
         ipcMain.handle('agentLoop', async (_event, data) => this.agentLoop(data));
 
         // ============================================
-        // 适配后的 ChatManager 调用 (替换 toggleMessage 等)
+        // 适配后的 ChatManager 调用 (替换 toggleMessageGroup 等)
         // ============================================
-        ipcMain.handle("compression-message", async (_event, data) => {
-            let compression_content = await this.tool_call.compression_message({ ...data });
+        ipcMain.handle("compressionGroupMessage", async (_event, data) => {
+            let compression_content = await this.tool_call.compressionGroupMessage({ ...data });
             this.tool_call.setHistory();
             return { compression_content };
         });
 
-        ipcMain.handle("toggle-message", async (_event, data) => {
-            let message_len = await this.llm_service.chatManager.toggleMessage({ ...data, del_mode: !!this.funcItems.del.statu });
+        ipcMain.handle("toggleMessageGroup", async (_event, data) => {
+            let message_len = await this.llm_service.chatManager.toggleMessageGroup({ ...data, del_mode: !!this.funcItems.del.statu });
             this.tool_call.setHistory();
             logger.log(`delete id: ${data.id}, length: ${message_len}`)
             return { del_mode: !!this.funcItems.del.statu };
         });
 
-        ipcMain.handle("thumb-message", async (_event, data) => {
-            let result = this.llm_service.chatManager.thumbMessage(data);
+        ipcMain.handle("thumbMessageGroup", async (_event, data) => {
+            let result = this.llm_service.chatManager.thumbMessageGroup(data);
             if (result?.type === "messages") {
                 const messages = result.data;
                 this.tool_call.setHistory();
                 utils.sendData(CONSTANTS.COLLECTION_URL, {
                     "chat_id": this.llm_service.chatManager.chat.id,
-                    "message_id": data.id,
+                    "message_id": data.group_id,
                     "user_message": messages[0].content,
                     "agent_messages": messages,
                 });
@@ -374,8 +374,8 @@ export class MainWindow extends BaseWindow {
             }
         });
 
-        ipcMain.handle("toggle-memory", async (_event, context_id) => {
-            let memory_len = await this.llm_service.chatManager.toggleMemory({ context_id: context_id, del_mode: !!this.funcItems.del.statu });
+        ipcMain.handle("toggleContextMessage", async (_event, context_id) => {
+            let memory_len = await this.llm_service.chatManager.toggleContextMessage({ context_id: context_id, del_mode: !!this.funcItems.del.statu });
             this.tool_call.setHistory();
             logger.log(`delete context_id: ${context_id}, length: ${memory_len}`)
             return { del_mode: !!this.funcItems.del.statu };

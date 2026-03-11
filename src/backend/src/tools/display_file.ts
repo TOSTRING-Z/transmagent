@@ -373,15 +373,39 @@ export function main(params?: { local_path?: string }) {
 export function getPrompt() {
     return {
         "name": "display_file",
-        "description": "Display various files (images, tables, text) in Markdown. Supports SSH and local files.",
+        "description": "Reads and formats file content for display. Automatically handles source code (with syntax highlighting), structured data (as Markdown tables), and images. Supports local and SSH environments.",
         "parameters": {
             "type": "object",
             "properties": {
-                "file_path": { "type": "string", "description": "Absolute path to the file." },
-                "start_line": { "type": "string", "description": "Start line (default: 0)." },
-                "end_line": { "type": "string", "description": "End line (default: 10, 0 for all)." },
-                "max_line_length": { "type": "number", "description": "Max chars per line (default: 500)." },
-                "max_cols": { "type": "number", "description": "Max columns for tables (default: 20)." }
+                "file_path": { 
+                    "type": "string", 
+                    "description": "The absolute path to the target file. For remote files, ensure the SSH session is active." 
+                },
+                "start_line": { 
+                    "type": "integer", 
+                    "default": 1,
+                    "description": "The line number to start reading from (1-indexed)." 
+                },
+                "end_line": { 
+                    "type": "integer", 
+                    "description": "The line number to stop reading (inclusive). Use 0 or omit to read until the end of the file." 
+                },
+                "format": {
+                    "type": "string",
+                    "enum": ["auto", "text", "table", "image", "hex"],
+                    "default": "auto",
+                    "description": "Force a specific display format. 'auto' detects by extension."
+                },
+                "max_line_length": { 
+                    "type": "integer", 
+                    "default": 500,
+                    "description": "Truncates lines exceeding this length to prevent UI overflow." 
+                },
+                "max_cols": { 
+                    "type": "integer", 
+                    "default": 20,
+                    "description": "For CSV/TSV/Excel files, limits the number of columns displayed." 
+                }
             },
             "required": ["file_path"]
         }

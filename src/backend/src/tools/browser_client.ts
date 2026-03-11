@@ -1,25 +1,119 @@
 import { logger } from '../utils/logger';
-import * as puppeteer from 'puppeteer';
+import puppeteer, {
+    Browser,
+    Page,
+    ScreenshotOptions,
+    Viewport,
+    CookieParam,
+    Protocol
+} from 'puppeteer';
+
+// ==========================================
+// 类型与接口定义 (Types & Interfaces)
+// ==========================================
+
+export interface ToolResponse<T = any> {
+    success: boolean;
+    message: string;
+    data?: T;
+    [key: string]: any; // 允许附加错误信息等扩展字段
+}
+
+export interface BrowserOptions {
+    width?: number;
+    height?: number;
+}
+
+export interface NavigationOptions {
+    waitUntil?: 'load' | 'domcontentloaded' | 'networkidle0' | 'networkidle2';
+    timeout?: number;
+    waitAfterLoad?: number;
+    blockJavaScript?: boolean;
+}
+
+export interface ExecuteJsOptions {
+    waitAfterExecution?: number;
+}
+
+export interface PuppeteerActionParams {
+    action: string;
+    selector?: string;
+    text?: string;
+    delay?: number;
+    button?: 'left' | 'right' | 'middle';
+    clickCount?: number;
+    values?: string[];
+    timeout?: number;
+    visible?: boolean;
+    hidden?: boolean;
+    waitUntil?: 'load' | 'domcontentloaded' | 'networkidle0' | 'networkidle2';
+    path?: string;
+    type?: 'png' | 'jpeg' | 'webp';
+    quality?: number;
+    fullPage?: boolean;
+    x?: number;
+    y?: number;
+    behavior?: 'auto' | 'smooth';
+    function?: string | ((...args: any[]) => any);
+    args?: any[];
+    polling?: 'raf' | 'mutation' | number;
+    viewport?: Viewport;
+    userAgent?: string;
+    cookies?: CookieParam[];
+    name?: string;
+    waitAfterAction?: number;
+}
+
+export interface ContentExtractionOptions {
+    action?: 'extractHTML' | 'extractText' | 'regexMatch';
+    url?: string;
+    max_length?: number;
+    maxLength?: number;
+    regex_pattern?: string;
+    regexPattern?: string;
+    regex_flags?: string;
+    regexFlags?: string;
+    remove_selectors?: string[];
+    removeSelectors?: string[];
+    content_type?: 'text' | 'html';
+    contentType?: 'text' | 'html';
+    block_javascript?: boolean;
+}
+
+export interface PageInfo {
+    title: string;
+    url: string;
+    readyState: string;
+    contentLength?: number;
+    textLength?: number;
+}
+
+export interface ElementInfoData {
+    exists: boolean;
+    tagName?: string;
+    id?: string;
+    className?: string;
+    textContent?: string;
+    innerHTML?: string;
+    attributes?: Record<string, string>;
+    boundingBox?: {
+        x: number; y: number; width: number; height: number;
+        top: number; right: number; bottom: number; left: number;
+    };
+    styles?: Record<string, string>;
+    isVisible?: boolean;
+}
+
+// ==========================================
+// BrowserController 核心控制类
+// ==========================================
 
 class BrowserController {
-    browser: any;
-    page: any;
-    isOpen: boolean;
-    timeout: any;
-    defaultViewport: any;
-    width: number = 1200;
-    height: number = 800;
+    private browser: Browser | null = null;
+    private page: Page | null = null;
+    private isOpen: boolean = false;
 
-    constructor() {
-        this.browser = null;
-        this.page = null;
-        this.isOpen = false;
-    }
-
-    /**
-     * 打开浏览器
-     */
-    async openBrowser(options: { width?: number; height?: number } = {} as any) {
+    async openBrowser(options: BrowserOptions = {}): Promise<ToolResponse> {
         if (this.isOpen) {
             return { success: true, message: '浏览器已经打开' };
         }
@@ -32,7 +126,7 @@ class BrowserController {
                 args: [
                     '--no-sandbox',
                     '--disable-setuid-sandbox',
-                    '--window-size=1200,800'
+                    `--window-size=${options.width || 1200},${options.height || 800}`
                 ],
                 defaultViewport: {
                     width: options.width || 1200,
@@ -42,37 +136,25 @@ class BrowserController {
 
             this.page = await this.browser.newPage();
 
-            // 设置浏览器环境
             await this.page.setUserAgent('Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36');
             await this.page.setExtraHTTPHeaders({
                 'Accept-Language': 'zh-CN,zh;q=0.9,en;q=0.8'
             });
 
-            // 设置事件监听
             this.setupEventListeners();
 
             this.isOpen = true;
             logger.log('浏览器启动成功');
 
-            return {
-                success: true,
-                message: '浏览器启动成功'
-            };
-
+            return { success: true, message: '浏览器启动成功' };
         } catch (error: any) {
             console.error('启动浏览器失败:', error);
-            return {
-                success: false,
-                message: `启动浏览器失败: ${error.message}`
-            };
+            return { success: false, message: `启动浏览器失败: ${error.message}` };
         }
     }
 
-    /**
-     * 关闭浏览器
-     */
-    async closeBrowser() {
-        if (!this.isOpen) {
+    async closeBrowser(): Promise<ToolResponse> {
+        if (!this.isOpen || !this.browser) {
             return { success: true, message: '浏览器已经关闭' };
         }
 
@@ -84,34 +166,23 @@ class BrowserController {
 
             logger.log('浏览器关闭成功');
             return { success: true, message: '浏览器关闭成功' };
-
         } catch (error: any) {
             console.error('关闭浏览器失败:', error);
-            return {
-                success: false,
-                message: `关闭浏览器失败: ${error.message}`
-            };
+            return { success: false, message: `关闭浏览器失败: ${error.message}` };
         }
     }
 
-    /**
-     * 跳转到指定URL
-     */
-    async navigateToUrl(url: string, options: any = {}) {
-        if (!this.isOpen) {
-            return {
-                success: false,
-                message: '浏览器未打开，请先调用 openBrowser'
-            };
+    async navigateToUrl(url: string, options: NavigationOptions = {}): Promise<ToolResponse> {
+        if (!this.isOpen || !this.page) {
+            return { success: false, message: '浏览器未打开，请先调用 openBrowser' };
         }
 
         try {
             logger.log(`正在导航到: ${url}`);
 
-            // 设置拦截器来阻止 JavaScript 加载
             if (options.blockJavaScript) {
                 await this.page.setRequestInterception(true);
-                this.page.on('request', (request: any) => {
+                this.page.on('request', (request) => {
                     if (request.resourceType() === 'script') {
                         request.abort();
                     } else {
@@ -120,19 +191,15 @@ class BrowserController {
                 });
             }
 
-            const navigationOptions = {
+            await this.page.goto(url, {
                 waitUntil: options.waitUntil || 'networkidle2',
                 timeout: options.timeout || 60000
-            };
+            });
 
-            await this.page.goto(url, navigationOptions);
-
-            // 等待页面加载
             if (options.waitAfterLoad) {
                 await new Promise(resolve => setTimeout(resolve, options.waitAfterLoad));
             }
 
-            // 恢复请求拦截
             if (options.blockJavaScript) {
                 await this.page.setRequestInterception(false);
             }
@@ -145,70 +212,50 @@ class BrowserController {
 
             logger.log(`导航完成: ${pageInfo.title}`);
 
-            return {
-                success: true,
-                message: '导航成功',
-                data: pageInfo
-            };
-
+            return { success: true, message: '导航成功', data: pageInfo };
         } catch (error: any) {
             console.error(`导航到 ${url} 失败:`, error);
-            // 确保在出错时也恢复请求拦截
-            if (options.blockJavaScript) {
+            if (options.blockJavaScript && this.page) {
                 await this.page.setRequestInterception(false).catch(() => { });
             }
-            return {
-                success: false,
-                message: `导航失败: ${error.message}`,
-                url: url
-            };
+            return { success: false, message: `导航失败: ${error.message}`, url: url };
         }
     }
 
-    /**
-     * 执行JavaScript代码
-     */
-    async executeJavaScript(jsCode: string, options: any = {}) {
-        if (!this.isOpen) {
-            return {
-                success: false,
-                message: '浏览器未打开，请先调用 openBrowser'
-            };
+    async executeJavaScript(jsCode: string, options: ExecuteJsOptions = {}): Promise<ToolResponse> {
+        if (!this.isOpen || !this.page) {
+            return { success: false, message: '浏览器未打开，请先调用 openBrowser' };
         }
 
         try {
             logger.log('执行JavaScript代码...');
 
             const executionResult = await this.page.evaluate((code: string) => {
-                // 注意：这里面的代码会在浏览器中执行，绝对不能包含任何 TypeScript 类型注解
-                const executionContext = {
+                const executionContext: any = {
                     startTime: new Date().toISOString(),
                     pageInfoBefore: {
                         title: document.title,
                         url: window.location.href,
                         readyState: document.readyState
                     },
-                    result: null, // 修复：去掉了非法的 any 类型声明
-                    error: null as any,
-                    success: true,
-                    endTime: '',
-                    pageInfoAfter: null as any
+                    result: null,
+                    error: null,
+                    success: true
                 };
 
                 try {
+                    // eslint-disable-next-line no-eval
                     executionContext.result = eval(code);
-                } catch (error: any) { // 这个在 eval 内部的异常捕获需要转译
+                } catch (error: any) {
                     executionContext.success = false;
                     executionContext.error = {
-                        message: error ? error.message : String(error),
-                        stack: error ? error.stack : undefined,
-                        name: error ? error.name : undefined
+                        message: error.message,
+                        stack: error.stack,
+                        name: error.name
                     };
                 }
 
                 executionContext.endTime = new Date().toISOString();
-
-                // 获取执行后的页面状态
                 executionContext.pageInfoAfter = {
                     title: document.title,
                     url: window.location.href,
@@ -218,37 +265,21 @@ class BrowserController {
                 return executionContext;
             }, jsCode);
 
-            // 等待执行后的效果
             if (options.waitAfterExecution) {
                 await new Promise(resolve => setTimeout(resolve, options.waitAfterExecution));
             }
 
             logger.log('JavaScript执行完成');
-
-            return {
-                success: true,
-                message: 'JavaScript执行完成',
-                data: executionResult
-            };
-
+            return { success: true, message: 'JavaScript执行完成', data: executionResult };
         } catch (error: any) {
             console.error('执行JavaScript失败:', error);
-            return {
-                success: false,
-                message: `执行JavaScript失败: ${error.message}`
-            };
+            return { success: false, message: `执行JavaScript失败: ${error.message}` };
         }
     }
 
-    /**
-     * 执行Puppeteer原生操作
-     */
-    async executePuppeteerAction(action: string, params: any = {}) {
-        if (!this.isOpen) {
-            return {
-                success: false,
-                message: '浏览器未打开，请先调用 openBrowser'
-            };
+    async executePuppeteerAction(action: string, params: PuppeteerActionParams): Promise<ToolResponse> {
+        if (!this.isOpen || !this.page) {
+            return { success: false, message: '浏览器未打开，请先调用 openBrowser' };
         }
 
         try {
@@ -259,7 +290,7 @@ class BrowserController {
 
             switch (action) {
                 case 'click':
-                    await this.page.click(params.selector, {
+                    await this.page.click(params.selector!, {
                         delay: params.delay || 0,
                         button: params.button || 'left',
                         clickCount: params.clickCount || 1
@@ -268,39 +299,29 @@ class BrowserController {
                     break;
 
                 case 'type':
-                    await this.page.type(params.selector, params.text, {
+                    await this.page.type(params.selector!, params.text!, {
                         delay: params.delay || 0
                     });
-                    result = {
-                        selector: params.selector,
-                        text: params.text,
-                        action: 'type'
-                    };
+                    result = { selector: params.selector, text: params.text, action: 'type' };
                     break;
 
                 case 'focus':
-                    await this.page.focus(params.selector);
+                    await this.page.focus(params.selector!);
                     result = { selector: params.selector, action: 'focus' };
                     break;
 
                 case 'hover':
-                    await this.page.hover(params.selector);
+                    await this.page.hover(params.selector!);
                     result = { selector: params.selector, action: 'hover' };
                     break;
 
-                case 'select': {
-                    const selectResult = await this.page.select(params.selector, params.values);
-                    result = {
-                        selector: params.selector,
-                        values: params.values,
-                        selectedOptions: selectResult,
-                        action: 'select'
-                    };
+                case 'select':
+                    const selectResult = await this.page.select(params.selector!, ...(params.values || []));
+                    result = { selector: params.selector, values: params.values, selectedOptions: selectResult, action: 'select' };
                     break;
-                }
 
                 case 'waitForSelector':
-                    await this.page.waitForSelector(params.selector, {
+                    await this.page.waitForSelector(params.selector!, {
                         timeout: params.timeout || 30000,
                         visible: params.visible || false,
                         hidden: params.hidden || false
@@ -316,22 +337,22 @@ class BrowserController {
                     result = { action: 'waitForNavigation' };
                     break;
 
-                case 'screenshot': {
-                    const screenshot = await this.page.screenshot({
-                        path: params.path,
+                case 'screenshot':
+                    const screenshotOpts: ScreenshotOptions = {
+                        path: params.path as any, // 绕过模板字符串类型检查
                         type: params.type || 'png',
                         quality: params.quality,
                         fullPage: params.fullPage || false
-                    });
+                    };
+                    const screenshot = await this.page.screenshot(screenshotOpts);
                     result = {
                         action: 'screenshot',
                         type: params.type || 'png',
                         fullPage: params.fullPage || false,
-                        // 修复：确保兼容 Buffer 和 Uint8Array
-                        data: Buffer.from(screenshot as any).toString('base64')
+                        // 将 Uint8Array 转换为 Base64 字符串
+                        data: Buffer.from(screenshot).toString('base64') 
                     };
                     break;
-                }
 
                 case 'scroll':
                     await this.page.evaluate((scrollParams: any) => {
@@ -344,12 +365,7 @@ class BrowserController {
                             window.scrollBy(scrollParams.x || 0, scrollParams.y || 0);
                         }
                     }, params);
-                    result = {
-                        action: 'scroll',
-                        x: params.x,
-                        y: params.y,
-                        selector: params.selector
-                    };
+                    result = { action: 'scroll', x: params.x, y: params.y, selector: params.selector };
                     break;
 
                 case 'reload':
@@ -376,17 +392,19 @@ class BrowserController {
                     result = { action: 'goForward' };
                     break;
 
-                case 'evaluate': {
-                    const evaluateResult = await this.page.evaluate(params.function, ...(params.args || []));
-                    result = {
-                        action: 'evaluate',
-                        result: evaluateResult
-                    };
+                case 'evaluate':
+                    const evalFunc = typeof params.function === 'string'
+                        ? new Function(`return (${params.function})()`) as any
+                        : params.function!;
+                    const evaluateResult = await this.page.evaluate(evalFunc, ...(params.args || []));
+                    result = { action: 'evaluate', result: evaluateResult };
                     break;
-                }
 
                 case 'waitForFunction':
-                    await this.page.waitForFunction(params.function, {
+                    const waitFunc = typeof params.function === 'string'
+                        ? params.function
+                        : (params.function as unknown as string);
+                    await this.page.waitForFunction(waitFunc, {
                         timeout: params.timeout || 30000,
                         polling: params.polling
                     }, ...(params.args || []));
@@ -394,27 +412,18 @@ class BrowserController {
                     break;
 
                 case 'setViewport':
-                    await this.page.setViewport(params.viewport);
-                    result = {
-                        action: 'setViewport',
-                        viewport: params.viewport
-                    };
+                    await this.page.setViewport(params.viewport!);
+                    result = { action: 'setViewport', viewport: params.viewport };
                     break;
 
                 case 'setUserAgent':
-                    await this.page.setUserAgent(params.userAgent);
-                    result = {
-                        action: 'setUserAgent',
-                        userAgent: params.userAgent
-                    };
+                    await this.page.setUserAgent(params.userAgent!);
+                    result = { action: 'setUserAgent', userAgent: params.userAgent };
                     break;
 
                 case 'setCookie':
                     await this.page.setCookie(...(params.cookies || []));
-                    result = {
-                        action: 'setCookie',
-                        cookies: params.cookies
-                    };
+                    result = { action: 'setCookie', cookies: params.cookies };
                     break;
 
                 case 'deleteCookie':
@@ -427,29 +436,20 @@ class BrowserController {
                     } else if (params.cookies) {
                         await this.page.deleteCookie(...params.cookies);
                     }
-                    result = {
-                        action: 'deleteCookie',
-                        name: params.name,
-                        cookies: params.cookies
-                    };
+                    result = { action: 'deleteCookie', name: params.name, cookies: params.cookies };
                     break;
 
-                case 'clearCache': {
+                case 'clearCache':
                     const client = await this.page.target().createCDPSession();
                     await client.send('Network.clearBrowserCache');
                     result = { action: 'clearCache' };
                     break;
-                }
 
-                case 'clearCookies': {
-                    const cookies = await this.page.cookies();
-                    await this.page.deleteCookie(...cookies);
-                    result = {
-                        action: 'clearCookies',
-                        deletedCount: cookies.length
-                    };
+                case 'clearCookies':
+                    const allCookies = await this.page.cookies();
+                    await this.page.deleteCookie(...allCookies);
+                    result = { action: 'clearCookies', deletedCount: allCookies.length };
                     break;
-                }
 
                 default:
                     return {
@@ -465,14 +465,11 @@ class BrowserController {
                     };
             }
 
-            // 等待操作完成
             if (params.waitAfterAction) {
                 await new Promise(resolve => setTimeout(resolve, params.waitAfterAction));
             }
 
             const endTime = new Date().toISOString();
-
-            // 获取操作后的页面状态
             const pageInfo = await this.page.evaluate(() => ({
                 title: document.title,
                 url: window.location.href,
@@ -488,10 +485,7 @@ class BrowserController {
                     action: action,
                     result: result,
                     pageInfo: pageInfo,
-                    timing: {
-                        startTime: startTime,
-                        endTime: endTime
-                    }
+                    timing: { startTime, endTime }
                 }
             };
 
@@ -506,19 +500,13 @@ class BrowserController {
         }
     }
 
-    /**
-     * 获取页面元素信息
-     */
-    async getElementInfo(selector: string) {
-        if (!this.isOpen) {
-            return {
-                success: false,
-                message: '浏览器未打开'
-            };
+    async getElementInfo(selector: string): Promise<ToolResponse<ElementInfoData>> {
+        if (!this.isOpen || !this.page) {
+            return { success: false, message: '浏览器未打开' };
         }
 
         try {
-            const elementInfo = await this.page.evaluate((sel: string) => {
+            const elementInfo = await this.page.evaluate((sel: string): ElementInfoData => {
                 const element = document.querySelector(sel);
                 if (!element) {
                     return { exists: false };
@@ -526,6 +514,12 @@ class BrowserController {
 
                 const rect = element.getBoundingClientRect();
                 const styles = window.getComputedStyle(element);
+                
+                const attributes: Record<string, string> = {};
+                for (let i = 0; i < element.attributes.length; i++) {
+                    const attr = element.attributes[i];
+                    attributes[attr.name] = attr.value;
+                }
 
                 return {
                     exists: true,
@@ -534,19 +528,10 @@ class BrowserController {
                     className: element.className,
                     textContent: element.textContent?.substring(0, 200),
                     innerHTML: element.innerHTML?.substring(0, 500),
-                    attributes: Array.from(element.attributes).reduce((acc: any, attr: any) => {
-                        acc[attr.name] = attr.value;
-                        return acc;
-                    }, {}),
+                    attributes: attributes,
                     boundingBox: {
-                        x: rect.x,
-                        y: rect.y,
-                        width: rect.width,
-                        height: rect.height,
-                        top: rect.top,
-                        right: rect.right,
-                        bottom: rect.bottom,
-                        left: rect.left
+                        x: rect.x, y: rect.y, width: rect.width, height: rect.height,
+                        top: rect.top, right: rect.right, bottom: rect.bottom, left: rect.left
                     },
                     styles: {
                         display: styles.display,
@@ -562,34 +547,20 @@ class BrowserController {
                 };
             }, selector);
 
-            return {
-                success: true,
-                message: '获取元素信息成功',
-                data: elementInfo
-            };
-
+            return { success: true, message: '获取元素信息成功', data: elementInfo };
         } catch (error: any) {
             console.error('获取元素信息失败:', error);
-            return {
-                success: false,
-                message: `获取元素信息失败: ${error.message}`
-            };
+            return { success: false, message: `获取元素信息失败: ${error.message}` };
         }
     }
 
-    /**
-     * 获取当前页面状态
-     */
-    async getPageStatus() {
-        if (!this.isOpen) {
-            return {
-                success: false,
-                message: '浏览器未打开'
-            };
+    async getPageStatus(): Promise<ToolResponse<PageInfo>> {
+        if (!this.isOpen || !this.page) {
+            return { success: false, message: '浏览器未打开' };
         }
 
         try {
-            const pageInfo = await this.page.evaluate(() => ({
+            const pageInfo = await this.page.evaluate((): PageInfo => ({
                 title: document.title,
                 url: window.location.href,
                 readyState: document.readyState,
@@ -597,43 +568,29 @@ class BrowserController {
                 textLength: document.body.textContent?.length || 0
             }));
 
-            return {
-                success: true,
-                message: '获取页面状态成功',
-                data: pageInfo
-            };
-
+            return { success: true, message: '获取页面状态成功', data: pageInfo };
         } catch (error: any) {
             console.error('获取页面状态失败:', error);
-            return {
-                success: false,
-                message: `获取页面状态失败: ${error.message}`
-            };
+            return { success: false, message: `获取页面状态失败: ${error.message}` };
         }
     }
 
-    setupEventListeners() {
+    private setupEventListeners() {
         if (!this.page) return;
 
-        // 控制台输出
-        this.page.on('console', (msg: any) => {
+        this.page.on('console', msg => {
             logger.log('浏览器控制台:', msg.type(), msg.text());
         });
 
-        // 页面错误
-        this.page.on('pageerror', (error: any) => {
+        this.page.on('pageerror', error => {
             logger.log('页面错误:', error);
         });
 
-        // 请求失败
-        this.page.on('requestfailed', (request: any) => {
+        this.page.on('requestfailed', request => {
             logger.log('请求失败:', request.url(), request.failure()?.errorText);
         });
     }
 
-    /**
-     * 获取浏览器状态
-     */
     getBrowserStatus() {
         return {
             isOpen: this.isOpen,
@@ -642,59 +599,54 @@ class BrowserController {
     }
 }
 
-class ContentExtractor {
-    // 修复：补全类属性声明与更规范的单例模式实现
-    private static instance: ContentExtractor;
-    public browser!: BrowserController;
-    public isBrowserOpen!: boolean;
+// ==========================================
+// ContentExtractor 门面类
+// ==========================================
+
+export class ContentExtractor {
+    private static instance: ContentExtractor | null = null;
+    private browser!: BrowserController;
+    private isBrowserOpen: boolean = false;
 
     constructor() {
         if (!ContentExtractor.instance) {
             this.browser = new BrowserController();
-            this.isBrowserOpen = false;
             ContentExtractor.instance = this;
         }
         return ContentExtractor.instance;
     }
 
-    /**
-     * 主函数 - 处理所有操作
-     */
-    async main(params: any) {
+    async main(params: Record<string, any>): Promise<ToolResponse> {
         const { operation, ...operationParams } = params;
 
         try {
             switch (operation) {
                 case 'open':
                     return await this.openBrowser(operationParams);
-
                 case 'close':
                     return await this.closeBrowser();
-
+                case 'navigate':
+                    return await this.navigate(operationParams);
                 case 'execute_js':
                     return await this.executeJavaScript(operationParams);
-
                 case 'get_content':
                     return await this.getPageContent(operationParams);
-
                 case 'puppeteer_action':
-                    return await this.executePuppeteerAction(operationParams);
-
+                    return await this.executePuppeteerAction(operationParams as any);
                 case 'get_element_info':
                     return await this.getElementInfo(operationParams);
-
                 default:
                     return {
                         success: false,
                         message: `不支持的操作: ${operation}`,
                         supported_operations: [
-                            'open', 'close', 'execute_js', 'get_content',
+                            'open', 'close', 'navigate', 'execute_js', 'get_content',
                             'puppeteer_action', 'get_element_info'
                         ]
                     };
             }
         } catch (error: any) {
-            logger.error(`执行操作 ${operation} 时发生错误:`, error);
+            console.error(`执行操作 ${operation} 时发生错误:`, error);
             return {
                 success: false,
                 message: `操作执行失败: ${error.message}`,
@@ -703,11 +655,8 @@ class ContentExtractor {
         }
     }
 
-    /**
-     * 操作：打开浏览器
-     */
-    async openBrowser(options: { width?: number; height?: number } = {} as any) {
-        await this.browser?.closeBrowser();
+    private async openBrowser(options: BrowserOptions = {}): Promise<ToolResponse> {
+        await this.browser.closeBrowser();
         const result = await this.browser.openBrowser(options);
         if (result.success) {
             this.isBrowserOpen = true;
@@ -715,10 +664,7 @@ class ContentExtractor {
         return result;
     }
 
-    /**
-     * 操作：关闭浏览器
-     */
-    async closeBrowser() {
+    private async closeBrowser(): Promise<ToolResponse> {
         const result = await this.browser.closeBrowser();
         if (result.success) {
             this.isBrowserOpen = false;
@@ -726,116 +672,83 @@ class ContentExtractor {
         return result;
     }
 
-    /**
-     * 操作：执行JavaScript代码
-     */
-    async executeJavaScript(params: any) {
+    private async navigate(params: any): Promise<ToolResponse> {
+        const { url, wait_after_load, block_javascript, timeout, waitUntil } = params;
+
+        if (!url) {
+            return { success: false, message: '导航需要提供 url 参数' };
+        }
+        if (!this.isBrowserOpen) {
+            return { success: false, message: '浏览器未打开，请先执行 open 操作' };
+        }
+
+        return await this.browser.navigateToUrl(url, {
+            waitAfterLoad: wait_after_load || params.waitAfterLoad,
+            blockJavaScript: block_javascript || params.blockJavaScript,
+            timeout: timeout,
+            waitUntil: waitUntil
+        });
+    }
+
+    private async executeJavaScript(params: any): Promise<ToolResponse> {
         const { js, wait_after_execution = 1000 } = params;
 
         if (!js) {
-            return {
-                success: false,
-                message: '执行JavaScript需要提供 js 参数'
-            };
+            return { success: false, message: '执行JavaScript需要提供 js 参数' };
         }
-
         if (!this.isBrowserOpen) {
-            return {
-                success: false,
-                message: '浏览器未打开，请先执行 open 操作'
-            };
+            return { success: false, message: '浏览器未打开，请先执行 open 操作' };
         }
 
-        const result = await this.browser.executeJavaScript(js, {
+        return await this.browser.executeJavaScript(js, {
             waitAfterExecution: wait_after_execution
         });
-
-        return result;
     }
 
-    /**
-     * 操作：执行Puppeteer原生操作
-     */
-    async executePuppeteerAction(params: any) {
-        const {
-            action,
-            wait_after_action = 1000,
-            ...actionParams
-        } = params;
+    private async executePuppeteerAction(params: PuppeteerActionParams): Promise<ToolResponse> {
+        const { action, waitAfterAction = 1000, wait_after_action, ...actionParams } = params as any;
+        const targetWait = wait_after_action || waitAfterAction;
 
         if (!action) {
-            return {
-                success: false,
-                message: '执行Puppeteer操作需要提供 action 参数'
-            };
+            return { success: false, message: '执行Puppeteer操作需要提供 action 参数' };
         }
-
         if (!this.isBrowserOpen) {
-            return {
-                success: false,
-                message: '浏览器未打开，请先执行 open 操作'
-            };
+            return { success: false, message: '浏览器未打开，请先执行 open 操作' };
         }
 
-        const result = await this.browser.executePuppeteerAction(action, {
+        return await this.browser.executePuppeteerAction(action, {
             ...actionParams,
-            waitAfterAction: wait_after_action
+            waitAfterAction: targetWait
         });
-
-        return result;
     }
 
-    /**
-     * 操作：获取元素信息
-     */
-    async getElementInfo(params: any) {
+    private async getElementInfo(params: any): Promise<ToolResponse> {
         const { selector } = params;
 
         if (!selector) {
-            return {
-                success: false,
-                message: '获取元素信息需要提供 selector 参数'
-            };
+            return { success: false, message: '获取元素信息需要提供 selector 参数' };
         }
-
         if (!this.isBrowserOpen) {
-            return {
-                success: false,
-                message: '浏览器未打开，请先执行 open 操作'
-            };
+            return { success: false, message: '浏览器未打开，请先执行 open 操作' };
         }
 
-        const result = await this.browser.getElementInfo(selector);
-        return result;
+        return await this.browser.getElementInfo(selector);
     }
 
-    /**
-     * 操作：获取网页内容
-     */
-    async getPageContent(params: any) {
-        const {
-            action = 'extractText',
-            url,
-            max_length = 10240,
-            regex_pattern,
-            regex_flags = 'gi',
-            remove_selectors,
-            content_type = 'text',
-            block_javascript = false
-        } = params;
+    private async getPageContent(params: ContentExtractionOptions): Promise<ToolResponse> {
+        const action = params.action || 'extractText';
+        const url = params.url;
+        const maxLength = params.max_length || params.maxLength || 10240;
+        const blockJavaScript = params.block_javascript || false;
 
         if (!this.isBrowserOpen) {
-            return {
-                success: false,
-                message: '浏览器未打开，请先执行 open 操作'
-            };
+            return { success: false, message: '浏览器未打开，请先执行 open 操作' };
         }
 
-        // 如果需要跳转到新URL
         if (url) {
             const navResult = await this.browser.navigateToUrl(url, {
                 waitAfterLoad: 2000,
-                blockJavaScript: block_javascript
+                blockJavaScript: blockJavaScript
             });
             if (!navResult.success) {
                 return navResult;
@@ -848,34 +761,29 @@ class ContentExtractor {
             switch (action) {
                 case 'extractHTML':
                     contentResult = await this.extractHTML({
-                        maxLength: max_length,
-                        removeSelectors: remove_selectors
+                        maxLength: maxLength,
+                        removeSelectors: params.remove_selectors || params.removeSelectors
                     });
                     break;
-
                 case 'extractText':
                     contentResult = await this.extractText({
-                        maxLength: max_length,
-                        removeSelectors: remove_selectors
+                        maxLength: maxLength,
+                        removeSelectors: params.remove_selectors || params.removeSelectors
                     });
                     break;
-
                 case 'regexMatch':
-                    if (!regex_pattern) {
-                        return {
-                            success: false,
-                            message: '正则匹配需要提供 regex_pattern 参数'
-                        };
+                    const pattern = params.regex_pattern || params.regexPattern;
+                    if (!pattern) {
+                        return { success: false, message: '正则匹配需要提供 regex_pattern 参数' };
                     }
                     contentResult = await this.regexMatch({
-                        regexPattern: regex_pattern,
-                        regexFlags: regex_flags,
-                        maxLength: max_length,
-                        removeSelectors: remove_selectors,
-                        contentType: content_type
+                        regexPattern: pattern,
+                        regexFlags: params.regex_flags || params.regexFlags || 'gi',
+                        maxLength: maxLength,
+                        removeSelectors: params.remove_selectors || params.removeSelectors,
+                        contentType: params.content_type || params.contentType || 'text'
                     });
                     break;
-
                 default:
                     return {
                         success: false,
@@ -884,7 +792,6 @@ class ContentExtractor {
                     };
             }
 
-            // 获取页面状态信息
             const pageStatus = await this.browser.getPageStatus();
 
             return {
@@ -894,40 +801,31 @@ class ContentExtractor {
                     action: action,
                     page_info: pageStatus.success ? pageStatus.data : null,
                     content: contentResult,
-                    block_javascript: block_javascript
+                    block_javascript: blockJavaScript
                 }
             };
 
         } catch (error: any) {
-            return {
-                success: false,
-                message: `获取内容失败: ${error.message}`,
-                action: action
-            };
+            return { success: false, message: `获取内容失败: ${error.message}`, action: action };
         }
     }
 
-    /**
-     * 行为：提取HTML
-     */
-    async extractHTML(options = {} as any) {
+    private async extractHTML(options: ContentExtractionOptions = {}): Promise<any> {
+        const removeSelectors = options.removeSelectors || [
+            'script', 'style', 'noscript', 'iframe', '.ad', '.advertisement', '.ads'
+        ];
+        const maxLength = options.maxLength || 10240;
+
         const jsCode = `
             (function() {
-                const removeSelectors = ${JSON.stringify(options.removeSelectors || [
-            'script', 'style', 'noscript', 'iframe',
-            '.ad', '.advertisement', '.ads'
-        ])};
-                
+                const removeSelectors = ${JSON.stringify(removeSelectors)};
                 const clone = document.documentElement.cloneNode(true);
-                
                 removeSelectors.forEach(selector => {
                     const elements = clone.querySelectorAll(selector);
                     elements.forEach(element => element.remove());
                 });
-                
                 const html = clone.outerHTML;
-                const maxLength = ${options.maxLength || 10240};
-                
+                const maxLength = ${maxLength};
                 return {
                     content: html.substring(0, maxLength),
                     original_length: html.length,
@@ -939,7 +837,6 @@ class ContentExtractor {
         `;
 
         const result = await this.browser.executeJavaScript(jsCode);
-
         if (result.success) {
             return result.data.result;
         } else {
@@ -947,27 +844,22 @@ class ContentExtractor {
         }
     }
 
-    /**
-     * 行为：提取Text
-     */
-    async extractText(options = {} as any) {
+    private async extractText(options: ContentExtractionOptions = {}): Promise<any> {
+        const removeSelectors = options.removeSelectors || [
+            'script', 'style', 'noscript', 'iframe', 'nav', 'header', 'footer',
+            '.ad', '.advertisement', '.ads', '.sidebar', '.menu', '.navigation'
+        ];
+        const maxLength = options.maxLength || 10240;
+
         const jsCode = `
             (function() {
-                const removeSelectors = ${JSON.stringify(options.removeSelectors || [
-            'script', 'style', 'noscript', 'iframe',
-            'nav', 'header', 'footer',
-            '.ad', '.advertisement', '.ads',
-            '.sidebar', '.menu', '.navigation'
-        ])};
-                
-                // 移除干扰元素
+                const removeSelectors = ${JSON.stringify(removeSelectors)};
                 const tempDocument = document.cloneNode(true);
                 removeSelectors.forEach(selector => {
                     const elements = tempDocument.querySelectorAll(selector);
                     elements.forEach(element => element.remove());
                 });
                 
-                // 尝试找到主要内容区域
                 const mainSelectors = [
                     'main', 'article', '.content', '.main-content',
                     '.post-content', '.entry-content', '[role="main"]'
@@ -976,18 +868,14 @@ class ContentExtractor {
                 let mainContent = tempDocument.body;
                 for (const selector of mainSelectors) {
                     const el = tempDocument.querySelector(selector);
-                    if (el && el.textContent && el.textContent.length > 200) {
+                    if (el && el.textContent.length > 200) {
                         mainContent = el;
                         break;
                     }
                 }
                 
-                // 修复：替换为正确的正则转义 /\\s+/g
-                const text = (mainContent.textContent || '')
-                    .replace(/\\s+/g, ' ')
-                    .trim();
-                
-                const maxLength = ${options.maxLength || 10240};
+                const text = mainContent.textContent.replace(/\\s+/g, ' ').trim();
+                const maxLength = ${maxLength};
                 
                 return {
                     content: text.substring(0, maxLength),
@@ -1001,7 +889,6 @@ class ContentExtractor {
         `;
 
         const result = await this.browser.executeJavaScript(jsCode);
-
         if (result.success) {
             return result.data.result;
         } else {
@@ -1009,14 +896,10 @@ class ContentExtractor {
         }
     }
 
-    /**
-     * 行为：正则匹配 - 根据内容类型进行匹配
-     */
-    async regexMatch(options = {} as any) {
-        const { contentType = 'text' } = options;
-        let baseContent;
+    private async regexMatch(options: ContentExtractionOptions = {}): Promise<any> {
+        const contentType = options.contentType || 'text';
+        let baseContent: any;
 
-        // 根据内容类型获取基础内容
         if (contentType === 'html') {
             baseContent = await this.extractHTML(options);
         } else {
@@ -1032,7 +915,7 @@ class ContentExtractor {
                 
                 try {
                     const regex = new RegExp(pattern, flags);
-                    const matches = []; // 修复：在执行字符串内部移除了 ts 类型注解
+                    const matches = [];
                     let match;
                     
                     while ((match = regex.exec(content)) !== null) {
@@ -1045,15 +928,10 @@ class ContentExtractor {
                                 Math.min(content.length, match.index + match[0].length + 50)
                             )
                         });
-                        
                         if (match.index === regex.lastIndex) {
                             regex.lastIndex++;
                         }
-                        
-                        // 限制匹配数量
-                        if (matches.length >= 50) {
-                            break;
-                        }
+                        if (matches.length >= 50) break;
                     }
                     
                     return {
@@ -1065,39 +943,25 @@ class ContentExtractor {
                         content_preview: content.substring(0, 200) + (content.length > 200 ? '...' : ''),
                         type: 'regex'
                     };
-                    
-                } catch (error) { // 修复：移除了 eval 中的 ts 类型注解
-                    return {
-                        error: error.toString(),
-                        pattern: pattern,
-                        flags: flags,
-                        content_type: contentType
-                    };
+                } catch (error) {
+                    return { error: error.toString(), pattern: pattern, flags: flags, content_type: contentType };
                 }
             })()
         `;
 
         const result = await this.browser.executeJavaScript(jsCode);
-
         if (result.success) {
             const regexResult = result.data.result;
             if (regexResult.error) {
                 throw new Error(`正则表达式错误: ${regexResult.error}`);
             }
-
-            return {
-                ...regexResult,
-                base_content: baseContent
-            };
+            return { ...regexResult, base_content: baseContent };
         } else {
             throw new Error(`正则匹配失败: ${result.message}`);
         }
     }
 
-    /**
-     * 获取浏览器状态
-     */
-    async getBrowserStatus() {
+    public getBrowserStatus() {
         return this.browser.getBrowserStatus();
     }
 }
@@ -1105,32 +969,128 @@ class ContentExtractor {
 /**
  * 获取工具提示
  */
-function getPrompt() {
+export function getPrompt() {
     return {
         "name": "browser_client",
-        "description": "Control browser and extract content with various options, including Puppeteer native actions\nFeatures: - Real browser automation with Puppeteer\n- JavaScript execution support\n- Content extraction with cleaning\n- Regex pattern matching on both HTML and text\n- Full Puppeteer native actions support\n- Element information extraction\n- Automatic main content detection\n- Context preview for regex matches\n- Block JavaScript loading for faster loading and cleaner content\n\nResponse Format for Puppeteer Actions:\n{\n  \"success\": true,\n  \"message\": \"Puppeteer\u64cd\u4f5c click \u6267\u884c\u6210\u529f\",\n  \"data\": {\n    \"action\": \"click\",\n    \"result\": {\n      \"selector\": \"#submit-btn\",\n      \"action\": \"click\"\n    },\n    \"pageInfo\": {\n      \"title\": \"Page Title\",\n      \"url\": \"https://example.com\",\n      \"readyState\": \"complete\"\n    },\n    \"timing\": {\n      \"startTime\": \"2023-01-01T00:00:00.000Z\",\n      \"endTime\": \"2023-01-01T00:00:01.000Z\"\n    }\n  }\n}\nOperation Details: 1. Open Browser:\n{\n  \"tool\": \"browser_client\",\n  \"params\": {\n    \"operation\": \"open\",\n    \"width\": 1200,          // Optional, default 1200\n    \"height\": 800           // Optional, default 800\n  }\n}\n\n2. Close Browser:\n{\n  \"tool\": \"browser_client\", \n  \"params\": {\n    \"operation\": \"close\"\n  }\n}\n\n3. Execute JavaScript:\n{\n  \"tool\": \"browser_client\",\n  \"params\": {\n    \"operation\": \"execute_js\",\n    \"js\": \"document.title = 'New Title';\",  // Required\n    \"wait_after_execution\": 1000            // Optional, default 1000ms\n  }\n}\n\n4. Get Page Content:\n{\n  \"tool\": \"browser_client\",\n  \"params\": {\n    \"operation\": \"get_content\",\n    \"action\": \"extractText\",           // Required: 'extractHTML', 'extractText', 'regexMatch'\n    \"url\": \"https://example.com\",      // Optional: navigate to new URL first\n    \"max_length\": 10240,                // Optional: max content length\n    \"remove_selectors\": [              // Optional: elements to remove\n      \"script\", \"style\", \".ads\"\n    ],\n    \"block_javascript\": true           // Optional: block JavaScript loading, default false\n  }\n}\n\n5. Execute Puppeteer Native Actions:\n{\n  \"tool\": \"browser_client\",\n  \"params\": {\n    \"operation\": \"puppeteer_action\",\n    \"action\": \"click\",                 // Required: see supported actions below\n    \"selector\": \"#submit-btn\",         // Required for element actions\n    \"wait_after_action\": 1000          // Optional: wait after action in ms\n  }\n}\n\n6. Get Element Information:\n{\n  \"tool\": \"browser_client\",\n  \"params\": {\n    \"operation\": \"get_element_info\",\n    \"selector\": \"#my-element\"          // Required: CSS selector\n  }\n}\n\nSupported Puppeteer Actions:\n\n- Element Interactions:\n  \u2022 click: Click on element\n  \u2022 type: Type text into input\n  \u2022 focus: Focus on element\n  \u2022 hover: Hover over element\n  \u2022 select: Select options in dropdown\n\n- Navigation:\n  \u2022 waitForNavigation: Wait for navigation\n  \u2022 reload: Reload page\n  \u2022 goBack: Go back in history\n  \u2022 goForward: Go forward in history\n\n- Waiting:\n  \u2022 waitForSelector: Wait for element to appear\n  \u2022 waitForFunction: Wait for function to return true\n\n- Screenshot:\n  \u2022 screenshot: Take screenshot\n\n- Scrolling:\n  \u2022 scroll: Scroll page or element into view\n\n- Page Evaluation:\n  \u2022 evaluate: Execute function in page context\n\n- Browser Control:\n  \u2022 setViewport: Set viewport size\n  \u2022 setUserAgent: Set user agent\n  \u2022 setCookie: Set cookies\n  \u2022 deleteCookie: Delete cookies\n  \u2022 clearCache: Clear browser cache\n  \u2022 clearCookies: Clear all cookies\n\nContent Actions:\n\n- extractHTML: Extract cleaned HTML content\n- extractText: Extract cleaned text content  \n- regexMatch: Apply regex pattern to specified content type\n\nRegex Match Specific Parameters:\n{\n  \"tool\": \"browser_client\",\n  \"params\": {\n    \"operation\": \"get_content\",\n    \"action\": \"regexMatch\", \n    \"regex_pattern\": \"\\\\\\\\bexample\\\\\\\\b\",      // Required for regexMatch\n    \"content_type\": \"html\",                   // Optional: 'html' or 'text', default 'text'\n    \"regex_flags\": \"gi\",                      // Optional, default 'gi'\n    \"max_length\": 20480,\n    \"block_javascript\": true                  // Optional: block JavaScript loading\n  }\n}\n\nContent Types for Regex Match:\n- 'text': Apply regex to extracted text content (default)\n- 'html': Apply regex to extracted HTML content",
+        "description": "A high-level browser automation tool powered by Puppeteer. It can open pages, interact with elements, execute JavaScript, and extract cleaned content (HTML/Text) using selectors or regex.",
         "parameters": {
             "type": "object",
             "properties": {
                 "operation": {
                     "type": "string",
-                    "description": "(Required) Operation type - 'open', 'close', 'execute_js', 'get_content', 'puppeteer_action', 'get_element_info'"
+                    "enum": ["open", "close", "navigate", "execute_js", "get_content", "puppeteer_action", "get_element_info"],
+                    "description": "The primary browser action to perform."
+                },
+                "url": {
+                    "type": "string",
+                    "description": "The URL to navigate to (used with 'navigate', 'get_content', or implicitly in 'open')."
+                },
+                "action": {
+                    "type": "string",
+                    "description": "Specific action type. For 'get_content': [extractHTML, extractText, regexMatch]. For 'puppeteer_action': [click, type, hover, scroll, screenshot, etc.]."
+                },
+                "selector": {
+                    "type": "string",
+                    "description": "CSS selector for element interaction or info extraction."
+                },
+                "js": {
+                    "type": "string",
+                    "description": "JavaScript code string to execute in the page context."
+                },
+                "regex_pattern": {
+                    "type": "string",
+                    "description": "Regex pattern to match content when action is 'regexMatch'."
+                },
+                "params": {
+                    "type": "object",
+                    "description": "Additional configuration for the operation.",
+                    "properties": {
+                        "width": { "type": "number", "default": 1200 },
+                        "height": { "type": "number", "default": 800 },
+                        "wait_after_action": { "type": "number", "description": "Wait time in ms after action" },
+                        "block_javascript": { "type": "boolean", "description": "Block JS for faster loading" },
+                        "remove_selectors": { "type": "array", "items": { "type": "string" }, "description": "Selectors to strip from content" }
+                    }
                 }
             },
-            "required": [
-                "operation"
-            ]
+            "required": ["operation"]
         }
     };
 }
 
-
+const extractor = new ContentExtractor();
 
 export function main() {
-    // 实例化导出
-    const extractor = new ContentExtractor();
-    return async (params: any) => {
+    return async (params: Record<string, any>): Promise<ToolResponse> => {
         return await extractor.main(params);
-    }
-};
-export { getPrompt };
+    };
+}
+
+// ==========================================
+// 测试模块
+// ==========================================
+if (require.main === module) {
+    (async () => {
+        try {
+            logger.log('=== 测试内容提取器（支持Puppeteer原生操作）===\n');
+            const testExtractor = new ContentExtractor();
+
+            logger.log('1. 打开浏览器...');
+            let result = await testExtractor.main({ operation: 'open' });
+            logger.log('打开结果:', result.success ? '成功' : '失败');
+            if (!result.success) return;
+
+            logger.log('\n1.5. 单独测试 navigate 导航...');
+            result = await testExtractor.main({
+                operation: 'navigate',
+                url: 'https://example.com'
+            });
+            logger.log('Navigate 结果:', result.success ? '成功' : '失败');
+
+            logger.log('\n2. 获取页面内容...');
+            result = await testExtractor.main({
+                operation: 'get_content',
+                action: 'extractText',
+                block_javascript: true
+            });
+            logger.log('内容提取结果:', result.success ? '成功' : '失败');
+
+            logger.log('\n3. 测试Puppeteer滚动操作...');
+            result = await testExtractor.main({
+                operation: 'puppeteer_action',
+                action: 'scroll',
+                y: 500,
+                wait_after_action: 1000
+            });
+            logger.log('滚动操作:', result.success ? '成功' : '失败');
+
+            logger.log('\n4. 测试获取元素信息...');
+            result = await testExtractor.main({
+                operation: 'get_element_info',
+                selector: 'h1'
+            });
+            logger.log('元素信息:', result.success ? '成功' : '失败');
+            if (result.success) {
+                logger.log('元素存在:', result.data.exists);
+            }
+
+            logger.log('\n5. 测试截图操作...');
+            result = await testExtractor.main({
+                operation: 'puppeteer_action',
+                action: 'screenshot',
+                fullPage: false
+            });
+            logger.log('截图操作:', result.success ? '成功' : '失败');
+            if (result.success) {
+                logger.log('截图数据长度:', result.data.result.data.length);
+            }
+
+            logger.log('\n6. 关闭浏览器...');
+            result = await testExtractor.main({ operation: 'close' });
+            logger.log('关闭结果:', result.success ? '成功' : '失败');
+
+        } catch (error) {
+            console.error('测试错误:', error);
+        }
+    })();
+}

@@ -1,6 +1,6 @@
 export declare function delete_message(id: any): Promise<void>;
 export declare function compression_message(id: any): Promise<void>;
-export declare function thumbMessage(up: HTMLElement, down: HTMLElement, data: any): Promise<void>;
+export declare function thumbMessageGroup(up: HTMLElement, down: HTMLElement, data: any): Promise<void>;
 export declare function locate_memory(context_id: number): void;
 export declare function quote_memory(context_id: number): void;
 export declare function delete_memory(context_id: number): Promise<void>;

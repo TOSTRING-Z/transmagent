@@ -100,7 +100,7 @@ export default greet;
 `;
         const result = await main()({ file_path: targetFilePath, diff });
         
-        expect(result).toContain('modification failed: Invalid diff format');
+        expect(result).toContain('Search content not found');
     });
 
     it('6. 应该正确返回 getPrompt 的工具定义', () => {

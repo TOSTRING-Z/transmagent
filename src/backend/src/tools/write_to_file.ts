@@ -31,24 +31,26 @@ export function main() {
         }
     }
 }
+
 export function getPrompt() {
     return {
         "name": "write_to_file",
-        "description": "Writes text content to files (UTF-8 only) with automatic path handling",
+        "description": "Creates a new file or completely OVERWRITES an existing file with the provided text content. \n\nCRITICAL WARNING: This tool replaces the entire file. Do NOT use this tool for partial modifications or minor edits to existing files; use the 'replace_in_file' tool instead.",
         "parameters": {
             "type": "object",
             "properties": {
                 "file_path": {
                     "type": "string",
-                    "description": "Absolute destination path (required)"
+                    "description": "The absolute or relative destination path. Missing parent directories will be created automatically."
                 },
                 "content": {
                     "type": "string",
-                    "description": "Text content to write (supports multiline)"
+                    "description": "The COMPLETE text content to write. This will fully replace any existing content in the target file. Must be UTF-8 encoded."
                 }
             },
             "required": [
-                "file_path"
+                "file_path",
+                "content"
             ]
         }
     };

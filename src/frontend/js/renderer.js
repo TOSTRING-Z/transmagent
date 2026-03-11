@@ -341,11 +341,11 @@ $$
     newElement.dataset.id = params["id"];
     return newElement;
   }
-  async function delete_message(id) {
-    let elements = document.querySelectorAll(`[data-id="${id}"]`);
+  async function toggleMessageGroup(group_id) {
+    let elements = document.querySelectorAll(`[data-id="${group_id}"]`);
     elements.forEach(async function(message_element) {
       if (message_element.classList.contains("message_del")) {
-        let { del_mode } = await window.electronAPI.toggleMessage({ id: parseInt(id), del: false });
+        let { del_mode } = await window.electronAPI.toggleMessageGroup({ group_id, del: false });
         if (del_mode) {
           message_element.remove();
         } else {
@@ -360,7 +360,7 @@ $$
           });
         }
       } else {
-        let { del_mode } = await window.electronAPI.toggleMessage({ id, del: true });
+        let { del_mode } = await window.electronAPI.toggleMessageGroup({ group_id, del: true });
         if (del_mode) {
           message_element.remove();
         } else {
@@ -378,23 +378,40 @@ $$
       }
     });
   }
+  async function toggleContextMessage(context_id) {
+    let { del_mode } = await window.electronAPI.toggleContextMessage(context_id);
+    let elements = document.querySelectorAll(`[info_data-id="${context_id}"]`);
+    elements.forEach(function(element) {
+      if (del_mode)
+        element.remove();
+      else
+        element.classList.toggle("del");
+    });
+    elements = document.querySelectorAll(`[chunk_data-id="${context_id}"]`);
+    elements.forEach(function(element) {
+      if (del_mode)
+        element.remove();
+      else
+        element.classList.toggle("del");
+    });
+  }
   var compression_tasks = {};
-  async function compression_message(id) {
-    let elements = document.querySelectorAll(`[data-id="${id}"]`);
-    showLog("log", `Compressing message (id: ${id})...`);
-    compression_tasks[id] = true;
+  async function compressionGroupMessage(group_id) {
+    let elements = document.querySelectorAll(`[data-id="${group_id}"]`);
+    showLog("log", `Compressing message (id: ${group_id})...`);
+    compression_tasks[group_id] = true;
     if (DOM.submit.classList.contains("running") == false) {
       DOM.submit.classList.add("running");
     }
-    let { compression_content } = await window.electronAPI.compressionMessage({ id: parseInt(id) });
-    showLog("success", `Message compressed (id: ${id}).`);
+    let { compression_content } = await window.electronAPI.compressionGroupMessage({ group_id });
+    showLog("success", `Message compressed (id: ${group_id}).`);
     let keptUser = false;
     elements.forEach(async function(message_element) {
       if (!keptUser) {
         keptUser = true;
         let messageSystem = await formatMessage(system_message_template, {
           "icon": getIcon(false),
-          "id": id,
+          "id": group_id,
           "message": compression_content
         }, "system");
         addRunning(messageSystem);
@@ -403,7 +420,7 @@ $$
         const message_content = messageSystem.getElementsByClassName("message")[0];
         menuEvent(messageSystem, message_content, false);
         message_element.parentElement.insertBefore(messageSystem, message_element.nextSibling);
-        delete compression_tasks[id];
+        delete compression_tasks[group_id];
         if (Object.keys(compression_tasks).length == 0) {
           DOM.submit.classList.remove("running");
         }
@@ -412,8 +429,8 @@ $$
       }
     });
   }
-  async function thumbMessage(up, down, data) {
-    let thumb = await window.electronAPI.thumbMessage(data);
+  async function thumbMessageGroup(up, down, data) {
+    let thumb = await window.electronAPI.thumbMessageGroup(data);
     if (thumb === 1) {
       if (!up.classList.contains("success"))
         up.classList.add("success");
@@ -431,31 +448,14 @@ $$
         down.classList.remove("success");
     }
   }
-  function locate_memory(context_id) {
+  function locateContextMessage(context_id) {
     let elements = document.querySelectorAll(`[info_data-id="${context_id}"]`);
     if (elements.length > 0)
       elements[0].scrollIntoView({ behavior: "smooth", block: "center" });
   }
-  function quote_memory(context_id) {
+  function quoteContextMessage(context_id) {
     const quotedContent = `Please invoke the memory_retrieval tool using context_id: ${context_id}`;
     DOM.input.value = quotedContent + "\n" + DOM.input.value;
-  }
-  async function delete_memory(context_id) {
-    let { del_mode } = await window.electronAPI.toggleMemory(context_id);
-    let elements = document.querySelectorAll(`[info_data-id="${context_id}"]`);
-    elements.forEach(function(element) {
-      if (del_mode)
-        element.remove();
-      else
-        element.classList.toggle("del");
-    });
-    elements = document.querySelectorAll(`[chunk_data-id="${context_id}"]`);
-    elements.forEach(function(element) {
-      if (del_mode)
-        element.remove();
-      else
-        element.classList.toggle("del");
-    });
   }
   function menuEvent(messageSystem, message_content, is_plugin) {
     const copy = messageSystem.getElementsByClassName("copy")[0];
@@ -481,21 +481,21 @@ $$
       });
     });
     del.addEventListener("click", () => {
-      delete_message(messageSystem.dataset.id);
+      toggleMessageGroup(messageSystem.dataset.id);
     });
     toggle.addEventListener("click", () => {
       messageSystem.classList.toggle("message_toggle");
     });
     compression.addEventListener("click", () => {
       messageSystem.classList.toggle("message_compression");
-      compression_message(messageSystem.dataset.id);
+      compressionGroupMessage(messageSystem.dataset.id);
     });
-    thumbMessage(thumbs_up, thumbs_down, { id: messageSystem.dataset.id, thumb: 0 });
+    thumbMessageGroup(thumbs_up, thumbs_down, { group_id: messageSystem.dataset.id, thumb: 0 });
     thumbs_up.addEventListener("click", () => {
-      thumbMessage(thumbs_up, thumbs_down, { id: messageSystem.dataset.id, thumb: 1 });
+      thumbMessageGroup(thumbs_up, thumbs_down, { group_id: messageSystem.dataset.id, thumb: 1 });
     });
     thumbs_down.addEventListener("click", () => {
-      thumbMessage(thumbs_up, thumbs_down, { id: messageSystem.dataset.id, thumb: -1 });
+      thumbMessageGroup(thumbs_up, thumbs_down, { group_id: messageSystem.dataset.id, thumb: -1 });
     });
   }
   function addRunning(messageSystem) {
@@ -627,13 +627,13 @@ $$
             chunk_item.getElementsByClassName("chunk-actions")[0].style.display = "none";
           }
           chunk_item.getElementsByClassName("chunk-delete")[0].addEventListener("click", () => {
-            delete_memory(context_id);
+            toggleContextMessage(context_id);
           });
           chunk_item.getElementsByClassName("chunk-location")[0].addEventListener("click", () => {
-            locate_memory(context_id);
+            locateContextMessage(context_id);
           });
           chunk_item.getElementsByClassName("chunk-quote")[0].addEventListener("click", () => {
-            quote_memory(context_id);
+            quoteContextMessage(context_id);
           });
           message_content.appendChild(chunk_item);
         }

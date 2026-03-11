@@ -11,10 +11,10 @@ export interface ElectronAPI {
   handleChangeMode: (callback: (mode: string) => void) => void;
   getFilePath: () => Promise<string | null>;
   setGlobal: (chat: any) => Promise<void>;
-  toggleMessage: (data: { id: number; del: boolean }) => Promise<{ del_mode: boolean }>;
-  compressionMessage: (data: { id: number }) => Promise<{ compression_content: string }>;
-  thumbMessage: (data: { id: string; thumb: number }) => Promise<number>;
-  toggleMemory: (context_id: number) => Promise<{ del_mode: boolean }>;
+  toggleMessageGroup: (data: { group_id: string; del: boolean }) => Promise<{ del_mode: boolean }>;
+  compressionGroupMessage: (data: { group_id: string }) => Promise<{ compression_content: string }>;
+  thumbMessageGroup: (data: { group_id: string; thumb: number }) => Promise<number>;
+  toggleContextMessage: (context_id: string) => Promise<{ del_mode: boolean }>;
   handleMarkDownFormat: (callback: (status: boolean) => void) => void;
   handleReactStatu: (callback: (status: boolean) => void) => void;
   streamData: (callback: (chunk: any) => void) => void;

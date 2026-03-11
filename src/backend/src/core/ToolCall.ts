@@ -108,7 +108,7 @@ export class ToolCall extends ReActAgent {
 
     public get_tools_prompt(): any {
         if (this.plugins) {
-            this.plugins.init(null, true);
+            this.plugins.init();
             this.tools = { ...this.plugins.getTool(), ...this.agentTools, ...this.baseTools };
         }
         const format = this.llm_service.chatManager.chat.tool_format;
@@ -296,7 +296,7 @@ export class ToolCall extends ReActAgent {
                 }
             }
 
-            data.output_format = JSON.stringify(observation, null, 2);
+            data.output_format = typeof observation === 'string'? observation: JSON.stringify(observation, null, 2);
 
             if (this.state === (State.PAUSE as State)) {
                 const { question, options } = observation;
@@ -359,9 +359,11 @@ export class ToolCall extends ReActAgent {
             this.llm_service.chatManager.pushMessage({ role: "tool", content: data.query, group_id: this.llm_service.chatManager.chat.group_id, context_id: this.llm_service.chatManager.chat.context_id, show: true, react: false });
             this.window.webContents.send('toolData', { group_id: this.llm_service.chatManager.chat.group_id, context_id: this.llm_service.chatManager.chat.context_id, content: data.query, del: false });
         } else {
-            this.llm_service.chatManager.chat.step = 0;
+            this.llm_service.chatManager.chat.step = 1;
             this.llm_service.chatManager.chat.group_id = String((new Date()).getTime());
+            this.llm_service.chatManager.chat.context_id = `${this.llm_service.chatManager.chat.group_id}${this.llm_service.chatManager.chat.step}`
             data.role = "user";
+            this.llm_service.chatManager.fixMessages();
             this.llm_service.chatManager.pushMessage({ role: "user", content: data.query, group_id: this.llm_service.chatManager.chat.group_id, context_id: this.llm_service.chatManager.chat.context_id, show: true, react: false });
             this.window.webContents.send('userData', { group_id: this.llm_service.chatManager.chat.group_id, context_id: this.llm_service.chatManager.chat.context_id, content: data.query, del: false });
         }
@@ -372,7 +374,6 @@ export class ToolCall extends ReActAgent {
         if (this.llm_service.chatManager.chat.tool_format !== "prompt") {
             data.tools = this.get_tools_prompt();
         }
-        this.llm_service.chatManager.fixMessages();
         while (this.state === State.IDLE || this.state === State.RUNNING) {
             // 延时1s，避免过快进入死循环
             await new Promise(resolve => setTimeout(resolve, 1000));
@@ -382,11 +383,12 @@ export class ToolCall extends ReActAgent {
                 break;
             }
             if (data?.max_step && this.llm_service.chatManager.chat.step > data.max_step) break;
+            data = { ...data, ...tool_call, step: this.llm_service.chatManager.chat.step, react: true };
+            
+            await this.step(data);
+            
             this.llm_service.chatManager.chat.step++;
             this.llm_service.chatManager.chat.context_id = `${this.llm_service.chatManager.chat.group_id}${this.llm_service.chatManager.chat.step}`
-            data = { ...data, ...tool_call, step: this.llm_service.chatManager.chat.step, react: true };
-
-            await this.step(data);
 
             const currentChatName = this.llm_service.chatManager.chat.name;
             if (!currentChatName || currentChatName === CHAT_CONST.DEFAULT_NAME) {
