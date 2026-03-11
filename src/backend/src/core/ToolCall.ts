@@ -242,17 +242,16 @@ export class ToolCall extends ReActAgent {
     }
 
     public async step(data: Record<string, any>) {
+        if (this.state === State.IDLE) {
+            this.state = State.RUNNING;
+        }
+        
         if (!this.mcp_prompt && this.prompt_args.mcp_server) {
             await this.mcp_client.initMcp();
             this.mcp_prompt = this.mcp_client.mcpPrompt;
         }
 
         data.push_message = false;
-
-        if (this.state === State.IDLE) {
-            this.llm_service.chatManager.pushMessage({ role: data.role, content: data.query, group_id: this.llm_service.chatManager.chat.group_id, context_id: this.llm_service.chatManager.chat.context_id, show: true, react: false });
-            this.state = State.RUNNING;
-        }
 
         this.environment_update(data);
         this.memory_update(data);
@@ -357,11 +356,16 @@ export class ToolCall extends ReActAgent {
     public async callReAct(data: Record<string, any>): Promise<any> {
         if (this.state === State.PAUSE) {
             data.role = "tool";
+            this.llm_service.chatManager.pushMessage({ role: "tool", content: data.query, group_id: this.llm_service.chatManager.chat.group_id, context_id: this.llm_service.chatManager.chat.context_id, show: true, react: false });
+            this.window.webContents.send('toolData', { group_id: this.llm_service.chatManager.chat.group_id, context_id: this.llm_service.chatManager.chat.context_id, content: data.query, del: false });
         } else {
             this.llm_service.chatManager.chat.step = 0;
             this.llm_service.chatManager.chat.group_id = String((new Date()).getTime());
             data.role = "user";
+            this.llm_service.chatManager.pushMessage({ role: "user", content: data.query, group_id: this.llm_service.chatManager.chat.group_id, context_id: this.llm_service.chatManager.chat.context_id, show: true, react: false });
+            this.window.webContents.send('userData', { group_id: this.llm_service.chatManager.chat.group_id, context_id: this.llm_service.chatManager.chat.context_id, content: data.query, del: false });
         }
+        
         this.state = State.IDLE;
         let tool_call = utils.getConfig("tool_call");
 
@@ -381,11 +385,7 @@ export class ToolCall extends ReActAgent {
             this.llm_service.chatManager.chat.step++;
             this.llm_service.chatManager.chat.context_id = `${this.llm_service.chatManager.chat.group_id}${this.llm_service.chatManager.chat.step}`
             data = { ...data, ...tool_call, step: this.llm_service.chatManager.chat.step, react: true };
-            if (data.role === "tool") {
-                this.window.webContents.send('toolData', { group_id: this.llm_service.chatManager.chat.group_id, context_id: this.llm_service.chatManager.chat.context_id, content: data.query, del: false });
-            } else if (data.role === "user") {
-                this.window.webContents.send('userData', { group_id: this.llm_service.chatManager.chat.group_id, context_id: this.llm_service.chatManager.chat.context_id, content: data.query, del: false });
-            }
+
             await this.step(data);
 
             const currentChatName = this.llm_service.chatManager.chat.name;
