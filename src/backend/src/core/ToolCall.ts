@@ -249,6 +249,9 @@ export class ToolCall extends ReActAgent {
         if (this.state === State.IDLE) {
             this.llm_service.chatManager.pushMessage({ role: "user", content: data.query, id: data.id, context_id: String(this.llm_service.chatManager.chat.max_context_id), show: true, react: false });
             this.state = State.RUNNING;
+        } else if (this.state === State.PAUSE) {
+            this.llm_service.chatManager.pushMessage({ role: "tool", content: data.query, id: data.id, context_id: String(this.llm_service.chatManager.chat.max_context_id), show: true, react: false });
+            this.state = State.RUNNING;
         }
 
         this.environment_update(data);
@@ -360,7 +363,12 @@ export class ToolCall extends ReActAgent {
 
     public async callReAct(data: Record<string, any>): Promise<any> {
         let step = 0;
-        this.state = State.IDLE;
+        if (this.state === State.PAUSE) {
+            data.role = "tool";
+        } else {
+            data.role = "user";
+            this.state = State.IDLE;
+        }
         let tool_call = utils.getConfig("tool_call");
 
         if (this.llm_service.chatManager.chat.tool_format !== "prompt") {
@@ -368,7 +376,6 @@ export class ToolCall extends ReActAgent {
         }
         this.llm_service.chatManager.fixMessages();
         while (this.state !== (State.FINAL as State) && this.state !== (State.PAUSE as State)) {
-            // @ts-ignore
             // 延时1s，避免过快进入死循环
             await new Promise(resolve => setTimeout(resolve, 1000));
             if (this.llm_service.stopFlag) {
