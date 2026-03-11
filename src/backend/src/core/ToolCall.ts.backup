@@ -286,7 +286,7 @@ export class ToolCall extends ReActAgent {
             if (warning_info?.warning) {
                 this.state = State.PAUSE;
                 this.window?.webContents.send('stream-data', { id: data.id, context_id: String(this.llm_service.chatManager.chat.max_context_id), content: `${warning_info.warning}\n\n`, end: true, chat: this.llm_service.chatManager.chat });
-                return { options: warning_info.options, tool_call_id: toolInfo?.id, tool_call_name: toolInfo?.tool, is_tool_response: true };
+                return warning_info.options;
             }
 
             switch (toolInfo.tool) {
@@ -306,7 +306,7 @@ export class ToolCall extends ReActAgent {
             if ((this.state as any) === "pause") {
                 const { question, options } = observation;
                 this.window?.webContents.send('stream-data', { id: data.id, context_id: String(this.llm_service.chatManager.chat.max_context_id), content: question || "", end: true, chat: this.llm_service.chatManager.chat });
-                return { options, tool_call_id: toolInfo?.id, tool_call_name: toolInfo?.tool, is_tool_response: true };
+                return options;
             }
 
             if ((this.state as any) === "final") {
@@ -395,7 +395,7 @@ export class ToolCall extends ReActAgent {
                 this.setHistory();
             }
             if ((this.state as any) === "pause") {
-                this.window?.webContents.send("options", { options: options?.options || [], id: data.id, tool_call_id: options?.tool_call_id, tool_call_name: options?.tool_call_name, is_tool_response: options?.is_tool_response || false });
+                this.window?.webContents.send("options", { options, id: data.id });
             }
         }
 

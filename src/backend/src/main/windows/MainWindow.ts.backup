@@ -393,32 +393,6 @@ export class MainWindow extends BaseWindow {
         ipcMain.on('submit', (_event, formData) => {
             this.send_query(formData, this.llm_service.chatManager.chat.model, this.llm_service.chatManager.chat.version);
         });
-        ipcMain.on('submit-tool-response', (_event, data) => {
-            // 处理工具选项响应
-            const { tool_call_id, tool_call_name, content, id } = data;
-            
-            // 创建工具消息对象
-            const toolMessage = {
-                role: "tool" as const,
-                content: content,
-                tool_call_id: tool_call_id,
-                tool_call_name: tool_call_name,
-                id: id,
-                context_id: String(this.llm_service.chatManager.chat.max_context_id),
-                show: true,
-                react: true
-            };
-            
-            // 将工具消息推送到聊天管理器
-            this.llm_service.chatManager.pushMessage(toolMessage);
-            
-            // 继续执行（如果之前是暂停状态）
-            if (this.tool_call.state === "pause") {
-                this.tool_call.state = State.IDLE;
-                // 触发下一步执行
-                this.tool_call.callReAct({ query: content, id: id });
-            }
-        });
 
         ipcMain.on('change-mode', (_event, mode) => {
             this.tool_call.change_mode(mode);

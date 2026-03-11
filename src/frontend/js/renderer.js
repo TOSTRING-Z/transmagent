@@ -1243,7 +1243,7 @@ $$
     });
     init_size();
   });
-  window.electronAPI.handleOptions(({ options, id }) => {
+  window.electronAPI.handleOptions(({ options, id, tool_call_id, tool_call_name, is_tool_response }) => {
     DOM.pause.style.display = "flex";
     let option_querys = [];
     options.forEach((value) => {
@@ -1267,9 +1267,18 @@ $$
     send.dataset.id = id;
     send.innerText = "Send";
     send.addEventListener("click", async function() {
-      State.formData.query = option_querys.join("\n");
-      State.formData.prompt = DOM.system_prompt.value;
-      window.electronAPI.clickSubmit(State.formData);
+      if (is_tool_response) {
+        window.electronAPI.submitToolResponse({
+          tool_call_id,
+          tool_call_name,
+          content: option_querys.join("\n"),
+          id
+        });
+      } else {
+        State.formData.query = option_querys.join("\n");
+        State.formData.prompt = DOM.system_prompt.value;
+        window.electronAPI.clickSubmit(State.formData);
+      }
       option_querys = [];
       DOM.pause.style.display = "none";
       DOM.pause.innerHTML = "";

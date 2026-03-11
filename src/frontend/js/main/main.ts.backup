@@ -264,7 +264,7 @@ window.electronAPI.handleExtraLoad((data) => {
   init_size();
 });
 
-window.electronAPI.handleOptions(({ options, id, tool_call_id, tool_call_name, is_tool_response }) => {
+window.electronAPI.handleOptions(({ options, id }) => {
   DOM.pause.style.display = "flex";
   let option_querys: string[] = [];
   
@@ -290,20 +290,9 @@ window.electronAPI.handleOptions(({ options, id, tool_call_id, tool_call_name, i
   send.dataset.id = id;
   send.innerText = "Send";
   send.addEventListener("click", async function () {
-        if (is_tool_response) {
-          // 发送工具消息
-          window.electronAPI.submitToolResponse({
-            tool_call_id,
-            tool_call_name,
-            content: option_querys.join("\n"),
-            id
-          });
-        } else {
-          // 发送用户消息（原有逻辑）
-          State.formData.query = option_querys.join("\n");
-          State.formData.prompt = DOM.system_prompt.value;
-          window.electronAPI.clickSubmit(State.formData);
-        }
+    State.formData.query = option_querys.join("\n");
+    State.formData.prompt = DOM.system_prompt.value;
+    window.electronAPI.clickSubmit(State.formData);
     option_querys = [];
     DOM.pause.style.display = "none";
     DOM.pause.innerHTML = "";

@@ -4,7 +4,6 @@ contextBridge.exposeInMainWorld('electronAPI', {
   send: (channel: string, data: any) => ipcRenderer.send(channel, data),
   changeMode: (mode: any) => ipcRenderer.send('change-mode', mode),
   clickSubmit: (formData: any) => ipcRenderer.send('submit', formData),
-  submitToolResponse: (data: Record<string, any>) => ipcRenderer.send("submit-tool-response", data),
   openExternal: (href: string) => ipcRenderer.send('open-external', href),
   toggleAutoOpt: () => ipcRenderer.send('toggle-auto-opt'),
   streamMessageStop: () => ipcRenderer.send('stream-message-stop'),
