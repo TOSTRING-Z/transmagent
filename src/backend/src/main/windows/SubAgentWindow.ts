@@ -71,9 +71,8 @@ export class SubAgentWindow extends BaseWindow {
             transparent: false,
             resizable: true,
             webPreferences: {
-                nodeIntegration: true,
-                contextIsolation: false
-            }
+                preload: path.join(__dirname, '../preloads/subagent_window_preload.js'),
+            },
         });
 
         this.windows.push(win);
@@ -110,7 +109,7 @@ export class SubAgentWindow extends BaseWindow {
                 win.restore();
                 win.show();
                 win.focus();
-                win.webContents.send('window-info', { id: win.id, name: agentToolName });
+                win.webContents.send('windowInfo', { id: win.id, name: agentToolName });
                 win.webContents.send('userData', { group_id: 0, context_id: 0, content: query });
 
                 agentTool.tool_call.changeWindow(win);
@@ -248,83 +247,83 @@ export class SubAgentWindow extends BaseWindow {
             options: SubAgentOptions;
             isMain: boolean;
         }> = [
-            {
-                promptModule: 'url_summarizer',
-                getTools: () => this.normalizeTools({
-                    fetch_url: this.plugins.getTool("fetch_url"),
-                    browser_client: this.plugins.getTool("browser_client"),
-                }),
-                options: { todolist: false, mcp_server: false },
-                isMain: false
-            },
-            {
-                promptModule: 'web_searcher',
-                getTools: () => this.normalizeTools({
-                    fetch_search: this.plugins.getTool("fetch_search"),
-                    url_summarizer: this.agentTools["url_summarizer"]
-                }),
-                options: { todolist: false, mcp_server: false },
-                isMain: false
-            },
-            {
-                promptModule: 'error_solution_finder',
-                getTools: () => this.normalizeTools({
-                    error_solution_search: this.plugins.getTool("error_solution_search"),
-                    web_searcher: this.agentTools["web_searcher"],
-                }),
-                options: { todolist: false, mcp_server: false },
-                isMain: false
-            },
-            {
-                promptModule: 'chart_plotter',
-                getTools: () => this.normalizeTools({
-                    cli_execute: this.plugins.getTool("cli_execute")
-                }),
-                options: { todolist: false, mcp_server: false },
-                isMain: true
-            },
-            {
-                promptModule: 'tool_documentation_collector',
-                getTools: () => this.normalizeTools({
-                    fetch_search: this.plugins.getTool("fetch_search"),
-                    url_summarizer: this.agentTools["url_summarizer"]
-                }),
-                options: { todolist: false, mcp_server: false },
-                isMain: false
-            },
-            {
-                promptModule: 'tool_manager',
-                getTools: () => this.normalizeTools({
-                    read_tools_prompt: this.read_tools_prompt(),
-                    tool_documentation_collector: this.agentTools["tool_documentation_collector"],
-                    error_solution_finder: this.agentTools["error_solution_finder"],
-                    cli_execute: this.plugins.getTool("cli_execute"),
-                    update_tool: this.plugins.getTool("update_tool"),
-                }),
-                options: { todolist: false, mcp_server: false },
-                isMain: true
-            },
-            {
-                promptModule: 'workflow_planner',
-                getTools: () => this.normalizeTools({
-                    read_tools_prompt: this.read_tools_prompt(),
-                }),
-                options: { todolist: false, mcp_server: false },
-                isMain: true
-            },
-            {
-                promptModule: 'task_executor',
-                getTools: () => this.normalizeTools({
-                    read_tools_prompt: this.read_tools_prompt(),
-                    cli_execute: this.plugins.getTool("cli_execute"),
-                    tool_manager: this.agentTools["tool_manager"],
-                    chart_plotter: this.agentTools["chart_plotter"],
-                    web_searcher: this.agentTools["web_searcher"],
-                }),
-                options: { todolist: false, mcp_server: true },
-                isMain: true
-            },
-        ];
+                {
+                    promptModule: 'url_summarizer',
+                    getTools: () => this.normalizeTools({
+                        fetch_url: this.plugins.getTool("fetch_url"),
+                        browser_client: this.plugins.getTool("browser_client"),
+                    }),
+                    options: { todolist: false, mcp_server: false },
+                    isMain: false
+                },
+                {
+                    promptModule: 'web_searcher',
+                    getTools: () => this.normalizeTools({
+                        fetch_search: this.plugins.getTool("fetch_search"),
+                        url_summarizer: this.agentTools["url_summarizer"]
+                    }),
+                    options: { todolist: false, mcp_server: false },
+                    isMain: false
+                },
+                {
+                    promptModule: 'error_solution_finder',
+                    getTools: () => this.normalizeTools({
+                        error_solution_search: this.plugins.getTool("error_solution_search"),
+                        web_searcher: this.agentTools["web_searcher"],
+                    }),
+                    options: { todolist: false, mcp_server: false },
+                    isMain: false
+                },
+                {
+                    promptModule: 'chart_plotter',
+                    getTools: () => this.normalizeTools({
+                        cli_execute: this.plugins.getTool("cli_execute")
+                    }),
+                    options: { todolist: false, mcp_server: false },
+                    isMain: true
+                },
+                {
+                    promptModule: 'tool_documentation_collector',
+                    getTools: () => this.normalizeTools({
+                        fetch_search: this.plugins.getTool("fetch_search"),
+                        url_summarizer: this.agentTools["url_summarizer"]
+                    }),
+                    options: { todolist: false, mcp_server: false },
+                    isMain: false
+                },
+                {
+                    promptModule: 'tool_manager',
+                    getTools: () => this.normalizeTools({
+                        read_tools_prompt: this.read_tools_prompt(),
+                        tool_documentation_collector: this.agentTools["tool_documentation_collector"],
+                        error_solution_finder: this.agentTools["error_solution_finder"],
+                        cli_execute: this.plugins.getTool("cli_execute"),
+                        update_tool: this.plugins.getTool("update_tool"),
+                    }),
+                    options: { todolist: false, mcp_server: false },
+                    isMain: true
+                },
+                {
+                    promptModule: 'workflow_planner',
+                    getTools: () => this.normalizeTools({
+                        read_tools_prompt: this.read_tools_prompt(),
+                    }),
+                    options: { todolist: false, mcp_server: false },
+                    isMain: true
+                },
+                {
+                    promptModule: 'task_executor',
+                    getTools: () => this.normalizeTools({
+                        read_tools_prompt: this.read_tools_prompt(),
+                        cli_execute: this.plugins.getTool("cli_execute"),
+                        tool_manager: this.agentTools["tool_manager"],
+                        chart_plotter: this.agentTools["chart_plotter"],
+                        web_searcher: this.agentTools["web_searcher"],
+                    }),
+                    options: { todolist: false, mcp_server: true },
+                    isMain: true
+                },
+            ];
 
         for (const def of agentDefs) {
             try {

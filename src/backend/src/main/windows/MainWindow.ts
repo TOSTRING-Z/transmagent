@@ -153,7 +153,7 @@ export class MainWindow extends BaseWindow {
             width: 1200,
             height: 800,
             webPreferences: {
-                preload: path.join(__dirname, '../preload.js'),
+                preload: path.join(__dirname, '../preloads/main_window_preload.js'),
             },
         });
 
@@ -746,7 +746,6 @@ export class MainWindow extends BaseWindow {
                             const chat_id = this.llm_service.chatManager.chat.id;
                             this.llm_service.chatManager.init();
                             this.llm_service.chatManager.chat.id = chat_id;
-                            this.tool_call.init_var();
                             this.tool_call.setHistory();
                             this.tool_call.change_mode();
                             this.updateVersionsSubmenu();

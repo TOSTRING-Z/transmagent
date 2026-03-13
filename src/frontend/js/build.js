@@ -3,7 +3,7 @@ const path = require('path');
 
 const watchMode = process.argv.includes('--watch');
 
-const buildOptions = {
+const buildRendererOptions = {
   entryPoints: [path.join(__dirname, 'main', 'main.ts')],
   outfile: path.join(__dirname, 'renderer.js'),
   bundle: true,
@@ -14,15 +14,27 @@ const buildOptions = {
   format: 'iife',
 };
 
-async function build() {
+const buildSubagentOptions = {
+  entryPoints: [path.join(__dirname, 'main', 'subagent.ts')],
+  outfile: path.join(__dirname, 'subagent.js'),
+  bundle: true,
+  minify: false, // Set to true for production
+  sourcemap: true,
+  platform: 'browser',
+  target: ['es2020'],
+  format: 'iife',
+};
+
+async function build(options) {
   if (watchMode) {
-    const ctx = await esbuild.context(buildOptions);
+    const ctx = await esbuild.context(options);
     await ctx.watch();
     console.log('👀 Watching for changes...');
   } else {
-    await esbuild.build(buildOptions);
+    await esbuild.build(options);
     console.log('✅ Build successful! renderer.js generated.');
   }
 }
 
-build().catch(() => process.exit(1));
+build(buildRendererOptions).catch(() => process.exit(1));
+build(buildSubagentOptions).catch(() => process.exit(1));

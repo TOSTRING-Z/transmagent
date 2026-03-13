@@ -328,12 +328,18 @@ export class ReActAgent {
 
     public newChat(): ChatState {
         this.window.webContents.send('clear');
+        this.init_var();
         this.llm_service.chatManager.init();
         this.setHistory(this.llm_service.chatManager.chat);
         return this.llm_service.chatManager.chat;
     }
 
+    public init_var() {
+        logger.log("可选实现");
+    }
+
     public loadChat(id: string): ChatState {
+        this.init_var();
         const history_path = utils.getHistoryPath(id);
         this.load_message(history_path);
         return this.llm_service.chatManager.chat;
@@ -350,8 +356,7 @@ export class ReActAgent {
                 if (role === "user") {
                     this.window.webContents.send('userData', { group_id, context_id, content, del });
                 }
-                else if (role === "tool") {
-                    const parameters = utils.parseJsonContent(content as string);
+                if (role === "tool") {
                     const tool_call_name = message.tool_call_name || "unknown_tool";
 
                     switch (tool_call_name) {
@@ -368,12 +373,13 @@ export class ReActAgent {
                         this.window.webContents.send('streamData', { group_id, context_id, content: `${content}\n\n`, end: true, del });
                     }
                     if (["ask_followup_question", "waiting_feedback", "plan_mode_response"].includes(tool_call_name)) {
-                        this.window.webContents.send('streamData', { group_id, context_id, content: `${parameters.question}\n\n`, end: true, del });
+                        this.window.webContents.send('streamData', { group_id, context_id, content: `${content}\n\n`, end: true, del });
                     }
 
                     let content_format = (content as string).replaceAll("\\`", "'").replaceAll("`", "'");
                     this.window.webContents.send('infoData', { group_id, context_id, content: `Step ${i}, group_id: ${group_id}, context_id: ${context_id}, Output:\n\n\`\`\`json\n${content_format}\n\`\`\`\n\n`, del });
-                } else { // assistant
+                }
+                if (role === "assistant") {
                     if (react) {
                         try {
                             let toolInfo;
@@ -413,7 +419,7 @@ export class ReActAgent {
         }
     }
 
-    public get_info(data: Record<string, any>): string {
+    public getInfo(data: Record<string, any>): string {
         const output_format = utils.copy(data.output_format);
         data.output_format = data.output_format?.replaceAll("\\`", "'").replaceAll("`", "'");
 

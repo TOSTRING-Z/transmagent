@@ -1,17 +1,291 @@
-let global = {
+"use strict";
+(() => {
+  // main/globals.ts
+  var DOM = {
+    system_prompt: document.getElementById("system_prompt"),
+    file_upload: document.getElementById("file_upload"),
+    act_plan: document.getElementById("act_plan"),
+    auto: document.getElementById("auto"),
+    act: document.getElementById("act"),
+    plan: document.getElementById("plan"),
+    flash: document.getElementById("flash"),
+    pause: document.getElementById("pause"),
+    progress_container: document.getElementById("progress-container"),
+    progress_bar: document.getElementById("progress-bar"),
+    input: document.getElementById("input"),
+    submit: document.getElementById("submit"),
+    messages: document.getElementById("messages"),
+    top_div: document.getElementById("top_div"),
+    bottom_div: document.getElementById("bottom_div"),
+    version: document.getElementById("version"),
+    tokens: document.getElementById("tokens"),
+    seconds: document.getElementById("seconds"),
+    auto_opt: document.getElementById("auto_opt"),
+    envs: document.getElementById("envs"),
+    btn_save_envs: document.getElementById("btn_save_envs"),
+    tasks: document.getElementById("tasks"),
+    btn_save_tasks: document.getElementById("btn_save_tasks"),
+    history_list: document.getElementById("history-list"),
+    btn_new_chat: document.getElementById("new-chat"),
+    renameDialog: document.getElementById("renameDialog"),
+    renameInput: document.getElementById("renameInput"),
+    model_select: document.getElementById("ai-model"),
+    compress_box: document.getElementById("compress-context"),
+    msg_count: document.getElementById("msg_count") || {
+      innerText: "0"
+    }
+  };
+  var State = {
+    markdown_statu: true,
+    seconds_timer: null,
+    chat: { tokens: 0, seconds: 0, id: null, mode: "auto", version: null, system_prompt: "" },
     scroll_top: {
-        info: true,
-        data: true,
+      info: true,
+      data: true
     },
     status: {
-        auto_opt: false,
+      auto_opt: false
     },
-};
+    react_statu: false,
+    formData: {
+      query: null,
+      prompt: null,
+      file_path: null,
+      img_url: null
+    }
+  };
 
-const messages = document.getElementById("messages");
-const top_div = document.getElementById("top_div");
+  // main/utils.ts
+  function createElement(html) {
+    const parser = new DOMParser();
+    const doc = parser.parseFromString(html, "text/html");
+    return doc.body.firstChild;
+  }
+  function getIcon(is_plugin) {
+    return is_plugin ? "api" : "ai";
+  }
 
-let user_message = `<div class="relative space-y-2 space-x-2" data-role="user" data-id="">
+  // main/ui.ts
+  function showLog(type, content) {
+    window.electronAPI.showLog({ type, content });
+  }
+
+  // main/markdown.ts
+  var { Marked } = globalThis.marked;
+  var { markedHighlight } = globalThis.markedHighlight;
+  var totalTime = 0;
+  var timerInterval = null;
+  async function renderPDF(id) {
+    totalTime = 0;
+    timerInterval = setInterval(async () => {
+      totalTime++;
+      if (totalTime > 10) {
+        if (timerInterval)
+          clearInterval(timerInterval);
+        timerInterval = null;
+        return;
+      }
+      try {
+        const container = document.getElementById(id);
+        if (!container)
+          return;
+        const pdfUrl = container.getAttribute("data-pdf");
+        if (!pdfUrl)
+          return;
+        const canvas = container.querySelector("canvas");
+        if (!canvas)
+          return;
+        const pdf = await globalThis.pdfjsLib.getDocument(pdfUrl).promise;
+        const page = await pdf.getPage(1);
+        const viewport = page.getViewport({ scale: 1 });
+        const context = canvas.getContext("2d");
+        canvas.height = viewport.height;
+        canvas.width = viewport.width;
+        const renderContext = {
+          canvasContext: context,
+          viewport
+        };
+        await page.render(renderContext).promise;
+        if (timerInterval)
+          clearInterval(timerInterval);
+        timerInterval = null;
+        return;
+      } catch (error) {
+        console.log("renderPDF error: ", error.message);
+      }
+    }, 500);
+  }
+  globalThis.copyCode = (btn) => {
+    const codeToCopy = decodeURIComponent(btn.getAttribute("data-code") || "");
+    navigator.clipboard.writeText(codeToCopy).then(() => {
+      showLog("success", "Copy successful");
+    }).catch((err) => {
+      console.log("Copy failed", err);
+    });
+  };
+  var formatCode = (token) => {
+    let encodeCode;
+    const codeBlockRegex = /```\w*\n([\s\S]*?)```/;
+    const match = token.raw.match(codeBlockRegex);
+    if (match) {
+      const codeContent = match[1].trim();
+      encodeCode = encodeURIComponent(codeContent);
+    } else {
+      encodeCode = encodeURIComponent(token.raw);
+    }
+    return `<div class="code-container">
+  <div class="code-header">
+    <span class="language-tag">${token.type}</span>
+    <button class="copy-btn" onclick="copyCode(this)" data-code="${encodeCode}" title="Copy code">Copy</button>
+  </div>
+  <pre class="hljs"><code>${token.text}</code></pre>
+</div>`;
+  };
+  var formatText = (token) => {
+    let language = globalThis.hljs.getLanguage(token.type) ? token.type : "plaintext";
+    const highlightResult = globalThis.hljs.highlight(token.raw, { language }).value;
+    return highlightResult;
+  };
+  var formatImage = (token) => {
+    if (token.title === "pdf") {
+      return token.text;
+    }
+    return `<img class="w-1/2 shadow-xl rounded-md mb-1 hover" src="${token.href}" alt="${token.text}"></img>`;
+  };
+  var formatLink = (token) => {
+    const pattern = /^\[([^\]]+)\]\(([^)]+)\)$/;
+    const match = token.raw.match(pattern);
+    if (match) {
+      const [, linkText, href] = match;
+      return `<a href="${href}">${linkText}</a>`;
+    }
+    return token.text;
+  };
+  var marked_input = new Marked({
+    renderer: {
+      html(token) {
+        token.type = "plaintext";
+        return formatText(token);
+      },
+      link(token) {
+        token.type = "plaintext";
+        return formatText(token);
+      },
+      text(token) {
+        if (Object.prototype.hasOwnProperty.call(token, "tokens")) {
+          return this.parser.parseInline(token.tokens);
+        } else {
+          token.type = "plaintext";
+          return formatText(token);
+        }
+      }
+    }
+  });
+  var renderer = {
+    code(token) {
+      return formatCode(token);
+    },
+    html(token) {
+      return formatText(token);
+    },
+    link(token) {
+      return formatLink(token);
+    },
+    image(token) {
+      return formatImage(token);
+    },
+    text(token) {
+      if (Object.prototype.hasOwnProperty.call(token, "tokens")) {
+        return this.parser.parseInline(token.tokens);
+      } else if (Object.prototype.hasOwnProperty.call(token, "typeThink")) {
+        const highlightResult = marked_input.parse(token.text);
+        return `<div class="think">${highlightResult}</div>`;
+      } else {
+        return token.raw;
+      }
+    }
+  };
+  var walkTokens = async (token) => {
+    if (token.type === "image") {
+      try {
+        if (token.href.endsWith(".pdf")) {
+          const id = `pdf-canvas-${Date.now()}`;
+          let containerHTML = `<div class="pdf-container" id="${id}" data-pdf="${token.href}">
+            <canvas></canvas>
+        </div>`;
+          token.text = containerHTML;
+          token.title = "pdf";
+          renderPDF(id);
+        }
+      } catch {
+        token.title = "invalid";
+      }
+    }
+  };
+  var thinkExtension = {
+    name: "think",
+    level: "block",
+    start(src) {
+      return src.match(/<think>/)?.index;
+    },
+    tokenizer(src) {
+      const rule0 = /^<think>([\s\S]*?)<\/think>/;
+      const match0 = rule0.exec(src);
+      const rule1 = /^<think>([\s\S]*)/;
+      const match1 = rule1.exec(src);
+      const match = match0 || match1;
+      if (match) {
+        return {
+          type: "text",
+          typeThink: true,
+          raw: match[0],
+          text: match[1]
+        };
+      }
+    }
+  };
+  function preprocess(src) {
+    src = src.replace(/\\\(([^]+?)\\\)/g, (match, content) => `$${content}$`);
+    src = src.replace(/\\\[([^]+?)\\\]/g, (match, content) => `
+$$${content}$$
+`);
+    src = src.replace(/\$\$([^]+?)\$\$/g, (match, content) => `
+$$
+${content}
+$$
+`);
+    return src;
+  }
+  var marked = new Marked(
+    markedHighlight({
+      async: true,
+      langPrefix: "hljs language-",
+      async highlight(code, lang) {
+        if (lang === "mermaid") {
+          const eleid = "mermaid-" + Date.now() + "-" + Math.round(Math.random() * 1e3);
+          try {
+            const syntax = await globalThis.mermaid.parse(code);
+            if (syntax) {
+              const { svg } = await globalThis.mermaid.render(eleid + "-svg", code);
+              return `<div id="${eleid}">${svg}</div>`;
+            }
+          } catch {
+            console.log("mermaid format validation failed");
+          }
+          return `<div id="${eleid}">${code}</div>`;
+        }
+        let language = globalThis.hljs.getLanguage(lang) ? lang : "plaintext";
+        const hljsResult = await globalThis.hljs.highlight(code, { language });
+        return hljsResult.value;
+      }
+    })
+  );
+  marked.use({ hooks: { preprocess } });
+  marked.use(globalThis.markedKatex({ nonStandard: true, async: true }));
+  marked.use({ walkTokens, renderer, async: true, extensions: [thinkExtension] });
+
+  // main/chat.ts
+  var user_message_template = `<div class="relative space-y-2 space-x-2" data-role="user" data-id="">
   <div class="flex flex-row-reverse w-full">
     <div class="menu-container">
       <img class="menu user" src="img/user.svg" alt="User Avatar">
@@ -19,8 +293,7 @@ let user_message = `<div class="relative space-y-2 space-x-2" data-role="user" d
     <div class="message"></div>
   </div>
 </div>`;
-
-let system_message = `<div class="relative space-y-2 space-x-2" data-role="system" data-id="">
+  var system_message_template = `<div class="relative space-y-2 space-x-2" data-role="system" data-id="">
   <div class="menu-container">
     <img class="menu system" src="" alt="System Avatar">
   </div>
@@ -33,433 +306,381 @@ let system_message = `<div class="relative space-y-2 space-x-2" data-role="syste
     <div class="dot"></div>
     <div class="dot"></div>
     <div class="dot"></div>
+    <button class="btn">Stop generation</button>
   </div>
   <div class="message-actions">
     <i class="far fa-copy copy action-btn" title="copy"></i>
+    <i class="far fa-trash-alt delete action-btn" title="delete"></i>
+    <i class="fa-solid fa-file-zipper compression action-btn" title="compression"></i>
     <i class="fas fa-toggle-off toggle action-btn" title="toggle"></i>
+    <i class="fas fa-thumbs-up thumbs-up action-btn" title="thumbs up"></i>
+    <i class="fas fa-thumbs-down thumbs-down action-btn" title="thumbs down"></i>
   </div>
-</div>`
-
-async function userAdd(data) {
-    let messageUser;
-    if (typeof (data.content) == "string") {
-        messageUser = await user_message.formatMessage({
-            "id": data.id,
-            "message": data.content,
-            "image_url": data?.img_url,
-        }, "user")
-    } else {
-        messageUser = await user_message.formatMessage({
-            "id": data.id,
-            "message": data.content[0].text.content,
-            "image_url": data.content[1].image_url.url,
-        }, "user");
+</div>`;
+  async function formatMessage(template, params, role) {
+    const newElement = createElement(template);
+    let message = newElement.getElementsByClassName("message")[0];
+    if (Object.prototype.hasOwnProperty.call(params, "icon")) {
+      let menu = newElement.getElementsByClassName("menu")[0];
+      menu.src = `img/${params["icon"]}.svg`;
     }
-    messages.appendChild(messageUser);
-    let messageSystem = await system_message.formatMessage({
-        "icon": getIcon(false),
-        "id": data.id,
-        "message": ""
-    }, "system");
-    messages.appendChild(messageSystem);
-}
-
-async function infoAdd(info) {
-    const messageSystem = document.querySelectorAll(`[data-id='${info.id}']`)[1];
-    if (messageSystem) {
-        const info_content = messageSystem.getElementsByClassName('info-content')[0];
-        const info_div = messageSystem.getElementsByClassName('info')[0];
-        if (info_div && info_div.classList.contains('hidden')) {
-            info_div.classList.remove('hidden');
+    if (role === "system") {
+      message.innerHTML = await marked.parse(params["message"]);
+    } else {
+      if (params.image_url) {
+        let img = createElement(`<img class="w-1/2 shadow-xl rounded-md mb-1 hover" src="${params.image_url}">`);
+        message.appendChild(img);
+      }
+      let text = createElement(`<div class="message-text"></div>`);
+      text.innerText = params["message"] || "";
+      message.appendChild(text);
+    }
+    newElement.dataset.id = params["id"];
+    return newElement;
+  }
+  async function toggleMessageGroup(group_id) {
+    let elements = document.querySelectorAll(`[data-id="${group_id}"]`);
+    elements.forEach(async function(message_element) {
+      if (message_element.classList.contains("message_del")) {
+        let { del_mode } = await window.electronAPI.toggleMessageGroup({ group_id, del: false });
+        if (del_mode) {
+          message_element.remove();
+        } else {
+          message_element.classList.remove("message_del");
+          message_element.querySelectorAll("[info_data-id]").forEach((element) => {
+            if (element.classList.contains("del"))
+              element.classList.remove("del");
+          });
+          message_element.querySelectorAll("[chunk_data-id]").forEach((element) => {
+            if (element.classList.contains("del"))
+              element.classList.remove("del");
+          });
         }
-        if (info.content) {
-            let info_item_content = await marked.parse(info.content);
-            let info_item = createElement(`<div info_data-id="${info.context_id}">
+      } else {
+        let { del_mode } = await window.electronAPI.toggleMessageGroup({ group_id, del: true });
+        if (del_mode) {
+          message_element.remove();
+        } else {
+          message_element.classList.add("message_del");
+          message_element.classList.add("message_toggle");
+          message_element.querySelectorAll("[info_data-id]").forEach((element) => {
+            if (!element.classList.contains("del"))
+              element.classList.add("del");
+          });
+          message_element.querySelectorAll("[chunk_data-id]").forEach((element) => {
+            if (!element.classList.contains("del"))
+              element.classList.add("del");
+          });
+        }
+      }
+    });
+  }
+  async function toggleContextMessage(context_id) {
+    let { del_mode } = await window.electronAPI.toggleContextMessage(context_id);
+    let elements = document.querySelectorAll(`[info_data-id="${context_id}"]`);
+    elements.forEach(function(element) {
+      if (del_mode)
+        element.remove();
+      else
+        element.classList.toggle("del");
+    });
+    elements = document.querySelectorAll(`[chunk_data-id="${context_id}"]`);
+    elements.forEach(function(element) {
+      if (del_mode)
+        element.remove();
+      else
+        element.classList.toggle("del");
+    });
+  }
+  var compression_tasks = {};
+  async function compressionGroupMessage(group_id) {
+    let elements = document.querySelectorAll(`[data-id="${group_id}"]`);
+    showLog("log", `Compressing message (id: ${group_id})...`);
+    compression_tasks[group_id] = true;
+    if (DOM.submit.classList.contains("running") == false) {
+      DOM.submit.classList.add("running");
+    }
+    let { compression_content } = await window.electronAPI.compressionGroupMessage({ group_id });
+    showLog("success", `Message compressed (id: ${group_id}).`);
+    let keptUser = false;
+    elements.forEach(async function(message_element) {
+      if (!keptUser) {
+        keptUser = true;
+        let messageSystem = await formatMessage(system_message_template, {
+          "icon": getIcon(false),
+          "id": group_id,
+          "message": compression_content
+        }, "system");
+        addRunning(messageSystem);
+        const thinking = messageSystem.getElementsByClassName("thinking")[0];
+        thinking.remove();
+        const message_content = messageSystem.getElementsByClassName("message")[0];
+        menuEvent(messageSystem, message_content, false);
+        message_element.parentElement.insertBefore(messageSystem, message_element.nextSibling);
+        delete compression_tasks[group_id];
+        if (Object.keys(compression_tasks).length == 0) {
+          DOM.submit.classList.remove("running");
+        }
+      } else {
+        message_element.remove();
+      }
+    });
+  }
+  async function thumbMessageGroup(up, down, data) {
+    let thumb = await window.electronAPI.thumbMessageGroup(data);
+    if (thumb === 1) {
+      if (!up.classList.contains("success"))
+        up.classList.add("success");
+      if (down.classList.contains("success"))
+        down.classList.remove("success");
+    } else if (thumb === -1) {
+      if (!down.classList.contains("success"))
+        down.classList.add("success");
+      if (up.classList.contains("success"))
+        up.classList.remove("success");
+    } else {
+      if (up.classList.contains("success"))
+        up.classList.remove("success");
+      if (down.classList.contains("success"))
+        down.classList.remove("success");
+    }
+  }
+  function locateContextMessage(context_id) {
+    let elements = document.querySelectorAll(`[info_data-id="${context_id}"]`);
+    if (elements.length > 0)
+      elements[0].scrollIntoView({ behavior: "smooth", block: "center" });
+  }
+  function quoteContextMessage(context_id) {
+    const quotedContent = `Please invoke the memory_retrieval tool using context_id: ${context_id}`;
+    DOM.input.value = quotedContent + "\n" + DOM.input.value;
+  }
+  function menuEvent(messageSystem, message_content, is_plugin) {
+    const copy = messageSystem.getElementsByClassName("copy")[0];
+    const del = messageSystem.getElementsByClassName("delete")[0];
+    const compression = messageSystem.getElementsByClassName("compression")[0];
+    const toggle = messageSystem.getElementsByClassName("toggle")[0];
+    const thumbs_up = messageSystem.getElementsByClassName("thumbs-up")[0];
+    const thumbs_down = messageSystem.getElementsByClassName("thumbs-down")[0];
+    copy.classList.add("active");
+    del.classList.add("active");
+    if (!is_plugin) {
+      compression.classList.add("active");
+      toggle.classList.add("active");
+      thumbs_up.classList.add("active");
+      thumbs_down.classList.add("active");
+    }
+    copy.addEventListener("click", () => {
+      const raw = message_content.dataset.content || "";
+      navigator.clipboard.writeText(raw).then(() => {
+        showLog("success", "Copy successful");
+      }).catch((err) => {
+        console.log(err);
+      });
+    });
+    del.addEventListener("click", () => {
+      toggleMessageGroup(messageSystem.dataset.id);
+    });
+    toggle.addEventListener("click", () => {
+      messageSystem.classList.toggle("message_toggle");
+    });
+    compression.addEventListener("click", () => {
+      messageSystem.classList.toggle("message_compression");
+      compressionGroupMessage(messageSystem.dataset.id);
+    });
+    thumbMessageGroup(thumbs_up, thumbs_down, { group_id: messageSystem.dataset.id, thumb: 0 });
+    thumbs_up.addEventListener("click", () => {
+      thumbMessageGroup(thumbs_up, thumbs_down, { group_id: messageSystem.dataset.id, thumb: 1 });
+    });
+    thumbs_down.addEventListener("click", () => {
+      thumbMessageGroup(thumbs_up, thumbs_down, { group_id: messageSystem.dataset.id, thumb: -1 });
+    });
+  }
+  function addRunning(messageSystem) {
+    DOM.submit.classList.add("running");
+    const message_content = messageSystem.getElementsByClassName("message")[0];
+    const thinking = messageSystem?.getElementsByClassName("thinking")[0];
+    thinking.classList.remove("hidden");
+    const btn = messageSystem?.getElementsByClassName("btn")[0];
+    btn?.addEventListener("click", async () => {
+      await window.electronAPI.streamMessageStop();
+      if (State.seconds_timer)
+        clearInterval(State.seconds_timer);
+      thinking.classList.add("hidden");
+      menuEvent(messageSystem, message_content.dataset.content, false);
+      DOM.submit.classList.remove("running");
+    });
+  }
+  async function userData(data) {
+    let messageUser;
+    if (typeof data.content == "string") {
+      messageUser = await formatMessage(user_message_template, {
+        "id": data.group_id,
+        "message": data.content,
+        "image_url": data?.img_url
+      }, "user");
+    } else {
+      messageUser = await formatMessage(user_message_template, {
+        "id": data.group_id,
+        "message": data.content[0].text.content,
+        "image_url": data.content[1].image_url.url
+      }, "user");
+    }
+    DOM.messages.appendChild(messageUser);
+    let messageSystem = await formatMessage(system_message_template, {
+      "icon": getIcon(false),
+      "id": data.group_id,
+      "message": ""
+    }, "system");
+    DOM.messages.appendChild(messageSystem);
+    addRunning(messageSystem);
+    if (data?.del) {
+      messageUser.classList.add("message_del");
+      messageSystem.classList.add("message_del");
+      messageUser.classList.add("message_toggle");
+      messageSystem.classList.add("message_toggle");
+    }
+  }
+  async function infoData(info) {
+    const messageSystems = document.querySelectorAll(`[data-id='${info.group_id}']`);
+    const messageSystem = messageSystems[1];
+    if (messageSystem) {
+      const info_content = messageSystem.getElementsByClassName("info-content")[0];
+      const info_div = messageSystem.getElementsByClassName("info")[0];
+      if (info_div && info_div.classList.contains("hidden")) {
+        info_div.classList.remove("hidden");
+      }
+      if (info.content) {
+        if (info.chat && info.chat.tokens !== void 0 && DOM.tokens) {
+          DOM.tokens.innerText = info.chat.tokens.toString();
+        }
+        let info_item_content = await marked.parse(info.content);
+        let info_item = createElement(`<div info_data-id="${info.context_id}">
     <div class="info-item">
     </div>
   </div>`);
-            if (info?.del)
-                info_item.classList.add("del");
-            info_item.getElementsByClassName('info-item')[0].innerHTML = info_item_content;
-            info_content.appendChild(info_item);
-            info_content.dataset.content += info.content;
-            if (global.scroll_top.info)
-                info_content.scrollTop = info_content.scrollHeight;
-            if (global.scroll_top.data)
-                top_div.scrollTop = top_div.scrollHeight;
-        }
+        if (info?.del)
+          info_item.classList.add("del");
+        info_item.getElementsByClassName("info-item")[0].innerHTML = info_item_content;
+        info_content.appendChild(info_item);
+        info_content.dataset.content = (info_content.dataset.content || "") + info.content;
+        if (State.scroll_top.info)
+          info_content.scrollTop = info_content.scrollHeight;
+        if (State.scroll_top.data)
+          DOM.top_div.scrollTop = DOM.top_div.scrollHeight;
+      }
     }
-}
-
-
-async function streamMessageAdd(chunk) {
-    const messageSystem = document.querySelectorAll(`[data-id='${chunk.id}']`)[1];
+  }
+  async function toolData(chunk) {
+    const messageSystems = document.querySelectorAll(`[data-id='${chunk.group_id}']`);
+    const messageSystem = messageSystems[1];
+    addRunning(messageSystem);
+    streamData(chunk);
+  }
+  async function streamData(chunk) {
+    const messageSystems = document.querySelectorAll(`[data-id='${chunk.group_id}']`);
+    const messageSystem = messageSystems[1];
     if (messageSystem) {
-        const message_content = messageSystem.getElementsByClassName('message')[0];
-        if (chunk.content) {
-            let context_id = Object.prototype.hasOwnProperty.call(chunk, "context_id") ? chunk.context_id : chunk.id;
-            // console.log(`context_id: ${context_id}`)
-            // console.log(`content: ${chunk.content}`)
-            // console.log(`------------------------`)
-
-            let chunk_content = null;
-            let chunk_item_content = null;
-            let chunk_item = null;
-            let chunk_item_query = message_content.querySelectorAll(`[chunk_data-id='${context_id}']`);
-            if (chunk_item_query.length > 0) {
-                chunk_content = chunk_item_query[0].dataset.content + chunk.content;
-                chunk_item_content = await marked.parse(chunk_content);
-                chunk_item = chunk_item_query[0];
-                chunk_item.dataset.content = chunk_content;
-                chunk_item.getElementsByClassName('chunk-content')[0].innerHTML = chunk_item_content;
-            } else {
-                chunk_item = createElement(`<div chunk_data-id="${context_id}">
+      const message_content = messageSystem.getElementsByClassName("message")[0];
+      if (chunk.content) {
+        if (chunk.chat?.msg_count) {
+          DOM.msg_count.innerText = chunk.chat.msg_count;
+        }
+        if (chunk.chat && chunk.chat.tokens !== void 0 && DOM.tokens) {
+          DOM.tokens.innerText = chunk.chat.tokens.toString();
+        }
+        const optionDom = document.querySelector(".base-container");
+        if (optionDom)
+          optionDom.remove();
+        let context_id = Object.prototype.hasOwnProperty.call(chunk, "context_id") ? chunk.context_id : chunk.group_id;
+        let chunk_content = null;
+        let chunk_item_content = null;
+        let chunk_item = null;
+        let chunk_item_query = message_content.querySelectorAll(`[chunk_data-id='${context_id}']`);
+        if (chunk_item_query.length > 0) {
+          let existingItem = chunk_item_query[0];
+          chunk_content = (existingItem.dataset.content || "") + chunk.content;
+          chunk_item_content = await marked.parse(chunk_content);
+          chunk_item = existingItem;
+          chunk_item.dataset.content = chunk_content;
+          chunk_item.getElementsByClassName("chunk-content")[0].innerHTML = chunk_item_content;
+        } else {
+          chunk_item = createElement(`<div chunk_data-id="${context_id}">
           <div class="chunk">
             <div class="chunk-content"></div>
+            <div class="chunk-actions">
+              <i class="far fa-trash-alt action-btn chunk-delete" title="delete"></i>
+              <i class="fa fa-location-crosshairs action-btn chunk-location" title="location"></i>
+              <i class="fa fa-quote-right action-btn chunk-quote" title="quote"></i>
+            </div>
           </div>
         </div>`);
-                chunk_content = chunk.content;
-                chunk_item_content = await marked.parse(chunk_content);
-                chunk_item.dataset.content = chunk.content;
-                chunk_item.getElementsByClassName('chunk-content')[0].innerHTML = chunk_item_content;
-                message_content.appendChild(chunk_item);
-            }
-            message_content.dataset.content += chunk.content;
-            if (global.scroll_top.data)
-                top_div.scrollTop = top_div.scrollHeight;
+          if (chunk?.del)
+            chunk_item.classList.add("del");
+          chunk_content = chunk.content;
+          chunk_item_content = await marked.parse(chunk_content);
+          chunk_item.dataset.content = chunk.content;
+          chunk_item.getElementsByClassName("chunk-content")[0].innerHTML = chunk_item_content;
+          if (!State.react_statu || chunk?.is_plugin) {
+            chunk_item.getElementsByClassName("chunk-actions")[0].style.display = "none";
+          }
+          chunk_item.getElementsByClassName("chunk-delete")[0].addEventListener("click", () => {
+            toggleContextMessage(context_id);
+          });
+          chunk_item.getElementsByClassName("chunk-location")[0].addEventListener("click", () => {
+            locateContextMessage(context_id);
+          });
+          chunk_item.getElementsByClassName("chunk-quote")[0].addEventListener("click", () => {
+            quoteContextMessage(context_id);
+          });
+          message_content.appendChild(chunk_item);
         }
-        if (chunk.end) {
-            if (!messageSystem.dataset?.event_stop) {
-                messageSystem.dataset.event_stop = true;
-                const thinking = messageSystem.getElementsByClassName("thinking")[0];
-                thinking.remove();
-                menuEvent(messageSystem, message_content);
-            }
-            if (global.scroll_top.data)
-                top_div.scrollTop = top_div.scrollHeight;
+        message_content.dataset.content = (message_content.dataset.content || "") + chunk.content;
+        if (State.scroll_top.data)
+          DOM.top_div.scrollTop = DOM.top_div.scrollHeight;
+      }
+      if (chunk.end) {
+        if (State.seconds_timer) {
+          clearInterval(State.seconds_timer);
+          State.seconds_timer = null;
         }
+        const thinking = messageSystem.getElementsByClassName("thinking")[0];
+        thinking.classList.add("hidden");
+        if (!messageSystem.dataset?.event_stop) {
+          messageSystem.dataset.event_stop = "true";
+          menuEvent(messageSystem, message_content, chunk?.is_plugin);
+        }
+        if (State.scroll_top.data)
+          DOM.top_div.scrollTop = DOM.top_div.scrollHeight;
+        DOM.submit.classList.remove("running");
+      }
     }
-}
+  }
+  async function startAgentLoop(data) {
+    DOM.pause.style.display = "none";
+    DOM.pause.innerHTML = "";
+    const optionDom = document.querySelector(".base-container");
+    if (optionDom)
+      optionDom.remove();
+    if (State.seconds_timer)
+      clearInterval(State.seconds_timer);
+    State.seconds_timer = setInterval(() => {
+      State.chat.seconds += 0.1;
+      DOM.seconds.innerText = State.chat.seconds.toFixed(1);
+      if (State.chat.version && DOM.version)
+        DOM.version.innerText = State.chat.version;
+    }, 100);
+    DOM.tokens.innerText = State.chat.tokens.toString();
+    DOM.version.innerText = data.version;
+    data.prompt = DOM.system_prompt.value;
+    DOM.top_div.scrollTop = DOM.top_div.scrollHeight;
+  }
 
-
-function menuEvent(messageSystem, message_content) {
-    const copy = messageSystem.getElementsByClassName("copy")[0];
-    const toggle = messageSystem.getElementsByClassName("toggle")[0];
-    copy.classList.add("active");
-    toggle.classList.add("active");
-    copy.addEventListener("click", () => {
-        const raw = message_content.dataset.content;
-        navigator.clipboard.writeText(raw).then(() => {
-            // showLog('success', 'Copy successful');
-            console.log(raw);
-        }).catch(err => {
-            console.log(err);
-        });
-    })
-    toggle.addEventListener("click", () => {
-        messageSystem.classList.toggle("message_toggle");
-    })
-}
-
-
-const { Marked } = globalThis.marked;
-const { markedHighlight } = globalThis.markedHighlight;
-
-document.addEventListener("DOMContentLoaded", () => {
-    globalThis.mermaid.initialize({ startOnLoad: false });
-});
-
-const marked = new Marked(
-    markedHighlight({
-        async: true, // Add this line to enable async highlighting
-        langPrefix: "hljs language-",
-        async highlight(code, lang) {
-            if (lang === 'mermaid') {
-                // 创建一个ID
-                const eleid = 'mermaid-' + Date.now() + '-' + Math.round(Math.random() * 1000)
-                // 解析内容，判断 mermaid 的语法是否合法
-                globalThis.mermaid.parse(code).then(syntax => {
-                    if (syntax) {
-                        setTimeout(async () => {
-                            let element = document.getElementById(eleid);
-                            const { svg } = await globalThis.mermaid.render(eleid + "-svg", code);
-                            element.innerHTML = svg;
-                        }, 1000);
-                    }
-                })
-                    .catch(error => {
-                        console.error('mermaid 格式校验失败:错误信息如下:\n', error);
-                        let element = document.getElementById(eleid);
-                        element.innerHTML = code;
-                    })
-                return `<div id="${eleid}">${code}</div>`;
-            }
-            let language = globalThis.hljs.getLanguage(lang) ? lang : 'plaintext';
-            const hljsResult = await globalThis.hljs.highlight(code, { language });
-            return hljsResult.value;
-        }
-    })
-);
-
-const marked_input = new Marked({
-    renderer: {
-        html(token) {
-            token.type = "plaintext";
-            return formatText(token);
-        },
-        link(token) {
-            token.type = "plaintext";
-            return formatText(token);
-        },
-        text(token) {
-            if (Object.prototype.hasOwnProperty.call(token, "tokens")) {
-                return this.parser.parseInline(token.tokens);
-            } else {
-                token.type = "plaintext";
-                return formatText(token);
-            }
-        },
-    }
-});
-
-
-const formatCode = (token) => {
-    let encodeCode;
-    // Define regex to match ```<language>\n<code>\n``` block
-    const codeBlockRegex = /```\w*\n([\s\S]*?)```/;
-    // Execute matching
-    const match = token.raw.match(codeBlockRegex);
-    if (match) {
-        // Extract code block content (remove language identifier)
-        const codeContent = match[1].trim();
-        encodeCode = encodeURIComponent(codeContent);
-    } else {
-        encodeCode = encodeURIComponent(token.raw);
-    }
-    return `<div class="code-container">
-  <div class="code-header">
-    <span class="language-tag">${token.type}</span>
-    <button
-    class="copy-btn"
-    data-code="${encodeCode}"
-    title="Copy code">Copy</button>
-  </div>
-  <pre class="hljs"><code>${token.text}</code></pre>
-</div>`;
-}
-
-const formatText = (token) => {
-    let language = globalThis.hljs.getLanguage(token.type) ? token.type : "plaintext";
-    const highlightResult = globalThis.hljs.highlight(token.raw, { language }).value;
-    return highlightResult;
-}
-
-const formatImage = (token) => {
-    if (token.title === "pdf") {
-        return token.text;
-    }
-    return `<img class="w-1/2 shadow-xl rounded-md mb-1 hover" src="${token.href}" alt="${token.text}"></img>`;
-}
-
-const formatLink = (token) => {
-    return token.href;
-}
-
-const renderer = {
-    code(token) {
-        return formatCode(token);
-    },
-    html(token) {
-        return formatText(token);
-    },
-    link(token) {
-        return formatLink(token);
-    },
-    image(token) {
-        return formatImage(token);
-    },
-    text(token) {
-        if (Object.prototype.hasOwnProperty.call(token, "tokens")) {
-            return this.parser.parseInline(token.tokens);
-        } else if (Object.prototype.hasOwnProperty.call(token, "typeThink")) {
-            const highlightResult = marked_input.parse(token.text);
-            return `<div class="think">${highlightResult}</div>`;
-        } else {
-            return token.raw;
-        }
-    },
-}
-
-// 渲染 PDF
-let totalTime = 0;
-let timerInterval = null;
-
-async function renderPDF(id) {
-    totalTime = 0;
-    timerInterval = setInterval(async () => {
-        totalTime++;
-        if (totalTime > 10) {
-            clearInterval(timerInterval);
-            timerInterval = null;
-            return;
-        }
-        try {
-            const container = document.getElementById(id);
-            const pdfUrl = container.getAttribute('data-pdf');
-            const canvas = container.querySelector('canvas');
-            const pdf = await globalThis.pdfjsLib.getDocument(pdfUrl).promise;
-            // 获取第一页
-            const page = await pdf.getPage(1);
-            const textContent = await page.getTextContent();
-            console.log(textContent);
-            const viewport = page.getViewport({ scale: 1 });
-            const context = canvas.getContext('2d');
-
-            canvas.height = viewport.height;
-            canvas.width = viewport.width;
-
-            const renderContext = {
-                canvasContext: context,
-                viewport
-            };
-
-            await page.render(renderContext).promise;
-            clearInterval(timerInterval);
-            timerInterval = null;
-            return;
-        } catch (error) {
-            console.log(error)
-        }
-    }, 500);
-}
-
-const walkTokens = async (token) => {
-    if (token.type === 'image') {
-        try {
-            if (token.href.endsWith('.pdf')) {
-                const id = `pdf-canvas-${Date.now()}`;
-                let container = `<div class="pdf-container" id="${id}" data-pdf="@href">
-            <canvas></canvas>
-        </div>`.format(token);
-                token.text = container.outerHTML;
-                token.title = "pdf"
-                renderPDF(id);
-            }
-        } catch {
-            token.title = 'invalid';
-        }
-    }
-};
-
-const think = {
-    name: 'think',
-    level: 'block',
-    start(src) { return src.match(/<think>/)?.index; },
-    tokenizer(src) {
-        const rule0 = /^<think>([\s\S]*?)<\/think>/;
-        const match0 = rule0.exec(src);
-        const rule1 = /^<think>([\s\S]*)/;
-        const match1 = rule1.exec(src);
-        const match = match0 || match1
-        if (match) {
-            const token = {
-                type: "text",
-                typeThink: true,
-                raw: match[0],
-                text: match[1],
-            };
-            return token
-        }
-    },
-};
-
-const options = {
-    nonStandard: true,
-    async: true
-};
-
-marked.use(globalThis.markedKatex(options));
-marked.use({ walkTokens, renderer, async: true, extensions: [think] });
-
-
-function createElement(html) {
-    const parser = new DOMParser();
-    const doc = parser.parseFromString(html, 'text/html');
-    const newElement = doc.body.firstChild;
-    return newElement;
-}
-
-// Extend String prototype
-String.prototype.formatMessage = async function (params, role) {
-    const newElement = createElement(this);
-    let message = newElement.getElementsByClassName("message")[0]
-    if (Object.prototype.hasOwnProperty.call(params, "icon")) {
-        let menu = newElement.getElementsByClassName("menu")[0]
-        menu.src = `img/${params["icon"]}.svg`;
-    }
-    if (role === "system") {
-        message.innerHTML = await marked.parse(params["message"])
-    } else {
-        if (params.image_url) {
-            let img = createElement(`<img class="w-1/2 shadow-xl rounded-md mb-1 hover" src="${params.image_url}">`);
-            message.appendChild(img);
-        }
-        let text = createElement(`<div class="message-text"></div>`);
-        text.innerText = params["message"] || "";
-        message.appendChild(text);
-    }
-    newElement.dataset.id = params["id"]
-    return newElement;
-};
-
-String.prototype.format = function (params) {
-    const formattedText = this.replace(/@(\w+)/g, (match, key) => {
-        if (Object.prototype.hasOwnProperty.call(params, key)) {
-            return params[key];
-        } else {
-            console.warn(`Key "${key}" not found in params`);
-            return match;
-        }
-    });
-    const parser = new DOMParser();
-    const doc = parser.parseFromString(formattedText, 'text/html');
-    const newElement = doc.body.firstChild;
-    return newElement;
-};
-
-function getIcon(is_plugin) {
-    return is_plugin ? "api" : "ai";
-}
-
-// 窗口控制逻辑
-const { ipcRenderer } = require('electron')
-
-let info = {
-    id: null,
-    name: null
-}
-
-document.getElementById('minimize-btn').addEventListener('click', () => {
-    ipcRenderer.send(`minimize-window-${info.id}`)
-})
-
-document.getElementById('close-btn').addEventListener('click', () => {
-    ipcRenderer.send(`close-window-${info.id}`)
-})
-
-ipcRenderer.on('window-info', (_event, data) => {
-    info = data;
-    document.getElementById("info-name").innerHTML = info.name;
-})
-
-ipcRenderer.on('stream-data', (_event, chunk) => {
-    streamMessageAdd(chunk);
-})
-
-ipcRenderer.on('info-data', (_event, info) => {
-    infoAdd(info);
-})
-
-ipcRenderer.on('user-data', (_event, data) => {
-    userAdd(data);
-})
+  // main/subagent.ts
+  window.electronAPI.handleMarkDownFormat((status) => State.markdown_statu = status);
+  window.electronAPI.streamData((chunk) => streamData(chunk));
+  window.electronAPI.toolData((chunk) => toolData(chunk));
+  window.electronAPI.infoData((info) => infoData(info));
+  window.electronAPI.userData((data) => userData(data));
+  window.electronAPI.startAgentLoop(async (data) => startAgentLoop(data));
+})();
+//# sourceMappingURL=subagent.js.map

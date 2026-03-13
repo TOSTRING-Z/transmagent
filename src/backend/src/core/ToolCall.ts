@@ -12,6 +12,12 @@ import { ToolCallAdapterFactory } from '../factories/AdapterFactory';
 import { IToolCallAdapter } from '../adapters/IAdapter';
 import { Plugins } from './Plugins';
 
+export interface Observation {
+    result: string;
+    options?: string[];
+    ask?: string;
+}
+
 export interface PromptArgs {
     agent_prompt?: string | null;
     mcp_server?: boolean;
@@ -50,6 +56,7 @@ export class ToolCall extends ReActAgent {
     public thinking_repetitions: string[] = [];
     public repetitions_delay_empty: number = 0;
     public environment_details!: EnvironmentDetails;
+    public toolInfo: ToolInfo | null = null;
 
     constructor(
         plugins: Plugins,
@@ -127,20 +134,17 @@ export class ToolCall extends ReActAgent {
             if (key === 'add_subtasks' || key === 'record_subtasks') {
                 if (!(args.todolist && currentMode !== modes.FLASH && currentMode !== modes.PLAN)) continue;
             }
-            if (key === 'ask_followup_question' || key === 'waiting_feedback') {
-                if (isSubagent || currentMode !== modes.ACT) continue;
-            }
             if (key === 'context_retrieval' || key === 'search_long_term_memory' || key === 'write_important_memory') {
                 if (isSubagent) continue;
             }
-            if (key === 'plan_mode_response') {
-                if (currentMode !== modes.PLAN) continue;
+            if (key === 'ask_user') {
+                if (isSubagent || currentMode === modes.FLASH || currentMode === modes.AUTO) continue;
             }
 
             if (this.tools[key]?.getPrompt && this.tools[key]?.enabled !== false) {
                 const schemaOrStr = this.tools[key].getPrompt();
                 if (currentMode === modes.PLAN) {
-                    if (key === 'plan_mode_response')
+                    if (key === 'ask_user')
                         tool_schemas.push(schemaOrStr);
                 } else {
                     if (typeof schemaOrStr === 'string') {
@@ -245,7 +249,7 @@ export class ToolCall extends ReActAgent {
         if (this.state === State.IDLE) {
             this.state = State.RUNNING;
         }
-        
+
         if (!this.mcp_prompt && this.prompt_args.mcp_server) {
             await this.mcp_client.initMcp();
             this.mcp_prompt = this.mcp_client.mcpPrompt;
@@ -258,58 +262,49 @@ export class ToolCall extends ReActAgent {
 
         data.prompt = await this.system_prompt();
         const messageOutput = await this.llmCall(data);
-        let toolInfo: ToolInfo | null = null;
         let assistantMessage!: Message;
         if (messageOutput) {
             assistantMessage = { ...messageOutput, ...{ group_id: this.llm_service.chatManager.chat.group_id, context_id: this.llm_service.chatManager.chat.context_id, tool_format: this.llm_service.chatManager.chat.tool_format, show: true, react: true } }
-            toolInfo = await this.getToolInfo(data, assistantMessage);
+            this.toolInfo = await this.getToolInfo(data, assistantMessage);
         }
 
-        if (toolInfo?.error) {
+        if (this.toolInfo?.error) {
             this.llm_service.chatManager.pushMessage(assistantMessage);
-            this.llm_service.chatManager.pushMessage({ role: "tool", content: toolInfo.error, tool_call_id: toolInfo?.id, tool_call_name: toolInfo?.tool, group_id: this.llm_service.chatManager.chat.group_id, context_id: this.llm_service.chatManager.chat.context_id, show: true, react: true });
-            this.window?.webContents.send('streamData', { group_id: this.llm_service.chatManager.chat.group_id, context_id: this.llm_service.chatManager.chat.context_id, content: toolInfo.error, chat: this.llm_service.chatManager.chat });
+            this.llm_service.chatManager.pushMessage({ role: "tool", content: this.toolInfo.error, tool_call_id: this.toolInfo?.id, tool_call_name: this.toolInfo?.tool, group_id: this.llm_service.chatManager.chat.group_id, context_id: this.llm_service.chatManager.chat.context_id, show: true, react: true });
+            this.window?.webContents.send('streamData', { group_id: this.llm_service.chatManager.chat.group_id, context_id: this.llm_service.chatManager.chat.context_id, content: this.toolInfo.error, chat: this.llm_service.chatManager.chat });
         }
-        else if (toolInfo?.tool) {
+        else if (this.toolInfo?.tool) {
             this.llm_service.chatManager.pushMessage(assistantMessage);
-            let observation = await this.act(toolInfo);
-            if (this.thinking_repetitions.length >= (utils.getConfig("tool_call")?.max_thinking_repetitions || 5)) {
-                observation = {
-                    question: `You have been stuck in a thinking loop ${this.thinking_repetitions.length} times. Try a new approach to break through, or end it directly.`,
-                    options: ["End Task", "Try New Approach", "Continue"]
-                };
-                this.state = State.PAUSE;
-                this.thinking_repetitions.length = 0;
-            } else {
-                switch (toolInfo.tool) {
-                    case "display_file":
-                        this.window?.webContents.send('streamData', { group_id: this.llm_service.chatManager.chat.group_id, context_id: this.llm_service.chatManager.chat.context_id, content: `${observation}\n\n`, chat: this.llm_service.chatManager.chat });
-                        break;
-                    case "add_subtasks":
-                    case "record_subtasks":
-                        this.window?.webContents.send('streamData', { group_id: this.llm_service.chatManager.chat.group_id, context_id: this.llm_service.chatManager.chat.context_id, content: `\`\`\`json\n${JSON.stringify(observation, null, 2)}\n\`\`\`\n\n`, chat: this.llm_service.chatManager.chat });
-                        break;
-                }
+            let observation = await this.act(this.toolInfo);
 
-                if (["workflow_planner", "tool_manager", "web_searcher", "chart_plotter", "task_executor", "tool_documentation_collector", "url_summarizer"].includes(toolInfo.tool)) {
-                    this.window?.webContents.send('streamData', { group_id: this.llm_service.chatManager.chat.group_id, context_id: this.llm_service.chatManager.chat.context_id, content: observation, end: false, chat: this.llm_service.chatManager.chat });
-                }
+            switch (this.toolInfo.tool) {
+                case "display_file":
+                    this.window?.webContents.send('streamData', { group_id: this.llm_service.chatManager.chat.group_id, context_id: this.llm_service.chatManager.chat.context_id, content: `${observation.result}\n\n`, chat: this.llm_service.chatManager.chat });
+                    break;
+                case "add_subtasks":
+                case "record_subtasks":
+                    this.window?.webContents.send('streamData', { group_id: this.llm_service.chatManager.chat.group_id, context_id: this.llm_service.chatManager.chat.context_id, content: `\`\`\`json\n${observation.result}\n\`\`\`\n\n`, chat: this.llm_service.chatManager.chat });
+                    break;
             }
 
-            data.output_format = typeof observation === 'string'? observation: JSON.stringify(observation, null, 2);
+            if (["workflow_planner", "tool_manager", "web_searcher", "chart_plotter", "task_executor", "tool_documentation_collector", "url_summarizer"].includes(this.toolInfo.tool)) {
+                this.window?.webContents.send('streamData', { group_id: this.llm_service.chatManager.chat.group_id, context_id: this.llm_service.chatManager.chat.context_id, content: observation, end: false, chat: this.llm_service.chatManager.chat });
+            }
+
+            data.output_format = observation.result;
 
             if (this.state === (State.PAUSE as State)) {
-                const { question, options } = observation;
-                this.window?.webContents.send('streamData', { group_id: this.llm_service.chatManager.chat.group_id, context_id: this.llm_service.chatManager.chat.context_id, content: question || "", end: true, chat: this.llm_service.chatManager.chat });
-                this.window?.webContents.send("options", { options: options, group_id: this.llm_service.chatManager.chat.group_id, tool_call_id: toolInfo?.id, tool_call_name: toolInfo?.tool, is_tool_response: true });
+                const { ask, options } = observation;
+                this.window?.webContents.send('streamData', { group_id: this.llm_service.chatManager.chat.group_id, context_id: this.llm_service.chatManager.chat.context_id, content: ask, end: true, chat: this.llm_service.chatManager.chat });
+                this.window?.webContents.send("options", { options: options, group_id: this.llm_service.chatManager.chat.group_id, tool_call_id: this.toolInfo?.id, tool_call_name: this.toolInfo?.tool, is_tool_response: true });
             } else if (this.state === (State.FINAL as State)) {
-                this.llm_service.chatManager.pushMessage({ role: "tool", content: data.output_format, tool_call_id: toolInfo?.id, tool_call_name: toolInfo?.tool, group_id: this.llm_service.chatManager.chat.group_id, context_id: this.llm_service.chatManager.chat.context_id, show: true, react: true });
+                this.llm_service.chatManager.pushMessage({ role: "tool", content: observation.result, tool_call_id: this.toolInfo?.id, tool_call_name: this.toolInfo?.tool, group_id: this.llm_service.chatManager.chat.group_id, context_id: this.llm_service.chatManager.chat.context_id, show: true, react: true });
                 this.window?.webContents.send('streamData', { group_id: this.llm_service.chatManager.chat.group_id, context_id: this.llm_service.chatManager.chat.context_id, content: observation, end: true, chat: this.llm_service.chatManager.chat });
             } else {
-                this.llm_service.chatManager.pushMessage({ role: "tool", content: data.output_format, tool_call_id: toolInfo?.id, tool_call_name: toolInfo?.tool, group_id: this.llm_service.chatManager.chat.group_id, context_id: this.llm_service.chatManager.chat.context_id, show: true, react: true });
-                this.window?.webContents.send('infoData', { group_id: this.llm_service.chatManager.chat.group_id, context_id: this.llm_service.chatManager.chat.context_id, content: this.get_info(data) });
+                this.llm_service.chatManager.pushMessage({ role: "tool", content: observation.result, tool_call_id: this.toolInfo?.id, tool_call_name: this.toolInfo?.tool, group_id: this.llm_service.chatManager.chat.group_id, context_id: this.llm_service.chatManager.chat.context_id, show: true, react: true });
+                this.window?.webContents.send('infoData', { group_id: this.llm_service.chatManager.chat.group_id, context_id: this.llm_service.chatManager.chat.context_id, content: this.getInfo(data) });
             }
-        } else if (toolInfo?.thinking) {
+        } else if (this.toolInfo?.thinking) {
             assistantMessage.react = false;
             this.llm_service.chatManager.pushMessage(assistantMessage);
             this.window?.webContents.send('streamData', { group_id: this.llm_service.chatManager.chat.group_id, context_id: this.llm_service.chatManager.chat.context_id, content: null, end: true, chat: this.llm_service.chatManager.chat });
@@ -322,7 +317,7 @@ export class ToolCall extends ReActAgent {
         const toolInfo = adapter.getToolInfo(assistantMessage);
         let toolInfoStr = JSON.stringify(toolInfo, null, 2).replaceAll("\\`", "'").replaceAll("`", "'");
         data.output_format = toolInfoStr;
-        this.window?.webContents.send('infoData', { group_id: this.llm_service.chatManager.chat.group_id, context_id: this.llm_service.chatManager.chat.context_id, content: this.get_info(data) });
+        this.window?.webContents.send('infoData', { group_id: this.llm_service.chatManager.chat.group_id, context_id: this.llm_service.chatManager.chat.context_id, content: this.getInfo(data) });
         // 统计重复思考以打断死循环
         if (this.thinking_repetitions.length === 0 || this.thinking_repetitions[0] === toolInfo.thinking) {
             this.thinking_repetitions.push(toolInfo.thinking);
@@ -332,23 +327,40 @@ export class ToolCall extends ReActAgent {
                 this.thinking_repetitions.length = 0;
                 this.repetitions_delay_empty = 0;
             }
+            if (this.thinking_repetitions.length >= (utils.getConfig("tool_call")?.max_thinking_repetitions || 5)) {
+                toolInfo.observation = {
+                    question: `You have been stuck in a thinking loop ${this.thinking_repetitions.length} times. Try a new approach to break through, or end it directly.`,
+                    options: ["End Task", "Try New Approach", "Continue"]
+                };
+                this.state = State.PAUSE;
+                this.thinking_repetitions.length = 0;
+            }
         }
         this.window?.webContents.send('streamData', { group_id: this.llm_service.chatManager.chat.group_id, context_id: this.llm_service.chatManager.chat.context_id, content: `${toolInfo.thinking}\n\n---\n\n`, chat: this.llm_service.chatManager.chat });
 
         return toolInfo;
     }
 
-    public async act(toolInfo: ToolInfo): Promise<any> {
-        let observation: any;
+    public async act(toolInfo: ToolInfo): Promise<Observation> {
+        let observation: Observation;
         try {
             if (!this.tools || !Object.prototype.hasOwnProperty.call(this.tools, toolInfo.tool as string)) {
-                observation = "Tool does not exist.";
+                observation = {
+                    result: "Tool does not exist."
+                };
             }
             const will_tool = this.tools[toolInfo.tool as string].func;
-            observation = await will_tool(toolInfo?.params);
+            const result = await will_tool(toolInfo?.params);
+            observation = {
+                result: typeof result === 'string' ? result : JSON.stringify(result, null, 2),
+                ask: result?.ask,
+                options: result?.options,
+            };
         } catch (error: any) {
             console.error(error);
-            observation = `Tool has been executed with error: ${error.message}`;
+            observation = {
+                result: `Tool has been executed with error: ${error.message}`
+            };
         }
         return observation;
     }
@@ -356,7 +368,9 @@ export class ToolCall extends ReActAgent {
     public async callReAct(data: Record<string, any>): Promise<any> {
         if (this.state === State.PAUSE) {
             data.role = "tool";
-            this.llm_service.chatManager.pushMessage({ role: "tool", content: data.query, group_id: this.llm_service.chatManager.chat.group_id, context_id: this.llm_service.chatManager.chat.context_id, show: true, react: false });
+            // 工具响应应和助手消息同一id
+            let context_id = `${this.llm_service.chatManager.chat.group_id}${this.llm_service.chatManager.chat.step - 1}`
+            this.llm_service.chatManager.pushMessage({ role: "tool", content: data.query, tool_call_id: this.toolInfo?.id, tool_call_name: this.toolInfo?.tool, group_id: this.llm_service.chatManager.chat.group_id, context_id: context_id, show: true, react: false });
             this.window.webContents.send('toolData', { group_id: this.llm_service.chatManager.chat.group_id, context_id: this.llm_service.chatManager.chat.context_id, content: data.query, del: false });
         } else {
             this.llm_service.chatManager.chat.step = 1;
@@ -367,7 +381,7 @@ export class ToolCall extends ReActAgent {
             this.llm_service.chatManager.pushMessage({ role: "user", content: data.query, group_id: this.llm_service.chatManager.chat.group_id, context_id: this.llm_service.chatManager.chat.context_id, show: true, react: false });
             this.window.webContents.send('userData', { group_id: this.llm_service.chatManager.chat.group_id, context_id: this.llm_service.chatManager.chat.context_id, content: data.query, del: false });
         }
-        
+
         this.state = State.IDLE;
         let tool_call = utils.getConfig("tool_call");
 
@@ -384,9 +398,9 @@ export class ToolCall extends ReActAgent {
             }
             if (data?.max_step && this.llm_service.chatManager.chat.step > data.max_step) break;
             data = { ...data, ...tool_call, step: this.llm_service.chatManager.chat.step, react: true };
-            
+
             await this.step(data);
-            
+
             this.llm_service.chatManager.chat.step++;
             this.llm_service.chatManager.chat.context_id = `${this.llm_service.chatManager.chat.group_id}${this.llm_service.chatManager.chat.step}`
 

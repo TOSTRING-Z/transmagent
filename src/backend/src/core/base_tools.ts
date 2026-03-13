@@ -25,62 +25,22 @@ export default function getBaseTools(toolCallInstance: ToolCall): Record<string,
                 }
             })
         },
-        
-        "ask_followup_question": {
-            func: async ({ question, options }: { question: string, options?: string[] }) => {
+
+        "ask_user": {
+            func: async ({ ask, options }: { ask: string, options?: string[] }) => {
                 toolCallInstance.state = State.PAUSE;
-                return { question, options };
+                return { ask, options };
             },
             getPrompt: () => ({
-                name: "ask_followup_question",
-                description: "Pause execution to request clarification or missing info from the user. Trigger: Ambiguity, missing parameters, or need for user decision.",
+                name: "ask_user",
+                description: "1. Pause execution to request clarification or missing info from the user. Trigger: Ambiguity, missing parameters, or need for user decision.\n2. Interact with the user specifically during the 'Planning Phase'. Use for architecture design, requirements gathering, and blueprint confirmation.",
                 parameters: {
                     type: "object",
                     properties: {
-                        question: { type: "string", description: "Clear, specific inquiry." },
+                        ask: { type: "string", description: "Clear, specific inquiry." },
                         options: { type: "array", items: { type: "string" }, description: "2-5 distinct choices to speed up user response." }
                     },
-                    required: ["question"]
-                }
-            })
-        },
-
-        "waiting_feedback": {
-            func: async ({ options = ["Allow", "Deny"] }: { options?: string[] }) => {
-                toolCallInstance.state = State.PAUSE;
-                return { question: "High-risk action detected. Awaiting approval.", options };
-            },
-            getPrompt: () => ({
-                name: "waiting_feedback",
-                description: "MANDATORY safety pause before high-risk actions (file deletion, system config, deployment).",
-                parameters: {
-                    type: "object",
-                    properties: {
-                        options: { type: "array", items: { type: "string" }, description: "Array of options, Default: ['Allow', 'Deny']" }
-                    },
-                    required: []
-                }
-            })
-        },
-
-        "plan_mode_response": {
-            func: async ({ response, options }: { response: string, options?: string[] }) => {
-                if (toolCallInstance.environment_details.mode !== toolCallInstance.modes.PLAN) {
-                    return { error: "Tool 'plan_mode_response' is restricted to PLANNING MODE only." };
-                }
-                toolCallInstance.state = State.PAUSE;
-                return { question: response, options };
-            },
-            getPrompt: () => ({
-                name: "plan_mode_response",
-                description: "Interact with the user specifically during the 'Planning Phase'. Constraint: ONLY available in 'Planning Mode'. Use for architecture design, requirements gathering, and blueprint confirmation.",
-                parameters: {
-                    type: "object",
-                    properties: {
-                        response: { type: "string", description: "The architectural proposal or clarifying question." },
-                        options: { type: "array", items: { type: "string" }, description: "Guided paths for the plan." }
-                    },
-                    required: ["response", "options"]
+                    required: ["ask"]
                 }
             })
         },
@@ -170,10 +130,10 @@ export default function getBaseTools(toolCallInstance: ToolCall): Record<string,
         },
 
         "record_subtasks": {
-            func: async ({ subtask_ids, status = "completed", reflection, options }: { subtask_ids: number | number[], status?: string, reflection?: string, options?: string[] }) => {
+            func: async ({ subtask_ids, status = "completed", reflection }: { subtask_ids: number | number[], status?: string, reflection?: string }) => {
                 const ids = new Set((Array.isArray(subtask_ids) ? subtask_ids : [subtask_ids]).map(Number));
                 const now = new Date().toISOString();
-                
+
                 // 修复：指向 ChatManager 中的 vars
                 const chatVars = toolCallInstance.llm_service.chatManager.chat.vars;
 
@@ -205,15 +165,7 @@ export default function getBaseTools(toolCallInstance: ToolCall): Record<string,
                     }
                 });
 
-                if (toolCallInstance.environment_details.mode === toolCallInstance.modes.ACT) {
-                    toolCallInstance.state = State.PAUSE;
-                }
-
-                return {
-                    status: "success",
-                    message: `Marked ${updated} steps as ${status}.`,
-                    options: options ?? ["Proceed to next step"]
-                };
+                return `Marked ${updated} steps as ${status}.`;
             },
             getPrompt: () => ({
                 name: "record_subtasks",
@@ -224,7 +176,6 @@ export default function getBaseTools(toolCallInstance: ToolCall): Record<string,
                         subtask_ids: { type: "array", items: { type: "integer" }, description: "IDs to update." },
                         status: { type: "string", enum: ["completed", "failed", "in_progress"], description: "Status of the subtask." },
                         reflection: { type: "string", description: "Result summary or metric data." },
-                        options: { type: "array", items: { type: "string" }, description: "Next step options." }
                     },
                     required: ["subtask_ids"]
                 }

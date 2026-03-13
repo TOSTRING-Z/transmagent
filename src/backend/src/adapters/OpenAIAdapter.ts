@@ -82,7 +82,7 @@ export class OpenAIAdapter implements ILLMAdapter {
         });
 
         if (env_message) {
-            formattedMessages.push(env_message);
+            formattedMessages[formattedMessages.length - 1].content += `\n${env_message.content}`;
         }
         return formattedMessages;
     }

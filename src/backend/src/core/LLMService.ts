@@ -75,7 +75,7 @@ export class LLMService {
                 method: "POST",
                 headers: headers,
                 body: JSON.stringify(body),
-            });
+            }); 
 
             // 6. 流式与非流式分流处理
             if (resp.ok) {

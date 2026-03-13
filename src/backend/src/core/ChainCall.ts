@@ -113,7 +113,7 @@ export class ChainCall extends ReActAgent {
                 break;
             }
 
-            let info = this.get_info(data);
+            let info = this.getInfo(data);
             this.window?.webContents.send('infoData', { group_id: this.llm_service.chatManager.chat.group_id, content: info });
         }
         
