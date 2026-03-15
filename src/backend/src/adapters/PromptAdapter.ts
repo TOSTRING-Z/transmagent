@@ -2,6 +2,7 @@ import { ILLMAdapter, IToolCallAdapter } from './IAdapter';
 import { ChatRequestData, Message, MessageContent, OllamaContent, OpenAIContent, StreamChunkResult, ImageContent, TextContent, ToolInfo } from '../types';
 import JSON5 from 'json5';
 import { utils } from '../utils/globals';
+import { logger } from '../utils/logger';
 
 export class PromptAdapter implements ILLMAdapter {
     formatMessages(messages: Message[], params: any, env_message?: Message): any[] {
@@ -138,6 +139,52 @@ export class PromptAdapter implements ILLMAdapter {
             finish_reason,
             tokens: respJson.usage?.total_tokens
         };
+    }
+
+    public async truncatedResponse(body, headers, window, chatManager, messageOutput, data: ChatRequestData) {
+        let continuationCount = 0;
+        const maxContinuations = 3;
+        let continuationMessages = [...body.messages, { role: "assistant", content: data.output }];
+
+        while (continuationCount < maxContinuations) {
+            continuationCount++;
+            const continuationBody = { ...body, messages: continuationMessages };
+
+            try {
+                const contResp = await fetch(new URL(data.api_url), {
+                    method: "POST", headers, body: JSON.stringify(continuationBody)
+                });
+                const contRespJson = await contResp.json() as any;
+
+                if (contRespJson.error) {
+                    console.error("[Continuation Error]", contRespJson.error);
+                    break;
+                }
+
+                const parsedCont = this.parseResponse(contRespJson);
+                data.output += parsedCont.content;
+                messageOutput.content = data.output; // 全量积累
+
+                if (!data?.react && !data?.return_response) {
+                    window?.webContents.send('streamData', {
+                        group_id: chatManager.chat.group_id, content: parsedCont.content, end: false, chat: chatManager.chat
+                    });
+                }
+
+                if (parsedCont.tokens) chatManager.chat.tokens = parsedCont.tokens;
+
+                if (parsedCont.finish_reason !== "length") {
+                    logger.log(`[Continuation] Completed after ${continuationCount} continuation(s)`);
+                    break;
+                }
+
+                continuationMessages.push({ role: "assistant", content: parsedCont.content });
+
+            } catch (error: any) {
+                console.error("[Continuation Error]", error);
+                break;
+            }
+        }
     }
 }
 

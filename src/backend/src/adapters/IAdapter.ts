@@ -15,6 +15,9 @@ export interface ILLMAdapter {
     
     // 解析非流式 Response
     parseResponse(respJson: any): { content: string, tool_calls?: any[], finish_reason?: string, tokens?: number };
+
+    // 输出截断与续传
+    truncatedResponse(body, headers, adapter, window, chatManager, messageOutput, data: ChatRequestData): any;
 }
 
 export interface IToolCallAdapter {

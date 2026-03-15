@@ -1,6 +1,7 @@
 import { ILLMAdapter, IToolCallAdapter } from './IAdapter';
 import { ChatRequestData, Message, MessageContent, StreamChunkResult, ToolInfo } from '../types';
 import JSON5 from 'json5';
+import { logger } from '../utils/logger';
 
 export class AnthropicAdapter implements ILLMAdapter {
     public formatMessages(messages: Message[], params: any, env_message?: any): any[] {
@@ -35,7 +36,7 @@ export class AnthropicAdapter implements ILLMAdapter {
                         if (tc.function?.arguments) {
                             try {
                                 args = typeof tc.function.arguments === 'string' ? JSON.parse(tc.function.arguments) : tc.function.arguments;
-                            } catch(e) {
+                            } catch (e) {
                                 args = {};
                             }
                         }
@@ -233,6 +234,82 @@ export class AnthropicAdapter implements ILLMAdapter {
         }
 
         return { content, tool_calls, finish_reason, tokens };
+    }
+
+    public async truncatedResponse(body: any, headers: any, window: any, chatManager: any, messageOutput: any, data: ChatRequestData) {
+        let continuationCount = 0;
+        const maxContinuations = 3;
+
+        let isToolCallTruncated = messageOutput.tool_calls && messageOutput.tool_calls.length > 0;
+        let partialContent = isToolCallTruncated
+            ? messageOutput.tool_calls[0].function.arguments || ""
+            : data.output;
+
+        let continuationMessages = [...body.messages, { role: "assistant", content: partialContent }];
+
+        while (continuationCount < maxContinuations) {
+            continuationCount++;
+            const continuationBody = { ...body, messages: continuationMessages };
+
+            // 必须移除 tools 才能让 Anthropic 乖乖补全不合规的半截 JSON
+            if (isToolCallTruncated) {
+                delete continuationBody.tools;
+                if (continuationBody.tool_choice) delete continuationBody.tool_choice;
+            }
+
+            try {
+                const contResp = await fetch(new URL(data.api_url), {
+                    method: "POST",
+                    headers: {
+                        ...headers,
+                        "anthropic-version": headers["anthropic-version"] || "2023-06-01"
+                    },
+                    body: JSON.stringify(continuationBody)
+                });
+                const contRespJson = await contResp.json() as any;
+
+                if (contRespJson.error) {
+                    console.error("[Anthropic Continuation Error]", contRespJson.error);
+                    break;
+                }
+
+                const parsedCont = this.parseResponse(contRespJson);
+                const newContent = parsedCont.content || "";
+
+                partialContent += newContent;
+
+                if (isToolCallTruncated) {
+                    messageOutput.tool_calls[0].function.arguments = partialContent;
+                } else {
+                    data.output = partialContent;
+                    messageOutput.content = data.output;
+                }
+
+                if (!data?.react && !data?.return_response) {
+                    window?.webContents.send('streamData', {
+                        group_id: chatManager.chat.group_id,
+                        content: newContent,
+                        end: false,
+                        chat: chatManager.chat
+                    });
+                }
+
+                if (parsedCont.tokens) chatManager.chat.tokens = parsedCont.tokens;
+
+                const isTruncated = parsedCont.finish_reason === "max_tokens" || parsedCont.finish_reason === "length";
+                if (!isTruncated) {
+                    console.log(`[Anthropic Continuation] Completed after ${continuationCount} continuation(s)`);
+                    break;
+                }
+
+                // 严格要求：不能 push 新的 assistant 对象，直接修改内容
+                continuationMessages[continuationMessages.length - 1].content = partialContent;
+
+            } catch (error: any) {
+                console.error("[Anthropic Continuation Error]", error);
+                break;
+            }
+        }
     }
 }
 

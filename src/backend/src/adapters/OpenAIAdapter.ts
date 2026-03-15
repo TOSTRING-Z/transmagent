@@ -1,6 +1,7 @@
 import { ILLMAdapter, IToolCallAdapter } from './IAdapter';
 import { ChatRequestData, Message, MessageContent, OllamaContent, OpenAIContent, StreamChunkResult, ImageContent, TextContent, ToolInfo } from '../types';
 import JSON5 from 'json5';
+import { logger } from '../utils/logger';
 
 export class OpenAIAdapter implements ILLMAdapter {
     public formatMessages(messages: Message[], params: any, env_message?: any): any[] {
@@ -166,6 +167,79 @@ export class OpenAIAdapter implements ILLMAdapter {
             finish_reason,
             tokens: respJson.usage?.total_tokens
         };
+    }
+
+    public async truncatedResponse(body: any, headers: any, window: any, chatManager: any, messageOutput: any, data: ChatRequestData) {
+        let continuationCount = 0;
+        const maxContinuations = 3;
+
+        // 获取截断的 ToolCall 参数。如果没有 tool_calls，则回退到普通文本续写
+        let isToolCallTruncated = messageOutput.tool_calls && messageOutput.tool_calls.length > 0;
+        let partialContent = isToolCallTruncated
+            ? messageOutput.tool_calls[0].function.arguments || ""
+            : data.output;
+
+        // 将已有的截断内容作为普通文本传入 assistant 角色中，触发补全
+        let continuationMessages = [...body.messages, { role: "assistant", content: partialContent }];
+
+        while (continuationCount < maxContinuations) {
+            continuationCount++;
+            const continuationBody = { ...body, messages: continuationMessages };
+
+            // 移除 tools 和 tool_choice，强制大模型输出纯文本来补全剩下的 JSON
+            if (isToolCallTruncated) {
+                delete continuationBody.tools;
+                if (continuationBody.tool_choice) delete continuationBody.tool_choice;
+            }
+
+            try {
+                const contResp = await fetch(new URL(data.api_url), {
+                    method: "POST", headers, body: JSON.stringify(continuationBody)
+                });
+                const contRespJson = await contResp.json() as any;
+
+                if (contRespJson.error) {
+                    console.error("[OpenAI Continuation Error]", contRespJson.error);
+                    break;
+                }
+
+                const parsedCont = this.parseResponse(contRespJson);
+                const newContent = parsedCont.content || "";
+
+                // 根据截断类型，将续写的新文本拼接到正确的位置
+                partialContent += newContent;
+                if (isToolCallTruncated) {
+                    messageOutput.tool_calls[0].function.arguments = partialContent;
+                } else {
+                    data.output = partialContent;
+                    messageOutput.content = data.output;
+                }
+
+                if (!data?.react && !data?.return_response) {
+                    window?.webContents.send('streamData', {
+                        group_id: chatManager.chat.group_id,
+                        content: newContent,
+                        end: false,
+                        chat: chatManager.chat,
+                        is_tool_call_args: isToolCallTruncated // 可选：通知前端这是 tool call 的增量
+                    });
+                }
+
+                if (parsedCont.tokens) chatManager.chat.tokens = parsedCont.tokens;
+
+                if (parsedCont.finish_reason !== "length") {
+                    console.log(`[OpenAI Continuation] Completed after ${continuationCount} continuation(s)`);
+                    break;
+                }
+
+                // 更新最后一条消息，用于下一次可能发生的续写
+                continuationMessages[continuationMessages.length - 1].content = partialContent;
+
+            } catch (error: any) {
+                console.error("[OpenAI Continuation Error]", error);
+                break;
+            }
+        }
     }
 }
 

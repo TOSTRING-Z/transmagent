@@ -219,8 +219,7 @@ export class LLMService {
 
         // ========== 截断检测与自动续传机制 (Max: 3) ==========
         if (finish_reason === "length" && data.output) {
-            logger.log("[LLM Service] Output truncated, starting continuation...");
-            messageOutput.content += "\n\n[ERROR] Output truncated!"
+            await adapter.truncatedResponse(body, headers, this.window, this.chatManager, messageOutput, data);
         }
     }
 }
