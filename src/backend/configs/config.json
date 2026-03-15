@@ -130,6 +130,9 @@
     "error_solution_search": {
       "enabled": false
     },
+    "read_tools_prompt": {
+      "enabled": false
+    },
     "update_tool": {
       "enabled": false
     },

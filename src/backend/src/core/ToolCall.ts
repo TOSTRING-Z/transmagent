@@ -115,7 +115,7 @@ export class ToolCall extends ReActAgent {
     }
 
     public get_tools_prompt(): any {
-        if (this.plugins) {
+        if (this.plugins && !this.prompt_args.subagent) {
             this.plugins.init();
             this.tools = { ...this.plugins.getTool(), ...this.agentTools, ...this.baseTools };
         }

@@ -209,35 +209,6 @@ export class SubAgentWindow extends BaseWindow {
         );
     }
 
-    private read_tools_prompt(): { getPrompt: () => any; func: () => Promise<any> } {
-        return {
-            getPrompt: () => ({
-                name: "read_tools_prompt",
-                description: "Retrieve the tool core description file path and its content along with MCP tools.",
-                parameters: {
-                    type: "object",
-                    properties: {},
-                    required: []
-                }
-            }),
-            func: async () => {
-                const mcp_client = this.windowManager.mainWindow.tool_call.mcp_client;
-                await mcp_client.initMcp();
-                const mcp_prompt = mcp_client.mcpPrompt;
-                const prompt_file = utils.getConfig("tool_call")?.cli_prompt || utils.getDefault("cli_prompt.md");
-                if (fs.existsSync(prompt_file)) {
-                    return {
-                        path: prompt_file,
-                        bash_tools: fs.readFileSync(prompt_file, 'utf-8'),
-                        mcp_tools: mcp_prompt
-                    };
-                } else {
-                    return "The tool core description file does not exist";
-                }
-            }
-        };
-    }
-
     private toolInit(): void {
         if (!utils.getConfig()?.plugins?.cli_execute) return;
 
@@ -298,11 +269,11 @@ export class SubAgentWindow extends BaseWindow {
                 {
                     promptModule: 'tool_manager',
                     getTools: () => this.normalizeTools({
-                        read_tools_prompt: this.read_tools_prompt(),
+                        read_tools_prompt: this.plugins.getTool("read_tools_prompt"),
+                        update_tool: this.plugins.getTool("update_tool"),
+                        cli_execute: this.plugins.getTool("cli_execute"),
                         tool_documentation_collector: this.agentTools["tool_documentation_collector"],
                         error_solution_finder: this.agentTools["error_solution_finder"],
-                        cli_execute: this.plugins.getTool("cli_execute"),
-                        update_tool: this.plugins.getTool("update_tool"),
                     }),
                     options: { todolist: false, mcp_server: false },
                     isMain: true
@@ -310,7 +281,7 @@ export class SubAgentWindow extends BaseWindow {
                 {
                     promptModule: 'workflow_planner',
                     getTools: () => this.normalizeTools({
-                        read_tools_prompt: this.read_tools_prompt(),
+                        read_tools_prompt: this.plugins.getTool("read_tools_prompt"),
                     }),
                     options: { todolist: false, mcp_server: false },
                     isMain: true
@@ -318,7 +289,7 @@ export class SubAgentWindow extends BaseWindow {
                 {
                     promptModule: 'task_executor',
                     getTools: () => this.normalizeTools({
-                        read_tools_prompt: this.read_tools_prompt(),
+                        read_tools_prompt: this.plugins.getTool("read_tools_prompt"),
                         cli_execute: this.plugins.getTool("cli_execute"),
                         tool_manager: this.agentTools["tool_manager"],
                         chart_plotter: this.agentTools["chart_plotter"],
