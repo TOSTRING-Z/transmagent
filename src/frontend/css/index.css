@@ -1073,21 +1073,40 @@ body {
   left: 0;
   right: 0;
   bottom: 0;
-  background: rgba(0, 0, 0, 0.5);
+  background: rgba(15, 23, 42, 0.5);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
   display: none;
   justify-content: center;
   align-items: center;
   z-index: 1000;
+  animation: fadeIn 0.3s ease-out;
+}
+
+@keyframes fadeIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
 }
 
 .config-content {
-  background: white;
+  background: rgba(255, 255, 255, 0.98);
   width: 900px;
-  height: 90vh;
-  border-radius: 0px;
-  padding: 20px;
-  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.2);
-  overflow-y: auto;
+  max-width: 95vw;
+  height: 85vh;
+  border-radius: 24px;
+  padding: 30px;
+  box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.25), 0 0 0 1px rgba(255, 255, 255, 0.7) inset;
+  overflow: hidden; /* 关键：防止滚动条溢出圆角 */
+  display: flex;
+  flex-direction: column;
+  transform: scale(0.95);
+  animation: popIn 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275) forwards;
+  position: relative;
+}
+
+@keyframes popIn {
+  from { transform: scale(0.95) translateY(10px); opacity: 0; }
+  to { transform: scale(1) translateY(0); opacity: 1; }
 }
 
 .config-content>h2 {
@@ -1096,7 +1115,10 @@ body {
 }
 
 .form-group {
-  margin-bottom: 25px;
+  flex: 1;
+  overflow-y: auto;
+  padding-right: 12px; /* 为滚动条留出空间 */
+  margin-bottom: 0;
 }
 
 .form-group h3 {
@@ -1130,8 +1152,11 @@ body {
 .modal-actions {
   display: flex;
   justify-content: flex-end;
-  gap: 10px;
-  margin-top: 20px;
+  gap: 12px;
+  margin-top: 24px;
+  padding-top: 20px;
+  border-top: 1px solid rgba(0, 0, 0, 0.06);
+  flex-shrink: 0; /* 保护按钮区不被压缩 */
 }
 
 /* 添加自定义提示框样式 */
@@ -1172,15 +1197,33 @@ body {
 }
 
 .dialog-btn {
-  padding: 6px 12px;
+  padding: 10px 20px;
   border: none;
-  border-radius: 4px;
+  border-radius: 10px;
   cursor: pointer;
+  background: #f1f5f9;
+  color: #475569;
+  font-weight: 600;
+  font-size: 14px;
+  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.dialog-btn:hover {
+  background: #e2e8f0;
+  transform: translateY(-2px);
+  box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05);
 }
 
 .dialog-confirm {
-  background: var(--primary);
+  background: linear-gradient(135deg, var(--primary) 0%, #8b5cf6 100%);
   color: white;
+  box-shadow: 0 4px 12px rgba(139, 92, 246, 0.3);
+}
+
+.dialog-confirm:hover {
+  background: linear-gradient(135deg, var(--primary) 0%, #7c3aed 100%);
+  box-shadow: 0 6px 16px rgba(139, 92, 246, 0.4);
+  transform: translateY(-2px);
 }
 
 /* 记忆删除 */
@@ -1270,7 +1313,13 @@ menu {
 
 /* config-editor */
 .config-editor {
-  height: calc(-150px + 90vh);
+  min-height: 300px;
+  height: 100%;
+  border: 1px solid rgba(0, 0, 0, 0.08);
+  border-radius: 12px;
+  overflow: hidden;
+  box-shadow: inset 0 2px 4px rgba(0, 0, 0, 0.02);
+  background: #fafafa;
 }
 
 .pdf-container {
@@ -1281,19 +1330,45 @@ menu {
    ========================================= */
 
 .config-modal {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(15, 23, 42, 0.5);
   backdrop-filter: blur(8px);
-  background: rgba(0, 0, 0, 0.4);
-  transition: all 0.3s ease;
+  -webkit-backdrop-filter: blur(8px);
+  display: none;
+  justify-content: center;
+  align-items: center;
+  z-index: 1000;
+  animation: fadeIn 0.3s ease-out;
+}
+
+@keyframes fadeIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
 }
 
 .config-content {
-  background: #f8f9fa;
-  border-radius: 20px;
-  box-shadow: 0 15px 45px rgba(0, 0, 0, 0.2), 0 0 0 1px rgba(255, 255, 255, 0.5);
+  background: rgba(255, 255, 255, 0.98);
+  width: 900px;
+  max-width: 95vw;
+  height: 85vh;
+  border-radius: 24px;
   padding: 30px;
-  max-width: 1000px;
-  width: 90%;
-  border: 1px solid rgba(255,255,255,0.2);
+  box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.25), 0 0 0 1px rgba(255, 255, 255, 0.7) inset;
+  overflow: hidden; /* 关键：防止滚动条溢出圆角 */
+  display: flex;
+  flex-direction: column;
+  transform: scale(0.95);
+  animation: popIn 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275) forwards;
+  position: relative;
+}
+
+@keyframes popIn {
+  from { transform: scale(0.95) translateY(10px); opacity: 0; }
+  to { transform: scale(1) translateY(0); opacity: 1; }
 }
 
 .config-grid {
@@ -1427,10 +1502,11 @@ input:checked + .slider:before {
 .modal-actions {
   display: flex;
   justify-content: flex-end;
-  gap: 15px;
-  margin-top: 30px;
+  gap: 12px;
+  margin-top: 24px;
   padding-top: 20px;
-  border-top: 1px solid #e1e4e8;
+  border-top: 1px solid rgba(0, 0, 0, 0.06);
+  flex-shrink: 0; /* 保护按钮区不被压缩 */
 }
 
 .btn-cancel, .btn-save {
@@ -1710,4 +1786,8 @@ input:checked + .slider:before {
 }
 .btn-save:active {
   transform: translateY(0);
+}
+
+.config-content > h2 {
+  flex-shrink: 0;
 }

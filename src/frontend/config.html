@@ -11,93 +11,158 @@
     <link rel="stylesheet" href="css/index.css" />
     <link rel="stylesheet" href="css/jsoneditor/jsoneditor.min.css" />
     <style>
+        :root {
+            --primary: #8b5cf6; /* 统一主色调 */
+        }
+
         body {
             margin: 0;
-            font-family: Arial, sans-serif;
-            background-color: #f9f9f9;
+            font-family: 'Segoe UI', Arial, sans-serif;
+            background-color: #fafafa;
             color: #333;
             display: flex;
             flex-direction: column;
-            border: #333 solid 1px;
+            border: 1px solid rgba(0, 0, 0, 0.08);
+            height: 100vh;
+            overflow: hidden; /* 防止最外层出现滚动条 */
+            box-sizing: border-box;
         }
 
         /* 自定义标题栏 */
         .title-bar {
             -webkit-app-region: drag;
-            /* 允许拖动 */
-            height: 30px;
+            height: 38px;
             display: flex;
             justify-content: space-between;
             align-items: center;
-            padding: 0 10px;
+            padding: 0 16px;
+            background: rgba(255, 255, 255, 0.9);
+            border-bottom: 1px solid rgba(0, 0, 0, 0.06);
             -webkit-user-select: none;
-            /* Safari */
-            -moz-user-select: none;
-            /* Firefox */
-            -ms-user-select: none;
-            /* IE10+/Edge */
             user-select: none;
-            /* Standard */
+            flex-shrink: 0;
+        }
+
+        .title-bar .title {
+            font-size: 13px;
+            font-weight: 600;
+            color: #475569;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+
+        .title-bar .title i {
+            background: linear-gradient(135deg, var(--primary) 0%, #6366f1 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
         }
 
         /* 窗口控制按钮 */
         .window-controls {
             display: flex;
+            align-items: center;
             -webkit-app-region: no-drag;
-            /* 禁止拖动干扰按钮点击 */
+            gap: 8px;
         }
 
         .window-btn {
             width: 12px;
             height: 12px;
             border-radius: 50%;
-            margin-left: 8px;
             cursor: pointer;
+            transition: all 0.2s ease;
         }
 
-        .close-btn {
-            background: #ff5e57;
+        .window-btn:hover {
+            transform: scale(1.15);
+            filter: brightness(1.1);
         }
 
-        .minimize-btn {
-            background: #ffbb2e;
-        }
+        .close-btn { background: #ff5e57; border: 1px solid #e0443e; }
+        .minimize-btn { background: #ffbb2e; border: 1px solid #dca026; }
 
         /* 内容区域 */
         .content {
-            padding: 15px;
+            flex: 1;
+            padding: 20px;
             width: 100%;
-            height: calc(100vh - 30px);
-            overflow: auto;
+            box-sizing: border-box;
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
         }
 
         .container-editor {
             display: flex;
             flex-direction: column;
-            height: 100%;
+            flex: 1;
+            background: #ffffff;
+            border-radius: 16px;
+            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.03), 0 0 0 1px rgba(0, 0, 0, 0.04);
             overflow: hidden;
         }
 
         .top_div {
-            background: #f0f0f0;
+            display: none; /* 原本是空的且背景灰，如果不需要可以直接隐藏 */
         }
 
         .middle_div {
-            flex-grow: 1;
+            flex: 1;
             overflow-y: auto;
-            background-color: #f9f9f9;
+            padding: 16px;
+            background-color: #ffffff;
+        }
+
+        /* 统一滚动条美化 */
+        .middle_div::-webkit-scrollbar {
+            width: 6px;
+        }
+        .middle_div::-webkit-scrollbar-track {
+            background: transparent;
+        }
+        .middle_div::-webkit-scrollbar-thumb {
+            background: rgba(0, 0, 0, 0.1);
+            border-radius: 10px;
+        }
+        .middle_div::-webkit-scrollbar-thumb:hover {
+            background: var(--primary);
+            opacity: 0.5;
         }
 
         .bottom_div {
-            background: #f9f9f9;
-            padding-top: 15px;
-            border: none;
+            background: #ffffff;
+            padding: 16px 20px;
+            border-top: 1px solid rgba(0, 0, 0, 0.06);
+            display: flex;
+            justify-content: flex-end;
+            flex-shrink: 0;
         }
 
         .config-editor {
-            height: calc(-101px + 100vh);
+            height: 100%;
+            min-height: 300px;
         }
-    </style>
+
+        /* 保存按钮美化 */
+        .btn {
+            padding: 10px 24px;
+            border: none;
+            border-radius: 12px;
+            cursor: pointer;
+            background: linear-gradient(135deg, var(--primary) 0%, #6366f1 100%);
+            color: white;
+            font-weight: 600;
+            font-size: 14px;
+            box-shadow: 0 4px 12px rgba(139, 92, 246, 0.25);
+            transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+
+        .btn:hover {
+            box-shadow: 0 6px 16px rgba(139, 92, 246, 0.4);
+            transform: translateY(-2px);
+        }
+        </style>
 </head>
 
 <body>
