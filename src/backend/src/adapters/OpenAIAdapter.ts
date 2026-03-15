@@ -180,7 +180,14 @@ export class OpenAIAdapter implements ILLMAdapter {
             : data.output;
 
         // 将已有的截断内容作为普通文本传入 assistant 角色中，触发补全
-        let continuationMessages = [...body.messages, { role: "assistant", content: partialContent }];
+        let continuationMessages = [
+            ...body.messages,
+            { role: "assistant", content: partialContent },
+            {
+            role: "user",
+            content: "The response was truncated due to output length limits. Please continue and complete the remaining content. Only output the completion, do not repeat previous content."
+            }
+        ];
 
         while (continuationCount < maxContinuations) {
             continuationCount++;
