@@ -495,22 +495,26 @@ $$
       thumbMessageGroup(thumbs_up, thumbs_down, { group_id: messageSystem.dataset.id, thumb: -1 });
     });
   }
+  async function enterEnd(messageSystem) {
+    await window.electronAPI.streamMessageStop();
+    if (State.seconds_timer)
+      clearInterval(State.seconds_timer);
+    const message_content = messageSystem.getElementsByClassName("message")[0];
+    const thinking = messageSystem?.getElementsByClassName("thinking")[0];
+    thinking.classList.add("hidden");
+    menuEvent(messageSystem, message_content.dataset.content, false);
+    DOM.submit.classList.remove("running");
+  }
   function addRunning(messageSystem) {
     DOM.submit.classList.add("running");
-    const message_content = messageSystem.getElementsByClassName("message")[0];
     const thinking = messageSystem?.getElementsByClassName("thinking")[0];
     thinking.classList.remove("hidden");
     const btn = messageSystem?.getElementsByClassName("btn")[0];
     btn?.addEventListener("click", async () => {
-      await window.electronAPI.streamMessageStop();
-      if (State.seconds_timer)
-        clearInterval(State.seconds_timer);
-      thinking.classList.add("hidden");
-      menuEvent(messageSystem, message_content.dataset.content, false);
-      DOM.submit.classList.remove("running");
+      enterEnd(messageSystem);
     });
   }
-  async function userData(data) {
+  async function userData(messages, data) {
     let messageUser;
     if (typeof data.content == "string") {
       messageUser = await formatMessage(user_message_template, {
@@ -525,23 +529,23 @@ $$
         "image_url": data.content[1].image_url.url
       }, "user");
     }
-    DOM.messages.appendChild(messageUser);
+    messages.appendChild(messageUser);
     let messageSystem = await formatMessage(system_message_template, {
       "icon": getIcon(false),
       "id": data.group_id,
       "message": ""
     }, "system");
-    DOM.messages.appendChild(messageSystem);
-    addRunning(messageSystem);
+    messages.appendChild(messageSystem);
     if (data?.del) {
       messageUser.classList.add("message_del");
       messageSystem.classList.add("message_del");
       messageUser.classList.add("message_toggle");
       messageSystem.classList.add("message_toggle");
     }
+    return messageSystem;
   }
-  async function infoData(info) {
-    const messageSystems = document.querySelectorAll(`[data-id='${info.group_id}']`);
+  async function infoData(info2) {
+    const messageSystems = document.querySelectorAll(`[data-id='${info2.group_id}']`);
     const messageSystem = messageSystems[1];
     if (messageSystem) {
       const info_content = messageSystem.getElementsByClassName("info-content")[0];
@@ -549,24 +553,19 @@ $$
       if (info_div && info_div.classList.contains("hidden")) {
         info_div.classList.remove("hidden");
       }
-      if (info.content) {
-        if (info.chat && info.chat.tokens !== void 0 && DOM.tokens) {
-          DOM.tokens.innerText = info.chat.tokens.toString();
-        }
-        let info_item_content = await marked.parse(info.content);
-        let info_item = createElement(`<div info_data-id="${info.context_id}">
+      if (info2.content) {
+        let info_item_content = await marked.parse(info2.content);
+        let info_item = createElement(`<div info_data-id="${info2.context_id}">
     <div class="info-item">
     </div>
   </div>`);
-        if (info?.del)
+        if (info2?.del)
           info_item.classList.add("del");
         info_item.getElementsByClassName("info-item")[0].innerHTML = info_item_content;
         info_content.appendChild(info_item);
-        info_content.dataset.content = (info_content.dataset.content || "") + info.content;
+        info_content.dataset.content = (info_content.dataset.content || "") + info2.content;
         if (State.scroll_top.info)
           info_content.scrollTop = info_content.scrollHeight;
-        if (State.scroll_top.data)
-          DOM.top_div.scrollTop = DOM.top_div.scrollHeight;
       }
     }
   }
@@ -582,15 +581,6 @@ $$
     if (messageSystem) {
       const message_content = messageSystem.getElementsByClassName("message")[0];
       if (chunk.content) {
-        if (chunk.chat?.msg_count) {
-          DOM.msg_count.innerText = chunk.chat.msg_count;
-        }
-        if (chunk.chat && chunk.chat.tokens !== void 0 && DOM.tokens) {
-          DOM.tokens.innerText = chunk.chat.tokens.toString();
-        }
-        const optionDom = document.querySelector(".base-container");
-        if (optionDom)
-          optionDom.remove();
         let context_id = Object.prototype.hasOwnProperty.call(chunk, "context_id") ? chunk.context_id : chunk.group_id;
         let chunk_content = null;
         let chunk_item_content = null;
@@ -635,8 +625,6 @@ $$
           message_content.appendChild(chunk_item);
         }
         message_content.dataset.content = (message_content.dataset.content || "") + chunk.content;
-        if (State.scroll_top.data)
-          DOM.top_div.scrollTop = DOM.top_div.scrollHeight;
       }
       if (chunk.end) {
         if (State.seconds_timer) {
@@ -649,38 +637,40 @@ $$
           messageSystem.dataset.event_stop = "true";
           menuEvent(messageSystem, message_content, chunk?.is_plugin);
         }
-        if (State.scroll_top.data)
-          DOM.top_div.scrollTop = DOM.top_div.scrollHeight;
-        DOM.submit.classList.remove("running");
       }
     }
-  }
-  async function startAgentLoop(data) {
-    DOM.pause.style.display = "none";
-    DOM.pause.innerHTML = "";
-    const optionDom = document.querySelector(".base-container");
-    if (optionDom)
-      optionDom.remove();
-    if (State.seconds_timer)
-      clearInterval(State.seconds_timer);
-    State.seconds_timer = setInterval(() => {
-      State.chat.seconds += 0.1;
-      DOM.seconds.innerText = State.chat.seconds.toFixed(1);
-      if (State.chat.version && DOM.version)
-        DOM.version.innerText = State.chat.version;
-    }, 100);
-    DOM.tokens.innerText = State.chat.tokens.toString();
-    DOM.version.innerText = data.version;
-    data.prompt = DOM.system_prompt.value;
-    DOM.top_div.scrollTop = DOM.top_div.scrollHeight;
+    return messageSystem;
   }
 
   // main/subagent.ts
-  window.electronAPI.handleMarkDownFormat((status) => State.markdown_statu = status);
+  var info = {
+    id: null,
+    name: null
+  };
+  var DOM2 = {
+    messages: document.getElementById("messages"),
+    infoName: document.getElementById("info-name"),
+    minimizeBtn: document.getElementById("minimize-btn"),
+    closeBtn: document.getElementById("close-btn")
+  };
   window.electronAPI.streamData((chunk) => streamData(chunk));
   window.electronAPI.toolData((chunk) => toolData(chunk));
-  window.electronAPI.infoData((info) => infoData(info));
-  window.electronAPI.userData((data) => userData(data));
-  window.electronAPI.startAgentLoop(async (data) => startAgentLoop(data));
+  window.electronAPI.infoData((info2) => infoData(info2));
+  window.electronAPI.userData((data) => userData(DOM2.messages, data).then((messageSystem) => {
+    const thinking = messageSystem?.getElementsByClassName("thinking")[0];
+    thinking.classList.remove("hidden");
+    const btn = messageSystem?.getElementsByClassName("btn")[0];
+    btn.remove();
+  }));
+  window.electronAPI.windowInfo((data) => {
+    info = data;
+    DOM2.infoName.innerHTML = info.name;
+  });
+  DOM2.minimizeBtn.addEventListener("click", () => {
+    window.electronAPI.minimizeWindow(info);
+  });
+  DOM2.closeBtn.addEventListener("click", () => {
+    window.electronAPI.closeWindow(info);
+  });
 })();
 //# sourceMappingURL=subagent.js.map

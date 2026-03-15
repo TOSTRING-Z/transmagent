@@ -16,6 +16,7 @@ export interface Observation {
     result: string;
     options?: string[];
     ask?: string;
+    subagent_tool?: boolean;
 }
 
 export interface PromptArgs {
@@ -287,8 +288,8 @@ export class ToolCall extends ReActAgent {
                     break;
             }
 
-            if (["workflow_planner", "tool_manager", "web_searcher", "chart_plotter", "task_executor", "tool_documentation_collector", "url_summarizer"].includes(this.toolInfo.tool)) {
-                this.window?.webContents.send('streamData', { group_id: this.llm_service.chatManager.chat.group_id, context_id: this.llm_service.chatManager.chat.context_id, content: observation, end: false, chat: this.llm_service.chatManager.chat });
+            if (observation.subagent_tool) {
+                this.window?.webContents.send('streamData', { group_id: this.llm_service.chatManager.chat.group_id, context_id: this.llm_service.chatManager.chat.context_id, content: observation.result, end: false, chat: this.llm_service.chatManager.chat });
             }
 
             data.output_format = observation.result;
@@ -350,11 +351,18 @@ export class ToolCall extends ReActAgent {
                 };
             }
             const will_tool = this.tools[toolInfo.tool as string].func;
-            const result = await will_tool(toolInfo?.params);
+            const response = await will_tool(toolInfo?.params);
+            let result: string;
+            if (response?.subagent_tool) {
+                result = response.content;
+            } else {
+                result = typeof response === 'string' ? response : JSON.stringify(response, null, 2);
+            }
             observation = {
-                result: typeof result === 'string' ? result : JSON.stringify(result, null, 2),
-                ask: result?.ask,
-                options: result?.options,
+                result: result,
+                ask: response?.ask,
+                options: response?.options,
+                subagent_tool: response?.subagent
             };
         } catch (error: any) {
             console.error(error);

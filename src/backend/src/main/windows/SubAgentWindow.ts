@@ -75,6 +75,8 @@ export class SubAgentWindow extends BaseWindow {
             },
         });
 
+        // win.webContents.openDevTools()
+
         this.windows.push(win);
 
         const listeners = {
@@ -110,7 +112,6 @@ export class SubAgentWindow extends BaseWindow {
                 win.show();
                 win.focus();
                 win.webContents.send('windowInfo', { id: win.id, name: agentToolName });
-                win.webContents.send('userData', { group_id: 0, context_id: 0, content: query });
 
                 agentTool.tool_call.changeWindow(win);
 
@@ -128,7 +129,10 @@ export class SubAgentWindow extends BaseWindow {
         });
 
         listeners.close();
-        return result;
+        return {
+            content: result,
+            subagent_tool: true
+        };
     }
 
     public destroy(init: boolean = true): void {

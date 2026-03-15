@@ -498,22 +498,26 @@ $$
       thumbMessageGroup(thumbs_up, thumbs_down, { group_id: messageSystem.dataset.id, thumb: -1 });
     });
   }
+  async function enterEnd(messageSystem) {
+    await window.electronAPI.streamMessageStop();
+    if (State.seconds_timer)
+      clearInterval(State.seconds_timer);
+    const message_content = messageSystem.getElementsByClassName("message")[0];
+    const thinking = messageSystem?.getElementsByClassName("thinking")[0];
+    thinking.classList.add("hidden");
+    menuEvent(messageSystem, message_content.dataset.content, false);
+    DOM.submit.classList.remove("running");
+  }
   function addRunning(messageSystem) {
     DOM.submit.classList.add("running");
-    const message_content = messageSystem.getElementsByClassName("message")[0];
     const thinking = messageSystem?.getElementsByClassName("thinking")[0];
     thinking.classList.remove("hidden");
     const btn = messageSystem?.getElementsByClassName("btn")[0];
     btn?.addEventListener("click", async () => {
-      await window.electronAPI.streamMessageStop();
-      if (State.seconds_timer)
-        clearInterval(State.seconds_timer);
-      thinking.classList.add("hidden");
-      menuEvent(messageSystem, message_content.dataset.content, false);
-      DOM.submit.classList.remove("running");
+      enterEnd(messageSystem);
     });
   }
-  async function userData(data) {
+  async function userData(messages, data) {
     let messageUser;
     if (typeof data.content == "string") {
       messageUser = await formatMessage(user_message_template, {
@@ -528,20 +532,20 @@ $$
         "image_url": data.content[1].image_url.url
       }, "user");
     }
-    DOM.messages.appendChild(messageUser);
+    messages.appendChild(messageUser);
     let messageSystem = await formatMessage(system_message_template, {
       "icon": getIcon(false),
       "id": data.group_id,
       "message": ""
     }, "system");
-    DOM.messages.appendChild(messageSystem);
-    addRunning(messageSystem);
+    messages.appendChild(messageSystem);
     if (data?.del) {
       messageUser.classList.add("message_del");
       messageSystem.classList.add("message_del");
       messageUser.classList.add("message_toggle");
       messageSystem.classList.add("message_toggle");
     }
+    return messageSystem;
   }
   async function infoData(info) {
     const messageSystems = document.querySelectorAll(`[data-id='${info.group_id}']`);
@@ -553,9 +557,6 @@ $$
         info_div.classList.remove("hidden");
       }
       if (info.content) {
-        if (info.chat && info.chat.tokens !== void 0 && DOM.tokens) {
-          DOM.tokens.innerText = info.chat.tokens.toString();
-        }
         let info_item_content = await marked.parse(info.content);
         let info_item = createElement(`<div info_data-id="${info.context_id}">
     <div class="info-item">
@@ -568,8 +569,6 @@ $$
         info_content.dataset.content = (info_content.dataset.content || "") + info.content;
         if (State.scroll_top.info)
           info_content.scrollTop = info_content.scrollHeight;
-        if (State.scroll_top.data)
-          DOM.top_div.scrollTop = DOM.top_div.scrollHeight;
       }
     }
   }
@@ -585,15 +584,6 @@ $$
     if (messageSystem) {
       const message_content = messageSystem.getElementsByClassName("message")[0];
       if (chunk.content) {
-        if (chunk.chat?.msg_count) {
-          DOM.msg_count.innerText = chunk.chat.msg_count;
-        }
-        if (chunk.chat && chunk.chat.tokens !== void 0 && DOM.tokens) {
-          DOM.tokens.innerText = chunk.chat.tokens.toString();
-        }
-        const optionDom = document.querySelector(".base-container");
-        if (optionDom)
-          optionDom.remove();
         let context_id = Object.prototype.hasOwnProperty.call(chunk, "context_id") ? chunk.context_id : chunk.group_id;
         let chunk_content = null;
         let chunk_item_content = null;
@@ -638,8 +628,6 @@ $$
           message_content.appendChild(chunk_item);
         }
         message_content.dataset.content = (message_content.dataset.content || "") + chunk.content;
-        if (State.scroll_top.data)
-          DOM.top_div.scrollTop = DOM.top_div.scrollHeight;
       }
       if (chunk.end) {
         if (State.seconds_timer) {
@@ -652,11 +640,9 @@ $$
           messageSystem.dataset.event_stop = "true";
           menuEvent(messageSystem, message_content, chunk?.is_plugin);
         }
-        if (State.scroll_top.data)
-          DOM.top_div.scrollTop = DOM.top_div.scrollHeight;
-        DOM.submit.classList.remove("running");
       }
     }
+    return messageSystem;
   }
   async function startAgentLoop(data) {
     DOM.pause.style.display = "none";
@@ -1219,10 +1205,41 @@ ${DOM.input.value}`;
   window.electronAPI.handleChangeMode((mode) => toggleMode(mode, false));
   window.electronAPI.handleMarkDownFormat((status) => State.markdown_statu = status);
   window.electronAPI.handleReactStatu((status) => State.react_statu = status);
-  window.electronAPI.streamData((chunk) => streamData(chunk));
+  window.electronAPI.streamData((chunk) => {
+    if (chunk.chat?.msg_count) {
+      DOM.msg_count.innerText = chunk.chat.msg_count;
+    }
+    if (chunk.chat && chunk.chat.tokens !== void 0 && DOM.tokens) {
+      DOM.tokens.innerText = chunk.chat.tokens.toString();
+    }
+    const optionDom = document.querySelector(".base-container");
+    if (optionDom)
+      optionDom.remove();
+    streamData(chunk).then((messageSystems) => {
+      if (State.scroll_top.data)
+        DOM.top_div.scrollTop = DOM.top_div.scrollHeight;
+      if (chunk.end) {
+        DOM.top_div.scrollTop = DOM.top_div.scrollHeight;
+        enterEnd(messageSystems);
+      }
+    });
+  });
   window.electronAPI.toolData((chunk) => toolData(chunk));
-  window.electronAPI.infoData((info) => infoData(info));
-  window.electronAPI.userData((data) => userData(data));
+  window.electronAPI.infoData((info) => {
+    if (info.content) {
+      if (info.chat && info.chat.tokens !== void 0 && DOM.tokens) {
+        DOM.tokens.innerText = info.chat.tokens.toString();
+      }
+      infoData(info);
+      if (State.scroll_top.data)
+        DOM.top_div.scrollTop = DOM.top_div.scrollHeight;
+    }
+  });
+  window.electronAPI.userData((data) => {
+    userData(DOM.messages, data).then((messageSystem) => {
+      addRunning(messageSystem);
+    });
+  });
   window.electronAPI.startAgentLoop(async (data) => startAgentLoop(data));
   window.electronAPI.handleExtraLoad((data) => {
     DOM.system_prompt.style.display = "none";

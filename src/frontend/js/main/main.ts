@@ -2,7 +2,7 @@ import { DOM, State } from './globals';
 import { init_size, autoResizeTextarea, loadOptions, showLog, toggleMode, toggleSidebar, updateProgress, showRenameDialog, hideRenameDialog } from './ui';
 import { addChatItem, newChat, selectChat, deleteChat, renameChat, confirmRename, showHistoryMenu } from './history';
 import { initConfigEvents, showConfig, saveConfig, hideConfig } from './config';
-import { userData, infoData, streamData, startAgentLoop, menuEvent, addRunning, toolData } from './chat';
+import { userData, infoData, streamData, startAgentLoop, menuEvent, addRunning, toolData, enterEnd } from './chat';
 import { initMermaid, marked } from './markdown';
 import { getFileName, getIcon, formatString } from './utils';
 
@@ -174,13 +174,46 @@ window.electronAPI.handleMarkDownFormat((status) => State.markdown_statu = statu
 
 window.electronAPI.handleReactStatu((status) => State.react_statu = status);
 
-window.electronAPI.streamData((chunk) => streamData(chunk));
+window.electronAPI.streamData((chunk) => {
+  if (chunk.chat?.msg_count) {
+    DOM.msg_count.innerText = chunk.chat.msg_count;
+  }
+
+  if (chunk.chat && chunk.chat.tokens !== undefined && DOM.tokens) {
+    DOM.tokens.innerText = chunk.chat.tokens.toString();
+  }
+
+  const optionDom = document.querySelector('.base-container');
+  if (optionDom) optionDom.remove();
+  streamData(chunk).then(messageSystems => {
+    if (State.scroll_top.data)
+      DOM.top_div.scrollTop = DOM.top_div.scrollHeight;
+    if (chunk.end) {
+      DOM.top_div.scrollTop = DOM.top_div.scrollHeight;
+      enterEnd(messageSystems);
+    }
+  });
+
+});
 
 window.electronAPI.toolData((chunk) => toolData(chunk));
 
-window.electronAPI.infoData((info) => infoData(info));
+window.electronAPI.infoData((info) => {
+  if (info.content) {
+    if (info.chat && info.chat.tokens !== undefined && DOM.tokens) {
+      DOM.tokens.innerText = info.chat.tokens.toString();
+    }
+    infoData(info)
+    if (State.scroll_top.data)
+      DOM.top_div.scrollTop = DOM.top_div.scrollHeight;
+  }
+});
 
-window.electronAPI.userData((data) => userData(data));
+window.electronAPI.userData((data) => {
+  userData(DOM.messages, data).then(messageSystem => {
+    addRunning(messageSystem);
+  })
+});
 
 window.electronAPI.startAgentLoop(async (data) => startAgentLoop(data));
 

@@ -42,12 +42,12 @@ const system_message_template = `<div class="relative space-y-2 space-x-2" data-
 async function formatMessage(template: string, params: any, role: string): Promise<HTMLElement> {
   const newElement = createElement(template);
   let message = newElement.getElementsByClassName("message")[0] as HTMLElement;
-  
+
   if (Object.prototype.hasOwnProperty.call(params, "icon")) {
     let menu = newElement.getElementsByClassName("menu")[0] as HTMLImageElement;
     menu.src = `img/${params["icon"]}.svg`;
   }
-  
+
   if (role === "system") {
     message.innerHTML = await marked.parse(params["message"]);
   } else {
@@ -181,7 +181,7 @@ export function menuEvent(messageSystem: HTMLElement, message_content: HTMLEleme
   const toggle = messageSystem.getElementsByClassName("toggle")[0] as HTMLElement;
   const thumbs_up = messageSystem.getElementsByClassName("thumbs-up")[0] as HTMLElement;
   const thumbs_down = messageSystem.getElementsByClassName("thumbs-down")[0] as HTMLElement;
-  
+
   copy.classList.add("active");
   del.classList.add("active");
   if (!is_plugin) {
@@ -217,24 +217,29 @@ export function menuEvent(messageSystem: HTMLElement, message_content: HTMLEleme
   });
 }
 
+export async function enterEnd(messageSystem: HTMLElement) {
+  await window.electronAPI.streamMessageStop();
+  if (State.seconds_timer) clearInterval(State.seconds_timer);
+  const message_content = messageSystem.getElementsByClassName('message')[0] as HTMLElement;
+  const thinking = messageSystem?.getElementsByClassName("thinking")[0];
+  thinking.classList.add('hidden');
+  menuEvent(messageSystem, message_content.dataset.content as any, false);
+  DOM.submit.classList.remove("running");
+}
+
 export function addRunning(messageSystem: HTMLElement) {
   DOM.submit.classList.add("running");
-  const message_content = messageSystem.getElementsByClassName('message')[0] as HTMLElement;
   const thinking = messageSystem?.getElementsByClassName("thinking")[0];
   thinking.classList.remove('hidden');
   const btn = messageSystem?.getElementsByClassName("btn")[0];
   btn?.addEventListener("click", async () => {
-    await window.electronAPI.streamMessageStop();
-    if (State.seconds_timer) clearInterval(State.seconds_timer);
-    thinking.classList.add('hidden');
-    menuEvent(messageSystem, message_content.dataset.content as any, false); // assuming plugin is false here or passed correctly
-    DOM.submit.classList.remove("running");
+    enterEnd(messageSystem);
   });
 }
 
 // Main Chat Functions
 
-export async function userData(data: any) {
+export async function userData(messages: HTMLElement, data: any) {
   let messageUser;
   if (typeof (data.content) == "string") {
     messageUser = await formatMessage(user_message_template, {
@@ -249,20 +254,20 @@ export async function userData(data: any) {
       "image_url": data.content[1].image_url.url,
     }, "user");
   }
-  DOM.messages.appendChild(messageUser);
+  messages.appendChild(messageUser);
   let messageSystem = await formatMessage(system_message_template, {
     "icon": getIcon(false),
     "id": data.group_id,
     "message": ""
   }, "system");
-  DOM.messages.appendChild(messageSystem);
-  addRunning(messageSystem);
+  messages.appendChild(messageSystem);
   if (data?.del) {
     messageUser.classList.add("message_del");
     messageSystem.classList.add("message_del");
     messageUser.classList.add("message_toggle");
     messageSystem.classList.add("message_toggle");
   }
+  return messageSystem;
 }
 
 export async function infoData(info: any) {
@@ -275,10 +280,6 @@ export async function infoData(info: any) {
       info_div.classList.remove('hidden');
     }
     if (info.content) {
-      
-      if (info.chat && info.chat.tokens !== undefined && DOM.tokens) {
-        DOM.tokens.innerText = info.chat.tokens.toString();
-      }
       let info_item_content = await marked.parse(info.content);
       let info_item = createElement(`<div info_data-id="${info.context_id}">
     <div class="info-item">
@@ -290,8 +291,6 @@ export async function infoData(info: any) {
       info_content.dataset.content = (info_content.dataset.content || '') + info.content;
       if (State.scroll_top.info)
         info_content.scrollTop = info_content.scrollHeight;
-      if (State.scroll_top.data)
-        DOM.top_div.scrollTop = DOM.top_div.scrollHeight;
     }
   }
 }
@@ -303,33 +302,19 @@ export async function toolData(chunk: any) {
   streamData(chunk);
 }
 
-export async function streamData(chunk: any) {
+export async function streamData(chunk: any): Promise<HTMLElement> {
   const messageSystems = document.querySelectorAll(`[data-id='${chunk.group_id}']`);
   const messageSystem = messageSystems[1] as HTMLElement;
   if (messageSystem) {
     const message_content = messageSystem.getElementsByClassName('message')[0] as HTMLElement;
     if (chunk.content) {
-      if (chunk.chat?.msg_count) {
-        DOM.msg_count.innerText = chunk.chat.msg_count;
-      }
-      
-      if (chunk.chat && chunk.chat.tokens !== undefined && DOM.tokens) {
-        DOM.tokens.innerText = chunk.chat.tokens.toString();
-      }
-      
-      // remove optionDom if exists (needs global reference or pass it)
-      // In original code, optionDom was global. In ui.ts, loadOptions adds it.
-      // We can select it by class to remove it.
-      const optionDom = document.querySelector('.base-container');
-      if(optionDom) optionDom.remove();
-
       let context_id = Object.prototype.hasOwnProperty.call(chunk, "context_id") ? chunk.context_id : chunk.group_id;
 
       let chunk_content = null;
       let chunk_item_content = null;
       let chunk_item = null;
       let chunk_item_query = message_content.querySelectorAll(`[chunk_data-id='${context_id}']`);
-      
+
       if (chunk_item_query.length > 0) {
         let existingItem = chunk_item_query[0] as HTMLElement;
         chunk_content = (existingItem.dataset.content || '') + chunk.content;
@@ -353,7 +338,7 @@ export async function streamData(chunk: any) {
         chunk_item_content = await marked.parse(chunk_content);
         chunk_item.dataset.content = chunk.content;
         chunk_item.getElementsByClassName('chunk-content')[0].innerHTML = chunk_item_content;
-        
+
         if (!State.react_statu || chunk?.is_plugin) {
           (chunk_item.getElementsByClassName('chunk-actions')[0] as HTMLElement).style.display = "none";
         }
@@ -369,8 +354,6 @@ export async function streamData(chunk: any) {
         message_content.appendChild(chunk_item);
       }
       message_content.dataset.content = (message_content.dataset.content || '') + chunk.content;
-      if (State.scroll_top.data)
-        DOM.top_div.scrollTop = DOM.top_div.scrollHeight;
     }
     if (chunk.end) {
       if (State.seconds_timer) {
@@ -383,15 +366,12 @@ export async function streamData(chunk: any) {
         messageSystem.dataset.event_stop = "true";
         menuEvent(messageSystem, message_content, chunk?.is_plugin);
       }
-      if (State.scroll_top.data)
-        DOM.top_div.scrollTop = DOM.top_div.scrollHeight;
-      DOM.submit.classList.remove('running');
     }
-    // await window.electronAPI.setGlobal(State.chat);
   }
+  return messageSystem;
 }
 
-export async function startAgentLoop(data:any) {
+export async function startAgentLoop(data: any) {
   DOM.pause.style.display = "none";
   DOM.pause.innerHTML = "";
   const optionDom = document.querySelector('.base-container');
