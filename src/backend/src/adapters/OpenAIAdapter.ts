@@ -173,29 +173,32 @@ export class OpenAIAdapter implements ILLMAdapter {
         let continuationCount = 0;
         const maxContinuations = 3;
 
-        // 获取截断的 ToolCall 参数。如果没有 tool_calls，则回退到普通文本续写
         let isToolCallTruncated = messageOutput.tool_calls && messageOutput.tool_calls.length > 0;
         let partialContent = isToolCallTruncated
             ? messageOutput.tool_calls[0].function.arguments || ""
             : data.output;
 
-        // 【修改点 1】针对 Tool Call 和普通文本，使用不同的高强度 Prompt
-        const continuationPrompt = isToolCallTruncated
-            ? "The previous response was truncated while generating JSON arguments for a tool call. Please continue and complete the remaining valid JSON string. OUTPUT STRICTLY THE REMAINING RAW JSON TEXT ONLY. Do NOT output markdown code blocks (e.g., ```json), do NOT output tool-calling keywords or function names, and do NOT repeat the previous content. Start exactly from where the text was cut off."
-            : "The response was truncated due to output length limits. Please continue and complete the remaining content exactly where you left off. Only output the completion, do not repeat previous content.";
-
-        // 将已有的截断内容作为普通文本传入 assistant 角色中，触发补全
-        let continuationMessages = [
-            ...body.messages,
-            { role: "assistant", content: partialContent },
-            { role: "user", content: continuationPrompt }
-        ];
+        // 【修改点 1】保持原始对话历史不变，续写的 Prompt 每次循环动态生成
+        let baseMessages = [...body.messages];
 
         while (continuationCount < maxContinuations) {
             continuationCount++;
+
+            // 【修改点 2】采用“镜像回放”策略的极强 Prompt，明确告知上下文
+            let currentPrompt = "";
+            if (isToolCallTruncated) {
+                currentPrompt = `You were generating JSON arguments for a tool call, but the output was truncated due to length limits.\n\nHere is the exact JSON string you have generated so far:\n\`\`\`\n${partialContent}\n\`\`\`\n\nYour task is to output ONLY the missing remaining suffix to complete the JSON.\n- DO NOT output the prefix that is already generated above.\n- DO NOT wrap your output in markdown code blocks (no \`\`\`json).\n- DO NOT explain or apologize.\n- Start typing exactly what comes next. Ensure all open strings, arrays, and objects are properly closed so the final combined result is a valid JSON.`;
+            } else {
+                currentPrompt = `Your previous response was truncated due to length limits.\n\nHere is what you have output so far:\n${partialContent}\n\nPlease output ONLY the exact continuation. Do not repeat what is already generated above.`;
+            }
+
+            const continuationMessages = [
+                ...baseMessages,
+                { role: "user", content: currentPrompt }
+            ];
+
             const continuationBody = { ...body, messages: continuationMessages };
 
-            // 移除 tools 和 tool_choice，强制大模型输出纯文本来补全剩下的 JSON
             if (isToolCallTruncated) {
                 delete continuationBody.tools;
                 if (continuationBody.tool_choice) delete continuationBody.tool_choice;
@@ -215,13 +218,27 @@ export class OpenAIAdapter implements ILLMAdapter {
                 const parsedCont = this.parseResponse(contRespJson);
                 let newContent = parsedCont.content || "";
 
-                // 【可选的安全网】如果模型依然顽固地输出了 ```json 这样的 markdown 标记，这里强行剔除
+                // 【修改点 3】防呆设计：过滤 Markdown 标记，并处理模型“擅自重写整个 JSON”的情况
                 if (isToolCallTruncated) {
                     newContent = newContent.replace(/^```(json)?\n?/, '').replace(/\n?```$/, '');
+
+                    // 如果模型没有听话（输出了以 { 开头的完整内容），我们尝试解析它
+                    if (newContent.trim().startsWith("{") && newContent.length > 10) {
+                        try {
+                            JSON.parse(newContent);
+                            // 如果能成功解析，说明它完整重新生成了整个 JSON！直接替换，不需要拼接了
+                            partialContent = newContent;
+                            messageOutput.tool_calls[0].function.arguments = partialContent;
+                            break;
+                        } catch (e) {
+                            // 解析失败，说明它可能只输出了部分，继续按拼接处理
+                        }
+                    }
                 }
 
-                // 根据截断类型，将续写的新文本拼接到正确的位置
+                // 拼接内容
                 partialContent += newContent;
+
                 if (isToolCallTruncated) {
                     messageOutput.tool_calls[0].function.arguments = partialContent;
                 } else {
@@ -235,24 +252,60 @@ export class OpenAIAdapter implements ILLMAdapter {
                         content: newContent,
                         end: false,
                         chat: chatManager.chat,
-                        is_tool_call_args: isToolCallTruncated 
+                        is_tool_call_args: isToolCallTruncated
                     });
                 }
 
                 if (parsedCont.tokens) chatManager.chat.tokens = parsedCont.tokens;
 
+                // 如果不是因为长度截断，说明大模型认为自己补全完毕了，跳出循环
                 if (parsedCont.finish_reason !== "length") {
                     console.log(`[OpenAI Continuation] Completed after ${continuationCount} continuation(s)`);
                     break;
                 }
 
-                // 【修改点 2】修复 Bug：更新倒数第二条消息（assistant），而不是最后一条（user）
-                continuationMessages[continuationMessages.length - 2].content = partialContent;
-
             } catch (error: any) {
                 console.error("[OpenAI Continuation Error]", error);
                 break;
             }
+        }
+
+        // 【修改点 4】终极兜底：循环结束后，如果 JSON 依然缺括号，自动闭合
+        if (isToolCallTruncated) {
+            partialContent = this.autoCloseJson(partialContent);
+            messageOutput.tool_calls[0].function.arguments = partialContent;
+        }
+    }
+
+    /**
+     * 辅助方法：简单粗暴的 JSON 自动闭合（兜底机制）
+     * 用于修复模型在补全最后忘记输出 `}` 的情况
+     */
+    private autoCloseJson(jsonStr: string): string {
+        let fixed = jsonStr.trim();
+        try {
+            JSON.parse(fixed);
+            return fixed; // 已经是合法的 JSON，直接返回
+        } catch (e) {
+            // 如果最后一个字符是转义符，去掉它防止报错
+            if (fixed.endsWith('\\')) fixed = fixed.slice(0, -1);
+
+            // 检查双引号是否成对，不成对则补一个双引号闭合字符串
+            if ((fixed.match(/"/g) || []).length % 2 !== 0) {
+                fixed += '"';
+            }
+
+            // 尝试常见的闭合后缀
+            const endings = ['}', ']}', '}]}', '"}', '"]}', '}"}'];
+            for (const ending of endings) {
+                try {
+                    JSON.parse(fixed + ending);
+                    return fixed + ending; // 解析成功，返回修复后的字符串
+                } catch (err) {
+                    continue;
+                }
+            }
+            return jsonStr; // 彻底修复失败，原样返回（交由业务层的 catch 处理）
         }
     }
 }
