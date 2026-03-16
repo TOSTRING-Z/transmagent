@@ -5,7 +5,7 @@ import { WindowManager } from "../main/windows/WindowManager";
 export function getPrompt() {
     return {
         name: "read_tools_prompt",
-        description: "Retrieve the tool core description file content along with MCP tools.",
+        description: "Retrieve the \`tool core description file\` content along with MCP tools.",
         parameters: {
             type: "object",
             properties: {},

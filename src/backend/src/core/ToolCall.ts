@@ -11,6 +11,9 @@ import getBaseTools from './base_tools';
 import { ToolCallAdapterFactory } from '../factories/AdapterFactory';
 import { IToolCallAdapter } from '../adapters/IAdapter';
 import { Plugins } from './Plugins';
+import { ToolDSL, Primitives } from "../utils/ToolDSL";
+const { all, any, not, always } = ToolDSL;
+const { isSubagent, isMode, hasArg } = Primitives;
 
 export interface Observation {
     result: string;
@@ -89,7 +92,7 @@ export class ToolCall extends ReActAgent {
 
         this.baseTools = getBaseTools(this);
         this.agentTools = agentTools;
-        this.tools = { ...this.plugins.getTool(), ...this.agentTools, ...this.baseTools };
+        this.tools = {};
 
         this.prompts = new Prompts(this);
         this.memory_manager = new MemoryManager(utils);
@@ -115,53 +118,62 @@ export class ToolCall extends ReActAgent {
     }
 
     public get_tools_prompt(): any {
+        // --- 工具策略注册表 ---
+        // 在这里声明每个工具在什么条件下允许被使用
+        const TOOL_POLICY = {
+            'mcp_server': all(hasArg('mcp_server'), not(isMode('PLAN'))),
+            'add_subtasks': all(hasArg('todolist'), not(any(isMode('PLAN'), isMode('FLASH')))),
+            'record_subtasks': all(hasArg('todolist'), not(any(isMode('PLAN'), isMode('FLASH')))),
+            'context_retrieval': not(isSubagent),
+            'search_long_term_memory': not(isSubagent),
+            'write_important_memory': not(isSubagent),
+            'ask_user': all(not(isSubagent), not(any(isMode('FLASH'), isMode('AUTO'))))
+        };
+
+        // --- 核心类方法中的逻辑 ---
+        // 1. 工具与插件初始化 (保持原有逻辑)
         if (this.plugins && !this.prompt_args.subagent) {
             this.plugins.init();
             this.tools = { ...this.plugins.getTool(), ...this.agentTools, ...this.baseTools };
+        } else if (this.prompt_args.subagent) {
+            this.tools = this.agentTools;
         }
+        // 2. 组装上下文 (供 DSL 校验使用)
+        const context = {
+            args: this.prompt_args || {},
+            env: this.environment_details || {},
+            modes: this.modes || {},
+            isSubagent: !!this.prompt_args?.subagent,
+            currentMode: this.environment_details?.mode
+        };
         const format = this.llm_service.chatManager.chat.tool_format;
-        const tool_schemas: any[] = [];
-        const args = this.prompt_args || {};
-        const env = this.environment_details || {};
-        const modes = this.modes || {};
-        const isSubagent = !!args.subagent;
-        const currentMode = env.mode;
-
-        // 1. 收集并过滤工具
-        for (let key in this.tools) {
-            if (key === 'mcp_server') {
-                if (!args.mcp_server || currentMode === modes.PLAN) continue;
-            }
-            if (key === 'add_subtasks' || key === 'record_subtasks') {
-                if (!(args.todolist && currentMode !== modes.FLASH && currentMode !== modes.PLAN)) continue;
-            }
-            if (key === 'context_retrieval' || key === 'search_long_term_memory' || key === 'write_important_memory') {
-                if (isSubagent) continue;
-            }
-            if (key === 'ask_user') {
-                if (isSubagent || currentMode === modes.FLASH || currentMode === modes.AUTO) continue;
-            }
-
-            if (this.tools[key]?.getPrompt && this.tools[key]?.enabled !== false) {
-                const schemaOrStr = this.tools[key].getPrompt();
-                if (currentMode === modes.PLAN) {
-                    if (key === 'ask_user')
-                        tool_schemas.push(schemaOrStr);
-                } else {
-                    if (typeof schemaOrStr === 'string') {
-                        tool_schemas.push({ type: "raw_string", name: key, content: schemaOrStr });
-                    } else {
-                        tool_schemas.push(schemaOrStr);
-                    }
+        // 3. 流水线处理：过滤 -> 提取Schema -> 格式化
+        const tool_schemas = Object.entries(this.tools)
+            .filter(([key, tool]) => {
+                // 步骤 A: 基础校验 (是否有 getPrompt 方法，是否被显式禁用)
+                if (!tool?.getPrompt) return false;
+                if (tool.enabled === false && !context.isSubagent) return false;
+                // 步骤 B: 策略校验 (查表执行 DSL 规则)
+                const policy = TOOL_POLICY[key] || always; // 如果没有特殊配置，默认放行
+                return policy(context);
+            })
+            .map(([key, tool]) => {
+                // 步骤 C: 获取 Schema
+                const schemaOrStr = tool.getPrompt();
+                // 步骤 D: 特殊的全局模式拦截
+                // 依据原代码逻辑：PLAN 模式下，即便其他工具过了策略，最终也只有 ask_user 产出 Schema
+                if (context.currentMode === context.modes.PLAN) {
+                    return key === 'ask_user' ? schemaOrStr : null;
                 }
-            }
-
-        }
-
-        // 2. 获取对应的适配器
+                // 步骤 E: 数据格式化
+                return typeof schemaOrStr === 'string'
+                    ? { type: "raw_string", name: key, content: schemaOrStr }
+                    : schemaOrStr;
+            })
+            .filter(Boolean); // 剔除 map 阶段可能产生的 null 值
+        // 获取对应的适配器
         const adapter: IToolCallAdapter = ToolCallAdapterFactory.getAdapter(format);
-
-        // 3. 执行格式化
+        // 执行格式化
         return adapter.formatTools(tool_schemas);
     }
 
@@ -378,7 +390,7 @@ export class ToolCall extends ReActAgent {
             data.role = "tool";
             // 工具响应应和助手消息同一id
             let context_id = `${this.llm_service.chatManager.chat.group_id}${this.llm_service.chatManager.chat.step - 1}`
-            this.llm_service.chatManager.pushMessage({ role: "tool", content: data.query, tool_call_id: this.toolInfo?.id, tool_call_name: this.toolInfo?.tool, group_id: this.llm_service.chatManager.chat.group_id, context_id: context_id, show: true, react: false });
+            this.llm_service.chatManager.pushMessage({ role: "tool", content: data.query, tool_call_id: this.toolInfo?.id, tool_call_name: this.toolInfo?.tool, group_id: this.llm_service.chatManager.chat.group_id, context_id: context_id, show: true, react: true });
             this.window.webContents.send('toolData', { group_id: this.llm_service.chatManager.chat.group_id, context_id: this.llm_service.chatManager.chat.context_id, content: data.query, del: false });
         } else {
             this.llm_service.chatManager.chat.step = 1;

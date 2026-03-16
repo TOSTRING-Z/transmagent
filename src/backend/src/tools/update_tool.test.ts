@@ -31,13 +31,27 @@ describe('update_tool tool', () => {
         
         // 初始化一些模拟的工具文档内容
         const initialContent = `
-System Instruction: You are a helpful assistant.
+***
 
-- search_files: Search files in directory
-  - param: path
+Standard File Structure:
+All new tools must be installed under the \`/data/auto_installed_tools/\` root directory and strictly adhere to the following structure:
+
+* Root Directory: \`/data/auto_installed_tools/<Tool_Name>/\`
+  * 📄 \`install.md\`: Detailed installation process record
+  * 📄 \`usage.md\`: Tool usage manual
+  * 📄 \`environment.md\`: Dependency and environment configuration details
+  * 📂 \`script/\`: Stores main script files
+  * 📂 \`dependency/\`: Stores dependency files
+  * 📂 \`test/\`: Stores test scripts or test data
+  * 📂 \`example/\`: Stores example files
+  
+***
+
+- search_files: A tool to search files
+  - input: query
 
 - legacy-tool: An old tool
-  - param: none
+  - param: test
 
 - last_tool: The final tool in the list
   - use: test

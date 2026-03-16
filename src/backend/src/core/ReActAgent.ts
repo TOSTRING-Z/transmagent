@@ -424,7 +424,7 @@ export class ReActAgent {
         data.output_format = data.output_format?.replaceAll("\\`", "'").replaceAll("`", "'");
 
         let infoTemplate = utils.getConfig("info_template");
-        let info = this.formatTemplate(infoTemplate, data);
+        let info = this.formatTemplate(infoTemplate, { ...data, ...this.llm_service.chatManager.chat });
 
         data.output_format = output_format; // 恢复原数据
         logger.log(info);

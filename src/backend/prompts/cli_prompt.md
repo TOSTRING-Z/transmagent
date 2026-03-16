@@ -171,6 +171,18 @@
 
 ***
 
+Standard File Structure:
+All new tools must be installed under the \`/data/auto_installed_tools/\` root directory and strictly adhere to the following structure:
+
+* Root Directory: \`/data/auto_installed_tools/<Tool_Name>/\`
+  * 📄 \`install.md\`: Detailed installation process record
+  * 📄 \`usage.md\`: Tool usage manual
+  * 📄 \`environment.md\`: Dependency and environment configuration details
+  * 📂 \`script/\`: Stores main script files
+  * 📂 \`dependency/\`: Stores dependency files
+  * 📂 \`test/\`: Stores test scripts or test data
+  * 📂 \`example/\`: Stores example files
+
 To verify if a tool is available, use the command `which tool-name`. For example, `which fastq-dump` will display the installation path of fastq-dump if it is available.
 
 Additional Notes:  

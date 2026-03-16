@@ -141,7 +141,7 @@ export function main() {
 export function getPrompt() {
     return {
         "name": "update_tool",
-        "description": "Updates or adds a tool's documentation in the \"Tool Core Description File\". This instructs the AI on how to use the tool in future turns. Always provide the full, updated documentation block.",
+        "description": "Updates or adds a tool's documentation in the \`tool core description file\`. This instructs the AI on how to use the tool in future turns. Always provide the full, updated documentation block.",
         "parameters": {
             "type": "object",
             "properties": {

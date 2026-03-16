@@ -5,7 +5,7 @@
   "history_path": null,
   "short_cut": "CommandOrControl+Shift+Space",
   "backend_url": "http://www.licpathway.net/transmagent_web",
-  "info_template": "Step: {step}, id: {id}, context_id: {context_id}, Call: {model}, Version: {version}, Output:\n\n```json\n{output_format}\n```\n\n",
+  "info_template": "group_id: {group_id}, context_id: {context_id}, Call: {model}, Version: {version}, Output:\n\n```json\n{output_format}\n```\n\n",
   "embedding": {
     "base_url": "https://open.bigmodel.cn/api/paas/v4",
     "api_key": "...",
