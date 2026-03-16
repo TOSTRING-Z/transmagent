@@ -179,14 +179,16 @@ export class OpenAIAdapter implements ILLMAdapter {
             ? messageOutput.tool_calls[0].function.arguments || ""
             : data.output;
 
+        // 【修改点 1】针对 Tool Call 和普通文本，使用不同的高强度 Prompt
+        const continuationPrompt = isToolCallTruncated
+            ? "The previous response was truncated while generating JSON arguments for a tool call. Please continue and complete the remaining valid JSON string. OUTPUT STRICTLY THE REMAINING RAW JSON TEXT ONLY. Do NOT output markdown code blocks (e.g., ```json), do NOT output tool-calling keywords or function names, and do NOT repeat the previous content. Start exactly from where the text was cut off."
+            : "The response was truncated due to output length limits. Please continue and complete the remaining content exactly where you left off. Only output the completion, do not repeat previous content.";
+
         // 将已有的截断内容作为普通文本传入 assistant 角色中，触发补全
         let continuationMessages = [
             ...body.messages,
             { role: "assistant", content: partialContent },
-            {
-            role: "user",
-            content: "The response was truncated due to output length limits. Please continue and complete the remaining content. Only output the completion, do not repeat previous content."
-            }
+            { role: "user", content: continuationPrompt }
         ];
 
         while (continuationCount < maxContinuations) {
@@ -211,7 +213,12 @@ export class OpenAIAdapter implements ILLMAdapter {
                 }
 
                 const parsedCont = this.parseResponse(contRespJson);
-                const newContent = parsedCont.content || "";
+                let newContent = parsedCont.content || "";
+
+                // 【可选的安全网】如果模型依然顽固地输出了 ```json 这样的 markdown 标记，这里强行剔除
+                if (isToolCallTruncated) {
+                    newContent = newContent.replace(/^```(json)?\n?/, '').replace(/\n?```$/, '');
+                }
 
                 // 根据截断类型，将续写的新文本拼接到正确的位置
                 partialContent += newContent;
@@ -228,7 +235,7 @@ export class OpenAIAdapter implements ILLMAdapter {
                         content: newContent,
                         end: false,
                         chat: chatManager.chat,
-                        is_tool_call_args: isToolCallTruncated // 可选：通知前端这是 tool call 的增量
+                        is_tool_call_args: isToolCallTruncated 
                     });
                 }
 
@@ -239,8 +246,8 @@ export class OpenAIAdapter implements ILLMAdapter {
                     break;
                 }
 
-                // 更新最后一条消息，用于下一次可能发生的续写
-                continuationMessages[continuationMessages.length - 1].content = partialContent;
+                // 【修改点 2】修复 Bug：更新倒数第二条消息（assistant），而不是最后一条（user）
+                continuationMessages[continuationMessages.length - 2].content = partialContent;
 
             } catch (error: any) {
                 console.error("[OpenAI Continuation Error]", error);
