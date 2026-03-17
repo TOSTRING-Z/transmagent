@@ -374,7 +374,7 @@ export class ToolCall extends ReActAgent {
                 result: result,
                 ask: response?.ask,
                 options: response?.options,
-                subagent_tool: response?.subagent
+                subagent_tool: response?.subagent_tool
             };
         } catch (error: any) {
             console.error(error);
