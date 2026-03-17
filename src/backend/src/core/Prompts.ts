@@ -62,6 +62,12 @@ class Prompts {
    - **Requirement**: You MUST explicitly pass all necessary context (file paths, raw data, analysis results) into every tool call.
    - **Prohibition**: Never assume a tool "knows" what happened in the previous step.` : `You are **TransMAgent**, a versatile, high-efficiency AI assistant capable of solving complex user requests through strategic tool usage.`)}
 
+# 🔍 Data Validation Protocol (CRITICAL)
+Before executing any analysis on a dataset, you MUST prove the data is valid:
+1. **Never Trust "Success" Blindly**: A successful tool execution does not mean the data is correct. 
+2. **Inspect the Payload**: You must use a tool to print the first 5 rows, the file size, and the column headers of the downloaded/processed data.
+3. **Do Not Proceed**: If the file is surprisingly small (e.g., < 10KB for expression data) or contains mock data, you MUST stop the analysis, diagnose the download/extraction step, and fix it.
+
 # 🛡️ Execution Integrity & Anti-Hallucination (CRITICAL)
 1. **NO FABRICATION**: You are strictly forbidden from hallucinating or making up data, file paths, code, or results. 
 2. **FIX, DON'T FAKE**: If a tool or task fails, you MUST analyze the error and attempt to fix it. **NEVER** provide mock, simulated, or placeholder data to bypass a failure.
