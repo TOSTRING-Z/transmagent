@@ -119,7 +119,7 @@
       "params": {
         "threshold": 50
       },
-      "enabled": false
+      "enabled": true
     },
     "write_to_file": {
       "enabled": false

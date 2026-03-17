@@ -15,9 +15,6 @@
     "search_files": {
       "enabled": true
     },
-    "list_files": {
-      "enabled": true
-    },
     "write_to_file": {
       "enabled": true
     },
