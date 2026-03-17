@@ -172,120 +172,74 @@ export class OpenAIAdapter implements ILLMAdapter {
 
     public async truncatedResponse(body: any, headers: any, window: any, chatManager: any, messageOutput: any, data: ChatRequestData) {
         let continuationCount = 0;
-        const maxContinuations = 5;
+        const maxContinuations = 3;
 
         let isToolCallTruncated = messageOutput.tool_calls && messageOutput.tool_calls.length > 0;
+        let content = messageOutput.tool_calls[0].function.arguments;
         let partialContent = isToolCallTruncated
-            ? messageOutput.tool_calls[0].function.arguments || ""
+            ? `⚠️ SYSTEM ERROR: JSON content was truncated at ${content.length} characters, causing a fatal parse error. \n\n` +
+            `DO NOT attempt to output this entire payload in a single response again. You MUST break the data into smaller chunks and use a batch-processing approach (e.g., writing/processing a few lines or items at a time). Retry with a significantly smaller JSON payload.`
             : data.output;
-        let content = utils.copy(partialContent);
-        // 【修改点 1】保持原始对话历史不变，续写的 Prompt 每次循环动态生成
         let baseMessages = [...body.messages];
 
-        while (continuationCount < maxContinuations) {
-            continuationCount++;
+        if (!isToolCallTruncated) {
+            while (continuationCount < maxContinuations) {
+                continuationCount++;
 
-            // 【修改点 2】采用“镜像回放”策略的极强 Prompt，明确告知上下文
-            let currentPrompt = "";
-            if (isToolCallTruncated) {
-                currentPrompt = `You were generating JSON arguments for a tool call, but the output was truncated due to length limits.\n\nHere is the exact JSON string you have generated so far:\n\`\`\`\n${partialContent}\n\`\`\`\n\nYour task is to output ONLY the missing remaining suffix to complete the JSON.\n- DO NOT output the prefix that is already generated above.\n- DO NOT wrap your output in markdown code blocks (no \`\`\`json).\n- DO NOT explain or apologize.\n- Start typing exactly what comes next. Ensure all open strings, arrays, and objects are properly closed so the final combined result is a valid JSON.`;
-            } else {
-                currentPrompt = `Your previous response was truncated due to length limits.\n\nHere is what you have output so far:\n${partialContent}\n\nPlease output ONLY the exact continuation. Do not repeat what is already generated above.`;
-            }
+                let currentPrompt = `Your previous response was truncated due to length limits.\n\nHere is what you have output so far:\n${partialContent}\n\nPlease output ONLY the exact continuation. Do not repeat what is already generated above.`;
 
-            const continuationMessages = [
-                ...baseMessages,
-                { role: "user", content: currentPrompt }
-            ];
+                const continuationMessages = [
+                    ...baseMessages,
+                    { role: "user", content: currentPrompt }
+                ];
 
-            const continuationBody = { ...body, messages: continuationMessages };
+                const continuationBody = { ...body, messages: continuationMessages };
 
-            if (isToolCallTruncated) {
-                delete continuationBody.tools;
-                if (continuationBody.tool_choice) delete continuationBody.tool_choice;
-            }
+                try {
+                    const contResp = await fetch(new URL(data.api_url), {
+                        method: "POST", headers, body: JSON.stringify(continuationBody)
+                    });
+                    const contRespJson = await contResp.json() as any;
 
-            try {
-                const contResp = await fetch(new URL(data.api_url), {
-                    method: "POST", headers, body: JSON.stringify(continuationBody)
-                });
-                const contRespJson = await contResp.json() as any;
-
-                if (contRespJson.error) {
-                    console.error("[OpenAI Continuation Error]", contRespJson.error);
-                    break;
-                }
-
-                const parsedCont = this.parseResponse(contRespJson);
-                let newContent = parsedCont.content || "";
-
-                // 【修改点 3】防呆设计：过滤 Markdown 标记，并处理模型“擅自重写整个 JSON”的情况
-                if (isToolCallTruncated) {
-                    newContent = newContent.replace(/^```(json)?\n?/, '').replace(/\n?```$/, '').replace(/(?<!\\)\n/g, "\\n");
-
-                    // 如果模型没有听话（输出了以 { 开头的完整内容），我们尝试解析它
-                    if (newContent.trim().startsWith("{") && newContent.length > 10) {
-                        try {
-                            JSON.parse(newContent);
-                            // 如果能成功解析，说明它完整重新生成了整个 JSON！直接替换，不需要拼接了
-                            partialContent = newContent;
-                            messageOutput.tool_calls[0].function.arguments = partialContent;
-                            break;
-                        } catch (e) {
-                            // 解析失败，说明它可能只输出了部分，继续按拼接处理
-                        }
+                    if (contRespJson.error) {
+                        console.error("[OpenAI Continuation Error]", contRespJson.error);
+                        break;
                     }
-                }
 
-                // 拼接内容
-                partialContent += newContent;
+                    const parsedCont = this.parseResponse(contRespJson);
+                    let newContent = parsedCont.content || "";
 
-                if (isToolCallTruncated) {
-                    messageOutput.tool_calls[0].function.arguments = partialContent;
-                } else {
+                    // 拼接内容
+                    partialContent += newContent;
+
                     data.output = partialContent;
                     messageOutput.content = data.output;
-                }
 
-                if (!data?.react && !data?.return_response) {
-                    window?.webContents.send('streamData', {
-                        group_id: chatManager.chat.group_id,
-                        content: newContent,
-                        end: false,
-                        chat: chatManager.chat,
-                        is_tool_call_args: isToolCallTruncated
-                    });
-                }
+                    if (!data?.react && !data?.return_response) {
+                        window?.webContents.send('streamData', {
+                            group_id: chatManager.chat.group_id,
+                            content: newContent,
+                            end: false,
+                            chat: chatManager.chat,
+                            is_tool_call_args: isToolCallTruncated
+                        });
+                    }
 
-                if (parsedCont.tokens) chatManager.chat.tokens = parsedCont.tokens;
+                    if (parsedCont.tokens) chatManager.chat.tokens = parsedCont.tokens;
 
-                // 如果不是因为长度截断，说明大模型认为自己补全完毕了，跳出循环
-                if (parsedCont.finish_reason !== "length") {
-                    console.log(`[OpenAI Continuation] Completed after ${continuationCount} continuation(s)`);
+                    // 如果不是因为长度截断，说明大模型认为自己补全完毕了，跳出循环
+                    if (parsedCont.finish_reason !== "length") {
+                        console.log(`[OpenAI Continuation] Completed after ${continuationCount} continuation(s)`);
+                        break;
+                    }
+
+                } catch (error: any) {
+                    console.error("[OpenAI Continuation Error]", error);
                     break;
                 }
-
-            } catch (error: any) {
-                console.error("[OpenAI Continuation Error]", error);
-                break;
             }
         }
-
-        // 【修改点 4】终极兜底：循环结束后，如果 JSON 依然缺括号，自动闭合
-        if (isToolCallTruncated) {
-            partialContent = this.autoCloseJson(partialContent, content);
-            messageOutput.tool_calls[0].function.arguments = partialContent;
-        }
-    }
-
-    private autoCloseJson(jsonStr: string, content: string): string {
-        let fixed = jsonStr.trim();
-        try {
-            JSON.parse(fixed);
-            return fixed;
-        } catch (e) {
-            return `JSON content is too long (${content.length} characters), please regenerate!`;
-        }
+        messageOutput.tool_calls[0].function.arguments = partialContent;
     }
 }
 
