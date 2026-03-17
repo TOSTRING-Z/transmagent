@@ -175,11 +175,12 @@ export class OpenAIAdapter implements ILLMAdapter {
         const maxContinuations = 3;
 
         let isToolCallTruncated = messageOutput.tool_calls && messageOutput.tool_calls.length > 0;
-        let content = messageOutput.tool_calls[0].function.arguments;
+        let content = isToolCallTruncated ? messageOutput.tool_calls[0].function.arguments : data.output;
         let partialContent = isToolCallTruncated
-            ? `⚠️ SYSTEM ERROR: JSON content was truncated at ${content.length} characters, causing a fatal parse error. \n\n` +
+            ? content +
+            `\n\n⚠️ SYSTEM ERROR: JSON content was truncated at ${content.length} characters, causing a fatal parse error. \n\n` +
             `DO NOT attempt to output this entire payload in a single response again. You MUST break the data into smaller chunks and use a batch-processing approach (e.g., writing/processing a few lines or items at a time). Retry with a significantly smaller JSON payload.`
-            : data.output;
+            : content;
         let baseMessages = [...body.messages];
 
         if (!isToolCallTruncated) {
