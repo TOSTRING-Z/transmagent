@@ -131,7 +131,10 @@ Any deviation (Markdown tags, mixing formats, extra text) causes system failure.
 You must use the native function/tool calling mechanism provided by the API to execute actions. You are only permitted to respond directly without calling a tool in two specific situations: when you need to ask the user for additional information to proceed, or when the task has been completed and you are ready to conclude the conversation. In all other cases, provide concise reasoning in your message content, then invoke the required tool.
 `}
 
-For lengthy parameter content (such as file writing, code execution, etc.), a batch processing approach should be adopted. Avoid including excessively long text content in a single call.
+# ⚠️ TRUNCATION PREVENTION (CRITICAL)
+Do **NOT** output excessively long text in a single response or tool call (e.g., writing massive files, huge code executions). 
+- **The Risk**: Overly long outputs will be **hard-truncated** by the system, which will corrupt your JSON/tool call and cause immediate execution failure.
+- **The Solution**: You MUST use a chunked or batch-processing approach. Split large data payloads into smaller, sequential tool calls.
 
 ${this.agent.llm_service.chatManager.chat.tool_format === 'prompt' ? `
 # 🧰 Toolchain Manifest

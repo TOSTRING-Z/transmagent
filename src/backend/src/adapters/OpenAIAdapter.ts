@@ -2,6 +2,7 @@ import { ILLMAdapter, IToolCallAdapter } from './IAdapter';
 import { ChatRequestData, Message, MessageContent, OllamaContent, OpenAIContent, StreamChunkResult, ImageContent, TextContent, ToolInfo } from '../types';
 import JSON5 from 'json5';
 import { logger } from '../utils/logger';
+import { utils } from '../utils/globals';
 
 export class OpenAIAdapter implements ILLMAdapter {
     public formatMessages(messages: Message[], params: any, env_message?: any): any[] {
@@ -171,13 +172,13 @@ export class OpenAIAdapter implements ILLMAdapter {
 
     public async truncatedResponse(body: any, headers: any, window: any, chatManager: any, messageOutput: any, data: ChatRequestData) {
         let continuationCount = 0;
-        const maxContinuations = 3;
+        const maxContinuations = 5;
 
         let isToolCallTruncated = messageOutput.tool_calls && messageOutput.tool_calls.length > 0;
         let partialContent = isToolCallTruncated
             ? messageOutput.tool_calls[0].function.arguments || ""
             : data.output;
-
+        let content = utils.copy(partialContent);
         // 【修改点 1】保持原始对话历史不变，续写的 Prompt 每次循环动态生成
         let baseMessages = [...body.messages];
 
@@ -220,7 +221,7 @@ export class OpenAIAdapter implements ILLMAdapter {
 
                 // 【修改点 3】防呆设计：过滤 Markdown 标记，并处理模型“擅自重写整个 JSON”的情况
                 if (isToolCallTruncated) {
-                    newContent = newContent.replace(/^```(json)?\n?/, '').replace(/\n?```$/, '');
+                    newContent = newContent.replace(/^```(json)?\n?/, '').replace(/\n?```$/, '').replace(/(?<!\\)\n/g, "\\n");
 
                     // 如果模型没有听话（输出了以 { 开头的完整内容），我们尝试解析它
                     if (newContent.trim().startsWith("{") && newContent.length > 10) {
@@ -272,40 +273,18 @@ export class OpenAIAdapter implements ILLMAdapter {
 
         // 【修改点 4】终极兜底：循环结束后，如果 JSON 依然缺括号，自动闭合
         if (isToolCallTruncated) {
-            partialContent = this.autoCloseJson(partialContent);
+            partialContent = this.autoCloseJson(partialContent, content);
             messageOutput.tool_calls[0].function.arguments = partialContent;
         }
     }
 
-    /**
-     * 辅助方法：简单粗暴的 JSON 自动闭合（兜底机制）
-     * 用于修复模型在补全最后忘记输出 `}` 的情况
-     */
-    private autoCloseJson(jsonStr: string): string {
+    private autoCloseJson(jsonStr: string, content: string): string {
         let fixed = jsonStr.trim();
         try {
             JSON.parse(fixed);
-            return fixed; // 已经是合法的 JSON，直接返回
+            return fixed;
         } catch (e) {
-            // 如果最后一个字符是转义符，去掉它防止报错
-            if (fixed.endsWith('\\')) fixed = fixed.slice(0, -1);
-
-            // 检查双引号是否成对，不成对则补一个双引号闭合字符串
-            if ((fixed.match(/"/g) || []).length % 2 !== 0) {
-                fixed += '"';
-            }
-
-            // 尝试常见的闭合后缀
-            const endings = ['}', ']}', '}]}', '"}', '"]}', '}"}'];
-            for (const ending of endings) {
-                try {
-                    JSON.parse(fixed + ending);
-                    return fixed + ending; // 解析成功，返回修复后的字符串
-                } catch (err) {
-                    continue;
-                }
-            }
-            return jsonStr; // 彻底修复失败，原样返回（交由业务层的 catch 处理）
+            return `JSON content is too long (${content.length} characters), please regenerate!`;
         }
     }
 }
