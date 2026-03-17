@@ -1,0 +1,267 @@
+***
+
+Standard File Structure:
+All new tools must be installed under the \`/data/auto_installed_tools/\` root directory and strictly adhere to the following structure:
+
+* Root Directory: \`/data/auto_installed_tools/<Tool_Name>/\`
+  * 📄 \`install.md\`: Detailed installation process record
+  * 📄 \`usage.md\`: Tool usage manual
+  * 📄 \`environment.md\`: Dependency and environment configuration details
+  * 📂 \`script/\`: Stores main script files
+  * 📂 \`dependency/\`: Stores dependency files
+  * 📂 \`test/\`: Stores test scripts or test data
+  * 📂 \`example/\`: Stores example files
+  
+***
+
+- macs2: Model-based Analysis of ChIP-seq for peak calling in transcriptional regulation analysis (now evolved to MACS3)
+  - Input: BAM/SAM/BED/BEDPE/FRAG files for treatment and control samples, genome size parameter, output name, peak calling parameters
+  - Output: Peak calls in narrowPeak/broadPeak/gappedPeak format, summit locations, model visualization scripts, signal tracks
+  - Use: 
+    - Standard TF peak calling: `macs3 callpeak -t treatment.bam -c control.bam -f BAM -g hs -n output_name -q 0.05 -B --call-summits`
+    - Broad histone peak calling: `macs3 callpeak -t treatment.bam -c control.bam --broad -g hs --broad-cutoff 0.1 -n output_name -q 0.05`
+    - ATAC-seq analysis: `macs3 callpeak -f BAMPE -t atac.bam -g hs -n output_name -q 0.01 --call-summits`
+    - HMM-based ATAC-seq: `macs3 hmmratac -i atac.bam -f BAMPE -n output_name`
+    - scATAC-seq analysis: `macs3 callpeak -f FRAG -t fragments.tsv.gz -g hs -n output_name --barcodes barcodes.txt --max-count 1 -q 0.01`
+  - Note:
+    - MACS2 has evolved into MACS3 (version 3.0.4), which is the current actively maintained version
+    - Installed in Python virtual environment at: `/data/auto_installed_tools/transcriptional_regulation/macs2/venv/`
+    - Location: `/data/auto_installed_tools/transcriptional_regulation/macs2/`
+    - Documentation: install.md, usage.md, environment.md in the tool directory
+    - Wrapper script: `/data/auto_installed_tools/transcriptional_regulation/macs2/script/macs3.sh`
+    - System symlink: `/usr/local/bin/macs3`
+    - Dependencies: Python 3.12.12, numpy, scipy, scikit-learn, hmmlearn, cython
+    - Supported formats: BAM, SAM, BED, BEDPE, FRAG
+    - Key features: FDR control, statistical modeling, narrow/broad peak calling, model visualization
+    - Test script available: `/data/auto_installed_tools/transcriptional_regulation/macs2/test/test_basic.sh`
+    - Example scripts: `/data/auto_installed_tools/transcriptional_regulation/macs2/example/`
+
+- homer: Hypergeometric Optimization of Motif EnRichment for transcriptional regulation analysis including motif discovery, peak annotation, and ChIP-seq analysis
+  - Input: Genomic regions (BED format), genome assembly (hg38/mm10), analysis parameters
+  - Output: Motif enrichment results, peak annotations, differential peak calls, HTML reports
+  - Use:
+    - Motif discovery: `homer findMotifs.pl peaks.bed hg38 output/ -size 200 -len 8,10,12`
+    - Peak annotation: `homer annotatePeaks.pl peaks.bed hg38 -gene -size 1000 > annotated.txt`
+    - Tag directory creation: `homer makeTagDirectory tagDir/ sample.bam -format bam -genome hg38`
+    - Differential analysis: `homer getDifferentialPeaks peaks.bed background.bed cond1/ cond2/ -F 2 -P 0.001`
+  - Note:
+    - Installed at: `/data/auto_installed_tools/homer/installation/`
+    - Wrapper script: `/data/auto_installed_tools/homer/script/homer_wrapper.sh`
+    - System symlink: `/usr/local/bin/homer`
+    - Genome data includes: hg38 (human), mm10 (mouse)
+    - Core tools: findMotifs.pl, annotatePeaks.pl, makeTagDirectory, getDifferentialPeaks, findPeaks
+    - Documentation: install.md, usage.md, environment.md in tool directory
+    - Test script: `/data/auto_installed_tools/homer/test/test_basic.sh`
+    - Example scripts: `/data/auto_installed_tools/homer/example/`
+    - Dependencies: Perl 5.42.0, gcc, make, zip/unzip, genome data files
+    - Memory requirements: 8GB minimum, 16GB recommended for large datasets
+
+- meme_suite: Multiple EM for Motif Elicitation Suite for motif discovery and sequence analysis
+  - Input: Sequence files (FASTA format), motif databases (.meme format), analysis parameters
+  - Output: Motif discovery results, motif scanning hits, motif comparisons, HTML reports, text files
+  - Use: 
+    - De novo motif discovery: `meme sequences.fasta -o output -dna -mod zoops -nmotifs 5`
+    - Motif scanning: `fimo --thresh 1e-4 motifs.meme genome.fasta`
+    - Motif comparison: `tomtom -thresh 0.1 query.meme target.meme`
+    - Discriminative discovery: `dreme -p primary.fasta -n control.fasta -e 0.01`
+    - Sequence search: `mast motifs.meme sequences.fasta -ev 1`
+    - Central enrichment: `centrimo --score 5 sequences.fasta motifs.meme`
+  - Note:
+    - Installed at: `/data/auto_installed_tools/meme_suite/installation/`
+    - Wrapper script: `/data/auto_installed_tools/meme_suite/script/meme_wrapper.sh`
+    - System symlinks: `/usr/local/bin/meme`, `/usr/local/bin/fimo`, `/usr/local/bin/tomtom`
+    - Core tools: MEME, DREME, FIMO, Tomtom, MAST, CentriMo, AME, GLAM2
+    - Documentation: install.md, usage.md, environment.md in tool directory
+    - Test script: `/data/auto_installed_tools/meme_suite/test/test_basic.sh`
+    - Example scripts: `/data/auto_installed_tools/meme_suite/example/`
+    - Dependencies: Perl 5.42.0, Python 3.12.12, zlib, libxml2, libxslt, Ghostscript
+    - Database support: JASPAR, TRANSFAC, HOCOMOCO, CIS-BP formats
+    - Sequence types: DNA, RNA, protein sequences
+    - Key features: De novo motif discovery, known motif scanning, motif comparison, differential analysis
+
+- juicer: Comprehensive platform for analyzing kilobase resolution Hi-C data, providing complete pipeline from raw FASTQ files to annotated Hi-C contact maps with feature identification
+  - Input: FASTQ files for Hi-C data, reference genome files, restriction site information, analysis parameters
+  - Output: Processed .hic contact matrices, TAD annotations, loop calls, quality metrics, intermediate alignment files
+  - Use: 
+    - Full pipeline: `/data/auto_installed_tools/juicer/scripts/juicer.sh -d /data/hic_work -g hg19 -s MboI -t 8`
+    - Wrapper script: `/data/auto_installed_tools/juicer/script/juicer_wrapper.sh /data/hic_work hg19 MboI 8`
+    - Juicer Tools: `/data/auto_installed_tools/juicer/script/juicer_tools_wrapper.sh pre contacts.txt output.hic hg19`
+    - TAD identification: `java -jar /data/auto_installed_tools/juicer/scripts/common/juicer_tools.jar arrowhead -c 1 -r 10000 -k KR input.hic tads.txt`
+    - Loop calling: `java -jar /data/auto_installed_tools/juicer/scripts/common/juicer_tools.jar hiccupscpu -c 1 -r 10000 input.hic loops.txt`
+    - Data extraction: `java -jar /data/auto_installed_tools/juicer/scripts/common/juicer_tools.jar dump observed KR input.hic 1 1 BP 2500000 matrix.txt`
+  - Note:
+    - Installed at: `/data/auto_installed_tools/juicer/`
+    - Documentation: install.md, usage.md, environment.md in tool directory
+    - Wrapper scripts: `/data/auto_installed_tools/juicer/script/juicer_wrapper.sh`, `/data/auto_installed_tools/juicer/script/juicer_tools_wrapper.sh`
+    - Test script: `/data/auto_installed_tools/juicer/test/test_basic.sh`
+    - Example scripts: `/data/auto_installed_tools/juicer/example/`
+    - Dependencies: Java 1.7+, GNU CoreUtils, BWA 0.7.17+ (note: compilation issues on Alpine/musl)
+    - Memory requirements: 16GB minimum, 64GB+ recommended for mammalian genomes
+    - Supported genomes: hg19, hg38, mm10, etc. (requires reference files)
+    - Supported enzymes: MboI, HindIII, DpnII, etc.
+    - Key features: FASTQ to .hic pipeline, TAD identification, loop calling, contact matrix extraction, quality metrics
+    - Output formats: .hic (contact matrices), .txt (annotations), various intermediate files
+    - Pipeline stages: Alignment, deduplication, contact extraction, normalization, .hic creation
+
+- wgcna: Weighted Gene Co-expression Network Analysis for regulatory network construction
+  - Input: Gene expression data (genes x samples matrix), trait data (optional), analysis parameters
+  - Output: Gene modules, module eigengenes, module-trait correlations, network files for visualization
+  - Use: 
+    - Network construction: `./script/wgcna_wrapper.sh analyze expression.txt`
+    - Module detection: Uses hierarchical clustering and dynamic tree cutting
+    - Trait association: Calculates module-trait correlations
+    - Visualization: Export to Cytoscape format
+    - Example analysis: `./script/wgcna_wrapper.sh example`
+  - Note:
+    - R 4.5.2 successfully installed via Alpine apk package manager
+    - WGCNA R package version 1.74 installed with all dependencies
+    - Installed at: `/data/auto_installed_tools/wgcna/`
+    - Documentation: install.md, usage.md, environment.md in tool directory
+    - Wrapper script: `/data/auto_installed_tools/wgcna/script/wgcna_wrapper.sh`
+    - Dependencies: R 4.5.2, WGCNA R package, Bioconductor packages (impute, preprocessCore), CRAN packages (dynamicTreeCut, fastcluster, matrixStats, Hmisc, foreach, doParallel, Rcpp)
+    - Key features: Soft thresholding, TOM calculation, module detection, module preservation
+    - Test script: `/data/auto_installed_tools/wgcna/test/test_basic.sh`
+    - Example scripts: `/data/auto_installed_tools/wgcna/example/`
+    - Memory requirements: 4GB minimum, 8GB+ recommended
+    - Parallel processing: Supports multi-threading via enableWGCNAThreads()
+    - Installation verified: All tests passed, package fully functional
+
+- jaspar_api: JASPAR API interface for accessing transcription factor binding profiles
+  - Input: Matrix IDs, search filters (collection, species, TF class, etc.), output format parameters
+  - Output: JSON responses, CSV exports, motif files in various formats (JASPAR, MEME, TRANSFAC, BED)
+  - Use: 
+    - Get specific matrix: `jaspar-api get-matrix MA0001.1 --format json`
+    - Search matrices: `jaspar-api search --collection CORE --tax-group vertebrates --output tfs.csv --format csv`
+    - Download matrix file: `jaspar-api download MA0001.1 meme --output matrix.meme`
+    - List resources: `jaspar-api list collections`
+  - Note:
+    - Installed at: `/data/auto_installed_tools/online_databases/jaspar_api/`
+    - Wrapper script: `/data/auto_installed_tools/online_databases/jaspar_api/script/jaspar_wrapper.sh`
+    - System symlink: `/usr/local/bin/jaspar-api`
+    - Documentation: install.md, usage.md, environment.md in tool directory
+    - Python script: `/data/auto_installed_tools/online_databases/jaspar_api/script/jaspar_api.py`
+    - Dependencies: Uses shared virtual environment at `/data/auto_installed_tools/online_databases/venv/` with Python 3.12.12, requests, pandas, numpy
+    - Rate limiting: 25 requests/second (auto-managed)
+    - Cache directory: `/data/auto_installed_tools/online_databases/jaspar_api/cache/`
+    - Test script: `/data/auto_installed_tools/online_databases/jaspar_api/test/test_basic.sh`
+    - Example scripts: `/data/auto_installed_tools/online_databases/jaspar_api/example/`
+    - Key features: TF motif search, multiple format export, filtering by species/TF class, batch processing
+    - IMPORTANT: Always use the `jaspar-api` command or wrapper script to ensure correct virtual environment usage
+    - Common error: "ModuleNotFoundError: No module named 'requests'" occurs when running Python code outside the virtual environment
+
+- encode_api: ENCODE API interface for accessing genomics data and metadata
+  - Input: Accession IDs (ENCBS*, ENCSR*, ENCFF*), search filters (assay, biosample, target, file format), response frame parameters
+  - Output: JSON responses, CSV exports, downloaded files (BAM, BigWig, etc.)
+  - Use:
+    - Get object: `encode-api get biosamples ENCBS000AAA --frame object`
+    - Search database: `encode-api search --type experiment --assay ChIP-seq --target CTCF --limit 50`
+    - Download file: `encode-api download ENCFF000AAA --output data.bam`
+    - Get biosample metadata: `encode-api biosample ENCBS000AAA --output metadata.json`
+  - Note:
+    - Installed at: `/data/auto_installed_tools/online_databases/encode_api/`
+    - Wrapper script: `/data/auto_installed_tools/online_databases/encode_api/script/encode_wrapper.sh`
+    - System symlink: `/usr/local/bin/encode-api`
+    - Documentation: install.md, usage.md, environment.md in tool directory
+    - Python script: `/data/auto_installed_tools/online_databases/encode_api/script/encode_api.py`
+    - Dependencies: Uses shared virtual environment at `/data/auto_installed_tools/online_databases/venv/` with Python 3.12.12, requests, pandas, numpy
+    - Rate limiting: 10 requests/second (auto-managed)
+    - Cache directory: `/data/auto_installed_tools/online_databases/encode_api/cache/`
+    - Test script: `/data/auto_installed_tools/online_databases/encode_api/test/test_basic.sh`
+    - Example scripts: `/data/auto_installed_tools/online_databases/encode_api/example/`
+    - Key features: Experiment/file search, metadata retrieval, file downloads, pagination handling
+    - Supported assays: ChIP-seq, ATAC-seq, RNA-seq, DNase-seq, etc.
+    - File formats: BAM, BigWig, BED, FASTQ, etc.
+
+- ucsc_api: UCSC Genome Browser API interface for accessing genomic data
+  - Input: Genome assembly names, genomic coordinates (chrom, start, end), track names, search terms
+  - Output: DNA sequences, track data in JSON/BED/CSV formats, genome/track lists
+  - Use:
+    - Find genomes: `ucsc-api find-genomes human`
+    - List tracks: `ucsc-api list-tracks hg38`
+    - Get sequence: `ucsc-api get-sequence hg38 chr1 1000000 1000100 --output sequence.fa`
+    - Get track data: `ucsc-api get-track hg38 knownGene chr1 1000000 2000000 --format bed`
+    - Get genes: `ucsc-api get-genes hg38 chr1 1000000 2000000 --output genes.json`
+    - Search genome: `ucsc-api search hg38 BRCA1`
+  - Note:
+    - Installed at: `/data/auto_installed_tools/online_databases/ucsc_api/`
+    - Wrapper script: `/data/auto_installed_tools/online_databases/ucsc_api/script/ucsc_wrapper.sh`
+    - System symlink: `/usr/local/bin/ucsc-api`
+    - Documentation: install.md, usage.md, environment.md in tool directory
+    - Python script: `/data/auto_installed_tools/online_databases/ucsc_api/script/ucsc_api.py`
+    - Dependencies: Uses shared virtual environment at `/data/auto_installed_tools/online_databases/venv/` with Python 3.12.12, requests, pandas, numpy
+    - Rate limiting: 1 request/second recommended (auto-managed)
+    - Cache directory: `/data/auto_installed_tools/online_databases/ucsc_api/cache/`
+    - Test script: `/data/auto_installed_tools/online_databases/ucsc_api/test/test_basic.sh`
+    - Example scripts: `/data/auto_installed_tools/online_databases/ucsc_api/example/`
+    - Key features: Sequence retrieval, track data access, gene annotation, conservation scores
+    - Supported genomes: hg38, hg19, mm10, etc.
+    - Track types: genes, conservation, repeats, variations, etc.
+    - Coordinate system: 0-based start, 1-based end (exclusive)
+
+- cistrome_api: Cistrome DB API interface for accessing chromatin profiling data
+  - Input: Dataset IDs, search filters (species, cell type, factor, keyword), file type parameters
+  - Output: Dataset metadata, target gene predictions, motif information, downloaded files (BED, BigWig)
+  - Use:
+    - Search datasets: `cistrome-api search --species human --factor CTCF --cell-type HeLa`
+    - Get dataset details: `cistrome-api details 12345 --output dataset.json`
+    - Get motif info: `cistrome-api motif 12345 --output motifs.json`
+    - Get target genes: `cistrome-api targets 12345 --format csv --output targets.csv`
+    - Download file: `cistrome-api download 12345 bed --output peaks.bed`
+    - Find similar datasets: `cistrome-api similar 12345 --output similar.json`
+    - Generate UCSC link: `cistrome-api ucsc-link 12345 --genome hg38 --position chr1:1000000-2000000`
+  - Note:
+    - Installed at: `/data/auto_installed_tools/online_databases/cistrome_api/`
+    - Wrapper script: `/data/auto_installed_tools/online_databases/cistrome_api/script/cistrome_wrapper.sh`
+    - System symlink: `/usr/local/bin/cistrome-api`
+    - Documentation: install.md, usage.md, environment.md in tool directory
+    - Python script: `/data/auto_installed_tools/online_databases/cistrome_api/script/cistrome_api.py`
+    - Dependencies: Uses shared virtual environment at `/data/auto_installed_tools/online_databases/venv/` with Python 3.12.12, requests, pandas, numpy
+    - Rate limiting: Conservative rate limiting (0.5 seconds between requests)
+    - Cache directory: `/data/auto_installed_tools/online_databases/cistrome_api/cache/`
+    - Test script: `/data/auto_installed_tools/online_databases/cistrome_api/test/test_basic.sh`
+    - Example scripts: `/data/auto_installed_tools/online_databases/cistrome_api/example/`
+    - Key features: ChIP-seq/ATAC-seq/DNase-seq dataset search, target gene prediction, peak file downloads
+    - Supported species: Human, mouse
+    - File types: BED (peaks), BigWig (signal), target gene lists
+    - Quality filtering: Hide incomplete/unvalidated datasets by default
+
+- igv: Integrative Genomics Viewer for interactive visualization of genomic data
+  - Input: Genomic data files (BAM, BED, VCF, BigWig, etc.), batch scripts, visualization parameters
+  - Output: Interactive visualizations, snapshot images, session files, processed data files
+  - Use:
+    - Launch desktop application: `/data/auto_installed_tools/igv/script/igv_wrapper.sh launch`
+    - Run batch script: `/data/auto_installed_tools/igv/script/igv_wrapper.sh batch script.txt`
+    - Use igvtools: `/data/auto_installed_tools/igv/script/igv_wrapper.sh igvtools count input.bam output.tdf hg19`
+    - Batch processing: `/data/auto_installed_tools/igv/script/batch_processor.sh /path/to/data ./output hg38`
+    - Run tests: `/data/auto_installed_tools/igv/script/igv_wrapper.sh test`
+  - Note:
+    - Requires Java 21+ (installed at: /usr/lib/jvm/java-21-openjdk)
+    - Installed at: `/data/auto_installed_tools/igv/`
+    - Wrapper scripts: `/data/auto_installed_tools/igv/script/igv_wrapper.sh`, `/data/auto_installed_tools/igv/script/batch_processor.sh`
+    - Documentation: install.md, usage.md, environment.md in tool directory
+    - Test script: `/data/auto_installed_tools/igv/test/test_basic.sh`
+    - Example scripts: `/data/auto_installed_tools/igv/example/`
+    - Supported formats: BAM, SAM, CRAM, BED, GFF, GTF, VCF, BigWig, WIG, TDF
+    - Key features: Genome browser navigation, track management, screenshot export, batch processing
+    - Visualization capabilities: ChIP-seq peaks, RNA-seq expression, variant calls, genome annotations
+    - Memory requirements: 4GB minimum, 8GB+ recommended (configurable via -Xmx parameter)
+    - Dependencies: Java 21.0.10, bash, core utilities
+
+- online_databases_venv: Shared Python virtual environment for online database API tools (JASPAR, ENCODE, UCSC, Cistrome)
+  - Input: None (environment configuration tool)
+  - Output: Python environment with all required dependencies installed
+  - Use: 
+    - Activate environment: `source /data/auto_installed_tools/online_databases/venv/bin/activate`
+    - Run API tools directly: Use the wrapper scripts (e.g., `jaspar-api`, `encode-api`, `ucsc-api`, `cistrome-api`)
+    - Check packages: `/data/auto_installed_tools/online_databases/venv/bin/pip list`
+    - Install additional packages: `/data/auto_installed_tools/online_databases/venv/bin/pip install package_name`
+    - Test Python imports: `/data/auto_installed_tools/online_databases/venv/bin/python -c "import requests; import pandas; import numpy; print('All packages available')"`
+  - Note:
+    - Shared environment location: `/data/auto_installed_tools/online_databases/venv/`
+    - Python version: 3.12.12
+    - Key dependencies: requests (2.32.5), pandas (3.0.1), numpy (2.4.3)
+    - Used by: jaspar_api, encode_api, ucsc_api, cistrome_api
+    - Documentation: `/data/auto_installed_tools/online_databases/environment.md`
+    - Maintenance: Centralized dependency management for all API tools
+    - IMPORTANT: Always use the wrapper scripts or activate the virtual environment before running Python code
+    - Common error: "ModuleNotFoundError" occurs when running Python outside the virtual environment
