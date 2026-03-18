@@ -12,6 +12,7 @@ import { ToolCallAdapterFactory } from '../factories/AdapterFactory';
 import { IToolCallAdapter } from '../adapters/IAdapter';
 import { Plugins } from './Plugins';
 import { ToolDSL, Primitives } from "../utils/ToolDSL";
+import { logger } from '../utils/logger';
 const { all, any, not, always } = ToolDSL;
 const { isSubagent, isMode, hasArg } = Primitives;
 
@@ -258,6 +259,92 @@ export class ToolCall extends ReActAgent {
         this.window?.webContents.send('change-mode', shortMode);
     }
 
+    /**
+     * AI 审查者逻辑 (LLM-as-a-Judge) - 缓存优化版
+     */
+    public async auditToolCall(toolInfo: ToolInfo, assistantMessage: Message, data: Record<string, any>): Promise<string | null> {
+        const sensitiveTools = ['run_python', 'cli_execute', 'write_file', 'bash_execute'];
+        if (!toolInfo.tool || !sensitiveTools.includes(toolInfo.tool) || !utils.getConfig("tool_call")?.llm_judge) {
+            return null;
+        }
+
+        logger.log(`[Critic] 正在审查工具调用: ${toolInfo.tool}...`);
+
+        const temp_llm_service = new LLMService();
+        temp_llm_service.chatManager.chat = { ...this.llm_service.chatManager.chat };
+
+        // 提取 tool_call_id，应对原生 API 的强校验
+        const isNativeToolCall = assistantMessage.tool_calls && assistantMessage.tool_calls.length > 0;
+        const toolCallId = isNativeToolCall ? assistantMessage.tool_calls![0].id : (toolInfo.id || "dummy_id");
+
+        temp_llm_service.chatManager.messages = [
+            ...this.llm_service.chatManager.getMessages(true),
+            assistantMessage
+        ];
+
+        // 核心修复点：如果存在原生 tool_calls，必须紧跟一条 tool 消息闭环
+        if (isNativeToolCall) {
+            temp_llm_service.chatManager.messages.push({
+                role: "tool",
+                content: "SYSTEM: Execution paused. Proceed to internal audit.",
+                tool_call_id: toolCallId,
+                tool_call_name: toolInfo.tool,
+                group_id: assistantMessage.group_id,
+                context_id: assistantMessage.context_id
+            });
+        }
+
+        const critic_agent = new ReActAgent(temp_llm_service);
+
+        // 利用 System Override 强行扭转模型视角
+        const criticQuery = `
+[SYSTEM OVERRIDE: INTERNAL AUDIT PROTOCOL]
+You must now pause your current task and act as a strict Data Integrity Critic. 
+Review the tool call payload you just generated above.
+
+# CRITICAL CHECK:
+Did you write "mock data", "placeholder", use random number generators, or hardcode biological data/coordinates instead of writing code to fetch and parse REAL data? Are you creating fake files for demonstration purposes?
+
+# OUTPUT FORMAT:
+You MUST respond ONLY with a valid JSON object. DO NOT call any tools.
+{
+  "pass": boolean, // true if the code genuinely processes real data, false if it hallucinates or mocks data.
+  "reason": "If false, state EXACTLY what is mocked and how to fix it."
+}
+        `.trim();
+
+        const callData = critic_agent.getDataDefault({
+            ...data,
+            query: criticQuery,
+            push_message: true,
+            output_format: null
+        });
+
+        try {
+            if (!callData.params) callData.params = {};
+            callData.params.llm_params = { ...callData.params.llm_params, temperature: 0.1, tool_choice: "none" };
+
+            const messageOutput = await critic_agent.llmCall(callData);
+
+            if (messageOutput && messageOutput.content) {
+                const resultStr = messageOutput.content as string;
+                const jsonMatch = resultStr.match(/\{[\s\S]*\}/);
+
+                if (jsonMatch) {
+                    const verdict = JSON.parse(jsonMatch[0]);
+                    if (verdict.pass === false) {
+                        logger.log(`[Critic] 拦截成功! 发现伪造数据: ${verdict.reason}`);
+                        return `[CRITIC REJECTION] Execution Blocked. Your payload violates data integrity rules:\nReason: ${verdict.reason}\n\nAction Required: You MUST fix the code to use real data sources. DO NOT use mock data, placeholders, or hardcoded biological values.`;
+                    }
+                }
+            }
+        } catch (error) {
+            console.error("[Critic] 审查过程发生异常，默认放行:", error);
+        }
+
+        return null;
+    }
+
     public async step(data: Record<string, any>) {
         if (this.state === State.IDLE) {
             this.state = State.RUNNING;
@@ -287,6 +374,37 @@ export class ToolCall extends ReActAgent {
             this.window?.webContents.send('streamData', { group_id: this.llm_service.chatManager.chat.group_id, context_id: this.llm_service.chatManager.chat.context_id, content: this.toolInfo.error, chat: this.llm_service.chatManager.chat });
         }
         else if (this.toolInfo?.tool) {
+            // ==========================================
+            // [新增] 触发 AI 审查者，传入 assistantMessage 和 data 实现缓存命中
+            // ==========================================
+            let auditError = await this.auditToolCall(this.toolInfo, assistantMessage, data);
+
+            if (auditError) {
+                // 如果被拦截，将 Critic 的报错喂回给原 Agent
+                this.llm_service.chatManager.pushMessage(assistantMessage); // 必须保存原造假调用，否则它不知道错了什么
+
+                this.llm_service.chatManager.pushMessage({
+                    role: "tool",
+                    content: auditError,
+                    tool_call_id: this.toolInfo?.id,
+                    tool_call_name: this.toolInfo?.tool,
+                    group_id: this.llm_service.chatManager.chat.group_id,
+                    context_id: this.llm_service.chatManager.chat.context_id,
+                    show: true,
+                    react: true
+                });
+
+                this.window?.webContents.send('streamData', {
+                    group_id: this.llm_service.chatManager.chat.group_id,
+                    context_id: this.llm_service.chatManager.chat.context_id,
+                    content: `⚠️ **Security Intercept**: ${auditError}\n\n`,
+                    chat: this.llm_service.chatManager.chat
+                });
+
+                return; // 终止当前 step，带着失败观测进入下一轮思考
+            }
+            // ==========================================
+
             this.llm_service.chatManager.pushMessage(assistantMessage);
             let observation = await this.act(this.toolInfo);
 

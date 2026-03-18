@@ -167,6 +167,7 @@
     "mcp_timeout": 60,
     "extra_prompt": null,
     "cli_prompt": null,
+    "llm_judge": true,
     "subagent": true,
     "subagent_llm_init": false,
     "env_message": true,

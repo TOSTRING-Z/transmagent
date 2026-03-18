@@ -123,13 +123,25 @@ describe('list_files tool', () => {
 
     // 新增点：对刚刚加入的 SSH 逻辑进行基本的 Mock 测试，保证远程分支不会抛出未捕获异常
     it('7. SSH 模式被启用时，应正确拦截并调用远程连接逻辑', async () => {
-        (utils.getSshConfig as jest.Mock).mockReturnValue({
-            enabled: true, 
-            port: 22,
-            username: "tostring",
-            password: "root", 
-            host: '172.24.65.134'
-        });
+        // 根据环境设置不同的SSH配置
+        const isWindows = process.platform === 'win32';
+        console.log(isWindows);
+        // Mock SSH配置
+        (utils.getSshConfig as jest.Mock).mockReturnValue(
+            isWindows ? {
+                enabled: true,
+                port: 22,
+                username: "tostring",
+                password: "root",
+                host: '172.24.65.134'
+            } : {
+                enabled: true,
+                port: 3022,
+                username: "root",
+                password: "root123",
+                host: '127.0.0.1'
+            }
+        );
 
         // Mock ssh2 的行为，模拟连接失败事件，测试错误能否被正确 resolve 返回而不是导致崩溃
         // const mockOn = jest.fn().mockImplementation(function (this: any, event: string, cb: any) {
@@ -147,7 +159,7 @@ describe('list_files tool', () => {
         // }));
 
         const execute = main({});
-        const results = await execute({ path: '/home/tostring' });
+        const results = await execute({ path: '/' });
         console.log(results);
         expect(results.length).toBeGreaterThan(0);
         // expect(results[0]).toBe('SSH Connection Error: Mocked SSH Connection Failed');

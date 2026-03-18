@@ -113,7 +113,7 @@ export function main(params: ListFilesParams = {}) {
                             // 格式化传入的路径以适配远端 Linux 系统
                             const targetPath = args.path.replace(/\\/g, '/');
                             await scanRemote(targetPath);
-                            
+
                             cleanup();
 
                             if (result.length > threshold) {
@@ -156,7 +156,7 @@ export function main(params: ListFilesParams = {}) {
                 try {
                     stat = fs.statSync(fullPath);
                 } catch (e) {
-                    continue; 
+                    continue;
                 }
 
                 if (shouldExclude(fullPath, stat.isDirectory())) {
@@ -193,34 +193,31 @@ export function main(params: ListFilesParams = {}) {
     };
 }
 
-export function getPrompt(): string {
-    return `# list_files  
-Description: Recursively scans directories with intelligent filtering (automatically excludes dev/binary files). Automatically supports Local and SSH remote environments.  
-
-Parameters:  
-- path: Target directory absolute path (required). For remote files, ensure the SSH session is active.
-- recursive: Enable subdirectory scanning (default=false)  
-- regex: Filename pattern filter (optional)  
-
-Auto-excluded:  
-- IDE configs (.vscode/, .idea/)  
-- Cache dirs (.cache/, .npm/, .git/)  
-- Media/binaries (.gif, .png, .mp4, .exe, etc)  
-
-Best Practices:  
-1. Disable recursion for large directories  
-2. Use precise regex (e.g. \\.js$)
-
-Usage:  
-{
-  "thinking": "[Thinking process]",
-  "tool": "list_files",
-  "params": {
-    "path": "/project/src",
-    "recursive": false,
-    "regex": null
-  }
-}`;
+export function getPrompt() {
+    return {
+        "name": "list_files",
+        "description": "Recursively scans directories with intelligent filtering (automatically excludes dev/binary files). Automatically supports Local and SSH remote environments.",
+        "parameters": {
+            "type": "object",
+            "properties": {
+                "path": {
+                    "type": "string",
+                    "description": "Target directory absolute path (required). For remote files, ensure the SSH session is active."
+                },
+                "recursive": {
+                    "type": "boolean",
+                    "description": "Enable subdirectory scanning",
+                    "default": false
+                },
+                "regex": {
+                    "type": "string",
+                    "description": "Filename pattern filter (optional). Best practice: use precise regex (e.g. \\.js$)"
+                }
+            },
+            "required": ["path"],
+            "additionalProperties": false
+        }
+    };
 }
 
 // 本地调试入口

@@ -117,13 +117,6 @@ export class ReActAgent {
     }
 
     public async retry(func: (data: Record<string, any>) => Promise<any>, data: any): Promise<any> {
-        data.input = data.output_format !== undefined ? data.output_format : data.query;
-        data.system_prompt = data.prompt_format !== undefined ? data.prompt_format : data.prompt;
-
-        if (data.input_template) {
-            data.input = this.formatTemplate(data.input_template, data);
-        }
-
         let retry_time = utils.getConfig("retry_time") || 3;
         let count = 0;
 
@@ -161,6 +154,13 @@ export class ReActAgent {
         data.prompt_format = data.prompt_template
             ? this.formatTemplate(data.prompt_template, data)
             : data.prompt;
+
+        data.input = data.output_format ? data.output_format : data.query;
+        data.system_prompt = data.prompt_format ? data.prompt_format : data.prompt;
+
+        if (data.input_template) {
+            data.input = this.formatTemplate(data.input_template, data);
+        }
 
         const func = (reqData: any) => this.llm_service.chatBase(reqData);
 
@@ -210,6 +210,10 @@ export class ReActAgent {
             push_message: true,
             end: null,
             event: this.window?.webContents,
+            input: null,
+            input_format: null,
+            output: null,
+            output_format: null,
             outputs: [],
             output_formats: []
         };

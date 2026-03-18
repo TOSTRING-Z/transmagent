@@ -100,11 +100,6 @@ export class LLMService {
             // 7. 处理并序列化 Tool Calls
             data.output = messageOutput.content;
 
-            // 8. 存入本地记忆与结束反馈
-            if (data?.push_message) {
-                this.chatManager.pushMessage(messageInput);
-                this.chatManager.pushMessage(messageOutput);
-            }
             if (data.end) {
                 if (data?.return_response) return messageOutput; // 只需返回
 
