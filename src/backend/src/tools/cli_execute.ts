@@ -355,7 +355,22 @@ export function main(initialParams: CliExecuteParams = {}) {
 export function getPrompt() {
     return {
         "name": "cli_execute",
-        "description": "A command-line tool for executing bash commands in Linux environments, providing secure and efficient command execution capabilities.",
+        "description": `A command-line tool for executing bash commands in Linux environments, providing secure and efficient command execution capabilities.
+        
+        1. Execution Routing Rules
+- **Direct Mode (<150 chars)**: Permitted ONLY for simple, single-line commands lacking complex logic (e.g., no pipes \`|\`, redirects \`>\`, or loops).
+- **Script Mode (Complex/>150 chars)**: MANDATORY for multi-line scripts, pipes, or lengthy commands. **FORBIDDEN** to pass complex bash payloads directly into \`cli_execute\` to prevent truncation.
+
+2. The "Script-Then-Execute" Pipeline
+When Script Mode is triggered, you MUST follow this exact sequence:
+1. **Staging**: Create a temporary script (e.g., \`/tmp/task_TIMESTAMP.sh\`) beginning with a valid shebang (\`#!/bin/bash\`).
+2. **Safe Writing**: Use \`write_to_file\`. **CRITICAL**: For payloads >1000 characters, you MUST engage chunked write mode using \`session_id\`, \`chunk_index\`, and \`total_chunks\`.
+3. **Execution**: Run the staged file (\`cli_execute bash /tmp/task_TIMESTAMP.sh\`).
+4. **Surgical Repair**: If execution fails, DO NOT rewrite the entire script from scratch. Analyze the error trace, use \`replace_in_file\` to fix only the broken lines, and re-execute.
+
+3. Remote / SSH Operations
+- The "Script-Then-Execute" pipeline applies universally to remote hosts.
+- Provision the script directly on the remote host using \`write_to_file\` (SSH mode), then trigger via \`cli_execute\` with the appropriate SSH prefix.`,
         "parameters": {
             "type": "object",
             "properties": {

@@ -291,6 +291,9 @@ export class SubAgentWindow extends BaseWindow {
                     getTools: () => this.normalizeTools({
                         read_tools_prompt: this.plugins.getTool("read_tools_prompt"),
                         cli_execute: this.plugins.getTool("cli_execute"),
+                        list_files: this.plugins.getTool("list_files"),
+                        write_to_file: this.plugins.getTool("write_to_file"),
+                        replace_in_file: this.plugins.getTool("replace_in_file"),
                         tool_manager: this.agentTools["tool_manager"],
                         chart_plotter: this.agentTools["chart_plotter"],
                         web_searcher: this.agentTools["web_searcher"],

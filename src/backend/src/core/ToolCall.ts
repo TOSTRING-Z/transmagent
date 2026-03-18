@@ -58,10 +58,10 @@ export class ToolCall extends ReActAgent {
     public env_prompt: string;
     public current_context_id: number = 0;
     public memory_list: Message[] = [];
-    public thinking_repetitions: string[] = [];
+    public thinking_repetitions: (string | null)[] = [];
     public repetitions_delay_empty: number = 0;
     public environment_details!: EnvironmentDetails;
-    public toolInfo: ToolInfo | null = null;
+    public toolInfo!: ToolInfo;
 
     constructor(
         plugins: Plugins,
@@ -334,7 +334,7 @@ You MUST respond ONLY with a valid JSON object. DO NOT call any tools.
                     const verdict = JSON.parse(jsonMatch[0]);
                     if (verdict.pass === false) {
                         logger.log(`[Critic] 拦截成功! 发现伪造数据: ${verdict.reason}`);
-                        return `[CRITIC REJECTION] Execution Blocked. Your payload violates data integrity rules:\nReason: ${verdict.reason}\n\nAction Required: You MUST fix the code to use real data sources. DO NOT use mock data, placeholders, or hardcoded biological values.`;
+                        return `[CRITIC REJECTION] Execution Blocked. Your payload violates data integrity rules:\nReason: ${verdict.reason}`;
                     }
                 }
             }
@@ -368,15 +368,55 @@ You MUST respond ONLY with a valid JSON object. DO NOT call any tools.
             this.toolInfo = await this.getToolInfo(data, assistantMessage);
         }
 
+        if (!this.toolInfo) return; // 容错处理
+
+        // ==========================================
+        // 1. 记录与判断重复思考
+        // ==========================================
+        const currentThinking = this.toolInfo.thinking;
+        
+        // 与上一次思考内容对比，而不是第一次
+        if (this.thinking_repetitions.length === 0 || this.thinking_repetitions[this.thinking_repetitions.length - 1] === currentThinking) {
+            this.thinking_repetitions.push(currentThinking);
+            this.repetitions_delay_empty = 0; // 如果重复，重置容错延迟计数
+        } else {
+            this.repetitions_delay_empty += 1;
+            // 超过容错次数，清空记录并以当前的思考作为新的起点
+            if (this.repetitions_delay_empty >= (utils.getConfig("tool_call")?.repetitions_delay_empty || 2)) {
+                this.thinking_repetitions = [currentThinking];
+                this.repetitions_delay_empty = 0;
+            }
+        }
+
+        // ==========================================
+        // 2. 拦截死循环并打断 (从原有 else 块中剥离)
+        // ==========================================
+        if (this.thinking_repetitions.length >= (utils.getConfig("tool_call")?.max_thinking_repetitions || 3)) {
+            let observation = {
+                ask: `You have been stuck in a thinking loop ${this.thinking_repetitions.length} times. Try a new approach to break through, or end it directly.`,
+                options: ["End Task", "Try New Approach", "Continue"]
+            };
+            const { ask, options } = observation;
+            
+            this.state = State.PAUSE;
+            this.thinking_repetitions.length = 0; // 触发打断后清空历史，避免反复触发
+            
+            this.window?.webContents.send('streamData', { group_id: this.llm_service.chatManager.chat.group_id, context_id: this.llm_service.chatManager.chat.context_id, content: ask, end: true, chat: this.llm_service.chatManager.chat });
+            this.window?.webContents.send("options", { options: options, group_id: this.llm_service.chatManager.chat.group_id, tool_call_id: this.toolInfo?.id, tool_call_name: this.toolInfo?.tool, is_tool_response: true });
+            
+            return; // ⚠️ 关键拦截点：直接 return 终止当前步骤，不再执行下方的工具逻辑
+        }
+
+        // ==========================================
+        // 3. 正常的工具执行流程 (完全解耦，不再被嵌套在重复判定中)
+        // ==========================================
         if (this.toolInfo?.error) {
             this.llm_service.chatManager.pushMessage(assistantMessage);
             this.llm_service.chatManager.pushMessage({ role: "tool", content: this.toolInfo.error, tool_call_id: this.toolInfo?.id, tool_call_name: this.toolInfo?.tool, group_id: this.llm_service.chatManager.chat.group_id, context_id: this.llm_service.chatManager.chat.context_id, show: true, react: true });
             this.window?.webContents.send('streamData', { group_id: this.llm_service.chatManager.chat.group_id, context_id: this.llm_service.chatManager.chat.context_id, content: this.toolInfo.error, chat: this.llm_service.chatManager.chat });
         }
         else if (this.toolInfo?.tool) {
-            // ==========================================
             // [新增] 触发 AI 审查者，传入 assistantMessage 和 data 实现缓存命中
-            // ==========================================
             let auditError = await this.auditToolCall(this.toolInfo, assistantMessage, data);
 
             if (auditError) {
@@ -403,7 +443,6 @@ You MUST respond ONLY with a valid JSON object. DO NOT call any tools.
 
                 return; // 终止当前 step，带着失败观测进入下一轮思考
             }
-            // ==========================================
 
             this.llm_service.chatManager.pushMessage(assistantMessage);
             let observation = await this.act(this.toolInfo);
@@ -435,7 +474,8 @@ You MUST respond ONLY with a valid JSON object. DO NOT call any tools.
                 this.llm_service.chatManager.pushMessage({ role: "tool", content: observation.result, tool_call_id: this.toolInfo?.id, tool_call_name: this.toolInfo?.tool, group_id: this.llm_service.chatManager.chat.group_id, context_id: this.llm_service.chatManager.chat.context_id, show: true, react: true });
                 this.window?.webContents.send('infoData', { group_id: this.llm_service.chatManager.chat.group_id, context_id: this.llm_service.chatManager.chat.context_id, content: this.getInfo(data) });
             }
-        } else if (this.toolInfo?.thinking) {
+        }
+        else if (this.toolInfo?.thinking) {
             assistantMessage.react = false;
             this.llm_service.chatManager.pushMessage(assistantMessage);
             this.window?.webContents.send('streamData', { group_id: this.llm_service.chatManager.chat.group_id, context_id: this.llm_service.chatManager.chat.context_id, content: null, end: true, chat: this.llm_service.chatManager.chat });
@@ -443,32 +483,13 @@ You MUST respond ONLY with a valid JSON object. DO NOT call any tools.
         }
     }
 
-    public async getToolInfo(data: Record<string, any>, assistantMessage) {
+    public async getToolInfo(data: Record<string, any>, assistantMessage): Promise<ToolInfo> {
         const adapter: IToolCallAdapter = ToolCallAdapterFactory.getAdapter(this.llm_service.chatManager.chat.tool_format);
         const toolInfo = adapter.getToolInfo(assistantMessage);
         let toolInfoStr = JSON.stringify(toolInfo, null, 2).replaceAll("\\`", "'").replaceAll("`", "'");
         data.output_format = toolInfoStr;
         this.window?.webContents.send('infoData', { group_id: this.llm_service.chatManager.chat.group_id, context_id: this.llm_service.chatManager.chat.context_id, content: this.getInfo(data) });
-        // 统计重复思考以打断死循环
-        if (this.thinking_repetitions.length === 0 || this.thinking_repetitions[0] === toolInfo.thinking) {
-            this.thinking_repetitions.push(toolInfo.thinking);
-        } else {
-            this.repetitions_delay_empty += 1;
-            if (this.repetitions_delay_empty >= (utils.getConfig("tool_call")?.repetitions_delay_empty || 2)) {
-                this.thinking_repetitions.length = 0;
-                this.repetitions_delay_empty = 0;
-            }
-            if (this.thinking_repetitions.length >= (utils.getConfig("tool_call")?.max_thinking_repetitions || 5)) {
-                toolInfo.observation = {
-                    question: `You have been stuck in a thinking loop ${this.thinking_repetitions.length} times. Try a new approach to break through, or end it directly.`,
-                    options: ["End Task", "Try New Approach", "Continue"]
-                };
-                this.state = State.PAUSE;
-                this.thinking_repetitions.length = 0;
-            }
-        }
         this.window?.webContents.send('streamData', { group_id: this.llm_service.chatManager.chat.group_id, context_id: this.llm_service.chatManager.chat.context_id, content: `${toolInfo.thinking}\n\n---\n\n`, chat: this.llm_service.chatManager.chat });
-
         return toolInfo;
     }
 

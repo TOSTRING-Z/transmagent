@@ -196,13 +196,13 @@ export function main(params: ListFilesParams = {}) {
 export function getPrompt() {
     return {
         "name": "list_files",
-        "description": "Recursively scans directories with intelligent filtering (automatically excludes dev/binary files). Automatically supports Local and SSH remote environments.",
+        "description": "Recursively scans directories with intelligent filtering (automatically excludes dev/binary files).",
         "parameters": {
             "type": "object",
             "properties": {
                 "path": {
                     "type": "string",
-                    "description": "Target directory absolute path (required). For remote files, ensure the SSH session is active."
+                    "description": "Target directory absolute path (required)."
                 },
                 "recursive": {
                     "type": "boolean",
