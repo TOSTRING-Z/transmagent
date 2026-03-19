@@ -252,7 +252,10 @@ export class SubAgentWindow extends BaseWindow {
                 {
                     promptModule: 'chart_plotter',
                     getTools: () => this.normalizeTools({
-                        cli_execute: this.plugins.getTool("cli_execute")
+                        cli_execute: this.plugins.getTool("cli_execute"),
+                        list_files: this.plugins.getTool("list_files"),
+                        write_to_file: this.plugins.getTool("write_to_file"),
+                        replace_in_file: this.plugins.getTool("replace_in_file"),
                     }),
                     options: { todolist: false, mcp_server: false },
                     isMain: true
@@ -272,6 +275,9 @@ export class SubAgentWindow extends BaseWindow {
                         read_tools_prompt: this.plugins.getTool("read_tools_prompt"),
                         update_tool: this.plugins.getTool("update_tool"),
                         cli_execute: this.plugins.getTool("cli_execute"),
+                        list_files: this.plugins.getTool("list_files"),
+                        write_to_file: this.plugins.getTool("write_to_file"),
+                        replace_in_file: this.plugins.getTool("replace_in_file"),
                         tool_documentation_collector: this.agentTools["tool_documentation_collector"],
                         error_solution_finder: this.agentTools["error_solution_finder"],
                     }),
