@@ -115,9 +115,9 @@ export function main(initialParams: CliExecuteParams = {}) {
             logger.log(`[CliExecute] Mode: ${mode} | Reason: ${mode_reason || 'None provided'}`);
 
             if (mode === 'Direct Mode') {
-                // 如果是 Direct Mode，严格限制长度（例如 150 字符）
-                if (code.length > 150) {
-                    const errorMsg = `Execution blocked: Code length (${code.length} chars) exceeds the 150-character limit for Direct Mode. ` +
+                // 如果是 Direct Mode，严格限制长度（例如 500 字符）
+                if (code.length > 500) {
+                    const errorMsg = `Execution blocked: Code length (${code.length} chars) exceeds the 500-character limit for Direct Mode. ` +
                         `Please follow the "Script-Then-Execute" pipeline: use 'write_to_file' to stage the script first, then execute the staged file.`;
                     logger.warn(errorMsg);
                     return { success: false, output: '', error: errorMsg };
@@ -392,8 +392,8 @@ export function getPrompt() {
         "description": `A command-line tool for executing bash commands in Linux environments, providing secure and efficient command execution capabilities.
         
 Execution Routing Rules
-- **Direct Mode (<150 chars)**: Permitted ONLY for simple, single-line commands lacking complex logic (e.g., no pipes \`|\`, redirects \`>\`, or loops).
-- **Script Mode (Complex/>150 chars)**: MANDATORY for multi-line scripts, pipes, or lengthy commands. **FORBIDDEN** to pass complex bash payloads directly into \`cli_execute\` to prevent truncation.
+- **Direct Mode (<500 chars)**: Permitted ONLY for simple, single-line commands lacking complex logic (e.g., no pipes \`|\`, redirects \`>\`, or loops).
+- **Script Mode (Complex/>500 chars)**: MANDATORY for multi-line scripts, pipes, or lengthy commands. **FORBIDDEN** to pass complex bash payloads directly into \`cli_execute\` to prevent truncation.
 
 The "Script-Then-Execute" Pipeline
 When Script Mode is triggered, you MUST follow this exact sequence:
@@ -415,11 +415,11 @@ When Script Mode is triggered, you MUST follow this exact sequence:
                 "mode": {
                     "type": "string",
                     "enum": ["Direct Mode", "Script Mode"],
-                    "description": "(Required) The execution mode selected based on command complexity and length. Direct Mode is ONLY for simple, single-line commands under 150 characters. Script Mode is for multi-line, complex, or lengthy commands."
+                    "description": "(Required) The execution mode selected based on command complexity and length. Direct Mode is ONLY for simple, single-line commands under 500 characters. Script Mode is for multi-line, complex, or lengthy commands."
                 },
                 "mode_reason": {
                     "type": "string",
-                    "description": "(Required) A brief explanation of why this execution mode was chosen (e.g., 'Command is over 150 characters and contains pipe operations')."
+                    "description": "(Required) A brief explanation of why this execution mode was chosen (e.g., 'Command is over 500 characters and contains pipe operations')."
                 }
             },
             "required": ["code", "mode", "mode_reason"]
