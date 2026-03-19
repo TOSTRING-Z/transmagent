@@ -252,6 +252,7 @@ export class ToolCall extends ReActAgent {
         this.environment_details.mode = selectedMode;
         this.llm_service.chatManager.chat.mode = shortMode as string;
         this.window?.webContents.send('change-mode', shortMode);
+        this.setHistory();
     }
 
     /**
