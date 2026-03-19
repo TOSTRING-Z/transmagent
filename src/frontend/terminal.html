@@ -151,9 +151,10 @@
     </div>
 
     <script>
-        // 窗口控制逻辑
-        const { ipcRenderer } = require('electron')
+        // 引入 clipboard 用于操作剪贴板
+        const { ipcRenderer, clipboard } = require('electron')
 
+        // 窗口控制逻辑
         document.getElementById('minimize-btn').addEventListener('click', () => {
             ipcRenderer.send('minimize-window')
         })
@@ -167,13 +168,6 @@
 
         // 终端字体写入样式
         const writeOfColor = (txt, fontCss = "", bgColor = "") => {
-            // 在Linux脚本中以 \x1B[ 开始，中间前部分是样式+内容，以 \x1B[0m 结尾
-            // 示例 \x1B[1;3;31m 内容 \x1B[0m
-            // fontCss
-            // 0;-4;字体样式（0;正常 1;加粗 2;变细 3;斜体 4;下划线）
-            // bgColor
-            // 30m-37m字体颜色（30m:黑色 31m:红色 32m:绿色 33m:棕色字 34m:蓝色 35m:洋红色/紫色 36m:蓝绿色/浅蓝色 37m:白色）
-            // 40m-47m背景颜色（40m:黑色 41m:红色 42m:绿色 43m:棕色字 44m:蓝色 45m:洋红色/紫色 46m:蓝绿色/浅蓝色 47m:白色）
             terminal.write(`\x1B[${fontCss}${bgColor}${txt}\x1B[0m`);
         }
 
@@ -190,8 +184,8 @@
                     lineHeight: 20, // 行高
                     background: '#1a1a1a',
                     foreground: '#f0f0f0',
-                    cursor: '#f0f0f0',
                     selection: '#404040',
+                    // ... [保留你原有的颜色配置] ...
                     black: '#1a1a1a',
                     red: '#ff5555',
                     green: '#50fa7b',
@@ -218,12 +212,46 @@
             }, 5)
             terminal.focus() // 自动聚焦
 
+            // ================= 新增：复制选中文本逻辑 =================
+
+            // 1. 监听 Ctrl + Shift + C 快捷键
+            terminal.attachCustomKeyEventHandler((e) => {
+                if (e.ctrlKey && e.shiftKey && e.code === 'KeyC' && e.type === 'keydown') {
+                    const selection = terminal.getSelection();
+                    if (selection) {
+                        clipboard.writeText(selection);
+                        terminal.clearSelection(); // 复制后可选：清除选中状态
+                    }
+                    return false; // 阻止默认事件
+                }
+                return true;
+            });
+
+            // 2. 监听右键点击事件 (复制选中文字)
+            document.getElementById('terminal').addEventListener('contextmenu', (e) => {
+                e.preventDefault(); // 阻止浏览器默认的右键菜单
+                const selection = terminal.getSelection();
+                if (selection) {
+                    // 如果有选中的文字，则复制
+                    clipboard.writeText(selection);
+                    terminal.clearSelection(); // 复制后清除选中状态
+                } else {
+                    // (可选功能) 如果没有选中文字，右键可以作为“粘贴”功能
+                    // const text = clipboard.readText();
+                    // terminal.write(text); // 写入终端显示
+                    // userInput += text;    // 加入输入缓存
+                }
+            });
+
+            // =========================================================
+
             // 记录用户输入和光标位置
             let userInput = '';
             let cursorPosition = 0;
 
             // 当向web终端敲入字符时候的回调
             terminal.onData((data) => {
+                // ... [保留你原有的 onData 逻辑] ...
                 // 检查是否是回车键（ASCII 13）
                 if (data.charCodeAt(0) === 13) {
                     console.log(userInput, '传入服务器');
@@ -234,20 +262,17 @@
                 }
                 else if (data.charCodeAt(0) === 3) {  // 3 是 Ctrl+C 的 ASCII 码
                     console.log('[Ctrl+C] 发送中断信号');
-                    ipcRenderer.send('terminal-signal', 'ctrl_c');  // 明确发送信号类型
-                    terminal.write('^C\r\n');  // 在终端显示 ^C 并换行
-                    userInput = '';  // 清空输入缓存
-                    return;  // 跳过后续处理
+                    ipcRenderer.send('terminal-signal', 'ctrl_c');
+                    terminal.write('^C\r\n');
+                    userInput = '';
+                    return;
                 }
                 else if (data.charCodeAt(0) === 127) {
                     // 处理删除键
                     if (userInput.length > 0 && cursorPosition > 0) {
                         userInput = userInput.substring(0, cursorPosition - 1) + userInput.substring(cursorPosition);
-                        // 删除当前字符
                         terminal.write('\b');
-                        // 重绘后续字符
                         terminal.write(userInput.substring(cursorPosition - 1) + ' ');
-                        // 将光标移回正确位置
                         terminal.write('\x1B[' + (userInput.length - cursorPosition + 2) + 'D');
                         cursorPosition--;
                     }
@@ -255,12 +280,8 @@
                     // 处理方向键的转义序列
                     if (data.length > 1) {
                         switch (data.substr(1)) {
-                            case '[A': // 上箭头
-                                // 上箭头逻辑
-                                break;
-                            case '[B': // 下箭头
-                                // 下箭头逻辑
-                                break;
+                            case '[A': break; // 上箭头
+                            case '[B': break; // 下箭头
                             case '[C': // 右箭头
                                 if (cursorPosition < userInput.length) {
                                     terminal.write('\x1B[C');
@@ -278,17 +299,11 @@
                 } else {
                     // 插入新字符
                     userInput = userInput.substring(0, cursorPosition) + data + userInput.substring(cursorPosition);
-
-                    // 先写入新字符
                     terminal.write(data);
-
-                    // 如果后面还有字符，需要重新输出
                     if (cursorPosition < userInput.length - data.length) {
                         terminal.write(userInput.substring(cursorPosition + data.length));
-                        // 将光标移回正确位置
                         terminal.write('\x1B[' + (userInput.length - cursorPosition - data.length) + 'D');
                     }
-
                     cursorPosition += data.length;
                 }
             });

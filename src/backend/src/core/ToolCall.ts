@@ -297,14 +297,26 @@ export class ToolCall extends ReActAgent {
 You must now pause your current task and act as a strict Data Integrity Critic. 
 Review the tool call payload you just generated above.
 
-# CRITICAL CHECK:
-Did you write "mock data", "placeholder", use random number generators, or hardcode biological data/coordinates instead of writing code to fetch and parse REAL data? Are you creating fake files for demonstration purposes?
+# OBJECTIVE:
+Distinguish between "Developing Tools/Scripts" (Allowed) and "Hallucinating Final Data" (Blocked).
+
+# CRITICAL CHECK CRITERIA:
+* ALLOWED (Pass = true): 
+  - Writing scripts to query APIs, scrape websites, or parse local files.
+  - Using placeholders for credentials (e.g., 'YOUR_API_KEY', 'TEMP_TOKEN').
+  - Creating boilerplate code or skeleton functions intended to be executed for real data retrieval.
+  - Mocking structure for testing logic flow, UNLESS it replaces a factual data source.
+
+* BLOCKED (Pass = false): 
+  - Hardcoding factual/scientific results (e.g., specific protein sequences, GPS coordinates, experimental values) instead of writing code to fetch them.
+  - Using random number generators (e.g., \`random.random()\`) to simulate analytical results.
+  - Providing a "mock response" script that prints hardcoded fake data to bypass an actual API/Tool requirement.
 
 # OUTPUT FORMAT:
 You MUST respond ONLY with a valid JSON object. DO NOT call any tools.
 {
-  "pass": boolean, // true if the code genuinely processes real data, false if it hallucinates or mocks data.
-  "reason": "If false, state EXACTLY what is mocked and how to fix it."
+  "pass": boolean,
+  "reason": "If false, state EXACTLY which specific data point was mocked and how it should be correctly fetched."
 }
         `.trim();
 
@@ -317,7 +329,12 @@ You MUST respond ONLY with a valid JSON object. DO NOT call any tools.
 
         try {
             if (!callData.params) callData.params = {};
-            callData.params.llm_params = { ...callData.params.llm_params, temperature: 0.1, tool_choice: "none" };
+            callData.params.llm_params = {
+                ...callData.params.llm_params,
+                temperature: 0.1,
+                tool_choice: "none",
+                response_format: { type: "json_object" }
+            };
 
             const messageOutput = await critic_agent.llmCall(callData);
 

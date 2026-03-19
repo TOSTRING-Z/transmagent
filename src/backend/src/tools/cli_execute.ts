@@ -21,8 +21,9 @@ export interface CliExecuteParams {
 export interface ExecuteArgs {
     code: string;
     timeout?: number;
+    mode?: 'Direct Mode' | 'Script Mode';
+    mode_reason?: string;
 }
-
 export interface ExecuteResult {
     success: boolean;
     output: string;
@@ -58,7 +59,7 @@ function validateParams(params: CliExecuteParams | undefined): Required<CliExecu
     if (!params) {
         throw new Error('Parameters are required');
     }
-    
+
     const validated: Required<CliExecuteParams> = {
         timeout: (typeof params.timeout === 'number' && params.timeout >= 60) ? params.timeout : 60,
         delay_time: (typeof params.delay_time === 'number' && params.delay_time >= 2) ? params.delay_time : 2,
@@ -96,9 +97,9 @@ function cleanupResources(tempFile: string, terminalWindow: BrowserWindow | null
 
 // --- 主执行逻辑 ---
 export function main(initialParams: CliExecuteParams = {}) {
-    return async ({ code, timeout }: ExecuteArgs): Promise<ExecuteResult> => {
+    return async ({ code, timeout, mode, mode_reason }: ExecuteArgs): Promise<ExecuteResult> => {
         let params: Required<CliExecuteParams>;
-        
+
         try {
             params = validateParams(initialParams);
         } catch (error: any) {
@@ -108,6 +109,39 @@ export function main(initialParams: CliExecuteParams = {}) {
         if (!code || typeof code !== 'string') {
             return { success: false, output: '', error: 'Valid code parameter is required' };
         }
+
+        // ================= 新增的模式校验逻辑 START =================
+        if (mode) {
+            logger.log(`[CliExecute] Mode: ${mode} | Reason: ${mode_reason || 'None provided'}`);
+
+            if (mode === 'Direct Mode') {
+                // 如果是 Direct Mode，严格限制长度（例如 150 字符）
+                if (code.length > 150) {
+                    const errorMsg = `Execution blocked: Code length (${code.length} chars) exceeds the 150-character limit for Direct Mode. ` +
+                        `Please follow the "Script-Then-Execute" pipeline: use 'write_to_file' to stage the script first, then execute the staged file.`;
+                    logger.warn(errorMsg);
+                    return { success: false, output: '', error: errorMsg };
+                }
+
+                // 可选：初步检测复杂逻辑（如多行、管道、重定向），如果太长且复杂也可拦截
+                if (code.includes('\n') || (/[|>]/.test(code) && code.length > 100)) {
+                    logger.warn(`[CliExecute] Warning: Direct Mode used for potentially complex or multi-line command.`);
+                }
+            } else if (mode === 'Script Mode') {
+                // 如果大模型声明是 Script Mode，但传入了巨大的原生脚本，也要拦截
+                // Script Mode 应该只传入类似 `bash /tmp/task_123.sh` 这样的执行命令
+                if (code.length > 200 && !code.includes('.sh')) {
+                    const errorMsg = `Execution blocked: In Script Mode, you should NOT pass the entire script payload into 'code'. ` +
+                        `You must use 'write_to_file' to save it to a .sh file first, and only pass the execution command (e.g., 'bash /tmp/file.sh') here.`;
+                    logger.warn(errorMsg);
+                    return { success: false, output: '', error: errorMsg };
+                }
+            }
+        } else {
+            // 如果 LLM 遗漏了必填参数，给予提示 (某些模型可能会偶尔漏掉参数)
+            logger.warn(`[CliExecute] Executed without explicit mode specified.`);
+        }
+        // ================= 新增的模式校验逻辑 END =================
 
         if (typeof timeout === 'number' && timeout > params.timeout) {
             params.timeout = timeout;
@@ -162,7 +196,7 @@ export function main(initialParams: CliExecuteParams = {}) {
             let timeoutId: NodeJS.Timeout | null = null;
             let isResolved = false;
             let conn: Client | null = null;
-            
+
             // 集中管理需要注销的 IPC 监听器
             const handleMinimize = () => { terminalWindow?.minimize(); };
             const handleCloseWindow = () => {
@@ -172,7 +206,7 @@ export function main(initialParams: CliExecuteParams = {}) {
                     error: 'Execution cancelled by user'
                 });
             };
-            
+
             ipcMain.on('minimize-window', handleMinimize);
             ipcMain.once('close-window', handleCloseWindow);
 
@@ -181,7 +215,7 @@ export function main(initialParams: CliExecuteParams = {}) {
                 isResolved = true;
 
                 if (timeoutId) clearTimeout(timeoutId);
-                
+
                 // 彻底清理所有主进程事件监听器
                 ipcMain.off('minimize-window', handleMinimize);
                 ipcMain.removeListener('close-window', handleCloseWindow);
@@ -204,7 +238,7 @@ export function main(initialParams: CliExecuteParams = {}) {
             }, params.timeout * 1000);
 
             const sshConfig = utils.getSshConfig();
-            
+
             // 提取共享的输入输出处理句柄
             let inputHandler: ((event: IpcMainEvent, input: string) => void) | null = null;
             let signalHandler: ((event: IpcMainEvent, signal: string) => void) | null = null;
@@ -357,20 +391,16 @@ export function getPrompt() {
         "name": "cli_execute",
         "description": `A command-line tool for executing bash commands in Linux environments, providing secure and efficient command execution capabilities.
         
-        1. Execution Routing Rules
+Execution Routing Rules
 - **Direct Mode (<150 chars)**: Permitted ONLY for simple, single-line commands lacking complex logic (e.g., no pipes \`|\`, redirects \`>\`, or loops).
 - **Script Mode (Complex/>150 chars)**: MANDATORY for multi-line scripts, pipes, or lengthy commands. **FORBIDDEN** to pass complex bash payloads directly into \`cli_execute\` to prevent truncation.
 
-2. The "Script-Then-Execute" Pipeline
+The "Script-Then-Execute" Pipeline
 When Script Mode is triggered, you MUST follow this exact sequence:
 1. **Staging**: Create a temporary script (e.g., \`/tmp/task_TIMESTAMP.sh\`) beginning with a valid shebang (\`#!/bin/bash\`).
 2. **Safe Writing**: Use \`write_to_file\`. **CRITICAL**: For payloads >1000 characters, you MUST engage chunked write mode using \`session_id\`, \`chunk_index\`, and \`total_chunks\`.
 3. **Execution**: Run the staged file (\`cli_execute bash /tmp/task_TIMESTAMP.sh\`).
-4. **Surgical Repair**: If execution fails, DO NOT rewrite the entire script from scratch. Analyze the error trace, use \`replace_in_file\` to fix only the broken lines, and re-execute.
-
-3. Remote / SSH Operations
-- The "Script-Then-Execute" pipeline applies universally to remote hosts.
-- Provision the script directly on the remote host using \`write_to_file\` (SSH mode), then trigger via \`cli_execute\` with the appropriate SSH prefix.`,
+4. **Surgical Repair**: If execution fails, DO NOT rewrite the entire script from scratch. Analyze the error trace, use \`replace_in_file\` to fix only the broken lines, and re-execute.`,
         "parameters": {
             "type": "object",
             "properties": {
@@ -381,9 +411,18 @@ When Script Mode is triggered, you MUST follow this exact sequence:
                 "timeout": {
                     "type": "number",
                     "description": "(Optional) Maximum execution time in seconds (default: At least 3600 seconds). If the command times out, the current console output will be returned with a failure status."
+                },
+                "mode": {
+                    "type": "string",
+                    "enum": ["Direct Mode", "Script Mode"],
+                    "description": "(Required) The execution mode selected based on command complexity and length. Direct Mode is ONLY for simple, single-line commands under 150 characters. Script Mode is for multi-line, complex, or lengthy commands."
+                },
+                "mode_reason": {
+                    "type": "string",
+                    "description": "(Required) A brief explanation of why this execution mode was chosen (e.g., 'Command is over 150 characters and contains pipe operations')."
                 }
             },
-            "required": ["code"]
+            "required": ["code", "mode", "mode_reason"]
         }
     };
 }

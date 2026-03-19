@@ -169,7 +169,7 @@
     "cli_prompt": null,
     "llm_judge": true,
     "subagent": true,
-    "subagent_llm_init": false,
+    "subagent_llm_init": true,
     "env_message": true,
     "max_thinking_repetitions": 3,
     "repetitions_delay_empty": 2,
