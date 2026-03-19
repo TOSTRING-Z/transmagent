@@ -14,12 +14,19 @@ export enum State {
     ERROR = 'error',
 }
 
+export enum Mode {
+    AUTO = 'Automatic mode',
+    ACT = 'Execution mode',
+    PLAN = 'Planning mode',
+    FLASH = 'Flash mode',
+}
+
 // 模拟 Electron window 对象的默认结构
 const createMockWindow = () => ({
     webContents: {
         send: (channel: string, data: any) => {
-            const timestamp = new Date().toLocaleTimeString();
-            logger.log(`%c[time]${timestamp} Channel: ${channel}, Data:`, "color: blue; font-weight: bold", data);
+            // const timestamp = new Date().toLocaleTimeString();
+            // logger.log(`%c[time]${timestamp} Channel: ${channel}, Data:`, "color: blue; font-weight: bold", data);
         }
     }
 });

@@ -1,5 +1,5 @@
 import * as os from 'os';
-import { ReActAgent, State } from './ReActAgent';
+import { ReActAgent, State, Mode } from './ReActAgent';
 import { utils, CHAT_CONST } from '../utils/globals';
 import { formatString } from '../utils/format';
 import { LLMService } from './LLMService';
@@ -36,7 +36,7 @@ export interface EnvironmentDetails {
     language: string;
     tmpdir: string;
     time: string;
-    mode: string;
+    mode: Mode;
     envs: string | null;
     todolist: string | null;
     skills?: string;
@@ -46,7 +46,6 @@ export class ToolCall extends ReActAgent {
     public plugins: Plugins;
     public mcp_client: MCPClient;
     public prompt_args: PromptArgs;
-    public modes: Record<string, string>;
     public system_prompt!: () => Promise<string> | string;
     public mcp_prompt!: string;
     public tools: Record<string, any>;
@@ -62,6 +61,7 @@ export class ToolCall extends ReActAgent {
     public repetitions_delay_empty: number = 0;
     public environment_details!: EnvironmentDetails;
     public toolInfo!: ToolInfo;
+    public modeMap: Record<string, Mode> = { "auto": Mode.AUTO, "plan": Mode.PLAN, "flash": Mode.FLASH, "act": Mode.ACT };
 
     constructor(
         plugins: Plugins,
@@ -81,13 +81,6 @@ export class ToolCall extends ReActAgent {
         this.plugins = plugins;
         this.mcp_client = new MCPClient(this);
         this.prompt_args = prompt_args;
-
-        this.modes = {
-            AUTO: 'Automatic mode',
-            ACT: 'Execution mode',
-            PLAN: 'Planning mode',
-            FLASH: 'Flash mode',
-        };
 
         this.init_var();
 
@@ -112,10 +105,15 @@ export class ToolCall extends ReActAgent {
             language: utils.getLanguage(),
             tmpdir: utils.getConfig("tool_call")?.tmpdir || os.tmpdir(),
             time: utils.formatDate(),
-            mode: this.modes.ACT,
+            mode: Mode.ACT,
             envs: null,
             todolist: null,
         };
+    }
+
+    public load_message(filePath: string) {
+        super.load_message(filePath);
+        this.change_mode(this.llm_service.chatManager.chat.mode);
     }
 
     public get_tools_prompt(): any {
@@ -143,7 +141,7 @@ export class ToolCall extends ReActAgent {
         const context = {
             args: this.prompt_args || {},
             env: this.environment_details || {},
-            modes: this.modes || {},
+            modes: Mode || {},
             isSubagent: !!this.prompt_args?.subagent,
             currentMode: this.environment_details?.mode
         };
@@ -209,7 +207,6 @@ export class ToolCall extends ReActAgent {
         this.memory_list = messages_list;
 
         this.system_prompt = async () => {
-            const toolsData = this.get_tools_prompt();
             const important_memory = await this.memory_manager.getImportantMemory();
             const paramsToFormat = {
                 system_type: utils.getConfig("tool_call")?.system_type || os.type(),
@@ -221,7 +218,7 @@ export class ToolCall extends ReActAgent {
                 important_memory: important_memory,
                 memory_list: JSON.stringify(this.memory_list, null, 2)
             }
-            const systemPrompt = formatString(this.task_prompt(toolsData), paramsToFormat);
+            const systemPrompt = formatString(this.task_prompt(data.tools), paramsToFormat);
             return systemPrompt.replaceAll(/\n{2,}/g, "\n\n").trim();
         }
     }
@@ -250,10 +247,8 @@ export class ToolCall extends ReActAgent {
     }
 
     public change_mode(mode: string | null = null) {
-        const modeMap: Record<string, string> = { "auto": this.modes.AUTO, "plan": this.modes.PLAN, "flash": this.modes.FLASH, "act": this.modes.ACT };
-        const selectedMode = modeMap[mode || ""] || this.modes.ACT;
-        const shortMode = modeMap[mode || ""] ? mode : "act";
-
+        const selectedMode = this.modeMap[mode || ""] || Mode.ACT;
+        const shortMode = this.modeMap[mode || ""] ? mode : "act";
         this.environment_details.mode = selectedMode;
         this.llm_service.chatManager.chat.mode = shortMode as string;
         this.window?.webContents.send('change-mode', shortMode);
@@ -374,7 +369,7 @@ You MUST respond ONLY with a valid JSON object. DO NOT call any tools.
         // 1. 记录与判断重复思考
         // ==========================================
         const currentThinking = this.toolInfo.thinking;
-        
+
         // 与上一次思考内容对比，而不是第一次
         if (this.thinking_repetitions.length === 0 || this.thinking_repetitions[this.thinking_repetitions.length - 1] === currentThinking) {
             this.thinking_repetitions.push(currentThinking);
@@ -397,13 +392,13 @@ You MUST respond ONLY with a valid JSON object. DO NOT call any tools.
                 options: ["End Task", "Try New Approach", "Continue"]
             };
             const { ask, options } = observation;
-            
+
             this.state = State.PAUSE;
             this.thinking_repetitions.length = 0; // 触发打断后清空历史，避免反复触发
-            
+
             this.window?.webContents.send('streamData', { group_id: this.llm_service.chatManager.chat.group_id, context_id: this.llm_service.chatManager.chat.context_id, content: ask, end: true, chat: this.llm_service.chatManager.chat });
             this.window?.webContents.send("options", { options: options, group_id: this.llm_service.chatManager.chat.group_id, tool_call_id: this.toolInfo?.id, tool_call_name: this.toolInfo?.tool, is_tool_response: true });
-            
+
             return; // ⚠️ 关键拦截点：直接 return 终止当前步骤，不再执行下方的工具逻辑
         }
 
@@ -544,9 +539,6 @@ You MUST respond ONLY with a valid JSON object. DO NOT call any tools.
         this.state = State.IDLE;
         let tool_call = utils.getConfig("tool_call");
 
-        if (this.llm_service.chatManager.chat.tool_format !== "prompt") {
-            data.tools = this.get_tools_prompt();
-        }
         while (this.state === State.IDLE || this.state === State.RUNNING) {
             // 延时1s，避免过快进入死循环
             await new Promise(resolve => setTimeout(resolve, 1000));
@@ -556,7 +548,7 @@ You MUST respond ONLY with a valid JSON object. DO NOT call any tools.
                 break;
             }
             if (data?.max_step && this.llm_service.chatManager.chat.step > data.max_step) break;
-            data = { ...data, ...tool_call, step: this.llm_service.chatManager.chat.step, react: true };
+            data = { ...data, ...tool_call, step: this.llm_service.chatManager.chat.step, tools: this.get_tools_prompt(), react: true };
 
             await this.step(data);
 

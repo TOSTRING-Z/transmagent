@@ -182,8 +182,18 @@ class DisplayFile {
         try {
             for await (const line of rl) {
                 lineIdx++;
+
+                // 跳过起始行之前的行
                 if (lineIdx < startLine) continue;
-                if (endLine > 0 && lineIdx > endLine) { isTruncated = true; break; }
+
+                // 检查是否超过了指定的结束行
+                if (endLine > 0 && lineIdx > endLine) {
+                    isTruncated = true;
+                    // 此时我们需要主动关闭接口以停止读取
+                    rl.close();
+                    fileStream.destroy();
+                    break;
+                }
 
                 let processedLine = line;
                 if (processedLine.length > maxLineLength) {
@@ -191,13 +201,20 @@ class DisplayFile {
                 }
                 lines.push(processedLine);
             }
+        } catch (err) {
+            // 忽略由于手动销毁流引起的异常
         } finally {
             rl.close();
             fileStream.destroy();
         }
 
         let content = lines.join('\n');
-        if (isTruncated) content += '\n...[File output truncated]';
+
+        // 只有在明确因为 endLine 限制跳出循环时才追加截断提示
+        if (isTruncated) {
+            content += '\n\n...[File output truncated by line limit]';
+        }
+
         return type === 'markdown' ? content : `\`\`\`text\n${content}\n\`\`\``;
     }
 
@@ -216,9 +233,10 @@ class DisplayFile {
             const stream = fs.createReadStream(filePath, { encoding: 'utf8' });
             const rl = readline.createInterface({ input: stream, crlfDelay: Infinity });
             for await (const line of rl) {
+                const cols = this._parseCSVLine(line, delimiter);
                 rl.close();
                 stream.destroy();
-                return this._parseCSVLine(line, delimiter);
+                return cols;
             }
             return [];
         };
@@ -227,7 +245,7 @@ class DisplayFile {
         const totalCols = headers.length;
         if (!totalCols) return "Empty CSV file";
 
-        // 列限制
+        // 列限制处理
         if (maxCols > 0 && headers.length > maxCols) {
             headers = headers.slice(0, maxCols);
         }
@@ -235,22 +253,42 @@ class DisplayFile {
         const rows: Record<string, string>[] = [];
         const fileStream = fs.createReadStream(filePath, { encoding: 'utf8' });
         const rl = readline.createInterface({ input: fileStream, crlfDelay: Infinity });
+
         let lineIdx = 0;
+        let isTruncated = false; // 关键状态位
         const dataStartLine = Math.max(2, startLine);
 
-        for await (const line of rl) {
-            lineIdx++;
-            if (lineIdx === 1) continue;
-            if (lineIdx < dataStartLine) continue;
-            if (endLine > 0 && lineIdx > endLine) break;
+        try {
+            for await (const line of rl) {
+                lineIdx++;
+                if (lineIdx === 1) continue; // 跳过表头行
+                if (lineIdx < dataStartLine) continue;
 
-            const values = this._parseCSVLine(line, delimiter);
-            const row: Record<string, string> = {};
-            headers.forEach((h, i) => { row[h] = values[i] || ''; });
-            rows.push(row);
+                // 只有当 endLine 有效且当前行超过限制时，才标记为截断并退出
+                if (endLine > 0 && lineIdx > endLine) {
+                    isTruncated = true;
+                    rl.close();
+                    fileStream.destroy();
+                    break;
+                }
+
+                const values = this._parseCSVLine(line, delimiter);
+                const row: Record<string, string> = {};
+                headers.forEach((h, i) => {
+                    row[h] = values[i] || '';
+                });
+                rows.push(row);
+            }
+        } catch (err) {
+            // 捕获可能的流关闭异常
+        } finally {
+            rl.close();
+            fileStream.destroy();
         }
 
-        let md = this._generateMarkdownTable(rows, headers, maxLineLength, lineIdx > endLine);
+        // 将确切的 isTruncated 状态传递给表格生成器
+        let md = this._generateMarkdownTable(rows, headers, maxLineLength, isTruncated);
+
         if (maxCols > 0 && totalCols > maxCols) {
             md += `\n\n> *Column output truncated. Showing first ${maxCols} of ${totalCols} columns.*`;
         }
@@ -377,18 +415,18 @@ export function getPrompt() {
         "parameters": {
             "type": "object",
             "properties": {
-                "file_path": { 
-                    "type": "string", 
-                    "description": "The absolute path to the target file. For remote files, ensure the SSH session is active." 
+                "file_path": {
+                    "type": "string",
+                    "description": "The absolute path to the target file. For remote files, ensure the SSH session is active."
                 },
-                "start_line": { 
-                    "type": "integer", 
+                "start_line": {
+                    "type": "integer",
                     "default": 1,
-                    "description": "The line number to start reading from (1-indexed)." 
+                    "description": "The line number to start reading from (1-indexed)."
                 },
-                "end_line": { 
-                    "type": "integer", 
-                    "description": "The line number to stop reading (inclusive). Use 0 or omit to read until the end of the file." 
+                "end_line": {
+                    "type": "integer",
+                    "description": "The line number to stop reading (inclusive). Use 0 or omit to read until the end of the file."
                 },
                 "format": {
                     "type": "string",
@@ -396,15 +434,15 @@ export function getPrompt() {
                     "default": "auto",
                     "description": "Force a specific display format. 'auto' detects by extension."
                 },
-                "max_line_length": { 
-                    "type": "integer", 
+                "max_line_length": {
+                    "type": "integer",
                     "default": 500,
-                    "description": "Truncates lines exceeding this length to prevent UI overflow." 
+                    "description": "Truncates lines exceeding this length to prevent UI overflow."
                 },
-                "max_cols": { 
-                    "type": "integer", 
+                "max_cols": {
+                    "type": "integer",
                     "default": 20,
-                    "description": "For CSV/TSV/Excel files, limits the number of columns displayed." 
+                    "description": "For CSV/TSV/Excel files, limits the number of columns displayed."
                 }
             },
             "required": ["file_path"]
