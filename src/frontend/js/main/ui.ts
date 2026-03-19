@@ -8,7 +8,7 @@ export function showLog(type: string, content: string) {
   window.electronAPI.showLog({ type, content });
 }
 
-export function toggleMode(mode: string, send = true) {
+export function toggleMode(mode: string, send = false) {
   if (send) window.electronAPI.changeMode(mode);
   
   DOM.auto.classList.remove("active");

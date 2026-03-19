@@ -183,7 +183,7 @@ export class LLMService {
         }
     }
 
-    private async handleNormal(resp: Response, adapter: any, headers: any, body: any, data: ChatRequestData, messageOutput: Message) {
+    private async handleNormal(resp: Response, adapter: ILLMAdapter, headers: any, body: any, data: ChatRequestData, messageOutput: Message) {
         let respJson: any;
         try {
             respJson = await resp.json();

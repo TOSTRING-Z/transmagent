@@ -8,7 +8,6 @@ export interface ElectronAPI {
   Envs: (data: { type: string; envs?: any }) => Promise<any>;
   Tasks: (data: { type: string; tasks?: any }) => Promise<any>;
   changeMode: (mode: string) => void;
-  handleChangeMode: (callback: (mode: string) => void) => void;
   getFilePath: () => Promise<string | null>;
   setGlobal: (chat: any) => Promise<void>;
   toggleMessageGroup: (data: { group_id: string; del: boolean }) => Promise<{ del_mode: boolean }>;

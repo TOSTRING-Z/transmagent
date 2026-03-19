@@ -1,8 +1,7 @@
 import { ILLMAdapter, IToolCallAdapter } from './IAdapter';
 import { ChatRequestData, Message, MessageContent, OllamaContent, OpenAIContent, StreamChunkResult, ImageContent, TextContent, ToolInfo } from '../types';
 import JSON5 from 'json5';
-import { logger } from '../utils/logger';
-import { utils } from '../utils/globals';
+import { parse } from 'partial-json';
 
 export class OpenAIAdapter implements ILLMAdapter {
     public formatMessages(messages: Message[], params: any, env_message?: any): any[] {
@@ -239,6 +238,10 @@ export class OpenAIAdapter implements ILLMAdapter {
                     break;
                 }
             }
+        } else {
+            try {
+                partialContent = JSON.stringify(parse(partialContent));
+            } catch (error) { }
         }
         messageOutput.tool_calls[0].function.arguments = partialContent;
     }

@@ -56,10 +56,10 @@ document.addEventListener("DOMContentLoaded", () => {
   }
 
   // Mode Toggles
-  DOM.auto.addEventListener("click", () => toggleMode("auto"));
-  DOM.act.addEventListener("click", () => toggleMode("act"));
-  DOM.plan.addEventListener("click", () => toggleMode("plan"));
-  DOM.flash.addEventListener("click", () => toggleMode("flash"));
+  DOM.auto.addEventListener("click", () => toggleMode("auto", true));
+  DOM.act.addEventListener("click", () => toggleMode("act", true));
+  DOM.plan.addEventListener("click", () => toggleMode("plan", true));
+  DOM.flash.addEventListener("click", () => toggleMode("flash", true));
 
   // File Upload
   DOM.file_upload.addEventListener("click", async (e: any) => {
@@ -167,8 +167,6 @@ window.electronAPI.initInfo((info) => {
   if (State.status.auto_opt) DOM.auto_opt.classList.add("active");
   else DOM.auto_opt.classList.remove("active");
 });
-
-window.electronAPI.handleChangeMode((mode) => toggleMode(mode, false));
 
 window.electronAPI.handleMarkDownFormat((status) => State.markdown_statu = status);
 

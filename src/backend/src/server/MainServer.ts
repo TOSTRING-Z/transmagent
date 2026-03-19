@@ -65,7 +65,7 @@ export class MainServer {
     async mode(data: ModeRequest): Promise<ServerResult> {
         try {
             if (data.mode) {
-                this.mainWindow.tool_call.change_mode(data.mode);
+                this.mainWindow.tool_call.changeMode(data.mode);
             }
             return { chat_mode: this.mainWindow.llm_service.chatManager.chat.mode };
         } catch (error: any) {

@@ -2,6 +2,7 @@ import { ILLMAdapter, IToolCallAdapter } from './IAdapter';
 import { ChatRequestData, Message, MessageContent, StreamChunkResult, ToolInfo } from '../types';
 import JSON5 from 'json5';
 import { logger } from '../utils/logger';
+import { parse } from 'partial-json';
 
 export class AnthropicAdapter implements ILLMAdapter {
     public formatMessages(messages: Message[], params: any, env_message?: any): any[] {
@@ -241,21 +242,29 @@ export class AnthropicAdapter implements ILLMAdapter {
         const maxContinuations = 3;
 
         let isToolCallTruncated = messageOutput.tool_calls && messageOutput.tool_calls.length > 0;
-        let partialContent = isToolCallTruncated
-            ? messageOutput.tool_calls[0].function.arguments || ""
-            : data.output;
 
+        // 1. 如果是 Tool Call 截断，直接放弃续写，利用 parse 尽力修复半截 JSON
+        if (isToolCallTruncated) {
+            let partialContent = messageOutput.tool_calls[0].function.arguments || "";
+            try {
+                // 依赖外部引入的 partial-json 或 best-effort-json-parser
+                partialContent = JSON.stringify(parse(partialContent));
+            } catch (error) {
+                console.warn("[Anthropic] Failed to parse truncated tool call JSON", error);
+            }
+            messageOutput.tool_calls[0].function.arguments = partialContent;
+
+            // 修复完毕直接返回，不走后续的请求逻辑
+            return;
+        }
+
+        // 2. 如果是普通文本截断，保留原本的 Anthropic Prefill 续写逻辑
+        let partialContent = data.output;
         let continuationMessages = [...body.messages, { role: "assistant", content: partialContent }];
 
         while (continuationCount < maxContinuations) {
             continuationCount++;
             const continuationBody = { ...body, messages: continuationMessages };
-
-            // 必须移除 tools 才能让 Anthropic 乖乖补全不合规的半截 JSON
-            if (isToolCallTruncated) {
-                delete continuationBody.tools;
-                if (continuationBody.tool_choice) delete continuationBody.tool_choice;
-            }
 
             try {
                 const contResp = await fetch(new URL(data.api_url), {
@@ -277,13 +286,8 @@ export class AnthropicAdapter implements ILLMAdapter {
                 const newContent = parsedCont.content || "";
 
                 partialContent += newContent;
-
-                if (isToolCallTruncated) {
-                    messageOutput.tool_calls[0].function.arguments = partialContent;
-                } else {
-                    data.output = partialContent;
-                    messageOutput.content = data.output;
-                }
+                data.output = partialContent;
+                messageOutput.content = data.output;
 
                 if (!data?.react && !data?.return_response) {
                     window?.webContents.send('streamData', {

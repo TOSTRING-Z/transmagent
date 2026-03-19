@@ -339,24 +339,24 @@ export class ReActAgent {
 
     public newChat(): ChatState {
         this.window.webContents.send('clear');
-        this.init_var();
+        this.initVar();
         this.llm_service.chatManager.init();
         this.setHistory(this.llm_service.chatManager.chat);
         return this.llm_service.chatManager.chat;
     }
 
-    public init_var() {
+    public initVar() {
         logger.log("可选实现");
     }
 
     public loadChat(id: string): ChatState {
-        this.init_var();
+        this.initVar();
         const history_path = utils.getHistoryPath(id);
-        this.load_message(history_path);
+        this.loadMessage(history_path);
         return this.llm_service.chatManager.chat;
     }
 
-    public load_message(filePath: string) {
+    public loadMessage(filePath: string) {
         this.window.webContents.send('clear');
         let messages = this.llm_service.chatManager.loadMessages(filePath);
 

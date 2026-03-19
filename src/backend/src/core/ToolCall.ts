@@ -82,7 +82,7 @@ export class ToolCall extends ReActAgent {
         this.mcp_client = new MCPClient(this);
         this.prompt_args = prompt_args;
 
-        this.init_var();
+        this.initVar();
 
         this.baseTools = getBaseTools(this);
         this.agentTools = agentTools;
@@ -95,7 +95,7 @@ export class ToolCall extends ReActAgent {
         this.env_prompt = this.prompts.getEnvPrompts();
     }
 
-    public init_var() {
+    public initVar() {
         this.state = State.IDLE;
         this.memory_list = [];
         this.thinking_repetitions = [];
@@ -111,12 +111,12 @@ export class ToolCall extends ReActAgent {
         };
     }
 
-    public load_message(filePath: string) {
-        super.load_message(filePath);
-        this.change_mode(this.llm_service.chatManager.chat.mode);
+    public loadMessage(filePath: string) {
+        super.loadMessage(filePath);
+        this.changeMode(this.llm_service.chatManager.chat.mode);
     }
 
-    public get_tools_prompt(): any {
+    public getToolsPrompt(): any {
         // --- 工具策略注册表 ---
         // 在这里声明每个工具在什么条件下允许被使用
         const TOOL_POLICY = {
@@ -176,7 +176,7 @@ export class ToolCall extends ReActAgent {
         return adapter.formatTools(tool_schemas);
     }
 
-    public async save_long_term_memory(user_content: string, final_answer: string) {
+    public async saveLongTermMemory(user_content: string, final_answer: string) {
         try {
             if (user_content && final_answer) {
                 const time = this.environment_details.time;
@@ -188,7 +188,7 @@ export class ToolCall extends ReActAgent {
         }
     }
 
-    public memory_update(data: Record<string, any>) {
+    public memoryUpdate(data: Record<string, any>) {
         let messages = this.llm_service.chatManager.getMessages(false);
         let messages_list: Message[] = [];
 
@@ -223,7 +223,7 @@ export class ToolCall extends ReActAgent {
         }
     }
 
-    public environment_update(data: Record<string, any>) {
+    public environmentUpdate(data: Record<string, any>) {
         this.environment_details.time = utils.formatDate();
         this.environment_details.language = data?.language || utils.getLanguage();
         const chatState = this.llm_service.chatManager.chat;
@@ -246,12 +246,12 @@ export class ToolCall extends ReActAgent {
         }
     }
 
-    public change_mode(mode: string | null = null) {
+    public changeMode(mode: string | null = null) {
         const selectedMode = this.modeMap[mode || ""] || Mode.ACT;
         const shortMode = this.modeMap[mode || ""] ? mode : "act";
         this.environment_details.mode = selectedMode;
         this.llm_service.chatManager.chat.mode = shortMode as string;
-        this.window?.webContents.send('change-mode', shortMode);
+        this.window?.webContents.send('handleSetChat', this.llm_service.chatManager.chat);
         this.setHistory();
     }
 
@@ -370,8 +370,8 @@ You MUST respond ONLY with a valid JSON object. DO NOT call any tools.
 
         data.push_message = false;
 
-        this.environment_update(data);
-        this.memory_update(data);
+        this.environmentUpdate(data);
+        this.memoryUpdate(data);
 
         data.prompt = await this.system_prompt();
         const messageOutput = await this.llmCall(data);
@@ -566,7 +566,7 @@ You MUST respond ONLY with a valid JSON object. DO NOT call any tools.
                 break;
             }
             if (data?.max_step && this.llm_service.chatManager.chat.step > data.max_step) break;
-            data = { ...data, ...tool_call, step: this.llm_service.chatManager.chat.step, tools: this.get_tools_prompt(), react: true };
+            data = { ...data, ...tool_call, step: this.llm_service.chatManager.chat.step, tools: this.getToolsPrompt(), react: true };
 
             await this.step(data);
 

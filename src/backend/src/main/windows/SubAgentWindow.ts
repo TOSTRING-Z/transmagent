@@ -180,7 +180,7 @@ export class SubAgentWindow extends BaseWindow {
             this.windowManager.alertWindow,
             { agent_prompt, subagent: true, todolist, mcp_server }
         );
-        tool_call.change_mode("auto");
+        tool_call.changeMode("auto");
 
         this.agentTools[tool_name] = {
             tool_call,

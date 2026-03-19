@@ -668,7 +668,7 @@ $$
   function showLog(type, content) {
     window.electronAPI.showLog({ type, content });
   }
-  function toggleMode(mode, send = true) {
+  function toggleMode(mode, send = false) {
     if (send)
       window.electronAPI.changeMode(mode);
     DOM.auto.classList.remove("active");
@@ -1100,10 +1100,10 @@ ${DOM.input.value}`;
       DOM.system_prompt.addEventListener("input", handleSysPrompt);
       DOM.system_prompt.addEventListener("click", handleSysPrompt);
     }
-    DOM.auto.addEventListener("click", () => toggleMode("auto"));
-    DOM.act.addEventListener("click", () => toggleMode("act"));
-    DOM.plan.addEventListener("click", () => toggleMode("plan"));
-    DOM.flash.addEventListener("click", () => toggleMode("flash"));
+    DOM.auto.addEventListener("click", () => toggleMode("auto", true));
+    DOM.act.addEventListener("click", () => toggleMode("act", true));
+    DOM.plan.addEventListener("click", () => toggleMode("plan", true));
+    DOM.flash.addEventListener("click", () => toggleMode("flash", true));
     DOM.file_upload.addEventListener("click", async (e) => {
       State.formData.file_path = await window.electronAPI.getFilePath();
       e.target.innerText = State.formData.file_path ? getFileName(State.formData.file_path) : "Select file";
@@ -1202,7 +1202,6 @@ ${DOM.input.value}`;
     else
       DOM.auto_opt.classList.remove("active");
   });
-  window.electronAPI.handleChangeMode((mode) => toggleMode(mode, false));
   window.electronAPI.handleMarkDownFormat((status) => State.markdown_statu = status);
   window.electronAPI.handleReactStatu((status) => State.react_statu = status);
   window.electronAPI.streamData((chunk) => {
