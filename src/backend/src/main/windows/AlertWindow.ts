@@ -5,7 +5,7 @@ import { utils } from '../../utils/globals';
 
 export class AlertWindow extends BaseWindow {
     private width = 800;
-    private height = 200;
+    private height = 100;
     private autoCloseTimer: ReturnType<typeof setTimeout> | null = null;
 
     constructor(windowManager: WindowManager) {
