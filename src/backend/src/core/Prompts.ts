@@ -3,6 +3,7 @@ import { logger } from '../utils/logger';
 import * as fs from 'fs';
 import { SkillManager } from './SkillManager';
 import { ToolCall } from './ToolCall';
+import { Mode } from './ReActAgent';
 
 class Prompts {
   public agent: ToolCall;
@@ -63,7 +64,7 @@ class Prompts {
    - **Prohibition**: Never assume a tool "knows" what happened in the previous step.`:
       `You are **TransMAgent**, a versatile, high-efficiency AI assistant capable of solving complex user requests through strategic tool usage.`)}
 
-${!this.agent.prompt_args.subagent && this.agent.environment_details.mode === this.agent.modes.ACT ? `# 🗣️ INTERACTIVE COMMUNICATION PROTOCOL
+${!this.agent.prompt_args.subagent && this.agent.environment_details.mode === Mode.ACT ? `# 🗣️ INTERACTIVE COMMUNICATION PROTOCOL
 1. **Low Confidence? Ask.** If the user's request is ambiguous or has multiple technical paths, do NOT guess. Present options and ask for a preference.
 2. **Destructive Action? Confirm.** Before deleting files, overwriting critical code, or spending significant API/Cloud resources, you MUST use \`ask_user\` to get explicit permission.
 3. **Progress Updates**: After completing a major subtask, summarize what was done and ask: "Should I proceed to the next step according to the plan?"`: ""}
@@ -101,7 +102,7 @@ You support **Agent Skills**—modular capabilities loaded dynamically from the 
 - **Discovery**: When a user's request matches a skill's description, its instructions are injected below.
 - **Constraints**: If a skill specifies \`allowed-tools\`, you MUST prioritize those tools and adhere to the specialized workflow provided.
 
-${this.agent.prompt_args.todolist && this.agent.environment_details.mode !== this.agent.modes.FLASH ? `
+${this.agent.prompt_args.todolist && this.agent.environment_details.mode !== Mode.FLASH ? `
 # 🏗️ Complex Task Protocol
 For complex requests, enforce this strict pipeline:
 
@@ -118,7 +119,7 @@ For complex requests, enforce this strict pipeline:
    - *Reason*: This creates a "Save Game" state.
 3. **Gating**: You are **FORBIDDEN** from starting Subtask N+1 until Subtask N is recorded.
 ` : ""}
-${!this.agent.prompt_args.subagent && this.agent.prompt_args.todolist && this.agent.environment_details.mode !== this.agent.modes.FLASH ? "4. **Finalize**: The last subtask MUST be: **Summarize execution using Mermaid syntax.**" : this.agent.prompt_args.agent_mode === "multagent" ? "**Pre-flight**: Call `workflow_planner` before any execution." : ""}
+${!this.agent.prompt_args.subagent && this.agent.prompt_args.todolist && this.agent.environment_details.mode !== Mode.FLASH ? "4. **Finalize**: The last subtask MUST be: **Summarize execution using Mermaid syntax.**" : this.agent.prompt_args.agent_mode === "multagent" ? "**Pre-flight**: Call `workflow_planner` before any execution." : ""}
 ${!this.agent.prompt_args.subagent && utils.getConfig('embedding')?.enabled ? `
 # 💾 Memory Operations
 - **Retrieval**: If context is ambiguous or involves past projects, call \`search_long_term_memory\` **BEFORE** acting.
@@ -179,7 +180,7 @@ ${this.getSkillPrompt() || "\n*No active skills detected.*"}
 
 {extra_prompt}
 
-${!this.agent.prompt_args.subagent && this.agent.environment_details.mode !== this.agent.modes.FLASH ? `
+${!this.agent.prompt_args.subagent && this.agent.environment_details.mode !== Mode.FLASH ? `
 # ⚙️ Operational Modes Table
 
 | Mode | Mandatory Behavior |
