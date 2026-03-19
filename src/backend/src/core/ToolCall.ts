@@ -188,13 +188,15 @@ export class ToolCall extends ReActAgent {
         }
     }
 
+
     public memoryUpdate(data: Record<string, any>) {
         let messages = this.llm_service.chatManager.getMessages(false);
         let messages_list: Message[] = [];
 
         if (messages.length > data.memory_length) {
-            const startIdx = Math.max(messages.length - data.long_memory_length - data.memory_length, 0);
-            messages_list = messages.slice(startIdx, messages.length - data.memory_length).map(message => {
+            let startIdx = Math.floor(messages.length / data.memory_length) * data.memory_length;
+            let longStartIdx = Math.max(startIdx - data.long_memory_length, 0);
+            messages_list = messages.slice(longStartIdx, startIdx).filter(message => message.role !== "tool").map(message => {
                 const message_copy = this.llm_service.chatManager.delMessage(message, message?.del);
                 return {
                     role: message_copy.role,
@@ -251,7 +253,6 @@ export class ToolCall extends ReActAgent {
         const shortMode = this.modeMap[mode || ""] ? mode : "act";
         this.environment_details.mode = selectedMode;
         this.llm_service.chatManager.chat.mode = shortMode as string;
-        this.window?.webContents.send('handleSetChat', this.llm_service.chatManager.chat);
         this.setHistory();
     }
 

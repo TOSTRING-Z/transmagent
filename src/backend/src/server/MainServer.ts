@@ -66,6 +66,7 @@ export class MainServer {
         try {
             if (data.mode) {
                 this.mainWindow.tool_call.changeMode(data.mode);
+                this.mainWindow.window?.webContents.send('handleSetChat', this.mainWindow.llm_service.chatManager.chat);
             }
             return { chat_mode: this.mainWindow.llm_service.chatManager.chat.mode };
         } catch (error: any) {

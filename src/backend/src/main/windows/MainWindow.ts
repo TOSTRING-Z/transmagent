@@ -392,6 +392,7 @@ export class MainWindow extends BaseWindow {
 
         ipcMain.on('changeMode', (_event, mode) => {
             this.tool_call.changeMode(mode);
+            this.window?.webContents.send('handleSetChat', this.llm_service.chatManager.chat);
         });
 
         ipcMain.on('open-external', (_event, href) => shell.openExternal(href));

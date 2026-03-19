@@ -277,10 +277,11 @@ export class ChatManager {
         return message_copy;
     }
 
-    public getMemory(memoryLength: number): Message[] {
+    public getMemory(data: Record<string, any>): Message[] {
         let messages = this.getMessages(false);
         messages = this.compressContext(messages);
         // 截取最近记忆
-        return messages.slice(Math.max(messages.length - memoryLength, 0), messages.length);
+        let startIdx = Math.floor(messages.length / data.memory_length) * data.memory_length;
+        return messages.slice(startIdx, messages.length);
     }
 }

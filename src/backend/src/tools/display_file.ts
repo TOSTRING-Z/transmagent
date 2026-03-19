@@ -50,28 +50,26 @@ class DisplayFile {
         const sshConfig = utils?.getSshConfig ? utils.getSshConfig() : null;
         const isRemote = !!(sshConfig?.enabled && sshConfig?.host);
 
-        // 提前进行类型嗅探，决定是“按需流读”还是“全量下载”
-        const actualFileType = normalizedOptions.fileType === 'auto' 
-            ? this._detectFileType(filePath) 
+        const actualFileType = normalizedOptions.fileType === 'auto'
+            ? this._detectFileType(filePath)
             : normalizedOptions.fileType;
 
-        // 同步确切类型
         normalizedOptions.fileType = actualFileType;
 
         // ==========================================
         // 1. 远程 SSH 处理逻辑
         // ==========================================
         if (isRemote) {
-            // 优化分支：纯文本/Markdown 直接远端流式读取，坚决不下载大文件！
+            // 纯文本流式读取分支保持不变...
             if (['text', 'markdown'].includes(actualFileType)) {
                 this._emitProgress('start');
                 try {
                     const content = await this._streamRemoteText(filePath, sshConfig, normalizedOptions, actualFileType);
                     this._emitProgress('end', { file_path: filePath });
-                    return { 
-                        success: true, 
-                        content: content + `\n\n**Remote Source**: \`${filePath}\` *(Streamed on-demand, lines ${normalizedOptions.startLine}-${normalizedOptions.endLine})*`, 
-                        metadata: { file_path: filePath } 
+                    return {
+                        success: true,
+                        content: content + `\n\n**Remote Source**: \`${filePath}\` *(Streamed on-demand)*`,
+                        metadata: { file_path: filePath }
                     };
                 } catch (err: any) {
                     this._emitProgress('error', { error: err.message });
@@ -79,10 +77,10 @@ class DisplayFile {
                 }
             }
 
-            // 降级分支：对于二进制或复杂的表格 (image, table, pdf)，全量下载到本地缓存处理
+            // 全量下载到本地缓存处理
             let targetPath = path.join(this.baseLocalPath, `remote_${Date.now()}_${path.basename(filePath)}`);
             let downloadInfo: { size: number; duration: string } | null = null;
-            
+
             this._emitProgress('start');
             try {
                 downloadInfo = await this._downloadViaSSH(filePath, targetPath, sshConfig);
@@ -94,23 +92,29 @@ class DisplayFile {
 
             // 处理下载到本地的临时文件
             const result = await this._processLocalFile(targetPath, normalizedOptions);
-            
-            // 阅后即焚：清理由于全量下载产生的临时文件，保护磁盘
-            if (fs.existsSync(targetPath)) {
-                try { fs.unlinkSync(targetPath); } catch (e) { /* ignore */ }
-            }
+
+            // 注意：此处移除了 fs.unlinkSync(targetPath) 的清理逻辑
+            // 以确保文件保留在本地，供用户点击链接查看
 
             if (result.success) {
                 result.content += `\n\n**Remote Source**: \`${filePath}\``;
+
                 if (downloadInfo) {
                     result.content += `\n*Downloaded ${this._formatFileSize(downloadInfo.size)} in ${downloadInfo.duration}s*`;
                 }
+
+                // 生成跨平台兼容的 file:// 协议链接
+                const absoluteLocalPath = path.resolve(targetPath);
+                // 将 Windows 的反斜杠 \ 转换为正斜杠 /，确保链接在前端渲染器中可点击
+                const fileUri = 'file://' + absoluteLocalPath.split(path.sep).join('/');
+
+                result.content += `\n**Local Cache**: [Click to view downloaded file](${fileUri})`;
             }
             return result;
         }
 
         // ==========================================
-        // 2. 本地文件处理逻辑
+        // 2. 本地文件处理逻辑保持不变
         // ==========================================
         const result = await this._processLocalFile(filePath, normalizedOptions);
         if (result.success) {
@@ -123,9 +127,9 @@ class DisplayFile {
      * 按需流式读取远程大文件 (防 OOM 和网络阻塞的核心魔法)
      */
     private _streamRemoteText(
-        remotePath: string, 
-        sshConfig: any, 
-        { startLine, endLine, maxLineLength }: NormalizedOptions, 
+        remotePath: string,
+        sshConfig: any,
+        { startLine, endLine, maxLineLength }: NormalizedOptions,
         type = 'text'
     ): Promise<string> {
         return new Promise((resolve, reject) => {
@@ -141,22 +145,22 @@ class DisplayFile {
 
                     const stream = sftp.createReadStream(remotePath, { encoding: 'utf8' });
                     const rl = readline.createInterface({ input: stream, crlfDelay: Infinity });
-                    
+
                     const lines: string[] = [];
                     let lineIdx = 0;
                     let isTruncated = false;
 
                     rl.on('line', (line) => {
                         lineIdx++;
-                        
+
                         // 还没到开始行，丢弃
                         if (lineIdx < startLine) return;
 
                         // 读到了指定的结束行，触发截断机制
                         if (endLine > 0 && lineIdx > endLine) {
                             isTruncated = true;
-                            rl.close(); 
-                            return; 
+                            rl.close();
+                            return;
                         }
 
                         let processedLine = line;
@@ -168,14 +172,14 @@ class DisplayFile {
 
                     rl.on('close', () => {
                         // 彻底销毁底层流，通知远端释放句柄
-                        stream.destroy(); 
+                        stream.destroy();
                         cleanup();
 
                         let content = lines.join('\n');
                         if (isTruncated) {
                             content += `\n\n...[File output truncated by strictly line limit (Showing lines ${startLine}-${endLine})]`;
                         }
-                        
+
                         resolve(type === 'markdown' ? content : `\`\`\`${type}\n${content}\n\`\`\``);
                     });
 
@@ -195,14 +199,14 @@ class DisplayFile {
      */
     private _normalizeOptions(raw: DisplayOptions): NormalizedOptions {
         // 与 getPrompt 的参数定义 "format" 保持严格一致
-        const { start_line, end_line, max_line_length, max_cols, format } = raw; 
-        
+        const { start_line, end_line, max_line_length, max_cols, format } = raw;
+
         const start = Math.max(1, parseInt(start_line as string) || 1);
         let end = parseInt(end_line as string) || 0;
 
         // 安全网：如果没有传 end_line (值为0) 或者传了非法的范围，强制只读 10 行
         if (end === 0 || end < start) {
-            end = start + 9; 
+            end = start + 9;
         }
 
         return {
@@ -210,7 +214,7 @@ class DisplayFile {
             endLine: end,
             maxLineLength: parseInt(max_line_length as string) || 500,
             maxCols: max_cols !== undefined ? parseInt(max_cols as string) : 20,
-            fileType: format || 'auto' 
+            fileType: format || 'auto'
         };
     }
 
@@ -289,7 +293,10 @@ class DisplayFile {
     }
 
     private _handleMedia(filePath: string): string {
-        return `![${path.basename(filePath)}](${filePath})`;
+        // 直接使用传入的 filePath (如果是远程下载的，这里就是 targetPath)
+        // 使用 path.resolve 确保返回的是绝对路径，方便渲染器定位
+        const absolutePath = path.resolve(filePath);
+        return `![${path.basename(filePath)}](${absolutePath})`;
     }
 
     private _handleTextStream(filePath: string, { startLine, endLine, maxLineLength }: NormalizedOptions, type = 'text'): Promise<string> {
@@ -325,7 +332,7 @@ class DisplayFile {
                 }
                 resolve(type === 'markdown' ? content : `\`\`\`text\n${content}\n\`\`\``);
             });
-            
+
             fileStream.on('error', (err) => {
                 resolve(`Error reading file stream: ${err.message}`);
             });
@@ -509,7 +516,7 @@ export function main(params?: { local_path?: string }) {
 export function getPrompt() {
     return {
         "name": "display_file",
-        "description": "Reads and formats file content for display. Automatically handles source code, structured data (as Markdown tables), and images. WARNING: By default, output is strictly limited to 10 lines per call to prevent token overflow. You MUST explicitly use start_line and end_line for pagination to read more content.",
+        "description": "Reads and formats file content for display. Automatically handles source code, structured data (as Markdown tables), images, and PDFs. CRITICAL & PROACTIVE USAGE REQUIRED: You must actively and frequently use this tool to display images and PDFs to the user whenever they are mentioned, available, or relevant to the context. NOTE ON PDFs: This tool does not extract text content from PDFs; instead, it returns specific Markdown content used to visually render and display the PDF to the user. WARNING: For text-based files, output is strictly limited to 10 lines per call by default to prevent token overflow. You MUST explicitly use start_line and end_line for pagination to read more text content.",
         "parameters": {
             "type": "object",
             "properties": {
@@ -528,9 +535,9 @@ export function getPrompt() {
                 },
                 "format": {
                     "type": "string",
-                    "enum": ["auto", "text", "table", "image", "hex"],
+                    "enum": ["auto", "text", "table", "image", "pdf", "hex"],
                     "default": "auto",
-                    "description": "Force a specific display format. 'auto' detects by file extension."
+                    "description": "Force a specific display format. 'auto' detects by file extension. Use 'pdf' or 'image' for visual rendering."
                 },
                 "max_line_length": {
                     "type": "integer",

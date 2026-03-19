@@ -23,17 +23,9 @@ const EXCLUDE_PATTERNS: RegExp[] = [
     /\/\.vscode\//i,
     /\/\.idea\//i,
     // Cache & Version Control
-    /\/\.cache\//i,
     /\/\.npm\//i,
     /\/\.git\//i,
     /\/\.next\//i, // Next.js 等框架的构建产物
-    /\/(dist|build|out)\//i,
-    // Media
-    /\.(gif|png|jpe?g|webp|mp4|mov|avi|mp3|wav)$/i,
-    // Binaries
-    /\.(exe|dll|so|a|dylib|pyc)$/i,
-    // Documents
-    /\.(pptx?|docx?|xlsx?|pdf)$/i,
 ];
 
 function shouldExclude(filePath: string, isDir: boolean): boolean {
