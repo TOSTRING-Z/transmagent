@@ -66,97 +66,89 @@ async function writeRemoteFile(filePath: string, content: string, sshConfig: any
     });
 }
 
-// 本地文件替换逻辑（与原有逻辑相同）
-function replaceInLocalFile(file_path: string, diff: string): string {
-    // 读取原始文件内容
-    const originalContent = fs.readFileSync(file_path, 'utf8');
-    let content = originalContent;
+/**
+ * 核心补丁应用函数 (纯函数，易于单元测试)
+ * 解决了缩进丢失和换行符不匹配的痛点
+ */
+function applyPatch(originalContent: string, diff: string): string {
+    // 统一将所有换行符归一化为 \n，消除 \r\n 带来的严格匹配失败问题
+    let content = originalContent.replace(/\r\n/g, '\n');
+    const normalizedDiff = diff.replace(/\r\n/g, '\n');
 
-    // 更健壮的块分割处理
-    const blocks = diff.split(/<<<<<<< SEARCH/g);
-    blocks.shift(); // 移除第一个空元素 (分割标识符前的内容)
+    const blocks = normalizedDiff.split(/<<<<<<< SEARCH\n?/);
+    blocks.shift(); // 移除第一个空元素
 
-    blocks.forEach(block => {
-        // 确保包含必要的分隔符
+    if (blocks.length === 0) {
+        throw new Error('Invalid diff format: No SEARCH blocks found. Make sure to use <<<<<<< SEARCH.');
+    }
+
+    blocks.forEach((block, index) => {
         if (!block.includes('=======') || !block.includes('>>>>>>> REPLACE')) {
-            throw new Error('Invalid diff format: missing "=======" or ">>>>>>> REPLACE"');
+            throw new Error(`Invalid diff format in block ${index + 1}: missing "=======" or ">>>>>>> REPLACE"`);
         }
 
-        const [search, replaceBlock] = block.split(/=======/);
-        const searchContent = search.trim();
-        const replaceContent = replaceBlock.split(/>>>>>>> REPLACE/)[0].trim();
+        // 使用正则提取，而不是 trim()，这样可以完美保留代码的前导缩进和内部空格
+        // 这里的 \n? 是为了吃掉标记符自带的那一个换行
+        const searchMatch = block.match(/([\s\S]*?)\n?=======\n?/);
+        const replaceMatch = block.match(/=======\n?([\s\S]*?)\n?>>>>>>> REPLACE/);
 
-        // 更精确的内容匹配
+        if (!searchMatch || !replaceMatch) {
+            throw new Error(`Failed to parse SEARCH or REPLACE content in block ${index + 1}`);
+        }
+
+        const searchContent = searchMatch[1];
+        const replaceContent = replaceMatch[1];
+
         if (!content.includes(searchContent)) {
-            throw new Error(`Search content not found: "${searchContent.replace(/\n/g, '\\n')}"`);
+            // 提取前 50 个字符用于报错提示，避免日志被撑爆
+            const snippet = searchContent.substring(0, 50).replace(/\n/g, '\\n') + '...';
+            throw new Error(`Search content not found in block ${index + 1}: "${snippet}". Ensure exact match including whitespace and comments.`);
         }
 
-        // 执行替换 (注意：这里只会替换第一个完全匹配的字符串)
+        // 仅替换第一个匹配项
         content = content.replace(searchContent, replaceContent);
     });
 
-    if (content === originalContent) {
-        throw new Error(`File not modified: The content in SEARCH block may not exactly match the actual content in the file or the replacement is identical`);
+    if (content === originalContent.replace(/\r\n/g, '\n')) {
+        throw new Error(`File not modified: The replacement is identical to the existing content.`);
     }
 
-    fs.writeFileSync(file_path, content);
+    return content;
+}
+
+// 瘦身后的本地文件替换逻辑
+function replaceInLocalFile(file_path: string, diff: string): string {
+    const originalContent = fs.readFileSync(file_path, 'utf8');
+    const updatedContent = applyPatch(originalContent, diff);
+    fs.writeFileSync(file_path, updatedContent, 'utf8');
     return `File ${file_path} modified successfully`;
 }
 
-// 远程文件替换逻辑
+// 瘦身后的远程文件替换逻辑
 async function replaceInRemoteFile(file_path: string, diff: string, sshConfig: any): Promise<string> {
-    // 读取远程文件内容
     const originalContent = await readRemoteFile(file_path, sshConfig);
-    let content = originalContent;
-
-    // 更健壮的块分割处理
-    const blocks = diff.split(/<<<<<<< SEARCH/g);
-    blocks.shift(); // 移除第一个空元素 (分割标识符前的内容)
-
-    blocks.forEach(block => {
-        // 确保包含必要的分隔符
-        if (!block.includes('=======') || !block.includes('>>>>>>> REPLACE')) {
-            throw new Error('Invalid diff format: missing "=======" or ">>>>>>> REPLACE"');
-        }
-
-        const [search, replaceBlock] = block.split(/=======/);
-        const searchContent = search.trim();
-        const replaceContent = replaceBlock.split(/>>>>>>> REPLACE/)[0].trim();
-
-        // 更精确的内容匹配
-        if (!content.includes(searchContent)) {
-            throw new Error(`Search content not found: "${searchContent.replace(/\n/g, '\\n')}"`);
-        }
-
-        // 执行替换 (注意：这里只会替换第一个完全匹配的字符串)
-        content = content.replace(searchContent, replaceContent);
-    });
-
-    if (content === originalContent) {
-        throw new Error(`File not modified: The content in SEARCH block may not exactly match the actual content in the file or the replacement is identical`);
-    }
-
-    // 写回远程文件
-    await writeRemoteFile(file_path, content, sshConfig);
+    const updatedContent = applyPatch(originalContent, diff);
+    await writeRemoteFile(file_path, updatedContent, sshConfig);
     return `File ${file_path} modified successfully`;
 }
 
 export function main() {
     return async ({ file_path, diff }: ReplaceParams): Promise<string> => {
         try {
-            // 获取SSH配置并判断是否为远程文件
+            if (!file_path || !diff) {
+                throw new Error("Both file_path and diff parameters are required.");
+            }
+
             const sshConfig = utils?.getSshConfig ? utils.getSshConfig() : null;
             const isRemote = !!(sshConfig?.enabled && sshConfig?.host);
 
             if (isRemote) {
-                // 远程文件替换
                 return await replaceInRemoteFile(file_path, diff, sshConfig);
             } else {
-                // 本地文件替换
                 return replaceInLocalFile(file_path, diff);
             }
         } catch (error: any) {
-            return `File ${file_path} modification failed: ${error.message}`;
+            return `File modification failed: ${error.message}`;
         }
     }
 }

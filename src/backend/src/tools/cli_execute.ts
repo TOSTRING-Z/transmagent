@@ -21,8 +21,7 @@ export interface CliExecuteParams {
 export interface ExecuteArgs {
     code: string;
     timeout?: number;
-    mode?: 'Direct Mode' | 'Script Mode';
-    mode_reason?: string;
+    // 删除了 mode 和 mode_reason
 }
 export interface ExecuteResult {
     success: boolean;
@@ -61,7 +60,7 @@ function validateParams(params: CliExecuteParams | undefined): Required<CliExecu
     }
 
     const validated: Required<CliExecuteParams> = {
-        timeout: (typeof params.timeout === 'number' && params.timeout >= 60) ? params.timeout : 60,
+        timeout: (typeof params.timeout === 'number' && params.timeout >= 6000) ? params.timeout : 6000,
         delay_time: (typeof params.delay_time === 'number' && params.delay_time >= 2) ? params.delay_time : 2,
         max_lines: (typeof params.max_lines === 'number' && params.max_lines >= 10) ? params.max_lines : 10,
         max_chars_per_line: (typeof params.max_chars_per_line === 'number' && params.max_chars_per_line >= 100) ? params.max_chars_per_line : 100,
@@ -97,7 +96,7 @@ function cleanupResources(tempFile: string, terminalWindow: BrowserWindow | null
 
 // --- 主执行逻辑 ---
 export function main(initialParams: CliExecuteParams = {}) {
-    return async ({ code, timeout, mode, mode_reason }: ExecuteArgs): Promise<ExecuteResult> => {
+    return async ({ code, timeout }: ExecuteArgs): Promise<ExecuteResult> => {
         let params: Required<CliExecuteParams>;
 
         try {
@@ -110,38 +109,23 @@ export function main(initialParams: CliExecuteParams = {}) {
             return { success: false, output: '', error: 'Valid code parameter is required' };
         }
 
-        // ================= 新增的模式校验逻辑 START =================
-        if (mode) {
-            logger.log(`[CliExecute] Mode: ${mode} | Reason: ${mode_reason || 'None provided'}`);
-
-            if (mode === 'Direct Mode') {
-                // 如果是 Direct Mode，严格限制长度（例如 500 字符）
-                if (code.length > 500) {
-                    const errorMsg = `Execution blocked: Code length (${code.length} chars) exceeds the 500-character limit for Direct Mode. ` +
-                        `Please follow the "Script-Then-Execute" pipeline: use 'write_to_file' to stage the script first, then execute the staged file.`;
-                    logger.warn(errorMsg);
-                    return { success: false, output: '', error: errorMsg };
-                }
-
-                // 可选：初步检测复杂逻辑（如多行、管道、重定向），如果太长且复杂也可拦截
-                if (code.includes('\n') || (/[|>]/.test(code) && code.length > 100)) {
-                    logger.warn(`[CliExecute] Warning: Direct Mode used for potentially complex or multi-line command.`);
-                }
-            } else if (mode === 'Script Mode') {
-                // 如果大模型声明是 Script Mode，但传入了巨大的原生脚本，也要拦截
-                // Script Mode 应该只传入类似 `bash /tmp/task_123.sh` 这样的执行命令
-                if (code.length > 200 && !code.includes('.sh')) {
-                    const errorMsg = `Execution blocked: In Script Mode, you should NOT pass the entire script payload into 'code'. ` +
-                        `You must use 'write_to_file' to save it to a .sh file first, and only pass the execution command (e.g., 'bash /tmp/file.sh') here.`;
-                    logger.warn(errorMsg);
-                    return { success: false, output: '', error: errorMsg };
-                }
-            }
-        } else {
-            // 如果 LLM 遗漏了必填参数，给予提示 (某些模型可能会偶尔漏掉参数)
-            logger.warn(`[CliExecute] Executed without explicit mode specified.`);
+        // ================= 重构后的拦截逻辑 START =================
+        // 1. 绝对长度拦截（强制推行 Script-Then-Execute 管道）
+        const MAX_DIRECT_CODE_LENGTH = 500;
+        if (code.length > MAX_DIRECT_CODE_LENGTH) {
+            const errorMsg = `Execution blocked: Command is too long (${code.length} chars). ` +
+                `Max allowed is ${MAX_DIRECT_CODE_LENGTH}. ` +
+                `ACTION REQUIRED: Please use the 'write_to_file' tool to save this script to a temporary file (e.g., /tmp/task.sh) first, ` +
+                `then use 'cli_execute' with a short command like 'bash /tmp/task.sh' to run it.`;
+            logger.warn(errorMsg);
+            return { success: false, output: '', error: errorMsg };
         }
-        // ================= 新增的模式校验逻辑 END =================
+
+        // 2. 危险或复杂逻辑的启发式警告 (可选，不阻断，仅记录)
+        if (code.split('\n').length > 5 || (/[|>]/.test(code) && code.length > 200)) {
+            logger.warn(`[CliExecute] Warning: Executing potentially complex multi-line command directly.`);
+        }
+        // ================= 重构后的拦截逻辑 END =================
 
         if (typeof timeout === 'number' && timeout > params.timeout) {
             params.timeout = timeout;
@@ -389,40 +373,32 @@ export function main(initialParams: CliExecuteParams = {}) {
 export function getPrompt() {
     return {
         "name": "cli_execute",
-        "description": `A command-line tool for executing bash commands in Linux environments, providing secure and efficient command execution capabilities.
+        "description": `A command-line tool for executing bash commands. 
         
-Execution Routing Rules
-- **Direct Mode (<500 chars)**: Permitted ONLY for simple, single-line commands lacking complex logic (e.g., no pipes \`|\`, redirects \`>\`, or loops).
-- **Script Mode (Complex/>500 chars)**: MANDATORY for multi-line scripts, pipes, or lengthy commands. **FORBIDDEN** to pass complex bash payloads directly into \`cli_execute\` to prevent truncation.
+CRITICAL LIMITATION: 
+This tool CANNOT execute scripts longer than 500 characters. 
 
-The "Script-Then-Execute" Pipeline
-When Script Mode is triggered, you MUST follow this exact sequence:
-1. **Staging**: Create a temporary script (e.g., \`/tmp/task_TIMESTAMP.sh\`) beginning with a valid shebang (\`#!/bin/bash\`).
-2. **Safe Writing**: Use \`write_to_file\`. **CRITICAL**: For payloads >1000 characters, you MUST engage chunked write mode using \`session_id\`, \`chunk_index\`, and \`total_chunks\`.
-3. **Execution**: Run the staged file (\`cli_execute bash /tmp/task_TIMESTAMP.sh\`).
-4. **Surgical Repair**: If execution fails, DO NOT rewrite the entire script from scratch. Analyze the error trace, use \`replace_in_file\` to fix only the broken lines, and re-execute.`,
+EXECUTION PIPELINE:
+- For short, simple commands (e.g., 'ls -la', 'mkdir test'): Pass the command directly into 'code'.
+- For complex or long multi-line scripts: 
+  1. DO NOT pass the script into 'code'.
+  2. Use the 'write_to_file' tool FIRST to save your script to a file (e.g., '/tmp/script.sh').
+  3. Then, use this 'cli_execute' tool to run the file (e.g., pass 'bash /tmp/script.sh' into 'code').
+
+If your execution fails due to a bug in a long script, use 'replace_in_file' to patch the file, then run 'cli_execute' again.`,
         "parameters": {
             "type": "object",
             "properties": {
                 "code": {
                     "type": "string",
-                    "description": "(Required) Executable bash code snippet (please strictly follow the code format, incorrect indentation and line breaks will cause code execution to fail)"
+                    "description": "(Required) The bash command to execute. MUST be under 500 characters."
                 },
                 "timeout": {
                     "type": "number",
-                    "description": "(Optional) Maximum execution time in seconds (default: At least 3600 seconds). If the command times out, the current console output will be returned with a failure status."
-                },
-                "mode": {
-                    "type": "string",
-                    "enum": ["Direct Mode", "Script Mode"],
-                    "description": "(Required) The execution mode selected based on command complexity and length. Direct Mode is ONLY for simple, single-line commands under 500 characters. Script Mode is for multi-line, complex, or lengthy commands."
-                },
-                "mode_reason": {
-                    "type": "string",
-                    "description": "(Required) A brief explanation of why this execution mode was chosen (e.g., 'Command is over 500 characters and contains pipe operations')."
+                    "description": "(Optional) Maximum execution time in seconds (default: 6000). Returns console output if timed out."
                 }
             },
-            "required": ["code", "mode", "mode_reason"]
+            "required": ["code"]
         }
     };
 }

@@ -3,18 +3,16 @@ import * as fs from 'fs';
 import * as path from 'path';
 import * as readline from 'readline';
 import { Client, ConnectConfig } from 'ssh2';
-// 根据你的实际项目路径，如果是默认导入请注意调整
-import { logger } from '../utils/logger';
 import { utils } from '../utils/globals';
 import { WindowManager } from '../main/windows/WindowManager';
 
-// 接口定义
+// 接口定义 (修复了 format 参数匹配)
 export interface DisplayOptions {
     start_line?: string | number;
     end_line?: string | number;
     max_line_length?: string | number;
     max_cols?: string | number;
-    file_type?: string;
+    format?: string; // 修正：与 Prompt 保持一致
 }
 
 export interface NormalizedOptions {
@@ -32,38 +30,60 @@ export interface ProcessResult {
     metadata?: any;
 }
 
+// 移除了多余的 Singleton 反模式
 class DisplayFile {
-    private static instance: DisplayFile | null = null;
-    private baseLocalPath!: string;
+    private baseLocalPath: string;
 
     constructor(localPath?: string | null) {
-        if (!DisplayFile.instance) {
-            this.baseLocalPath = localPath || os.tmpdir();
-            // 确保目录存在
+        this.baseLocalPath = localPath || os.tmpdir();
+        if (!fs.existsSync(this.baseLocalPath)) {
             fs.mkdirSync(this.baseLocalPath, { recursive: true });
-            DisplayFile.instance = this;
         }
-        return DisplayFile.instance;
     }
 
+
     /**
-     * 统一入口
+     * 统一入口：智能路由处理本地/远程文件
      */
     public async display(filePath: string, options: DisplayOptions = {}): Promise<ProcessResult> {
         const normalizedOptions = this._normalizeOptions(options);
-        const sshConfig = utils.getSshConfig();
+        const sshConfig = utils?.getSshConfig ? utils.getSshConfig() : null;
+        const isRemote = !!(sshConfig?.enabled && sshConfig?.host);
 
-        let targetPath = filePath;
-        let isRemote = false;
-        let downloadInfo: { size: number; duration: string } | null = null;
+        // 提前进行类型嗅探，决定是“按需流读”还是“全量下载”
+        const actualFileType = normalizedOptions.fileType === 'auto' 
+            ? this._detectFileType(filePath) 
+            : normalizedOptions.fileType;
 
-        if (sshConfig?.enabled && sshConfig?.host) {
-            isRemote = true;
-            const localFileName = path.basename(filePath);
-            targetPath = path.join(this.baseLocalPath, localFileName);
+        // 同步确切类型
+        normalizedOptions.fileType = actualFileType;
 
+        // ==========================================
+        // 1. 远程 SSH 处理逻辑
+        // ==========================================
+        if (isRemote) {
+            // 优化分支：纯文本/Markdown 直接远端流式读取，坚决不下载大文件！
+            if (['text', 'markdown'].includes(actualFileType)) {
+                this._emitProgress('start');
+                try {
+                    const content = await this._streamRemoteText(filePath, sshConfig, normalizedOptions, actualFileType);
+                    this._emitProgress('end', { file_path: filePath });
+                    return { 
+                        success: true, 
+                        content: content + `\n\n**Remote Source**: \`${filePath}\` *(Streamed on-demand, lines ${normalizedOptions.startLine}-${normalizedOptions.endLine})*`, 
+                        metadata: { file_path: filePath } 
+                    };
+                } catch (err: any) {
+                    this._emitProgress('error', { error: err.message });
+                    return { success: false, content: '', error: `Remote Stream Failed: ${err.message}` };
+                }
+            }
+
+            // 降级分支：对于二进制或复杂的表格 (image, table, pdf)，全量下载到本地缓存处理
+            let targetPath = path.join(this.baseLocalPath, `remote_${Date.now()}_${path.basename(filePath)}`);
+            let downloadInfo: { size: number; duration: string } | null = null;
+            
             this._emitProgress('start');
-
             try {
                 downloadInfo = await this._downloadViaSSH(filePath, targetPath, sshConfig);
                 this._emitProgress('end', { file_path: filePath });
@@ -71,27 +91,127 @@ class DisplayFile {
                 this._emitProgress('error', { error: err.message });
                 return { success: false, content: '', error: `SSH Download Failed: ${err.message}` };
             }
+
+            // 处理下载到本地的临时文件
+            const result = await this._processLocalFile(targetPath, normalizedOptions);
+            
+            // 阅后即焚：清理由于全量下载产生的临时文件，保护磁盘
+            if (fs.existsSync(targetPath)) {
+                try { fs.unlinkSync(targetPath); } catch (e) { /* ignore */ }
+            }
+
+            if (result.success) {
+                result.content += `\n\n**Remote Source**: \`${filePath}\``;
+                if (downloadInfo) {
+                    result.content += `\n*Downloaded ${this._formatFileSize(downloadInfo.size)} in ${downloadInfo.duration}s*`;
+                }
+            }
+            return result;
         }
 
-        const result = await this._processLocalFile(targetPath, normalizedOptions);
-
+        // ==========================================
+        // 2. 本地文件处理逻辑
+        // ==========================================
+        const result = await this._processLocalFile(filePath, normalizedOptions);
         if (result.success) {
-            const footer: string[] = [];
-            if (isRemote) {
-                footer.push(`\n**Remote Source**: \`${filePath}\``);
-                footer.push(`**Local Cache**: [${path.basename(targetPath)}](${targetPath})`);
-            } else {
-                footer.push(`\n**Local File**: [${path.basename(filePath)}](${filePath})`);
-            }
+            result.content += `\n\n**Local File**: \`${filePath}\``;
+        }
+        return result;
+    }
 
-            if (downloadInfo) {
-                footer.push(`*Downloaded ${this._formatFileSize(downloadInfo.size)} in ${downloadInfo.duration}s*`);
-            }
+    /**
+     * 按需流式读取远程大文件 (防 OOM 和网络阻塞的核心魔法)
+     */
+    private _streamRemoteText(
+        remotePath: string, 
+        sshConfig: any, 
+        { startLine, endLine, maxLineLength }: NormalizedOptions, 
+        type = 'text'
+    ): Promise<string> {
+        return new Promise((resolve, reject) => {
+            const conn = new Client();
+            const cleanup = () => { if (conn) conn.end(); };
 
-            result.content += '\n\n' + footer.join('\n');
+            conn.on('ready', () => {
+                conn.sftp((err, sftp) => {
+                    if (err) {
+                        cleanup();
+                        return reject(new Error(`SFTP Initialization Error: ${err.message}`));
+                    }
+
+                    const stream = sftp.createReadStream(remotePath, { encoding: 'utf8' });
+                    const rl = readline.createInterface({ input: stream, crlfDelay: Infinity });
+                    
+                    const lines: string[] = [];
+                    let lineIdx = 0;
+                    let isTruncated = false;
+
+                    rl.on('line', (line) => {
+                        lineIdx++;
+                        
+                        // 还没到开始行，丢弃
+                        if (lineIdx < startLine) return;
+
+                        // 读到了指定的结束行，触发截断机制
+                        if (endLine > 0 && lineIdx > endLine) {
+                            isTruncated = true;
+                            rl.close(); 
+                            return; 
+                        }
+
+                        let processedLine = line;
+                        if (processedLine.length > maxLineLength) {
+                            processedLine = processedLine.substring(0, maxLineLength) + ' ...[truncated]';
+                        }
+                        lines.push(processedLine);
+                    });
+
+                    rl.on('close', () => {
+                        // 彻底销毁底层流，通知远端释放句柄
+                        stream.destroy(); 
+                        cleanup();
+
+                        let content = lines.join('\n');
+                        if (isTruncated) {
+                            content += `\n\n...[File output truncated by strictly line limit (Showing lines ${startLine}-${endLine})]`;
+                        }
+                        
+                        resolve(type === 'markdown' ? content : `\`\`\`${type}\n${content}\n\`\`\``);
+                    });
+
+                    stream.on('error', (streamErr: any) => {
+                        cleanup();
+                        reject(new Error(`Remote Stream Error: ${streamErr.message}`));
+                    });
+                });
+            }).on('error', (err) => {
+                reject(new Error(`SSH Connection Error: ${err.message}`));
+            }).connect({ ...sshConfig, readyTimeout: 20000 } as ConnectConfig);
+        });
+    }
+
+    /**
+     * 参数规范化：强制默认 10 行的安全网
+     */
+    private _normalizeOptions(raw: DisplayOptions): NormalizedOptions {
+        // 与 getPrompt 的参数定义 "format" 保持严格一致
+        const { start_line, end_line, max_line_length, max_cols, format } = raw; 
+        
+        const start = Math.max(1, parseInt(start_line as string) || 1);
+        let end = parseInt(end_line as string) || 0;
+
+        // 安全网：如果没有传 end_line (值为0) 或者传了非法的范围，强制只读 10 行
+        if (end === 0 || end < start) {
+            end = start + 9; 
         }
 
-        return result;
+        return {
+            startLine: start,
+            endLine: end,
+            maxLineLength: parseInt(max_line_length as string) || 500,
+            maxCols: max_cols !== undefined ? parseInt(max_cols as string) : 20,
+            fileType: format || 'auto' 
+        };
     }
 
     private async _downloadViaSSH(remotePath: string, localPath: string, sshConfig: any): Promise<{ size: number; duration: string }> {
@@ -172,27 +292,22 @@ class DisplayFile {
         return `![${path.basename(filePath)}](${filePath})`;
     }
 
-    private async _handleTextStream(filePath: string, { startLine, endLine, maxLineLength }: NormalizedOptions, type = 'text'): Promise<string> {
-        const fileStream = fs.createReadStream(filePath, { encoding: 'utf8' });
-        const rl = readline.createInterface({ input: fileStream, crlfDelay: Infinity });
-        const lines: string[] = [];
-        let lineIdx = 0;
-        let isTruncated = false;
+    private _handleTextStream(filePath: string, { startLine, endLine, maxLineLength }: NormalizedOptions, type = 'text'): Promise<string> {
+        return new Promise((resolve) => {
+            const fileStream = fs.createReadStream(filePath, { encoding: 'utf8' });
+            const rl = readline.createInterface({ input: fileStream, crlfDelay: Infinity });
+            const lines: string[] = [];
+            let lineIdx = 0;
+            let isTruncated = false;
 
-        try {
-            for await (const line of rl) {
+            rl.on('line', (line) => {
                 lineIdx++;
+                if (lineIdx < startLine) return;
 
-                // 跳过起始行之前的行
-                if (lineIdx < startLine) continue;
-
-                // 检查是否超过了指定的结束行
                 if (endLine > 0 && lineIdx > endLine) {
                     isTruncated = true;
-                    // 此时我们需要主动关闭接口以停止读取
                     rl.close();
-                    fileStream.destroy();
-                    break;
+                    return;
                 }
 
                 let processedLine = line;
@@ -200,22 +315,21 @@ class DisplayFile {
                     processedLine = processedLine.substring(0, maxLineLength) + ' ...[truncated]';
                 }
                 lines.push(processedLine);
-            }
-        } catch (err) {
-            // 忽略由于手动销毁流引起的异常
-        } finally {
-            rl.close();
-            fileStream.destroy();
-        }
+            });
 
-        let content = lines.join('\n');
-
-        // 只有在明确因为 endLine 限制跳出循环时才追加截断提示
-        if (isTruncated) {
-            content += '\n\n...[File output truncated by line limit]';
-        }
-
-        return type === 'markdown' ? content : `\`\`\`text\n${content}\n\`\`\``;
+            rl.on('close', () => {
+                fileStream.destroy();
+                let content = lines.join('\n');
+                if (isTruncated) {
+                    content += '\n\n...[File output truncated by line limit]';
+                }
+                resolve(type === 'markdown' ? content : `\`\`\`text\n${content}\n\`\`\``);
+            });
+            
+            fileStream.on('error', (err) => {
+                resolve(`Error reading file stream: ${err.message}`);
+            });
+        });
     }
 
     private async _handleTable(filePath: string, options: NormalizedOptions): Promise<string> {
@@ -355,21 +469,6 @@ class DisplayFile {
         return res;
     }
 
-    private _normalizeOptions(raw: DisplayOptions): NormalizedOptions {
-        let { start_line, end_line, max_line_length, max_cols, file_type } = raw;
-        const start = parseInt(start_line as string) || 0;
-        let end = parseInt(end_line as string) || 10;
-        if (start >= end && end !== 0) end = start + 20;
-
-        return {
-            startLine: Math.max(1, start),
-            endLine: Math.max(0, end),
-            maxLineLength: parseInt(max_line_length as string) || 500,
-            maxCols: max_cols !== undefined ? parseInt(max_cols as string) : 20,
-            fileType: file_type || 'auto'
-        };
-    }
-
     private _detectFileType(filePath: string): string {
         const ext = path.extname(filePath).toLowerCase();
         const map: Record<string, string[]> = {
@@ -398,10 +497,9 @@ class DisplayFile {
     }
 }
 
+// 极其干净的入口函数
 export function main(params?: { local_path?: string }) {
     return async function (args: { file_path: string } & DisplayOptions) {
-        // 重置单例以防多次调用路径污染
-        (DisplayFile as any).instance = null;
         const display = new DisplayFile(params?.local_path);
         const result = await display.display(args.file_path, args);
         return result.success ? result.content : `Error: ${result.error}`;
@@ -411,60 +509,41 @@ export function main(params?: { local_path?: string }) {
 export function getPrompt() {
     return {
         "name": "display_file",
-        "description": "Reads and formats file content for display. Automatically handles source code (with syntax highlighting), structured data (as Markdown tables), and images. Supports local and SSH environments.",
+        "description": "Reads and formats file content for display. Automatically handles source code, structured data (as Markdown tables), and images. WARNING: By default, output is strictly limited to 10 lines per call to prevent token overflow. You MUST explicitly use start_line and end_line for pagination to read more content.",
         "parameters": {
             "type": "object",
             "properties": {
                 "file_path": {
                     "type": "string",
-                    "description": "The absolute path to the target file. For remote files, ensure the SSH session is active."
+                    "description": "Absolute path to the target file."
                 },
                 "start_line": {
                     "type": "integer",
                     "default": 1,
-                    "description": "The line number to start reading from (1-indexed)."
+                    "description": "Line number to start reading from (1-indexed)."
                 },
                 "end_line": {
                     "type": "integer",
-                    "description": "The line number to stop reading (inclusive). Use 0 or omit to read until the end of the file."
+                    "description": "Line number to stop reading (inclusive). Omit to strictly read 10 lines automatically."
                 },
                 "format": {
                     "type": "string",
                     "enum": ["auto", "text", "table", "image", "hex"],
                     "default": "auto",
-                    "description": "Force a specific display format. 'auto' detects by extension."
+                    "description": "Force a specific display format. 'auto' detects by file extension."
                 },
                 "max_line_length": {
                     "type": "integer",
                     "default": 500,
-                    "description": "Truncates lines exceeding this length to prevent UI overflow."
+                    "description": "Truncates single lines exceeding this character length."
                 },
                 "max_cols": {
                     "type": "integer",
                     "default": 20,
-                    "description": "For CSV/TSV/Excel files, limits the number of columns displayed."
+                    "description": "Limits the number of columns displayed for CSV/Excel files."
                 }
             },
             "required": ["file_path"]
         }
     };
-}
-
-// 本地测试代码
-if (require.main === module) {
-    (async () => {
-        const testPath = path.join(os.tmpdir(), 'test_sample.csv');
-        fs.writeFileSync(testPath, 'Name,Age,Role\nAlice,30,Dev\nBob,25,"Designer, Lead"');
-        const runner = main({ local_path: os.tmpdir() });
-        const res = await runner({
-            file_path: testPath,
-            start_line: 0,
-            end_line: 5,
-            max_line_length: 20,
-            max_cols: 2,
-            file_type: 'table'
-        });
-
-        logger.log(res);
-    })();
 }

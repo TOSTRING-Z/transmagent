@@ -15,28 +15,27 @@ export interface ListFilesArgs {
     regex?: string | null;
 }
 
-// 过滤规则配置
+// 更全面的工业级过滤规则
 const EXCLUDE_PATTERNS: RegExp[] = [
+    // 依赖目录 (黑洞)
+    /\/(node_modules|venv|\.venv|env)\//i,
     // IDE config
     /\/\.vscode\//i,
     /\/\.idea\//i,
-    // Cache
+    // Cache & Version Control
     /\/\.cache\//i,
     /\/\.npm\//i,
-    /\/\.git\//i, // 建议追加对 git 目录的过滤
+    /\/\.git\//i,
+    /\/\.next\//i, // Next.js 等框架的构建产物
+    /\/(dist|build|out)\//i,
     // Media
-    /\.(gif|png|jpe?g|mp4|mov|avi)$/i,
+    /\.(gif|png|jpe?g|webp|mp4|mov|avi|mp3|wav)$/i,
     // Binaries
-    /\.(exe|dll|so|a)$/i,
+    /\.(exe|dll|so|a|dylib|pyc)$/i,
     // Documents
-    /\.(pptx?)$/i,
+    /\.(pptx?|docx?|xlsx?|pdf)$/i,
 ];
 
-/**
- * 判断是否命中过滤黑名单
- * @param filePath 绝对路径
- * @param isDir 是否为目录
- */
 function shouldExclude(filePath: string, isDir: boolean): boolean {
     let normalized = filePath.replace(/\\/g, '/');
     if (isDir && !normalized.endsWith('/')) {
@@ -47,11 +46,13 @@ function shouldExclude(filePath: string, isDir: boolean): boolean {
 
 export function main(params: ListFilesParams = {}) {
     return async (args: ListFilesArgs): Promise<string[]> => {
-        const threshold = params.threshold || 50;
-        const regexObj = args.regex ? new RegExp(args.regex) : null;
+        // 适当放宽 threshold，50 有点少，100~200 配合 LLM 的上下文一般都没问题
+        const threshold = params.threshold || 100; 
+        const regexObj = args.regex ? new RegExp(args.regex, 'i') : null; // 默认加 'i' 忽略大小写会更鲁棒
         const result: string[] = [];
+        let limitReached = false;
 
-        const sshConfig = utils.getSshConfig();
+        const sshConfig = utils.getSshConfig ? utils.getSshConfig() : null;
         const isRemote = !!(sshConfig?.enabled && sshConfig?.host);
 
         // ==========================================
@@ -69,9 +70,8 @@ export function main(params: ListFilesParams = {}) {
                             return resolve([`SFTP Error: ${err.message}`]);
                         }
 
-                        // 异步递归扫描函数
                         async function scanRemote(currentPath: string) {
-                            if (result.length > threshold) return;
+                            if (limitReached) return;
 
                             let items: any[];
                             try {
@@ -81,26 +81,26 @@ export function main(params: ListFilesParams = {}) {
                                     });
                                 });
                             } catch (e: any) {
-                                logger.warn(`Failed to read remote directory ${currentPath}: ${e.message}`);
+                                logger.warn(`Failed to read remote dir ${currentPath}: ${e.message}`);
                                 return;
                             }
 
                             for (const item of items) {
-                                if (result.length > threshold) return;
-
-                                // SFTP 有时会返回 . 和 ..，需要显式跳过
+                                if (limitReached) return;
                                 if (item.filename === '.' || item.filename === '..') continue;
 
-                                // 远端环境默认使用 POSIX 路径拼接规范
                                 const fullPath = path.posix.join(currentPath, item.filename);
                                 const isDir = item.attrs.isDirectory();
 
-                                if (shouldExclude(fullPath, isDir)) {
-                                    continue;
-                                }
+                                if (shouldExclude(fullPath, isDir)) continue;
 
-                                if (!regexObj || regexObj.test(item.filename)) {
+                                // 改为针对 fullPath 测试，支持基于路径的正则搜索
+                                if (!regexObj || regexObj.test(fullPath)) {
                                     result.push(fullPath);
+                                    if (result.length >= threshold) {
+                                        limitReached = true;
+                                        return;
+                                    }
                                 }
 
                                 if (isDir && args.recursive) {
@@ -110,17 +110,15 @@ export function main(params: ListFilesParams = {}) {
                         }
 
                         try {
-                            // 格式化传入的路径以适配远端 Linux 系统
                             const targetPath = args.path.replace(/\\/g, '/');
                             await scanRemote(targetPath);
-
                             cleanup();
-
-                            if (result.length > threshold) {
-                                resolve(['Too much content returned, please try another solution!']);
-                            } else {
-                                resolve(result);
+                            
+                            // 优雅截断返回
+                            if (limitReached) {
+                                result.push(`... [WARNING: Output truncated. Reached maximum limit of ${threshold} items. Please use a stricter regex or avoid root directory scanning.]`);
                             }
+                            resolve(result);
                         } catch (error: any) {
                             cleanup();
                             resolve([`Remote Scan Error: ${error.message}`]);
@@ -134,55 +132,63 @@ export function main(params: ListFilesParams = {}) {
         }
 
         // ==========================================
-        // 2. 本地遍历逻辑
+        // 2. 本地遍历逻辑 (改为全异步，保护事件循环)
         // ==========================================
-        function scanLocal(currentPath: string) {
-            if (result.length > threshold) return;
+        async function scanLocal(currentPath: string) {
+            if (limitReached) return;
 
             let items: string[];
             try {
-                items = fs.readdirSync(currentPath);
+                items = await fs.promises.readdir(currentPath);
             } catch (err: any) {
                 logger.warn(`Failed to read directory ${currentPath}: ${err.message}`);
                 return;
             }
 
             for (const item of items) {
-                if (result.length > threshold) return;
+                if (limitReached) return;
 
                 const fullPath = path.join(currentPath, item);
                 let stat: fs.Stats;
 
                 try {
-                    stat = fs.statSync(fullPath);
+                    stat = await fs.promises.stat(fullPath);
                 } catch (e) {
                     continue;
                 }
 
-                if (shouldExclude(fullPath, stat.isDirectory())) {
-                    continue;
-                }
+                if (shouldExclude(fullPath, stat.isDirectory())) continue;
 
-                if (!regexObj || regexObj.test(item)) {
+                // 同样改为针对 fullPath 测试
+                if (!regexObj || regexObj.test(fullPath.replace(/\\/g, '/'))) {
                     result.push(fullPath);
+                    if (result.length >= threshold) {
+                        limitReached = true;
+                        return;
+                    }
                 }
 
                 if (stat.isDirectory() && args.recursive) {
-                    scanLocal(fullPath);
+                    await scanLocal(fullPath);
                 }
             }
         }
 
         try {
             const targetPath = path.resolve(args.path);
-            if (!fs.existsSync(targetPath)) {
-                throw new Error(`Path does not exist: ${targetPath}`);
+            
+            // 本地路径存在性检查 (使用异步)
+            try {
+                await fs.promises.access(targetPath);
+            } catch {
+                throw new Error(`Path does not exist or access denied: ${targetPath}`);
             }
 
-            scanLocal(targetPath);
+            await scanLocal(targetPath);
 
-            if (result.length > threshold) {
-                return ['Too much content returned, please try another solution!'];
+            // 优雅截断返回
+            if (limitReached) {
+                result.push(`... [WARNING: Output truncated. Reached maximum limit of ${threshold} items. Please use a stricter regex or avoid root directory scanning.]`);
             }
 
             return result;
@@ -195,8 +201,8 @@ export function main(params: ListFilesParams = {}) {
 
 export function getPrompt() {
     return {
-        "name": "list_files",
-        "description": "Recursively scans directories with intelligent filtering (automatically excludes dev/binary files).",
+        "name": "list_dir",
+        "description": "Recursively scans directories with intelligent filtering. Automatically excludes node_modules, .git, and binary files to save tokens.",
         "parameters": {
             "type": "object",
             "properties": {
@@ -206,34 +212,16 @@ export function getPrompt() {
                 },
                 "recursive": {
                     "type": "boolean",
-                    "description": "Enable subdirectory scanning",
+                    "description": "Enable subdirectory scanning. Default is false. CAUTION: Use with care in large directories.",
                     "default": false
                 },
                 "regex": {
                     "type": "string",
-                    "description": "Filename pattern filter (optional). Best practice: use precise regex (e.g. \\.js$)"
+                    "description": "Pattern to match against the FULL file path (e.g. 'src/.*\\\\.js$'). Case-insensitive by default."
                 }
             },
             "required": ["path"],
             "additionalProperties": false
         }
     };
-}
-
-// 本地调试入口
-if (require.main === module) {
-    (async () => {
-        try {
-            const runner = main({ threshold: 50 });
-            // 如果你在此处想测试 SSH，需要提前 mock utils.getSshConfig() 
-            const result = await runner({
-                path: process.cwd(),
-                recursive: false,
-                regex: null
-            });
-            logger.log('调试结果:', JSON.stringify(result, null, 2));
-        } catch (error: any) {
-            console.error('调试错误:', error);
-        }
-    })();
 }

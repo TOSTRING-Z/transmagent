@@ -1,7 +1,7 @@
 import * as fs from 'fs';
 import * as path from 'path';
 import * as os from 'os';
-import { main, getPrompt } from './list_files';
+import { main, getPrompt } from './list_dir';
 import { utils } from '../utils/globals';
 import { Client } from 'ssh2';
 
@@ -24,7 +24,7 @@ jest.mock('../utils/globals', () => ({
 // 3. Mock ssh2 模块以覆盖远程分支
 // jest.mock('ssh2');
 
-describe('list_files tool', () => {
+describe('list_dir tool', () => {
     let tempDir: string;
 
     beforeAll(() => {
@@ -118,7 +118,7 @@ describe('list_files tool', () => {
     it('6. getPrompt 应返回说明字符串', () => {
         const prompt = getPrompt();
         expect(typeof prompt).toBe('string');
-        expect(prompt).toContain('list_files');
+        expect(prompt).toContain('list_dir');
     });
 
     // 新增点：对刚刚加入的 SSH 逻辑进行基本的 Mock 测试，保证远程分支不会抛出未捕获异常
