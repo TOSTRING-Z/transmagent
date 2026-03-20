@@ -213,8 +213,8 @@ export class SubAgentWindow extends BaseWindow {
         if (!utils.getConfig()?.plugins?.cli_execute) return;
 
         this.plugins = new Plugins();
-        this.plugins.init(sysConfig.baseagent, true);
-        this.plugins.init(sysConfig.transagent, true);
+        this.plugins.loadInit(sysConfig.baseagent, true);
+        this.plugins.loadInit(sysConfig.transagent, true);
 
         const agentDefs: Array<{
             promptModule: string;

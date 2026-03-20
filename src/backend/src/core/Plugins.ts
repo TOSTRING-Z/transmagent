@@ -27,7 +27,7 @@ export class Plugins {
         this.tools = {};
     }
 
-    public getTool(name?: string | null): any {
+    public getTool(name?: string | null): PluginItem | Record<string, PluginItem> {
         if (name) {
             return this.tools[name] || null;
         }
@@ -72,7 +72,7 @@ export class Plugins {
         }
     }
 
-    public init(config_name: string | null = null, forceLoad: boolean = false): void {
+    public loadInit(config_name: string | null = null, forceLoad: boolean = false): void {
         const plugins = utils.getConfig("plugins", config_name);
         if (!plugins) {
             console.warn("[Plugins] No plugins configuration found.");

@@ -2,7 +2,7 @@ import { ReActAgent, State } from './ReActAgent';
 import { utils, CHAT_CONST } from '../utils/globals';
 import { formatString } from '../utils/format';
 import { LLMService } from './LLMService';
-import { Plugins } from './Plugins';
+import { PluginItem, Plugins } from './Plugins';
 
 export class ChainCall extends ReActAgent {
     public plugins: Plugins;
@@ -18,7 +18,7 @@ export class ChainCall extends ReActAgent {
         this.window.webContents.send('userData', { group_id: this.llm_service.chatManager.chat.group_id, context_id: this.llm_service.chatManager.chat.context_id, content: data.query, del: false });
         data.prompt_format = "";
 
-        let func = this.plugins.getTool(data.version)?.func;
+        let func = (this.plugins.getTool(data.version) as PluginItem)?.func;
         if (!func) {
             console.error(`[ChainCall] Plugin function '${data.version}' not found.`);
             return null;

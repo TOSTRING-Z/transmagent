@@ -124,11 +124,11 @@ class ToolCall extends ReActAgent_1.ReActAgent {
         // --- 核心类方法中的逻辑 ---
         // 1. 工具与插件初始化 (保持原有逻辑)
         if (this.plugins && !this.prompt_args.subagent) {
-            this.plugins.init();
+            this.plugins.loadInit();
             this.tools = { ...this.plugins.getTool(), ...this.agentTools, ...this.baseTools };
         }
         else if (this.prompt_args.subagent) {
-            this.tools = this.agentTools;
+            this.tools = { ...this.agentTools, ...this.baseTools };
         }
         // 2. 组装上下文 (供 DSL 校验使用)
         const context = {

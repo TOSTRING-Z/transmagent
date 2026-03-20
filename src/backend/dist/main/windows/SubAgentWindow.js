@@ -193,8 +193,8 @@ class SubAgentWindow extends BaseWindow_1.BaseWindow {
         if (!globals_1.utils.getConfig()?.plugins?.cli_execute)
             return;
         this.plugins = new Plugins_1.Plugins();
-        this.plugins.init(globals_1.sysConfig.baseagent, true);
-        this.plugins.init(globals_1.sysConfig.transagent, true);
+        this.plugins.loadInit(globals_1.sysConfig.baseagent, true);
+        this.plugins.loadInit(globals_1.sysConfig.transagent, true);
         const agentDefs = [
             {
                 promptModule: 'url_summarizer',

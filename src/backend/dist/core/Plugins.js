@@ -90,7 +90,7 @@ class Plugins {
             };
         }
     }
-    init(config_name = null, forceLoad = false) {
+    loadInit(config_name = null, forceLoad = false) {
         const plugins = globals_1.utils.getConfig("plugins", config_name);
         if (!plugins) {
             console.warn("[Plugins] No plugins configuration found.");

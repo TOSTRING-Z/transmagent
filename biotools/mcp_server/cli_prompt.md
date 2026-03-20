@@ -200,6 +200,10 @@ Gene location files:
 - hg19: 
   - deeptools: `/data/rgtdata/hg19/genes_RefSeq_hg19.bed`
 
+Info Table:
+- TR Info: /data/trapt/library/TRs_info.txt
+- SEdbv2 Info: /data/trapt/library/SEdbv2_info.txt
+
 Motif location databases:
 - /data/motif_databases/
 

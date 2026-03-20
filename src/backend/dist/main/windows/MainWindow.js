@@ -179,7 +179,7 @@ class MainWindow extends BaseWindow_1.BaseWindow {
             },
         });
         this.plugins = new Plugins_1.Plugins();
-        this.plugins.init();
+        this.plugins.loadInit();
         this.llm_service = new LLMService_1.LLMService([], this.window);
         let agentTools = {};
         let agent_mode = "transagent";
@@ -425,7 +425,7 @@ class MainWindow extends BaseWindow_1.BaseWindow {
             let state = globals_1.utils.setConfig(config);
             this.updateVersionsSubmenu();
             const plugins = new Plugins_1.Plugins();
-            plugins.init();
+            plugins.loadInit();
             return state;
         });
         electron_1.ipcMain.handle('envs', (_, data) => {
@@ -516,7 +516,7 @@ class MainWindow extends BaseWindow_1.BaseWindow {
         const extraReact = () => {
             this.window?.webContents.send('react-statu', e.statu);
             if (globals_1.globalState.is_plugin) {
-                this.window?.webContents.send("extra_load", e.statu && this.plugins.get[this.llm_service.chatManager.chat.version]?.extra);
+                this.window?.webContents.send("extra_load", e.statu && this.plugins.getTool[this.llm_service.chatManager.chat.version]?.extra);
             }
             else {
                 const ssh_config = globals_1.utils.getSshConfig();

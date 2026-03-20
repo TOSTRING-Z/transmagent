@@ -4,6 +4,7 @@ import { WindowManager } from "./WindowManager";
 import { LLMService } from '../../core/LLMService';
 import { ToolCall } from '../../core/ToolCall';
 import { ChainCall } from '../../core/ChainCall';
+import { Plugins } from '../../core/Plugins';
 interface FuncItemNode {
     statu: boolean;
     event?: any;
@@ -12,7 +13,7 @@ interface FuncItemNode {
 }
 export declare class MainWindow extends BaseWindow {
     funcItems: Record<string, FuncItemNode>;
-    plugins: any;
+    plugins: Plugins;
     llm_service: LLMService;
     tool_call: ToolCall;
     chain_call: ChainCall;

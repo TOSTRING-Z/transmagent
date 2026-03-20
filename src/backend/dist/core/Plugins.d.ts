@@ -8,7 +8,7 @@ export declare class Plugins {
     static instance: Plugins | null;
     private tools;
     constructor();
-    getTool(name?: string | null): any;
+    getTool(name?: string | null): PluginItem | Record<string, PluginItem>;
     private loadPlugin;
-    init(config_name?: string | null, forceLoad?: boolean): void;
+    loadInit(config_name?: string | null, forceLoad?: boolean): void;
 }

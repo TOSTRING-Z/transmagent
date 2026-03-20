@@ -28,7 +28,7 @@ interface FuncItemNode {
 
 export class MainWindow extends BaseWindow {
     public funcItems: Record<string, FuncItemNode>;
-    public plugins: any;
+    public plugins!: Plugins;
     public llm_service!: LLMService;
     public tool_call!: ToolCall;
     public chain_call!: ChainCall;
@@ -158,7 +158,7 @@ export class MainWindow extends BaseWindow {
         });
 
         this.plugins = new Plugins();
-        this.plugins.init();
+        this.plugins.loadInit();
         this.llm_service = new LLMService([], this.window);
 
         let agentTools = {};
@@ -423,7 +423,7 @@ export class MainWindow extends BaseWindow {
             let state = utils.setConfig(config);
             this.updateVersionsSubmenu();
             const plugins = new Plugins();
-            plugins.init();
+            plugins.loadInit();
             return state;
         });
 
@@ -521,7 +521,7 @@ export class MainWindow extends BaseWindow {
         const extraReact = () => {
             this.window?.webContents.send('react-statu', e.statu);
             if ((globalState as any).is_plugin) {
-                this.window?.webContents.send("extra_load", e.statu && this.plugins.get[this.llm_service.chatManager.chat.version]?.extra);
+                this.window?.webContents.send("extra_load", e.statu && this.plugins.getTool[this.llm_service.chatManager.chat.version]?.extra);
             } else {
                 const ssh_config = utils.getSshConfig();
                 let extra = [{ "type": "act-plan" }];
