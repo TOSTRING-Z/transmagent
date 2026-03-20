@@ -19,7 +19,7 @@ export function getPrompt() {
                     items: {
                         type: "string"
                     },
-                    description: "Optional list of specific tool names to retrieve (e.g., ['test_tool', 'replace_in_file']). If empty or omitted, returns all tools."
+                    description: "Optional list of specific tool names to retrieve. If empty or omitted, returns all tools."
                 }
             },
             required: [] // 参数设为可选，以便支持无参调用获取全量工具
