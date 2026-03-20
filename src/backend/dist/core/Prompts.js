@@ -88,9 +88,9 @@ class Prompts {
 
 # ⚠️ CRITICAL SYSTEM CONSTRAINTS
 1. **STATELESSNESS**: You have **NO MEMORY** of previous agent tool outputs.
-   - **Requirement**: You MUST explicitly pass all necessary context (file paths, raw data, analysis results) into every tool call.
-   - **Prohibition**: Never assume a tool "knows" what happened in the previous step.` :
-            `You are **TransMAgent**, a versatile, high-efficiency AI assistant capable of solving complex user requests through strategic tool usage.`)}
+   - **Requirement**: You MUST explicitly pass all necessary context (tool document, file paths, raw data, analysis results) into every tool call.
+   - **Prohibition**: Never assume a tool "knows" what happened in the previous step.
+` : `You are **TransMAgent**, a versatile, high-efficiency AI assistant capable of solving complex user requests through strategic tool usage.`)}
 
 ${!this.agent.prompt_args.subagent && this.agent.environment_details.mode === ReActAgent_1.Mode.ACT ? `# 🗣️ INTERACTIVE COMMUNICATION PROTOCOL
 1. **Low Confidence? Ask.** If the user's request is ambiguous or has multiple technical paths, do NOT guess. Present options and ask for a preference.
