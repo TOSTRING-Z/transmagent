@@ -11,6 +11,7 @@ class MCPClient {
     static instance = null;
     clients = {};
     tools = {}; // toolName -> clientName
+    toolPrompts = {};
     mcpPrompt = "";
     isInitialized = false;
     constructor(toolcall) {
@@ -120,6 +121,7 @@ class MCPClient {
             const toolDocs = tools
                 .filter(t => t.name !== "execute_bash")
                 .map(tool => {
+                // 记录工具所属的 client
                 this.tools[tool.name] = serverName;
                 const props = tool.inputSchema?.properties || {};
                 const required = tool.inputSchema?.required || [];
@@ -127,7 +129,11 @@ class MCPClient {
                     const isReq = required.includes(key) ? "(required)" : "";
                     return `- ${key}: ${isReq} ${val.description || val.title || ""} (type: ${val.type})`;
                 }).join("\n");
-                return `MCP name: ${tool.name}\nMCP args:\n${argsDoc}\nMCP description:\n${tool.description}`;
+                // 构建单个工具的描述字符串
+                const toolDocStr = `MCP name: ${tool.name}\nMCP args:\n${argsDoc}\nMCP description:\n${tool.description}`;
+                // 【核心修改】：将生成的单个工具 Prompt 存入 toolPrompts 字典
+                this.toolPrompts[tool.name] = toolDocStr;
+                return toolDocStr;
             }).join("\n\n");
             return `## MCP server: ${serverName}${extraDesc}\n\n## Use\n\n${toolDocs}`;
         }

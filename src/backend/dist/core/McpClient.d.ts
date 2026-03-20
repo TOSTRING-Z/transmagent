@@ -4,9 +4,10 @@ declare class MCPClient {
     private static instance;
     clients: Record<string, Client>;
     tools: Record<string, string>;
+    toolPrompts: Record<string, string>;
     mcpPrompt: string;
     isInitialized: boolean;
-    constructor(toolcall?: any | undefined);
+    constructor(toolcall?: any);
     static getInstance(toolcall?: any): MCPClient;
     /**
      * 连接 Transport 层

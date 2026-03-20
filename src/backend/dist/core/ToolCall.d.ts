@@ -46,7 +46,7 @@ export declare class ToolCall extends ReActAgent {
     thinking_repetitions: (string | null)[];
     repetitions_delay_empty: number;
     environment_details: EnvironmentDetails;
-    toolInfo: ToolInfo;
+    toolInfo: ToolInfo | undefined;
     modeMap: Record<string, Mode>;
     constructor(plugins: Plugins, agentTools: Record<string, any> | undefined, llm_service: LLMService, window: any, alertWindow: any, prompt_args?: PromptArgs);
     initVar(): void;
@@ -61,7 +61,7 @@ export declare class ToolCall extends ReActAgent {
      */
     auditToolCall(toolInfo: ToolInfo, assistantMessage: Message, data: Record<string, any>): Promise<string | null>;
     step(data: Record<string, any>): Promise<void>;
-    getToolInfo(data: Record<string, any>, assistantMessage: any): Promise<ToolInfo>;
+    getToolInfo(data: Record<string, any>, assistantMessage: any): Promise<ToolInfo | undefined>;
     act(toolInfo: ToolInfo): Promise<Observation>;
     callReAct(data: Record<string, any>): Promise<any>;
 }

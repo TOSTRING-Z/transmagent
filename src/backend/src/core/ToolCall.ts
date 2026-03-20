@@ -60,7 +60,7 @@ export class ToolCall extends ReActAgent {
     public thinking_repetitions: (string | null)[] = [];
     public repetitions_delay_empty: number = 0;
     public environment_details!: EnvironmentDetails;
-    public toolInfo!: ToolInfo;
+    public toolInfo: ToolInfo | undefined;
     public modeMap: Record<string, Mode> = { "auto": Mode.AUTO, "plan": Mode.PLAN, "flash": Mode.FLASH, "act": Mode.ACT };
 
     constructor(
@@ -135,7 +135,7 @@ export class ToolCall extends ReActAgent {
             this.plugins.loadInit();
             this.tools = { ...this.plugins.getTool(), ...this.agentTools, ...this.baseTools };
         } else if (this.prompt_args.subagent) {
-            this.tools = { ...this.agentTools, ...this.baseTools};
+            this.tools = { ...this.agentTools, ...this.baseTools };
         }
         // 2. 组装上下文 (供 DSL 校验使用)
         const context = {
@@ -496,10 +496,11 @@ You MUST respond ONLY with a valid JSON object. DO NOT call any tools.
         }
     }
 
-    public async getToolInfo(data: Record<string, any>, assistantMessage): Promise<ToolInfo> {
+    public async getToolInfo(data: Record<string, any>, assistantMessage): Promise<ToolInfo | undefined> {
         const adapter: IToolCallAdapter = ToolCallAdapterFactory.getAdapter(this.llm_service.chatManager.chat.tool_format);
         const toolInfo = adapter.getToolInfo(assistantMessage);
-        let toolInfoStr = JSON.stringify(toolInfo, null, 2).replaceAll("\\`", "'").replaceAll("`", "'");
+        if (!toolInfo.thinking && !toolInfo.tool) return; // 网络或内容容错处理
+        let toolInfoStr = JSON.stringify(toolInfo, null, 2);
         data.output_format = toolInfoStr;
         this.window?.webContents.send('infoData', { group_id: this.llm_service.chatManager.chat.group_id, context_id: this.llm_service.chatManager.chat.context_id, content: this.getInfo(data) });
         this.window?.webContents.send('streamData', { group_id: this.llm_service.chatManager.chat.group_id, context_id: this.llm_service.chatManager.chat.context_id, content: `${toolInfo.thinking}\n\n---\n\n`, chat: this.llm_service.chatManager.chat });

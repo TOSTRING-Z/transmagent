@@ -49,7 +49,7 @@ export class LLMService {
             if (data.system_prompt) {
                 messagesList.push({ role: "system", content: data.system_prompt, show: true, react: false });
             }
-            
+
             messagesList = messagesList.concat(this.chatManager.getMemory(data));
 
             const messageInput: Message = { role: "user", content: content, group_id: this.chatManager.chat.group_id, show: true, react: false };
@@ -75,7 +75,7 @@ export class LLMService {
                 method: "POST",
                 headers: headers,
                 body: JSON.stringify(body),
-            }); 
+            });
 
             // 6. 流式与非流式分流处理
             if (resp.ok) {
@@ -186,7 +186,12 @@ export class LLMService {
     private async handleNormal(resp: Response, adapter: ILLMAdapter, headers: any, body: any, data: ChatRequestData, messageOutput: Message) {
         let respJson: any;
         try {
-            respJson = await resp.json();
+            // 添加超时控制
+            const timeoutPromise = new Promise((_, reject) => {
+                setTimeout(() => reject(new Error('Response timeout')), 10000); // 10秒超时
+            });
+
+            respJson = await Promise.race([resp.json(), timeoutPromise]);
         } catch (err: any) {
             console.error(err);
             return;
