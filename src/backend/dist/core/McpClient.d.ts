@@ -7,7 +7,7 @@ declare class MCPClient {
     toolPrompts: Record<string, string>;
     mcpPrompt: string;
     isInitialized: boolean;
-    constructor(toolcall?: any);
+    constructor(toolcall?: any | undefined);
     static getInstance(toolcall?: any): MCPClient;
     /**
      * 连接 Transport 层

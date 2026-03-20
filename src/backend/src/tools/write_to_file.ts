@@ -105,7 +105,7 @@ export function getPrompt() {
         "name": "write_to_file",
         "description": `Writes text content to a local or remote file.
 
-## Write Modes:
+Write Modes:
 1. **overwrite** (default): Replaces the entire file with the new content. Used for creating new files or fully rewriting existing ones.
 2. **append**: Adds the content to the very end of an existing file. Perfect for adding new lines, logs, or continuing a file that was too long to write in one go due to length limits.
 

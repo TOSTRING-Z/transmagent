@@ -1,6 +1,7 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.main = exports.getPrompt = void 0;
+exports.getPrompt = getPrompt;
+exports.main = main;
 const fs_1 = require("fs");
 const globals_1 = require("../utils/globals");
 const WindowManager_1 = require("../main/windows/WindowManager");
@@ -23,7 +24,6 @@ function getPrompt() {
         }
     };
 }
-exports.getPrompt = getPrompt;
 function main() {
     return async (params) => {
         // 获取参数，默认为空数组
@@ -103,5 +103,4 @@ function main() {
         };
     };
 }
-exports.main = main;
 //# sourceMappingURL=read_tools_prompt.js.map

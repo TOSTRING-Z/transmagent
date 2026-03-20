@@ -179,7 +179,7 @@ ${!this.agent.prompt_args.subagent && this.agent.prompt_args.agent_mode === "tra
 {cli_prompt}
 `: ""}
 
-${this.agent.prompt_args.mcp_server ? `
+${!this.agent.prompt_args.subagent && this.agent.prompt_args.mcp_server ? `
 ## MCP Services
 **Note**: Use \`mcp_server\` to access these external tools.
 {mcp_prompt}`: ""}

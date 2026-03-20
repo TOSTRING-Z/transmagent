@@ -1,5 +1,6 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
+exports.default = getBaseTools;
 const ReActAgent_1 = require("./ReActAgent");
 const globals_1 = require("../utils/globals");
 function getBaseTools(toolCallInstance) {
@@ -215,5 +216,4 @@ function getBaseTools(toolCallInstance) {
         }
     };
 }
-exports.default = getBaseTools;
 //# sourceMappingURL=base_tools.js.map

@@ -1,3 +1,110 @@
+***
+
+To verify if a tool is available, use the command `which tool-name`. For example, `which fastq-dump` will display the installation path of fastq-dump if it is available.
+
+Additional Notes:  
+  * Input for the above tools must be a single file-wildcards are not allowed.  
+  * Some tools may generate output files but return empty messages. If an empty response is observed, check whether output files have been 
+generated.
+  * When an error occurs while running certain software, attempts should be made to resolve the issue and rerun it. Since there are strong dependencies between the inputs and outputs of various software, it is not allowed to directly skip the step where the error occurred. If an error is reported and multiple attempts fail to resolve it, user assistance should be sought.
+
+Genome Fasta Files:
+  - hg38: 
+    - getfasta: `/data/rgtdata/hg38/genome_hg38.fa`
+    - bowtie2: `/data/rgtdata/hg38/genome_hg38`
+    - CRCmapper: `/data/homer/genomes/hg38/`
+  - hg19:
+    - getfasta: `/data/rgtdata/hg19/genome_hg19.fa`
+    - bowtie2: `/data/rgtdata/hg19/genome_hg19`
+    - CRCmapper: `/data/homer/genomes/hg19/`
+
+Gene location files:
+  - hg38: 
+    - deeptools: `/data/rgtdata/hg38/genes_RefSeq_hg38.bed`
+  - hg19: 
+    - deeptools: `/data/rgtdata/hg19/genes_RefSeq_hg19.bed`
+
+Motif location databases:
+  - /data/motif_databases/
+
+Example Workflows:
+  - Sequence Data Processing
+    - Input: FASTQ files
+    - Requirements: 
+      - The user must specify:
+        - Sequencing type (paired-end or single-end)
+    1. Pre-trimming quality control report: `fastqc`
+    2. Adapter trimming: `trim_galore`
+    3. Post-trimming quality control report: `fastqc`
+    4. Alignment: `bowtie2`, `samtools`
+    5. PCR duplicate removal: `picard`, `samtools`
+    6. Peak calling: `macs2`
+
+  - RNA-seq Differential Expression Analysis:
+    - Input: Expression matrix, Sample metadata
+    1. Require users to upload data  
+    2. Verify whether the data meets input requirements  
+    3. If not compliant: Attempt to correct the data  
+    4. If data correction fails: Request users to re-upload data in the correct format  
+    5. Execute differential expression analysis: `diff_expression_analysis`
+
+  - Gene Expression Analysis
+    1. Obtain gene expression: Local database
+    2. Gene expression visualization: `ggplot2`
+
+  - Enrichment Analysis
+    1. Obtain gene sets categories: Local database
+    2. Enrichment analysis: `enrichment_analysis`
+
+  - Region Annotation Analysis
+    - Input: BED file
+    1. BED file preprocessing: `bed_preprocessing`
+    2. Enhancer annotation
+    3. SNP annotation
+    4. TFBS annotation
+    5. eRNA annotation
+    6. eQTL annotation
+    7. RNA interaction annotation
+    8. CRISPR annotation
+
+  - Region Visualization
+    - Input: BED file
+    1. BED file preprocessing: `bed_preprocessing`
+    2. Genomic distribution visualization: `chipseeker`, `ggplot2`
+    3. Transcription factor enrichment: (`getfasta` -> `FIMO`) or `homer`
+    4. Target gene identification: `BETA`
+    5. Gene expression analysis
+
+  - Super-Enhancer Identification
+    - Input: Experimental sample FASTQ files, control sample FASTQ files
+    - Requirements: 
+      - The user must specify:
+        - Sequencing type (paired-end or single-end)
+        - Experimental and control sample correspondence
+    1. Experimental sample ChIP-seq data processing
+    2. Control sample ChIP-seq data processing
+    3. Super-enhancer identification: `bed2gff`, `ROSE`
+    4. Visualization with `deeptools`
+    5. CRCmapper analysis
+    6. Region visualization
+    7. Region annotation analysis
+
+  - Transcriptional Regulator Identification
+    - Input: Text file containing a single column of gene names
+    1. Identify core transcriptional regulators: `TRAPT`
+    2. Retrieve the key transcriptional regulators
+    3. Gene expression analysis
+    4. Obtain transcriptional regulator binding region files
+    5. Region annotation analysis
+    6. Region visualization
+
+  - ATAC-seq Data Analysis
+    - Input: FASTQ files
+    1. Sequence Data Processing
+    2. TF footprint analysis: `HINT_ATAC`
+
+***
+
 - bed_preprocessing: Deduplication, sorting, and merging overlapping regions  
   - Input: `input.bed`  
   - Output: `output.bed`  
@@ -168,122 +275,3 @@
 
 - ggplot2: Primary data visualization tool
   - Use: `R -e 'library(ggplot2); p <- ggplot(diamonds, aes(carat, price)) + geom_point(); ggsave("plot.svg", plot=p, device="svg")'`
-
-***
-
-Standard File Structure:
-All new tools must be installed under the \`/data/auto_installed_tools/\` root directory and strictly adhere to the following structure:
-
-* Root Directory: \`/data/auto_installed_tools/<Tool_Name>/\`
-  * 📄 \`install.md\`: Detailed installation process record
-  * 📄 \`usage.md\`: Tool usage manual
-  * 📄 \`environment.md\`: Dependency and environment configuration details
-  * 📂 \`script/\`: Stores main script files
-  * 📂 \`dependency/\`: Stores dependency files
-  * 📂 \`test/\`: Stores test scripts or test data
-  * 📂 \`example/\`: Stores example files
-
-To verify if a tool is available, use the command `which tool-name`. For example, `which fastq-dump` will display the installation path of fastq-dump if it is available.
-
-Additional Notes:  
-  * Input for the above tools must be a single file-wildcards are not allowed.  
-  * Some tools may generate output files but return empty messages. If an empty response is observed, check whether output files have been 
-generated.
-  * When an error occurs while running certain software, attempts should be made to resolve the issue and rerun it. Since there are strong dependencies between the inputs and outputs of various software, it is not allowed to directly skip the step where the error occurred. If an error is reported and multiple attempts fail to resolve it, user assistance should be sought.
-
-Genome Fasta Files:
-  - hg38: 
-    - getfasta: `/data/rgtdata/hg38/genome_hg38.fa`
-    - bowtie2: `/data/rgtdata/hg38/genome_hg38`
-    - CRCmapper: `/data/homer/genomes/hg38/`
-  - hg19:
-    - getfasta: `/data/rgtdata/hg19/genome_hg19.fa`
-    - bowtie2: `/data/rgtdata/hg19/genome_hg19`
-    - CRCmapper: `/data/homer/genomes/hg19/`
-
-Gene location files:
-  - hg38: 
-    - deeptools: `/data/rgtdata/hg38/genes_RefSeq_hg38.bed`
-  - hg19: 
-    - deeptools: `/data/rgtdata/hg19/genes_RefSeq_hg19.bed`
-
-Motif location databases:
-  - /data/motif_databases/
-
-Example Workflows:
-  - Sequence Data Processing
-    - Input: FASTQ files
-    - Requirements: 
-      - The user must specify:
-        - Sequencing type (paired-end or single-end)
-    1. Pre-trimming quality control report: `fastqc`
-    2. Adapter trimming: `trim_galore`
-    3. Post-trimming quality control report: `fastqc`
-    4. Alignment: `bowtie2`, `samtools`
-    5. PCR duplicate removal: `picard`, `samtools`
-    6. Peak calling: `macs2`
-
-  - RNA-seq Differential Expression Analysis:
-    - Input: Expression matrix, Sample metadata
-    1. Require users to upload data  
-    2. Verify whether the data meets input requirements  
-    3. If not compliant: Attempt to correct the data  
-    4. If data correction fails: Request users to re-upload data in the correct format  
-    5. Execute differential expression analysis: `diff_expression_analysis`
-
-  - Gene Expression Analysis
-    1. Obtain gene expression: Local database
-    2. Gene expression visualization: `ggplot2`
-
-  - Enrichment Analysis
-    1. Obtain gene sets categories: Local database
-    2. Enrichment analysis: `enrichment_analysis`
-
-  - Region Annotation Analysis
-    - Input: BED file
-    1. BED file preprocessing: `bed_preprocessing`
-    2. Enhancer annotation
-    3. SNP annotation
-    4. TFBS annotation
-    5. eRNA annotation
-    6. eQTL annotation
-    7. RNA interaction annotation
-    8. CRISPR annotation
-
-  - Region Visualization
-    - Input: BED file
-    1. BED file preprocessing: `bed_preprocessing`
-    2. Genomic distribution visualization: `chipseeker`, `ggplot2`
-    3. Transcription factor enrichment: (`getfasta` -> `FIMO`) or `homer`
-    4. Target gene identification: `BETA`
-    5. Gene expression analysis
-
-  - Super-Enhancer Identification
-    - Input: Experimental sample FASTQ files, control sample FASTQ files
-    - Requirements: 
-      - The user must specify:
-        - Sequencing type (paired-end or single-end)
-        - Experimental and control sample correspondence
-    1. Experimental sample ChIP-seq data processing
-    2. Control sample ChIP-seq data processing
-    3. Super-enhancer identification: `bed2gff`, `ROSE`
-    4. Visualization with `deeptools`
-    5. CRCmapper analysis
-    6. Region visualization
-    7. Region annotation analysis
-
-  - Transcriptional Regulator Identification
-    - Input: Text file containing a single column of gene names
-    1. Identify core transcriptional regulators: `TRAPT`
-    2. Retrieve the key transcriptional regulators
-    3. Gene expression analysis
-    4. Obtain transcriptional regulator binding region files
-    5. Region annotation analysis
-    6. Region visualization
-
-  - ATAC-seq Data Analysis
-    - Input: FASTQ files
-    1. Sequence Data Processing
-    2. TF footprint analysis: `HINT_ATAC`
-
-***
