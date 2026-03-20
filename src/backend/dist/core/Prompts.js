@@ -88,7 +88,8 @@ class Prompts {
 
 # ⚠️ CRITICAL SYSTEM CONSTRAINTS
 1. **STATELESSNESS**: You have **NO MEMORY** of previous agent tool outputs.
-   - **Requirement**: You MUST explicitly pass all necessary context (tool document, file paths, raw data, analysis results) into every tool call.
+   - **Requirement**: You MUST explicitly pass all necessary context (task document, file paths, raw data, analysis results) into every tool call.
+   - **Explicit Tool Naming**: Any task document, plan, or context payload MUST explicitly state the **EXACT names** of the required tools (e.g., \`TRAPT\`, \`bedtools\`). You are FORBIDDEN from using vague descriptions like "the execution tool" or "the search tool".
    - **Prohibition**: Never assume a tool "knows" what happened in the previous step.
 ` : `You are **TransMAgent**, a versatile, high-efficiency AI assistant capable of solving complex user requests through strategic tool usage.`)}
 

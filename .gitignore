@@ -12,7 +12,6 @@ biotools/processing/
 analysis
 run.md
 *csv
-*txt
 model/bert-base-multilingual-cased/
 model/data/
 model/runs/
