@@ -234,13 +234,13 @@ To meet researchers' one-stop needs, we also integrate:
 nvm use 23
 
 # Install dependencies
-npm install
+pnpm install
 
 # Start application
-npm run start
+pnpm run start
 
 # Package application
-npm run dist
+pnpm run dist
 ```
 
 > 💡 Due to rapid version iterations, we recommend compiling yourself to experience the latest features.

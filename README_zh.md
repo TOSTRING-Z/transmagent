@@ -236,13 +236,13 @@ TransMAgent 采用 **标准化任务处理架构**：
 nvm use 23
 
 # 安装依赖
-npm install
+pnpm install
 
 # 启动应用
-npm run start
+pnpm run start
 
 # 打包应用
-npm run dist
+pnpm run dist
 ```
 
 > 💡 由于版本迭代迅速，建议自行编译以体验最新功能。

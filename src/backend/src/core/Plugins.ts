@@ -1,6 +1,7 @@
 import * as fs from 'fs';
 import * as path from 'path';
 import { utils, globalState } from '../utils/globals';
+import { logger } from '../utils/logger';
 
 export interface PluginItem {
     func: (...args: any[]) => any;
@@ -61,9 +62,10 @@ export class Plugins {
                 getPrompt: plugin.getPrompt,
                 enabled: enabled
             };
+            logger.log(`[Plugins] Success to load plugin '${info.version}'`);
             return item;
         } catch (error: any) {
-            console.error(`[Plugins] Failed to load plugin '${info.version}':`, error.message);
+            logger.error(`[Plugins] Failed to load plugin '${info.version}':`, error.message);
             return {
                 func: () => `Plugin: ${info.version}, Path: ${pluginPath || 'built-in'}, Error: ${error.message}`
             };
