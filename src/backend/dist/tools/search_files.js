@@ -15,26 +15,15 @@ var __setModuleDefault = (this && this.__setModuleDefault) || (Object.create ? (
 }) : function(o, v) {
     o["default"] = v;
 });
-var __importStar = (this && this.__importStar) || (function () {
-    var ownKeys = function(o) {
-        ownKeys = Object.getOwnPropertyNames || function (o) {
-            var ar = [];
-            for (var k in o) if (Object.prototype.hasOwnProperty.call(o, k)) ar[ar.length] = k;
-            return ar;
-        };
-        return ownKeys(o);
-    };
-    return function (mod) {
-        if (mod && mod.__esModule) return mod;
-        var result = {};
-        if (mod != null) for (var k = ownKeys(mod), i = 0; i < k.length; i++) if (k[i] !== "default") __createBinding(result, mod, k[i]);
-        __setModuleDefault(result, mod);
-        return result;
-    };
-})();
+var __importStar = (this && this.__importStar) || function (mod) {
+    if (mod && mod.__esModule) return mod;
+    var result = {};
+    if (mod != null) for (var k in mod) if (k !== "default" && Object.prototype.hasOwnProperty.call(mod, k)) __createBinding(result, mod, k);
+    __setModuleDefault(result, mod);
+    return result;
+};
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.main = main;
-exports.getPrompt = getPrompt;
+exports.getPrompt = exports.main = void 0;
 const fs = __importStar(require("fs"));
 const path = __importStar(require("path"));
 const logger_1 = require("../utils/logger");
@@ -146,21 +135,42 @@ function main() {
                 const content = fs.readFileSync(file, 'utf8');
                 let match;
                 regexObj.lastIndex = 0;
+                // 【性能优化】：预先计算换行符位置，避免在循环内部重复对大字符串进行 substring 和正则匹配
+                let currentLine = 1;
+                let lastNewLineIndex = -1;
                 while ((match = regexObj.exec(content)) !== null) {
-                    // 防护：防止类似于 `.*` 或 `^` 这种零宽度正则导致的 Node.js 进程卡死（死循环）
+                    // 防护：防止零宽度正则导致的死循环
                     if (match.index === regexObj.lastIndex) {
                         regexObj.lastIndex++;
                     }
                     if (match[0].length === 0)
                         continue;
-                    const start = Math.max(0, match.index - 10);
-                    const end = Math.min(content.length, match.index + match[0].length + 10);
-                    const context = content.substring(start, end);
+                    // 【修复 1】：硬性截断超长匹配，防止贪婪正则提取半个文件
+                    const MAX_MATCH_LENGTH = 150; // 最大允许保留的匹配字符数
+                    const isTruncated = match[0].length > MAX_MATCH_LENGTH;
+                    const safeMatch = isTruncated
+                        ? match[0].substring(0, MAX_MATCH_LENGTH) + '...'
+                        : match[0];
+                    // 【修复 2】：安全计算上下文边界，依赖截断后的长度而非原始长度
+                    const CONTEXT_PADDING = 20; // 前后各保留的字符数
+                    const start = Math.max(0, match.index - CONTEXT_PADDING);
+                    const matchEnd = match.index + (isTruncated ? MAX_MATCH_LENGTH : match[0].length);
+                    const end = Math.min(content.length, matchEnd + CONTEXT_PADDING);
+                    // 提取上下文并清理换行符/多余空格，防止返回的 JSON 极其难看
+                    let context = content.substring(start, end);
+                    context = context.replace(/\r?\n|\r/g, ' ').replace(/\s{2,}/g, ' ');
+                    // 【修复 3】：优化行号计算 (O(N) 递推，代替原版的 O(N^2) substring + regex)
+                    for (let i = lastNewLineIndex + 1; i <= match.index; i++) {
+                        if (content[i] === '\n') {
+                            currentLine++;
+                        }
+                    }
+                    lastNewLineIndex = match.index;
                     results.push({
                         file: path.relative(resolvedTarget, file),
-                        match: match[0],
+                        match: safeMatch,
                         context: context,
-                        line: (content.substring(0, match.index).match(/\n/g) || []).length + 1
+                        line: currentLine
                     });
                     // 性能保护：防止单文件包含百万级匹配项导致 OOM
                     if (results.length >= 100)
@@ -177,6 +187,7 @@ function main() {
         }
     };
 }
+exports.main = main;
 function getPrompt() {
     return {
         "name": "search_files",
@@ -220,4 +231,5 @@ function getPrompt() {
         }
     };
 }
+exports.getPrompt = getPrompt;
 //# sourceMappingURL=search_files.js.map
