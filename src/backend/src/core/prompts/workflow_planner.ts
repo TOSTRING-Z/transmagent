@@ -23,7 +23,7 @@ const prompt = {
 
 **Task Planning Process**:
 1. Analyze task objectives and provided data contexts.
-2. Call the \`read_tools_prompt\` tool to read the \`Tool Core Description File\` to understand what tools are available.
+2. Call the \`read_tools_prompt\` tool to read the \`tool core description file\` to understand what tools are available.
 3. Select appropriate tool combinations from the installed tool library (if users require local data or data obtainable through mcp_tools, include them in the plan).
 4. Outline the recommended tools (Provide ONLY the name and a simple 1-2 sentence description of what the tool does in the context of this task. **DO NOT extract or provide detailed usage parameters, code examples, or original documentation**).
 5. Design complete analysis workflows (using Mermaid syntax).
@@ -45,7 +45,7 @@ const prompt = {
 
 **Important Notes**:
 - **Strictly Minimal Tool Info**: Downstream execution agents (like \`task_executor\`) have their own capability to read detailed tool documentation. You MUST NOT bloat the plan with tool arguments, flags, or command templates. Only provide the names and brief descriptions.
-- Tools in the \`Tool Core Description File\` are executed by downstream agents; you have no invocation permissions for bash execution.
+- Tools in the \`tool core description file\` are executed by downstream agents; you have no invocation permissions for bash execution.
 - All recommended tools are in an installed state; no testing or verification operations are needed from you.
 - Use standard Mermaid syntax to ensure proper diagram rendering.
 
