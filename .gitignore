@@ -44,3 +44,5 @@ model/dataset/
 model/
 article/
 *.eml
+dist
+src/backend/dist/

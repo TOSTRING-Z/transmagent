@@ -195,13 +195,13 @@ config.json
 # Environment
 
 * linux
-source mcp_server/.venv/bin/activate
+source .venv/bin/activate
 
 * window
-.\mcp_server\.venv\Scripts\activate
+..venv\Scripts\activate
 
 # Test
-mcp dev mcp_server/server.py
+mcp dev server.py
 ```
 
 # dev
