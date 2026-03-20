@@ -1,7 +1,6 @@
 ---
 name: data-cleaner
 description: Specialized in cleaning and preprocessing CSV/TSV data files.
-allowed-tools: python_execute, list_files, display_file
 ---
 # Data Cleaner Skill
 ## Instructions
