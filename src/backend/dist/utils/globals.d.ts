@@ -14,13 +14,9 @@ export declare const sysConfig: {
 };
 export declare const utils: Utils;
 export declare const globalState: {
-    pluginVersions: any[];
     config: any;
     last_clipboard_content: string | null;
     concat: boolean;
-    status: {
-        auto_opt: boolean;
-    };
 };
 export declare const CHAT_CONST: {
     DEFAULT_NAME: string;

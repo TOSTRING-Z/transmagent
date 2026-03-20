@@ -17,7 +17,6 @@ export const DOM = {
   version: document.getElementById("version") as HTMLElement,
   tokens: document.getElementById("tokens") as HTMLElement,
   seconds: document.getElementById("seconds") as HTMLElement,
-  auto_opt: document.getElementById("auto_opt") as HTMLElement,
   envs: document.getElementById("envs") as HTMLElement,
   btn_save_envs: document.getElementById("btn_save_envs") as HTMLElement,
   tasks: document.getElementById("tasks") as HTMLElement,
@@ -52,9 +51,6 @@ export const State = {
   scroll_top: {
     info: true,
     data: true,
-  },
-  status: {
-    auto_opt: false,
   },
   react_statu: false, 
   formData: {

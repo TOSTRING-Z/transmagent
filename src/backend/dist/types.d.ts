@@ -27,6 +27,13 @@ export interface ToolResult {
     tool_call_id?: string | null;
     content: string | MessageContent[];
 }
+export interface Skill {
+    name: string;
+    description: string;
+    allowedTools: string[];
+    instructions: string;
+    path: string;
+}
 export interface ToolCall {
     id?: string;
     type?: string;

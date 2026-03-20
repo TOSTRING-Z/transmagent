@@ -8,6 +8,9 @@ export interface PluginItem {
     extra?: any;
     getPrompt?: () => any;
     enabled?: boolean;
+    show?: boolean; 
+    version?: string;
+    params?: any;
 }
 
 interface PluginInfo {
@@ -16,6 +19,7 @@ interface PluginInfo {
     params?: any;
     extra?: any;
     enabled?: boolean;
+    show?: boolean;
 }
 
 export class Plugins {
@@ -60,7 +64,10 @@ export class Plugins {
                 func: plugin.main(pluginParams),
                 extra: info.extra,
                 getPrompt: plugin.getPrompt,
-                enabled: enabled
+                enabled: enabled,
+                show: info?.show,
+                version: info?.version,
+                params: info?.params,
             };
             logger.log(`[Plugins] Success to load plugin '${info.version}'`);
             return item;
@@ -103,8 +110,5 @@ export class Plugins {
                 }
             }
         });
-
-        // 更新全局状态中的插件版本列表供前端使用
-        globalState.pluginVersions = Object.keys(this.tools).map(version => ({ version, show: true }));
     }
 }

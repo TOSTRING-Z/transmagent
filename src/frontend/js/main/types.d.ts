@@ -4,7 +4,6 @@ export interface ElectronAPI {
   showLog: (log: { type: string; content: string }) => void;
   handleDeleteMemory: (callback: (data: { context_ids: number[]; ids: number[] }) => void) => void;
   initInfo: (callback: (info: any) => void) => void;
-  toggleAutoOpt: () => Promise<void>;
   Envs: (data: { type: string; envs?: any }) => Promise<any>;
   Tasks: (data: { type: string; tasks?: any }) => Promise<any>;
   changeMode: (mode: string) => void;

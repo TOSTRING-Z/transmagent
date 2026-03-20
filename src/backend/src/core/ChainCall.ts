@@ -6,12 +6,11 @@ import { PluginItem, Plugins } from './Plugins';
 
 export class ChainCall extends ReActAgent {
     public plugins: Plugins;
-    public is_plugin: boolean;
 
     constructor(plugins: Plugins, llm_service: LLMService, window: any, alertWindow: any) {
         super(llm_service, window, alertWindow);
         this.plugins = plugins;
-        this.is_plugin = false;
+        this.llm_service.chatManager.chat.is_plugin = false;
     }
 
     public async pluginCall(data: Record<string, any>): Promise<any> {
@@ -44,7 +43,7 @@ export class ChainCall extends ReActAgent {
     }
 
     public async step(data: Record<string, any>): Promise<void> {
-        this.is_plugin = data.model === "plugins";
+        this.llm_service.chatManager.chat.is_plugin = data.model === "plugins";
         let stateResult: any = null;
 
         if (data.model === "plugins") {
@@ -109,7 +108,7 @@ export class ChainCall extends ReActAgent {
 
             this.setHistory();
             if ((this.state as any) === "final") {
-                if (this.is_plugin) {
+                if (this.llm_service.chatManager.chat.is_plugin) {
                     this.window?.webContents.send('streamData', { group_id: this.llm_service.chatManager.chat.group_id, content: data.output_format, end: true });
                 }
                 break;

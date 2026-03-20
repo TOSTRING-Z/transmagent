@@ -40,6 +40,15 @@ export interface ToolResult {
     content: string | MessageContent[];
 }
 
+// skill
+export interface Skill {
+    name: string;
+    description: string;
+    allowedTools: string[];
+    instructions: string;
+    path: string;
+}
+
 
 // Tool Call 类型
 export interface ToolCall {

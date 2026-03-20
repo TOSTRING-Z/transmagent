@@ -3,6 +3,9 @@ export interface PluginItem {
     extra?: any;
     getPrompt?: () => any;
     enabled?: boolean;
+    show?: boolean;
+    version?: string;
+    params?: any;
 }
 export declare class Plugins {
     static instance: Plugins | null;

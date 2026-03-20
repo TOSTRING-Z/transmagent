@@ -84,12 +84,6 @@ document.addEventListener("DOMContentLoaded", () => {
     }
   });
 
-  // Auto Opt
-  DOM.auto_opt.addEventListener('click', async (e: any) => {
-    e.target.classList.toggle("active");
-    await window.electronAPI.toggleAutoOpt();
-  });
-
   // Sidebar & Config Buttons
   const collapseBtn = document.querySelector('.collapse-btn');
   if (collapseBtn) collapseBtn.addEventListener('click', toggleSidebar);
@@ -162,10 +156,6 @@ window.electronAPI.initInfo((info) => {
   State.chat = info.chat;
   DOM.tokens.innerText = State.chat.tokens.toString();
   DOM.seconds.innerText = State.chat.seconds.toString();
-
-  State.status = info.status;
-  if (State.status.auto_opt) DOM.auto_opt.classList.add("active");
-  else DOM.auto_opt.classList.remove("active");
 });
 
 window.electronAPI.handleMarkDownFormat((status) => State.markdown_statu = status);

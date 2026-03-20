@@ -20,7 +20,6 @@
     version: document.getElementById("version"),
     tokens: document.getElementById("tokens"),
     seconds: document.getElementById("seconds"),
-    auto_opt: document.getElementById("auto_opt"),
     envs: document.getElementById("envs"),
     btn_save_envs: document.getElementById("btn_save_envs"),
     tasks: document.getElementById("tasks"),
@@ -42,9 +41,6 @@
     scroll_top: {
       info: true,
       data: true
-    },
-    status: {
-      auto_opt: false
     },
     react_statu: false,
     formData: {

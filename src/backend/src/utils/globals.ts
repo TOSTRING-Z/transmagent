@@ -44,22 +44,17 @@ export const CONSTANTS = {
 
 
 export const sysConfig = {
-    transagent: "config.json",
-    baseagent: "config_baseagent.json",
-    multagent: "config_multagent.json",
+    transagent: "configs/config.json",
+    baseagent: "configs/config_baseagent.json",
+    multagent: "configs/config_multagent.json",
 };
 
 export const utils = new Utils(store.get('config', sysConfig.transagent));
 
 export const globalState = {
-    pluginVersions: [] as any[],
-
     config: store.get('config', sysConfig.transagent),
     last_clipboard_content: null as string | null,
     concat: false,
-    status: {
-        auto_opt: false
-    }
 };
 
 export const CHAT_CONST = {

@@ -48,7 +48,7 @@ class Prompts {
   getSkillPrompt() {
     const relevantSkills = this.skillManager.findRelevantSkills();
     const skillsPrompt = this.skillManager.getSkillPrompt(relevantSkills);
-    return skillsPrompt;
+    return skillsPrompt || "\n*No active skills detected.*";
   }
 
   getSystemPrompts(toolsData) {
@@ -182,9 +182,9 @@ ${!this.agent.prompt_args.subagent && this.agent.prompt_args.agent_mode === "tra
 ${!this.agent.prompt_args.subagent && this.agent.prompt_args.mcp_server ? `
 ## MCP Services
 **Note**: Use \`mcp_server\` to access these external tools.
-{mcp_prompt}`: ""}
+{mcp_prompt}
 
-${this.getSkillPrompt() || "\n*No active skills detected.*"}
+{skill_prompt}`: ""}
 
 {extra_prompt}
 

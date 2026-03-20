@@ -15,23 +15,13 @@ var __setModuleDefault = (this && this.__setModuleDefault) || (Object.create ? (
 }) : function(o, v) {
     o["default"] = v;
 });
-var __importStar = (this && this.__importStar) || (function () {
-    var ownKeys = function(o) {
-        ownKeys = Object.getOwnPropertyNames || function (o) {
-            var ar = [];
-            for (var k in o) if (Object.prototype.hasOwnProperty.call(o, k)) ar[ar.length] = k;
-            return ar;
-        };
-        return ownKeys(o);
-    };
-    return function (mod) {
-        if (mod && mod.__esModule) return mod;
-        var result = {};
-        if (mod != null) for (var k = ownKeys(mod), i = 0; i < k.length; i++) if (k[i] !== "default") __createBinding(result, mod, k[i]);
-        __setModuleDefault(result, mod);
-        return result;
-    };
-})();
+var __importStar = (this && this.__importStar) || function (mod) {
+    if (mod && mod.__esModule) return mod;
+    var result = {};
+    if (mod != null) for (var k in mod) if (k !== "default" && Object.prototype.hasOwnProperty.call(mod, k)) __createBinding(result, mod, k);
+    __setModuleDefault(result, mod);
+    return result;
+};
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.MainWindow = void 0;
 const electron_1 = require("electron");
@@ -392,9 +382,6 @@ class MainWindow extends BaseWindow_1.BaseWindow {
             logger_1.logger.log(`delete context_id: ${context_id}, length: ${memory_len}`);
             return { del_mode: !!this.funcItems.del.statu };
         });
-        electron_1.ipcMain.on("toggle-auto-opt", () => {
-            globals_1.globalState.status.auto_opt = !globals_1.globalState.status.auto_opt;
-        });
         electron_1.ipcMain.on("stream-message-stop", () => {
             this.llm_service.stopMessage();
             this.windowManager.subAgentWindow?.destroy();
@@ -515,7 +502,7 @@ class MainWindow extends BaseWindow_1.BaseWindow {
     getReactEvent(e) {
         const extraReact = () => {
             this.window?.webContents.send('react-statu', e.statu);
-            if (globals_1.globalState.is_plugin) {
+            if (this.llm_service.chatManager.chat.is_plugin) {
                 this.window?.webContents.send("extra_load", e.statu && this.plugins.getTool[this.llm_service.chatManager.chat.version]?.extra);
             }
             else {
@@ -562,7 +549,7 @@ class MainWindow extends BaseWindow_1.BaseWindow {
             checked: this.llm_service.chatManager.chat.model === _model,
             click: () => {
                 this.llm_service.chatManager.chat.model = _model;
-                globals_1.globalState.is_plugin = _model === "plugins";
+                this.llm_service.chatManager.chat.is_plugin = _model === "plugins";
                 this.llm_service.chatManager.chat.version = globals_1.utils.getConfig("models")[_model]["versions"][0].version;
                 this.updateVersionsSubmenu();
                 this.window?.webContents.send("handleSetChat", this.llm_service.chatManager.chat);
@@ -574,8 +561,10 @@ class MainWindow extends BaseWindow_1.BaseWindow {
     }
     getVersionsSubmenu() {
         let versions;
-        if (globals_1.globalState.is_plugin) {
-            versions = globals_1.globalState.pluginVersions.filter((v) => v?.show);
+        if (this.llm_service.chatManager.chat.is_plugin) {
+            versions = Object.values(this.plugins.getTool())
+                .filter((tool) => tool?.version && tool?.show)
+                .map((tool) => ({ version: tool.version, show: tool.show }));
         }
         else {
             versions = globals_1.utils.getConfig("models")[this.llm_service.chatManager.chat.model]["versions"];
@@ -591,7 +580,7 @@ class MainWindow extends BaseWindow_1.BaseWindow {
                     this.window?.webContents.send("handleSetChat", this.llm_service.chatManager.chat);
                     if (this.tool_call.setHistory)
                         this.tool_call.setHistory();
-                    if (globals_1.globalState.is_plugin)
+                    if (this.llm_service.chatManager.chat.is_plugin)
                         this.window?.webContents.send("extra_load", version?.extra);
                 },
                 label: _version

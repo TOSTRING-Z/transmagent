@@ -20,7 +20,6 @@
     version: document.getElementById("version"),
     tokens: document.getElementById("tokens"),
     seconds: document.getElementById("seconds"),
-    auto_opt: document.getElementById("auto_opt"),
     envs: document.getElementById("envs"),
     btn_save_envs: document.getElementById("btn_save_envs"),
     tasks: document.getElementById("tasks"),
@@ -42,9 +41,6 @@
     scroll_top: {
       info: true,
       data: true
-    },
-    status: {
-      auto_opt: false
     },
     react_statu: false,
     formData: {
@@ -1123,10 +1119,6 @@ ${DOM.input.value}`;
         window.electronAPI.agentLoop(State.formData);
       }
     });
-    DOM.auto_opt.addEventListener("click", async (e) => {
-      e.target.classList.toggle("active");
-      await window.electronAPI.toggleAutoOpt();
-    });
     const collapseBtn = document.querySelector(".collapse-btn");
     if (collapseBtn)
       collapseBtn.addEventListener("click", toggleSidebar);
@@ -1196,11 +1188,6 @@ ${DOM.input.value}`;
     State.chat = info.chat;
     DOM.tokens.innerText = State.chat.tokens.toString();
     DOM.seconds.innerText = State.chat.seconds.toString();
-    State.status = info.status;
-    if (State.status.auto_opt)
-      DOM.auto_opt.classList.add("active");
-    else
-      DOM.auto_opt.classList.remove("active");
   });
   window.electronAPI.handleMarkDownFormat((status) => State.markdown_statu = status);
   window.electronAPI.handleReactStatu((status) => State.react_statu = status);

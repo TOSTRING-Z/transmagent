@@ -6,11 +6,10 @@ const globals_1 = require("../utils/globals");
 const format_1 = require("../utils/format");
 class ChainCall extends ReActAgent_1.ReActAgent {
     plugins;
-    is_plugin;
     constructor(plugins, llm_service, window, alertWindow) {
         super(llm_service, window, alertWindow);
         this.plugins = plugins;
-        this.is_plugin = false;
+        this.llm_service.chatManager.chat.is_plugin = false;
     }
     async pluginCall(data) {
         this.window.webContents.send('userData', { group_id: this.llm_service.chatManager.chat.group_id, context_id: this.llm_service.chatManager.chat.context_id, content: data.query, del: false });
@@ -36,7 +35,7 @@ class ChainCall extends ReActAgent_1.ReActAgent {
         this.window?.webContents.send('streamData', { group_id: this.llm_service.chatManager.chat.group_id, content: data.output_format, end: true, is_plugin: data.is_plugin });
     }
     async step(data) {
-        this.is_plugin = data.model === "plugins";
+        this.llm_service.chatManager.chat.is_plugin = data.model === "plugins";
         let stateResult = null;
         if (data.model === "plugins") {
             stateResult = await this.pluginCall(data);
@@ -91,7 +90,7 @@ class ChainCall extends ReActAgent_1.ReActAgent {
             }
             this.setHistory();
             if (this.state === "final") {
-                if (this.is_plugin) {
+                if (this.llm_service.chatManager.chat.is_plugin) {
                     this.window?.webContents.send('streamData', { group_id: this.llm_service.chatManager.chat.group_id, content: data.output_format, end: true });
                 }
                 break;

@@ -4,7 +4,6 @@ contextBridge.exposeInMainWorld('electronAPI', {
   send: (channel: string, data: any) => ipcRenderer.send(channel, data),
   changeMode: (mode: any) => ipcRenderer.send('changeMode', mode),
   openExternal: (href: string) => ipcRenderer.send('open-external', href),
-  toggleAutoOpt: () => ipcRenderer.send('toggle-auto-opt'),
   streamMessageStop: () => ipcRenderer.send('stream-message-stop'),
   renameChat: (data: Record<string, any>) => ipcRenderer.send('rename-chat', data),
   delChat: (id: any) => ipcRenderer.send('del-chat', id),

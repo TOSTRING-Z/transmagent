@@ -13,10 +13,11 @@ import { LLMService } from '../../core/LLMService';
 import { State } from "../../core/ReActAgent";
 import { PromptArgs, ToolCall } from '../../core/ToolCall';
 import { ChainCall } from '../../core/ChainCall';
-import { Plugins } from '../../core/Plugins';
+import { PluginItem, Plugins } from '../../core/Plugins';
 import { captureMouse } from '../../mouse/CaptureMouse';
 import { install } from '../../core/Install';
 import { MainServer } from '../../server/MainServer';
+import { assert } from 'console';
 
 // 定义 FuncItems 结构以启用严格模式
 interface FuncItemNode {
@@ -381,10 +382,6 @@ export class MainWindow extends BaseWindow {
             return { del_mode: !!this.funcItems.del.statu };
         });
 
-        ipcMain.on("toggle-auto-opt", () => {
-            globalState.status.auto_opt = !globalState.status.auto_opt;
-        });
-
         ipcMain.on("stream-message-stop", () => {
             this.llm_service.stopMessage();
             this.windowManager.subAgentWindow?.destroy();
@@ -520,7 +517,7 @@ export class MainWindow extends BaseWindow {
     private getReactEvent(e: FuncItemNode) {
         const extraReact = () => {
             this.window?.webContents.send('react-statu', e.statu);
-            if ((globalState as any).is_plugin) {
+            if (this.llm_service.chatManager.chat.is_plugin) {
                 this.window?.webContents.send("extra_load", e.statu && this.plugins.getTool[this.llm_service.chatManager.chat.version]?.extra);
             } else {
                 const ssh_config = utils.getSshConfig();
@@ -569,7 +566,7 @@ export class MainWindow extends BaseWindow {
             checked: this.llm_service.chatManager.chat.model === _model,
             click: () => {
                 this.llm_service.chatManager.chat.model = _model;
-                (globalState as any).is_plugin = _model === "plugins";
+                this.llm_service.chatManager.chat.is_plugin = _model === "plugins";
                 this.llm_service.chatManager.chat.version = utils.getConfig("models")[_model]["versions"][0].version;
                 this.updateVersionsSubmenu();
                 this.window?.webContents.send("handleSetChat", this.llm_service.chatManager.chat);
@@ -581,8 +578,10 @@ export class MainWindow extends BaseWindow {
 
     private getVersionsSubmenu(): MenuItemConstructorOptions[] {
         let versions;
-        if ((globalState as any).is_plugin) {
-            versions = globalState.pluginVersions.filter((v: any) => v?.show);
+        if (this.llm_service.chatManager.chat.is_plugin) {
+            versions = Object.values(this.plugins.getTool() as Record<string, PluginItem>)
+                .filter((tool: PluginItem) => tool?.version && tool?.show)
+                .map((tool: PluginItem) => ({ version: tool.version, show: tool.show }));
         } else {
             versions = utils.getConfig("models")[this.llm_service.chatManager.chat.model]["versions"];
         }
@@ -597,7 +596,7 @@ export class MainWindow extends BaseWindow {
                     this.llm_service.chatManager.chat.version = _version;
                     this.window?.webContents.send("handleSetChat", this.llm_service.chatManager.chat);
                     if (this.tool_call.setHistory) this.tool_call.setHistory();
-                    if ((globalState as any).is_plugin) this.window?.webContents.send("extra_load", version?.extra);
+                    if (this.llm_service.chatManager.chat.is_plugin) this.window?.webContents.send("extra_load", version?.extra);
                 },
                 label: _version
             };
@@ -665,7 +664,7 @@ export class MainWindow extends BaseWindow {
                     {
                         label: 'Save Configuration',
                         click: () => {
-                            const lastPath = path.join(store.get('lastSaveConfigurationPath') || utils.getDefault(), (globalState as any).config);
+                            const lastPath = path.join(store.get('lastSaveConfigurationPath') || utils.getDefault(), globalState.config);
                             dialog.showSaveDialog(this.window!, {
                                 defaultPath: lastPath,
                                 filters: [{ name: 'JSON File', extensions: ['json'] }, { name: 'All Files', extensions: ['*'] }]
@@ -687,7 +686,7 @@ export class MainWindow extends BaseWindow {
                             }).then(result => {
                                 if (!result.canceled) {
                                     store.set('lastLoadConfigurationPath', path.dirname(result.filePaths[0]));
-                                    const configFilePath = path.join(utils.getDefault(), (globalState as any).config);
+                                    const configFilePath = path.join(utils.getDefault(), globalState.config);
                                     fs.copyFile(result.filePaths[0], configFilePath, (err) => {
                                         if (!err) {
                                             this.windowManager.configWindow?.window?.webContents.send('load-config', configFilePath);

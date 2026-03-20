@@ -217,6 +217,7 @@ export class ToolCall extends ReActAgent {
                 mcp_prompt: this.mcp_prompt,
                 cli_prompt: this.prompts.getCliPrompt(),
                 extra_prompt: this.prompts.getExtraPrompt(data.extra_prompt),
+                skill_prompt: this.prompts.getSkillPrompt(),
                 important_memory: important_memory,
                 memory_list: JSON.stringify(this.memory_list, null, 2)
             }

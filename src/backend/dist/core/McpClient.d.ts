@@ -7,7 +7,7 @@ declare class MCPClient {
     toolPrompts: Record<string, string>;
     mcpPrompt: string;
     isInitialized: boolean;
-    constructor(toolcall?: any | undefined);
+    constructor(toolcall?: any);
     static getInstance(toolcall?: any): MCPClient;
     /**
      * 连接 Transport 层
@@ -25,7 +25,7 @@ declare class MCPClient {
             type: "text";
             text: string;
             annotations?: {
-                audience?: ("user" | "assistant")[] | undefined;
+                audience?: ("assistant" | "user")[] | undefined;
                 priority?: number | undefined;
                 lastModified?: string | undefined;
             } | undefined;
@@ -35,7 +35,7 @@ declare class MCPClient {
             data: string;
             mimeType: string;
             annotations?: {
-                audience?: ("user" | "assistant")[] | undefined;
+                audience?: ("assistant" | "user")[] | undefined;
                 priority?: number | undefined;
                 lastModified?: string | undefined;
             } | undefined;
@@ -45,7 +45,7 @@ declare class MCPClient {
             data: string;
             mimeType: string;
             annotations?: {
-                audience?: ("user" | "assistant")[] | undefined;
+                audience?: ("assistant" | "user")[] | undefined;
                 priority?: number | undefined;
                 lastModified?: string | undefined;
             } | undefined;
@@ -64,7 +64,7 @@ declare class MCPClient {
                 _meta?: Record<string, unknown> | undefined;
             };
             annotations?: {
-                audience?: ("user" | "assistant")[] | undefined;
+                audience?: ("assistant" | "user")[] | undefined;
                 priority?: number | undefined;
                 lastModified?: string | undefined;
             } | undefined;
@@ -76,7 +76,7 @@ declare class MCPClient {
             description?: string | undefined;
             mimeType?: string | undefined;
             annotations?: {
-                audience?: ("user" | "assistant")[] | undefined;
+                audience?: ("assistant" | "user")[] | undefined;
                 priority?: number | undefined;
                 lastModified?: string | undefined;
             } | undefined;

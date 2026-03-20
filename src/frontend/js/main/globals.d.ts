@@ -17,7 +17,6 @@ export declare const DOM: {
     version: HTMLElement;
     tokens: HTMLElement;
     seconds: HTMLElement;
-    auto_opt: HTMLElement;
     envs: HTMLElement;
     btn_save_envs: HTMLElement;
     tasks: HTMLElement;
@@ -44,9 +43,6 @@ export declare const State: {
     scroll_top: {
         info: boolean;
         data: boolean;
-    };
-    status: {
-        auto_opt: boolean;
     };
     react_statu: boolean;
     formData: {

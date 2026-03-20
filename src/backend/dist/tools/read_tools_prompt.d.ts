@@ -1,5 +1,6 @@
 export interface ReadToolsParams {
     tool_names?: string[];
+    skill_names?: string[];
 }
 export declare function getPrompt(): {
     name: string;
@@ -8,6 +9,13 @@ export declare function getPrompt(): {
         type: string;
         properties: {
             tool_names: {
+                type: string;
+                items: {
+                    type: string;
+                };
+                description: string;
+            };
+            skill_names: {
                 type: string;
                 items: {
                     type: string;

@@ -1,9 +1,10 @@
 import * as fs from 'fs';
 import * as path from 'path';
+import { Skill } from '../types';
 
 class SkillManager {
   skillsPath: string;
-  skills: any[];
+  skills: Skill[];
   constructor(skillsPath?: string | null) {
     this.skillsPath = skillsPath || path.join(__dirname, '../../skills');
     this.skills = [];
@@ -25,7 +26,8 @@ class SkillManager {
       const skillMdPath = path.join(this.skillsPath, folder, 'SKILL.md');
       if (fs.existsSync(skillMdPath)) {
         const content = fs.readFileSync(skillMdPath, 'utf-8');
-        const match = content.match(/^---\n([\s\S]*?)\n---\n([\s\S]*)$/);
+        // 使用 \r?\n 来兼容两种换行符
+        const match = content.match(/^---\r?\n([\s\S]*?)\r?\n---\r?\n([\s\S]*)$/)
         if (match) {
           try {
             // 简单的正则解析 YAML 元数据，避免外部依赖
@@ -48,7 +50,7 @@ class SkillManager {
         }
       }
       return null;
-    }).filter(Boolean);
+    }).filter(Boolean) as Skill[];
   }
 
   findRelevantSkills() {
@@ -57,7 +59,7 @@ class SkillManager {
 
   getSkillPrompt(relevantSkills) {
     if (relevantSkills.length === 0) return '';
-    
+
     let prompt = '\n# 🌟 Active Agent Skills\n';
     relevantSkills.forEach(skill => {
       prompt += `\n## Skill: ${skill.name}\n`;
