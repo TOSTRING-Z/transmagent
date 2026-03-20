@@ -5,7 +5,7 @@ declare class Prompts {
     skillManager: SkillManager;
     constructor(agent: ToolCall);
     getCliPrompt(): string;
-    getExtraPrompt(extra_prompt?: string | null): string;
+    getExtraPrompt(extraPromptPath?: string | null): string;
     getSkillPrompt(): string;
     getSystemPrompts(toolsData: any): string;
     getEnvPrompts(): string;

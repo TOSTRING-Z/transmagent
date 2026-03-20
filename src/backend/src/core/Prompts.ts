@@ -16,24 +16,31 @@ class Prompts {
 
   getCliPrompt() {
     if (this.agent.prompt_args.agent_mode === "transagent") {
-      const cli_prompt_path = utils.getConfig("tool_call").cli_prompt || utils.getDefault("cli_prompt.md");
-      const cli_prompt = fs.readFileSync(cli_prompt_path, 'utf-8');
-      return cli_prompt;
+      try {
+        const cliPromptPath = utils.getConfig("tool_call").cli_prompt || utils.getDefault("prompts/cli_prompt.md");
+        if (fs.existsSync(cliPromptPath)) {
+          return fs.readFileSync(cliPromptPath, 'utf-8');
+        }
+        return "";
+      } catch (error: any) {
+        logger.log(error.message);
+        this.agent.alertWindow.create({ type: "error", content: `[ToolCall.getCliPrompt]: ${error.message}` });
+        return "";
+      }
     }
     return "";
   };
 
-  getExtraPrompt(extra_prompt?: string | null) {
+  getExtraPrompt(extraPromptPath?: string | null) {
     try {
-      extra_prompt = extra_prompt || utils.getSystem(`system_prompts/${this.agent.prompt_args.agent_mode}.md`);
-      if (fs.existsSync(extra_prompt)) {
-        // eslint-disable-next-line no-undef
-        return fs.readFileSync(extra_prompt, 'utf-8');
+      extraPromptPath = extraPromptPath || utils.getDefault(`prompts/${this.agent.prompt_args.agent_mode}.md`);
+      if (fs.existsSync(extraPromptPath)) {
+        return fs.readFileSync(extraPromptPath, 'utf-8');
       }
       return "";
     } catch (error: any) {
       logger.log(error.message);
-      this.agent.alertWindow.create({ type: "error", content: `[ToolCall.get_extra_prompt]: ${error.message}` });
+      this.agent.alertWindow.create({ type: "error", content: `[ToolCall.getExtraPrompt]: ${error.message}` });
       return "";
     }
   }
@@ -63,7 +70,7 @@ class Prompts {
    - **Requirement**: You MUST explicitly pass all necessary context (task document, file paths, raw data, analysis results) into every tool call.
    - **Explicit Tool Naming**: Any task document, plan, or context payload MUST explicitly state the **EXACT names** of the required tools (e.g., \`TRAPT\`, \`bedtools\`). You are FORBIDDEN from using vague descriptions like "the execution tool" or "the search tool".
    - **Prohibition**: Never assume a tool "knows" what happened in the previous step.
-`:`You are **TransMAgent**, a versatile, high-efficiency AI assistant capable of solving complex user requests through strategic tool usage.`)}
+`: `You are **TransMAgent**, a versatile, high-efficiency AI assistant capable of solving complex user requests through strategic tool usage.`)}
 
 ${!this.agent.prompt_args.subagent && this.agent.environment_details.mode === Mode.ACT ? `# 🗣️ INTERACTIVE COMMUNICATION PROTOCOL
 1. **Low Confidence? Ask.** If the user's request is ambiguous or has multiple technical paths, do NOT guess. Present options and ask for a preference.

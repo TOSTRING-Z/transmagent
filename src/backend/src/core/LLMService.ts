@@ -186,12 +186,7 @@ export class LLMService {
     private async handleNormal(resp: Response, adapter: ILLMAdapter, headers: any, body: any, data: ChatRequestData, messageOutput: Message) {
         let respJson: any;
         try {
-            // 添加超时控制
-            const timeoutPromise = new Promise((_, reject) => {
-                setTimeout(() => reject(new Error('Response timeout')), 10000); // 10秒超时
-            });
-
-            respJson = await Promise.race([resp.json(), timeoutPromise]);
+            respJson = await resp.json()
         } catch (err: any) {
             console.error(err);
             return;

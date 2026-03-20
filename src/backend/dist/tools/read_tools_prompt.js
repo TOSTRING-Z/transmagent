@@ -1,7 +1,6 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.getPrompt = getPrompt;
-exports.main = main;
+exports.main = exports.getPrompt = void 0;
 const fs_1 = require("fs");
 const globals_1 = require("../utils/globals");
 const WindowManager_1 = require("../main/windows/WindowManager");
@@ -24,6 +23,7 @@ function getPrompt() {
         }
     };
 }
+exports.getPrompt = getPrompt;
 function main() {
     return async (params) => {
         // 获取参数，默认为空数组
@@ -31,7 +31,8 @@ function main() {
         const mcp_client = WindowManager_1.WindowManager.instance.mainWindow.tool_call.mcp_client;
         await mcp_client.initMcp();
         const mcp_prompt = mcp_client.mcpPrompt;
-        const prompt_file = globals_1.utils.getConfig("tool_call")?.cli_prompt || globals_1.utils.getDefault("cli_prompt.md");
+        const mcp_tool_prompts = mcp_client.toolPrompts; // 这是一个 Record<string, string>
+        const prompt_file = globals_1.utils.getConfig("tool_call")?.cli_prompt || globals_1.utils.getDefault("prompts/cli_prompt.md");
         if (!(0, fs_1.existsSync)(prompt_file)) {
             return "The tool core description file does not exist";
         }
@@ -43,7 +44,7 @@ function main() {
                 mcp_tools: mcp_prompt
             };
         }
-        // --- 逐行解析提取指定工具逻辑 ---
+        // --- 逐行解析提取指定 Bash 工具逻辑 ---
         const lines = fileContent.split('\n');
         let extractedTools = [];
         let currentToolName = null;
@@ -81,14 +82,26 @@ function main() {
         if (currentToolName && tool_names.includes(currentToolName)) {
             extractedTools.push(currentToolLines.join('\n').trim());
         }
-        // 拼接提取出的文档结果
         const matchedBashTools = extractedTools.length > 0
             ? extractedTools.join('\n\n')
-            : `No matching tools found for: ${tool_names.join(', ')}. Please check the tool names.`;
+            : `No matching bash tools found for: ${tool_names.join(', ')}.`;
+        // --- 提取指定的 MCP 工具逻辑 ---
+        const extractedMcpTools = [];
+        for (const name of tool_names) {
+            if (mcp_tool_prompts[name]) {
+                // 找到对应的 MCP 工具，推入数组
+                extractedMcpTools.push(mcp_tool_prompts[name]);
+            }
+        }
+        // 拼接提取出的 MCP 文档结果，使用 "---" 分隔保持格式统一
+        const matchedMcpTools = extractedMcpTools.length > 0
+            ? extractedMcpTools.join('\n\n---\n\n')
+            : `No matching MCP tools found for: ${tool_names.join(', ')}.`;
         return {
             bash_tools: matchedBashTools,
-            mcp_tools: mcp_prompt
+            mcp_tools: matchedMcpTools
         };
     };
 }
+exports.main = main;
 //# sourceMappingURL=read_tools_prompt.js.map

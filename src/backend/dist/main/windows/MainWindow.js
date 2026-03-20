@@ -819,7 +819,7 @@ class MainWindow extends BaseWindow_1.BaseWindow {
         }
     }
     loadPrompt() {
-        const lastDirectory = globals_1.store.get('lastPromptDirectory') || path.join(process.resourcesPath, 'resources/', 'system_prompts/');
+        const lastDirectory = globals_1.store.get('lastPromptDirectory') || globals_1.utils.getDefault("prompts/");
         electron_1.dialog.showOpenDialog(this.window, { properties: ['openFile'], defaultPath: lastDirectory })
             .then(result => {
             if (!result.canceled) {

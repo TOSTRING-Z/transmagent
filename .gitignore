@@ -1,3 +1,4 @@
+dist
 node_modules
 glm_token.py
 .vscode
@@ -44,5 +45,3 @@ model/dataset/
 model/
 article/
 *.eml
-dist
-src/backend/dist/

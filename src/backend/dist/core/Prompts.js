@@ -37,25 +37,33 @@ class Prompts {
     }
     getCliPrompt() {
         if (this.agent.prompt_args.agent_mode === "transagent") {
-            const cli_prompt_path = globals_1.utils.getConfig("tool_call").cli_prompt || globals_1.utils.getDefault("cli_prompt.md");
-            const cli_prompt = fs.readFileSync(cli_prompt_path, 'utf-8');
-            return cli_prompt;
+            try {
+                const cliPromptPath = globals_1.utils.getConfig("tool_call").cli_prompt || globals_1.utils.getDefault("prompts/cli_prompt.md");
+                if (fs.existsSync(cliPromptPath)) {
+                    return fs.readFileSync(cliPromptPath, 'utf-8');
+                }
+                return "";
+            }
+            catch (error) {
+                logger_1.logger.log(error.message);
+                this.agent.alertWindow.create({ type: "error", content: `[ToolCall.getCliPrompt]: ${error.message}` });
+                return "";
+            }
         }
         return "";
     }
     ;
-    getExtraPrompt(extra_prompt) {
+    getExtraPrompt(extraPromptPath) {
         try {
-            extra_prompt = extra_prompt || globals_1.utils.getSystem(`system_prompts/${this.agent.prompt_args.agent_mode}.md`);
-            if (fs.existsSync(extra_prompt)) {
-                // eslint-disable-next-line no-undef
-                return fs.readFileSync(extra_prompt, 'utf-8');
+            extraPromptPath = extraPromptPath || globals_1.utils.getDefault(`prompts/${this.agent.prompt_args.agent_mode}.md`);
+            if (fs.existsSync(extraPromptPath)) {
+                return fs.readFileSync(extraPromptPath, 'utf-8');
             }
             return "";
         }
         catch (error) {
             logger_1.logger.log(error.message);
-            this.agent.alertWindow.create({ type: "error", content: `[ToolCall.get_extra_prompt]: ${error.message}` });
+            this.agent.alertWindow.create({ type: "error", content: `[ToolCall.getExtraPrompt]: ${error.message}` });
             return "";
         }
     }

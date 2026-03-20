@@ -16,7 +16,7 @@ export interface PromptArgs {
     mcp_server?: boolean;
     todolist?: boolean;
     subagent?: boolean;
-    agent_mode?: string;
+    agent_mode?: "transagent" | "multagent" | "baseagent";
     tool_format?: string;
 }
 export interface EnvironmentDetails {

@@ -217,6 +217,7 @@ class SubAgentWindow extends BaseWindow_1.BaseWindow {
                 promptModule: 'chart_plotter',
                 getTools: () => this.normalizeTools({
                     cli_execute: this.plugins.getTool("cli_execute"),
+                    read_tools_prompt: this.plugins.getTool("read_tools_prompt"),
                     list_dir: this.plugins.getTool("list_dir"),
                     write_to_file: this.plugins.getTool("write_to_file"),
                     replace_in_file: this.plugins.getTool("replace_in_file"),

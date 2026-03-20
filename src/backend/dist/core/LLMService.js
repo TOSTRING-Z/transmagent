@@ -170,11 +170,7 @@ class LLMService {
     async handleNormal(resp, adapter, headers, body, data, messageOutput) {
         let respJson;
         try {
-            // 添加超时控制
-            const timeoutPromise = new Promise((_, reject) => {
-                setTimeout(() => reject(new Error('Response timeout')), 10000); // 10秒超时
-            });
-            respJson = await Promise.race([resp.json(), timeoutPromise]);
+            respJson = await resp.json();
         }
         catch (err) {
             console.error(err);

@@ -11,7 +11,7 @@ import { WindowManager } from "./WindowManager";
 import { store, globalState, CONSTANTS, utils, sysConfig } from '../../utils/globals';
 import { LLMService } from '../../core/LLMService';
 import { State } from "../../core/ReActAgent";
-import { ToolCall } from '../../core/ToolCall';
+import { PromptArgs, ToolCall } from '../../core/ToolCall';
 import { ChainCall } from '../../core/ChainCall';
 import { Plugins } from '../../core/Plugins';
 import { captureMouse } from '../../mouse/CaptureMouse';
@@ -162,7 +162,7 @@ export class MainWindow extends BaseWindow {
         this.llm_service = new LLMService([], this.window);
 
         let agentTools = {};
-        let agent_mode = "transagent";
+        let agent_mode: PromptArgs["agent_mode"] = "transagent";
         let mcp_server = true;
 
         if (this.funcItems.react.transagent.statu && utils.getConfig("tool_call")?.subagent) {
@@ -830,7 +830,7 @@ export class MainWindow extends BaseWindow {
     }
 
     public loadPrompt() {
-        const lastDirectory = store.get('lastPromptDirectory') || path.join(process.resourcesPath, 'resources/', 'system_prompts/');
+        const lastDirectory = store.get('lastPromptDirectory') || utils.getDefault("prompts/");
         dialog.showOpenDialog(this.window!, { properties: ['openFile'], defaultPath: lastDirectory })
             .then(result => {
                 if (!result.canceled) {
