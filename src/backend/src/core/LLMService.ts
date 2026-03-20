@@ -86,8 +86,7 @@ export class LLMService {
                 }
             } else {
                 const errorText = await resp.text();
-                messageOutput.content = `HTTP Error ${resp.status}: ${errorText}`;
-                data.output = messageOutput.content;
+                logger.error(`HTTP Error ${resp.status}: ${errorText}`);
                 return messageOutput;
             }
 
@@ -116,7 +115,7 @@ export class LLMService {
             return messageOutput;
 
         } catch (error: any) {
-            console.error(error);
+            logger.error(error);
             if (!data?.return_response) {
                 this.window?.webContents.send('infoData', {
                     group_id: this.chatManager.chat.group_id,

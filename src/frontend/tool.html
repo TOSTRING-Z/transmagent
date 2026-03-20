@@ -371,6 +371,35 @@
             <option value="false">Disabled</option>
           </select>
         </div>
+
+        <!-- 高风险工具配置 -->
+        <div class="form-row">
+          <label style="color: var(--danger); font-weight: bold;">
+            <i class="fas fa-exclamation-triangle"></i> High Risk Configuration
+          </label>
+        </div>
+
+        <div class="form-row">
+          <label>
+            <input type="checkbox" id="tool-high-risk">
+            Mark as High Risk Tool
+          </label>
+          <small class="muted">Tools that can execute commands or modify files should be marked as high risk.</small>
+        </div>
+
+        <div class="form-row">
+          <label>
+            <input type="checkbox" id="tool-require-confirmation" disabled>
+            Require Confirmation Before Execution
+          </label>
+          <small class="muted">Show confirmation dialog before executing high risk tools.</small>
+        </div>
+
+        <div class="form-row">
+          <label>Custom Confirmation Message:</label>
+          <textarea id="tool-confirmation-message" rows="2" placeholder="Are you sure you want to execute this high risk tool?"></textarea>
+          <small class="muted">Optional custom message for confirmation dialog.</small>
+        </div>
       </div>
 
       <div class="modal-actions">
@@ -396,6 +425,21 @@
 
     function init() {
       loadTools();
+      // 绑定高风险选项的交互逻辑
+      document.getElementById('tool-high-risk').addEventListener('change', function() {
+        const requireConfirmationCheckbox = document.getElementById('tool-require-confirmation');
+        const confirmationMessageTextarea = document.getElementById('tool-confirmation-message');
+        
+        if (this.checked) {
+          requireConfirmationCheckbox.disabled = false;
+          requireConfirmationCheckbox.checked = true;
+          confirmationMessageTextarea.disabled = false;
+        } else {
+          requireConfirmationCheckbox.disabled = true;
+          requireConfirmationCheckbox.checked = false;
+          confirmationMessageTextarea.disabled = true;
+        }
+      });
     }
 
     function loadTools() {
@@ -438,10 +482,11 @@
               <span class="detail-label">Params:</span>
               <span>${tool.params ? JSON.stringify(tool.params).substring(0, 50) + (JSON.stringify(tool.params).length > 50 ? '...' : '') : '{}'}</span>
             </div>
-             <div class="tool-detail">
+            <div class="tool-detail">
               <span class="detail-label">Status:</span>
               <span>
                 ${isEnabled ? '<span class="feature-tag enabled-tag">Enabled</span>' : '<span class="feature-tag disabled-tag">Disabled</span>'}
+                ${tool.high_risk ? '<span class="feature-tag" style="background-color: #ffebee; color: #c62828;">High Risk</span>' : ''}
               </span>
             </div>
           </div>
@@ -474,6 +519,28 @@
         document.getElementById('tool-params').value = tool.params ? JSON.stringify(tool.params, null, 2) : '';
         document.getElementById('tool-extra').value = tool.extra ? JSON.stringify(tool.extra, null, 2) : '';
         document.getElementById('tool-enabled').value = tool.enabled !== false ? 'true' : 'false';
+        
+        // 加载高风险配置
+        const highRisk = tool.high_risk || false;
+        const requireConfirmation = tool.require_confirmation !== false;
+        const confirmationMessage = tool.confirmation_message || '';
+        
+        document.getElementById('tool-high-risk').checked = highRisk;
+        document.getElementById('tool-require-confirmation').checked = requireConfirmation;
+        document.getElementById('tool-confirmation-message').value = confirmationMessage;
+        
+        // 根据高风险状态设置其他控件的可用性
+        const requireConfirmationCheckbox = document.getElementById('tool-require-confirmation');
+        const confirmationMessageTextarea = document.getElementById('tool-confirmation-message');
+        
+        if (highRisk) {
+          requireConfirmationCheckbox.disabled = false;
+          confirmationMessageTextarea.disabled = false;
+        } else {
+          requireConfirmationCheckbox.disabled = true;
+          confirmationMessageTextarea.disabled = true;
+        }
+        
         document.getElementById('m-add-tool').style.display = 'flex';
       }
     }
@@ -488,6 +555,13 @@
       document.getElementById('tool-params').value = '';
       document.getElementById('tool-extra').value = '';
       document.getElementById('tool-enabled').value = 'true';
+      
+      // 重置高风险选项
+      document.getElementById('tool-high-risk').checked = false;
+      document.getElementById('tool-require-confirmation').checked = false;
+      document.getElementById('tool-require-confirmation').disabled = true;
+      document.getElementById('tool-confirmation-message').value = '';
+      document.getElementById('tool-confirmation-message').disabled = true;
     }
 
     function browseFile() {
@@ -504,6 +578,9 @@
       const paramsText = document.getElementById('tool-params').value.trim();
       const extraText = document.getElementById('tool-extra').value.trim();
       const enabled = document.getElementById('tool-enabled').value === 'true';
+      const highRisk = document.getElementById('tool-high-risk').checked;
+      const requireConfirmation = document.getElementById('tool-require-confirmation').checked;
+      const confirmationMessage = document.getElementById('tool-confirmation-message').value.trim();
 
       if (!id) {
         alert('Tool ID cannot be empty');
@@ -535,7 +612,10 @@
         path,
         params,
         extra,
-        enabled
+        enabled,
+        high_risk: highRisk,
+        require_confirmation: highRisk ? requireConfirmation : false, // 只有高风险工具才需要确认
+        confirmation_message: highRisk ? confirmationMessage : ''
       };
 
       ipcRenderer.invoke('save-tool', toolData).then(() => {

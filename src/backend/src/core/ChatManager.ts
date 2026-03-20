@@ -277,11 +277,47 @@ export class ChatManager {
         return message_copy;
     }
 
+    public getStartIdx(data: Record<string, any>): number {
+        let messages = this.getMessages(false);
+        messages = this.compressContext(messages);
+        let startIdx = Math.floor(messages.length / data.memory_length) * data.memory_length;
+        if (startIdx > 0) {
+            // 保留最近的一半上下文
+            startIdx -= Math.floor(data.memory_length / 2);
+        }
+        let startMessage = messages[startIdx];
+        // 如果最后一条消息是 tool 的话，startIdx - 1 表示上一条为 assistant 的消息
+        if (startMessage?.role === "tool") {
+            startIdx -= 1;
+        }
+        return startIdx;
+    }
+
     public getMemory(data: Record<string, any>): Message[] {
         let messages = this.getMessages(false);
         messages = this.compressContext(messages);
         // 截取最近记忆
-        let startIdx = Math.floor(messages.length / data.memory_length) * data.memory_length;
-        return messages.slice(startIdx, messages.length);
+        if (messages.length > data.memory_length) {
+            let messages_list: Message[] = [];
+            let startIdx = this.getStartIdx(data);
+            let longStartIdx = Math.max(startIdx - data.long_memory_length, 0);
+            messages_list = messages.slice(longStartIdx, startIdx).filter(message => message.role !== "tool").map(message => {
+                const message_copy = this.delMessage(message, message?.del);
+                return {
+                    role: message_copy.role,
+                    content: message_copy.content,
+                    context_id: message_copy.context_id,
+                };
+            });
+            let longMessages = JSON.stringify(messages_list, null, 2);
+            let userMessage: Message = {
+                role: "user",
+                content: "# 🗃️ Session Memory (Context IDs)\n" + longMessages,
+            }
+            messages = messages.slice(startIdx, messages.length)
+            // 在前面添加一条 user 消息
+            messages.unshift(userMessage);
+        }
+        return messages;
     }
 }

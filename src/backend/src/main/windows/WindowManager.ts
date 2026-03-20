@@ -7,6 +7,7 @@ import { ModelWindow } from "./ModelWindow";
 import { CodeWindow } from "./CodeWindow";
 import { ToolWindow } from "./ToolWindow";
 import { SubAgentWindow } from "./SubAgentWindow";
+import { ConfirmationWindow } from "./ConfirmationWindow";
 
 export class WindowManager {
     public static instance: WindowManager;
@@ -20,6 +21,7 @@ export class WindowManager {
     public codeWindow!: CodeWindow;
     public toolWindow!: ToolWindow;
     public subAgentWindow!: SubAgentWindow;
+    public confirmationWindow!: ConfirmationWindow;
 
     constructor() {
         if (!WindowManager.instance) {
@@ -34,6 +36,8 @@ export class WindowManager {
             this.codeWindow.setup();
             this.toolWindow = new ToolWindow(this);
             this.toolWindow.setup();
+            this.confirmationWindow = new ConfirmationWindow(this);
+            this.confirmationWindow.setup();
             WindowManager.instance = this;
         }
         return WindowManager.instance;
@@ -48,5 +52,6 @@ export class WindowManager {
         this.subAgentWindow?.destroy();
         this.codeWindow.destroy();
         this.toolWindow.destroy();
+        this.confirmationWindow.destroy();
     }
 }

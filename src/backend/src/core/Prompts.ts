@@ -215,9 +215,6 @@ ${!this.agent.prompt_args.subagent ? `- **Active Mode**: The current operating m
 ${!this.agent.prompt_args.subagent ? `
 # 📌 Important Memory
 {important_memory}`: ""}
-
-# 🗃️ Session Memory (Context IDs)
-{memory_list}
 `;
     return prompts;
   }

@@ -185,7 +185,7 @@ export class MainWindow extends BaseWindow {
             subagent: false,
             agent_mode: agent_mode,
             tool_format: this.llm_service.chatManager.chat.tool_format
-        });
+        }, this.windowManager);
 
         this.chain_call = new ChainCall(this.plugins, this.llm_service, this.window, this.windowManager.alertWindow);
         this.main_server = new MainServer(this);
