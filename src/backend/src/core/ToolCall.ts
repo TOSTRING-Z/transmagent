@@ -396,7 +396,7 @@ You MUST respond ONLY with a valid JSON object. DO NOT call any tools.
         } else {
             this.repetitions_delay_empty += 1;
             // 超过容错次数，清空记录并以当前的思考作为新的起点
-            if (this.repetitions_delay_empty >= (utils.getConfig("tool_call")?.repetitions_delay_empty || 2)) {
+            if (this.repetitions_delay_empty >= (utils.getConfig("tool_call")?.repetitions_delay_empty || 1)) {
                 this.thinking_repetitions = [currentThinking];
                 this.repetitions_delay_empty = 0;
             }
@@ -405,7 +405,8 @@ You MUST respond ONLY with a valid JSON object. DO NOT call any tools.
         // ==========================================
         // 2. 拦截死循环并打断 (从原有 else 块中剥离)
         // ==========================================
-        if (this.thinking_repetitions.length >= (utils.getConfig("tool_call")?.max_thinking_repetitions || 3)) {
+        if (this.thinking_repetitions.length >= (utils.getConfig("tool_call")?.max_thinking_repetitions || 5)) {
+            this.llm_service.chatManager.pushMessage(assistantMessage);
             let observation = {
                 ask: `You have been stuck in a thinking loop ${this.thinking_repetitions.length} times. Try a new approach to break through, or end it directly.`,
                 options: ["End Task", "Try New Approach", "Continue"]
@@ -416,7 +417,7 @@ You MUST respond ONLY with a valid JSON object. DO NOT call any tools.
             this.thinking_repetitions.length = 0; // 触发打断后清空历史，避免反复触发
 
             this.window?.webContents.send('streamData', { group_id: this.llm_service.chatManager.chat.group_id, context_id: this.llm_service.chatManager.chat.context_id, content: ask, end: true, chat: this.llm_service.chatManager.chat });
-            this.window?.webContents.send("options", { options: options, group_id: this.llm_service.chatManager.chat.group_id, tool_call_id: this.toolInfo?.id, tool_call_name: this.toolInfo?.tool, is_tool_response: true });
+            this.window?.webContents.send("options", { options: options, group_id: this.llm_service.chatManager.chat.group_id, tool_call_id: this.toolInfo?.id, tool_call_name: this.toolInfo?.tool });
 
             return; // ⚠️ 关键拦截点：直接 return 终止当前步骤，不再执行下方的工具逻辑
         }
@@ -430,13 +431,12 @@ You MUST respond ONLY with a valid JSON object. DO NOT call any tools.
             this.window?.webContents.send('streamData', { group_id: this.llm_service.chatManager.chat.group_id, context_id: this.llm_service.chatManager.chat.context_id, content: this.toolInfo.error, chat: this.llm_service.chatManager.chat });
         }
         else if (this.toolInfo?.tool) {
+            this.llm_service.chatManager.pushMessage(assistantMessage);
             // [新增] 触发 AI 审查者，传入 assistantMessage 和 data 实现缓存命中
             let auditError = await this.auditToolCall(this.toolInfo, assistantMessage, data);
 
             if (auditError) {
                 // 如果被拦截，将 Critic 的报错喂回给原 Agent
-                this.llm_service.chatManager.pushMessage(assistantMessage); // 必须保存原造假调用，否则它不知道错了什么
-
                 this.llm_service.chatManager.pushMessage({
                     role: "tool",
                     content: auditError,
@@ -458,7 +458,6 @@ You MUST respond ONLY with a valid JSON object. DO NOT call any tools.
                 return; // 终止当前 step，带着失败观测进入下一轮思考
             }
 
-            this.llm_service.chatManager.pushMessage(assistantMessage);
             let observation = await this.act(this.toolInfo);
 
             switch (this.toolInfo.tool) {
@@ -480,7 +479,7 @@ You MUST respond ONLY with a valid JSON object. DO NOT call any tools.
             if (this.state === (State.PAUSE as State)) {
                 const { ask, options } = observation;
                 this.window?.webContents.send('streamData', { group_id: this.llm_service.chatManager.chat.group_id, context_id: this.llm_service.chatManager.chat.context_id, content: ask, end: true, chat: this.llm_service.chatManager.chat });
-                this.window?.webContents.send("options", { options: options, group_id: this.llm_service.chatManager.chat.group_id, tool_call_id: this.toolInfo?.id, tool_call_name: this.toolInfo?.tool, is_tool_response: true });
+                this.window?.webContents.send("options", { options: options, group_id: this.llm_service.chatManager.chat.group_id, tool_call_id: this.toolInfo?.id, tool_call_name: this.toolInfo?.tool });
             } else if (this.state === (State.FINAL as State)) {
                 this.llm_service.chatManager.pushMessage({ role: "tool", content: observation.result, tool_call_id: this.toolInfo?.id, tool_call_name: this.toolInfo?.tool, group_id: this.llm_service.chatManager.chat.group_id, context_id: this.llm_service.chatManager.chat.context_id, show: true, react: true });
                 this.window?.webContents.send('streamData', { group_id: this.llm_service.chatManager.chat.group_id, context_id: this.llm_service.chatManager.chat.context_id, content: observation, end: true, chat: this.llm_service.chatManager.chat });

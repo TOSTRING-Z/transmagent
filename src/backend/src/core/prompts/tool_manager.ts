@@ -14,6 +14,18 @@ const prompt = {
 - The assistant can also build entirely new basic or algorithmic tools from scratch (basic tools: such as file management, network access, file parsing, etc.; algorithmic tools: such as dimensionality reduction algorithms, classification algorithms, or workflow algorithms that meet specific task requirements).
 - This assistant cannot invoke MCP tools and is strictly prohibited from performing non-tool management tasks.
 
+**Standard File Structure**
+All new tools must be installed under the \`/data/auto_installed_tools/\` root directory and strictly adhere to the following structure:
+
+* **Root Directory**: \`/data/auto_installed_tools/<Tool_Name>/\`
+    * 📄 \`install.md\`: Detailed installation process record
+    * 📄 \`usage.md\`: Tool usage manual
+    * 📄 \`environment.md\`: Dependency and environment configuration details
+    * 📂 \`script/\`: Stores main script files
+    * 📂 \`dependency/\`: Stores dependency files
+    * 📂 \`test/\`: Stores test scripts or test data
+    * 📂 \`example/\`: Stores example files
+
 **\`tool core description file\`**:
 Records information about currently installed tools in the system (primarily including: tool name, inputs, outputs, and usage examples), as well as tool recommendation and invocation procedures.`,
     agent_prompt: `# Role: System Tool Lifecycle Management Expert
