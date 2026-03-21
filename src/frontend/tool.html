@@ -238,6 +238,69 @@
       font-size: 13px;
     }
 
+    /* 高风险配置样式 */
+    .risk-section-header {
+      color: var(--danger);
+      font-weight: bold;
+      font-size: 16px;
+      margin-bottom: 15px;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .risk-section-description {
+      border-left: 3px solid var(--danger);
+      padding-left: 15px;
+      margin: 10px 0 20px 0;
+    }
+
+    .risk-config-card {
+      margin-bottom: 20px;
+      padding: 15px;
+      border-radius: 8px;
+      border: 1px solid var(--border);
+    }
+
+    .risk-config-card.highlight {
+      background-color: #fff8f8;
+      border-left: 4px solid var(--danger);
+    }
+
+    .risk-config-card.normal {
+      background-color: #f9f9f9;
+    }
+
+    .risk-checkbox-group {
+      display: flex;
+      align-items: flex-start;
+      margin-bottom: 8px;
+    }
+
+    .risk-checkbox-group input[type="checkbox"] {
+      margin-top: 3px;
+      margin-right: 10px;
+    }
+
+    .risk-checkbox-label {
+      font-weight: 600;
+      color: var(--dark);
+      display: block;
+      margin-bottom: 4px;
+    }
+
+    .risk-textarea {
+      width: 100%;
+      padding: 12px;
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      font-family: inherit;
+      font-size: 15px;
+      resize: vertical;
+      min-height: 80px;
+      margin-bottom: 8px;
+    }
+
     .modal-actions {
       display: flex;
       justify-content: flex-end;
@@ -374,31 +437,52 @@
 
         <!-- 高风险工具配置 -->
         <div class="form-row">
-          <label style="color: var(--danger); font-weight: bold;">
+          <label class="risk-section-header">
             <i class="fas fa-exclamation-triangle"></i> High Risk Configuration
           </label>
+          <div class="risk-section-description">
+            <small class="muted" style="display: block; margin-bottom: 15px;">
+              Configure security settings for tools that can execute commands, modify files, or perform other potentially dangerous operations.
+            </small>
+          </div>
         </div>
 
-        <div class="form-row">
-          <label>
+        <div class="risk-config-card highlight">
+          <div class="risk-checkbox-group">
             <input type="checkbox" id="tool-high-risk">
-            Mark as High Risk Tool
-          </label>
-          <small class="muted">Tools that can execute commands or modify files should be marked as high risk.</small>
+            <div>
+              <label class="risk-checkbox-label">
+                Mark as High Risk Tool
+              </label>
+              <small class="muted" style="display: block;">
+                Tools that can execute commands or modify files should be marked as high risk.
+              </small>
+            </div>
+          </div>
         </div>
 
-        <div class="form-row">
-          <label>
+        <div class="risk-config-card normal">
+          <div class="risk-checkbox-group">
             <input type="checkbox" id="tool-require-confirmation" disabled>
-            Require Confirmation Before Execution
-          </label>
-          <small class="muted">Show confirmation dialog before executing high risk tools.</small>
+            <div>
+              <label class="risk-checkbox-label">
+                Require Confirmation Before Execution
+              </label>
+              <small class="muted" style="display: block;">
+                Show confirmation dialog before executing high risk tools.
+              </small>
+            </div>
+          </div>
         </div>
 
-        <div class="form-row">
-          <label>Custom Confirmation Message:</label>
-          <textarea id="tool-confirmation-message" rows="2" placeholder="Are you sure you want to execute this high risk tool?"></textarea>
-          <small class="muted">Optional custom message for confirmation dialog.</small>
+        <div class="risk-config-card normal">
+          <label class="risk-checkbox-label" style="margin-bottom: 10px;">
+            Custom Confirmation Message
+          </label>
+          <textarea id="tool-confirmation-message" rows="3" placeholder="Are you sure you want to execute this high risk tool?" class="risk-textarea"></textarea>
+          <small class="muted" style="display: block;">
+            Optional custom message for confirmation dialog. Leave empty to use default message.
+          </small>
         </div>
       </div>
 

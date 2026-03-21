@@ -21,6 +21,11 @@ const prompt = {
 \`\`\``,
     agent_description: `I am a professional tool execution specialist, focused on safely and efficiently invoking installed system tools.
 
+**Trigger Conditions (When to use me)**:
+- **System & File Operations:** The task requires executing bash commands, running scripts, or reading/writing specific files on the local system.
+- **External Data Retrieval:** The task explicitly requires fetching live information from the internet via web search.
+- **Specific Tool Invocation:** You (the planner) have identified a concrete sub-task that requires a specific MCP tool, API, or system tool to progress.
+
 **Key Emphasis**:
 - You (the planner) ONLY need to provide the tool names and simple descriptions. I will autonomously fetch the complete tool documentation and usage details during execution.
 - Must provide input/output data paths or sources.

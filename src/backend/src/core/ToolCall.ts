@@ -116,6 +116,34 @@ export class ToolCall extends ReActAgent {
         };
     }
 
+    /**
+     * 检查工具是否为高风险工具
+     * @param toolName 工具名称
+     * @returns 是否为高风险工具
+     */
+    private isHighRiskTool(toolName: string): boolean {
+        const toolConfig = this.getToolConfig(toolName);
+        return toolConfig?.high_risk === true;
+    }
+
+    /**
+     * 获取工具配置
+     * @param toolName 工具名称
+     * @returns 工具配置对象
+     */
+    private getToolConfig(toolName: string): any {
+        if (!this.plugins) {
+            return null;
+        }
+        
+        const tool = this.plugins.getTool(toolName);
+        if (tool && typeof tool === 'object') {
+            return tool;
+        }
+        
+        return null;
+    }
+
     public loadMessage(filePath: string) {
         super.loadMessage(filePath);
         this.changeMode(this.llm_service.chatManager.chat.mode);
@@ -464,19 +492,17 @@ You MUST respond ONLY with a valid JSON object. DO NOT call any tools.
                 return; // 终止当前 step，带着失败观测进入下一轮思考
             }
 
-            // [新增] 高风险工具确认逻辑
-            const highRiskTools = ['cli_execute', 'python_execute', 'write_to_file', 'replace_in_file'];
-            const isHighRiskTool = highRiskTools.includes(this.toolInfo.tool);
+            // [新增] 高风险工具确认逻辑 - 从配置文件读取
+            const isHighRiskTool = this.isHighRiskTool(this.toolInfo.tool);
+            const toolConfig = this.getToolConfig(this.toolInfo.tool);
             
             // 使用传入的windowManager
-            if (isHighRiskTool && this.windowManager?.confirmationWindow && this.environment_details.mode === Mode.ACT) {
-                // 检查工具配置，判断是否需要确认
-                // 注意：这里简化处理，实际项目中应该从配置文件中读取工具配置
-                // 暂时假设所有高风险工具都需要确认
-                const requireConfirmation = true;
+            if (isHighRiskTool && WindowManager.instance?.confirmationWindow && this.environment_details.mode === Mode.ACT) {
+                // 从工具配置中检查是否需要确认
+                const requireConfirmation = toolConfig?.require_confirmation !== false; // 默认需要确认
                 
                 if (requireConfirmation) {
-                    // 获取工具描述
+                    // 获取工具描述和确认消息
                     let toolDescription = '';
                     const toolName = this.toolInfo.tool;
 
@@ -523,21 +549,21 @@ You MUST respond ONLY with a valid JSON object. DO NOT call any tools.
                         }
                     }
 
-                    // 显示确认窗口
-                    const confirmationMessage = `即将执行高风险工具: ${toolName}`;
+                    // 显示确认窗口，使用配置中的确认消息
+                    const finalConfirmationMessage = toolConfig?.confirmation_message || `即将执行高风险工具: ${toolName}`;
 
                     // 创建确认请求
                     const confirmationRequest = {
                         toolId: this.toolInfo?.id || '',
                         toolName: toolName,
                         toolDescription: toolDescription,
-                        confirmationMessage: confirmationMessage,
+                        confirmationMessage: finalConfirmationMessage,
                         executionDetails: this.toolInfo.params
                     };
 
                     try {
                         // 显示确认窗口并等待用户响应
-                        const response = await this.windowManager.confirmationWindow.showConfirmation(confirmationRequest);
+                        const response = await WindowManager.instance.confirmationWindow.showConfirmation(confirmationRequest);
 
                         // 如果用户选择记住选择，保存到配置
                         if (response.rememberChoice) {

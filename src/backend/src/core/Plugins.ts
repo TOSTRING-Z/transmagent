@@ -11,6 +11,9 @@ export interface PluginItem {
     show?: boolean; 
     version?: string;
     params?: any;
+    high_risk?: boolean;
+    require_confirmation?: boolean;
+    confirmation_message?: string;
 }
 
 interface PluginInfo {
@@ -20,6 +23,9 @@ interface PluginInfo {
     extra?: any;
     enabled?: boolean;
     show?: boolean;
+    high_risk?: boolean;
+    require_confirmation?: boolean;
+    confirmation_message?: string;
 }
 
 export class Plugins {
@@ -68,6 +74,9 @@ export class Plugins {
                 show: info?.show,
                 version: info?.version,
                 params: info?.params,
+                high_risk: info?.high_risk,
+                require_confirmation: info?.require_confirmation,
+                confirmation_message: info?.confirmation_message,
             };
             logger.log(`[Plugins] Success to load plugin '${info.version}'`);
             return item;

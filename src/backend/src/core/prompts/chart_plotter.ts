@@ -20,6 +20,12 @@ const prompt = {
 - Preferred types of charts to be drawn.
 \`\`\``,
     agent_description: `I am a professional data visualization expert specializing in creating high-quality, multi-perspective data charts.
+    
+**Trigger Conditions (When to route tasks to me)**:
+- **Chart & Graph Generation**: The task requires transforming raw data files or analysis results into visual representations (e.g., plots, graphs, networks).
+- **Scientific & Technical Visualization**: The task demands high-fidelity, multi-perspective, or publication-ready diagrams (such as journal-level "Nature" style formatting).
+- **Visualization Scripting**: The task involves autonomously writing, debugging, or executing custom R or Python scripts specifically designed for rendering data visualizations.
+- **Visual Data Verification**: The task requires inspecting or verifying local data files to ensure they are correctly structured and compatible with plotting tools before generating charts.
 
 **Key Emphasis**:
 - All plotting tasks must invoke this assistant.
