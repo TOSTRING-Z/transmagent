@@ -1,392 +1,329 @@
 <!DOCTYPE html>
 <html lang="en">
-
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Tool Execution Confirmation</title>
-  <link rel="stylesheet" href="css/output.css" />
+  <title>Security Confirmation</title>
   <link rel="stylesheet" href="css/fontawesome-free/css/all.min.css" />
   <style>
+    /* 现代扁平化色彩变量 */
     :root {
-      --warning: #ff9800;
-      --danger: #e63946;
-      --success: #2a9d8f;
-      --dark: #2b2d42;
-      --light: #f8f9fa;
-      --border: #dee2e6;
+      --primary: #3b82f6;
+      --primary-hover: #2563eb;
+      --danger: #ef4444;
+      --danger-hover: #dc2626;
+      --warning-bg: #fffbeb;
+      --warning-text: #b45309;
+      --warning-border: #fde68a;
+      --bg-color: #f8fafc;
+      --surface: #ffffff;
+      --text-main: #1e293b;
+      --text-muted: #64748b;
+      --border-color: #e2e8f0;
+      --code-bg: #f1f5f9;
     }
 
     body {
       margin: 0;
-      font-family: Arial, sans-serif;
-      background-color: #fff;
-      color: #333;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+      background-color: var(--bg-color);
+      color: var(--text-main);
       display: flex;
       flex-direction: column;
       height: 100vh;
+      border: 1px solid var(--border-color);
+      box-sizing: border-box;
+      overflow: hidden;
     }
 
-    /* 标题栏 */
+    /* ---------------- 自定义滚动条 ---------------- */
+    ::-webkit-scrollbar { width: 8px; height: 8px; }
+    ::-webkit-scrollbar-track { background: transparent; border-radius: 4px; }
+    ::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 4px; }
+    ::-webkit-scrollbar-thumb:hover { background: #94a3b8; }
+    pre.code-block::-webkit-scrollbar-track,
+    .json-content::-webkit-scrollbar-track { background: rgba(0, 0, 0, 0.05); }
+
+    /* ---------------- 头部标题栏 ---------------- */
     .title-bar {
       -webkit-app-region: drag;
-      height: 30px;
+      height: 38px;
       display: flex;
       justify-content: space-between;
       align-items: center;
-      padding: 0 10px;
-      background-color: var(--warning);
-      color: white;
-      user-select: none;
+      padding: 0 16px;
+      background-color: var(--surface);
+      color: var(--text-main);
+      border-bottom: 1px solid var(--border-color);
+      flex-shrink: 0;
     }
 
-    .title {
-      font-weight: bold;
-      display: flex;
-      align-items: center;
-      gap: 8px;
-    }
+    .title { font-weight: 600; font-size: 13px; display: flex; align-items: center; gap: 8px; }
+    .title i { color: var(--primary); }
+    .window-controls { display: flex; -webkit-app-region: no-drag; gap: 8px; }
+    .window-btn { width: 12px; height: 12px; border-radius: 50%; cursor: pointer; border: none; }
+    .close-btn { background: #fc5c65; }
+    .minimize-btn { background: #fdcb6e; }
 
-    .window-controls {
-      display: flex;
-      -webkit-app-region: no-drag;
-    }
-
-    .window-btn {
-      width: 12px;
-      height: 12px;
-      border-radius: 50%;
-      margin-left: 8px;
-      cursor: pointer;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      color: transparent;
-      font-size: 10px;
-    }
-
-    .window-btn:hover {
-      opacity: 0.8;
-    }
-
-    .minimize-btn {
-      background-color: #ffbd2e;
-    }
-
-    .close-btn {
-      background-color: #ff5f57;
-    }
-
-    /* 内容区域 */
+    /* ---------------- 中间滚动内容区 ---------------- */
     .content {
-      flex: 1;
-      padding: 20px;
-      overflow-y: auto;
+      padding: 24px;
+      flex: 1;           /* 占据所有剩余空间 */
+      overflow-y: auto;  /* 内容超出时在此区域内部滚动 */
     }
+
+    .card {
+      background: var(--surface);
+      border: 1px solid var(--border-color);
+      border-radius: 8px;
+      padding: 20px;
+      margin-bottom: 16px;
+    }
+    .card:last-child { margin-bottom: 0; }
 
     .warning-header {
+      background-color: var(--warning-bg);
+      border: 1px solid var(--warning-border);
+      display: flex;
+      align-items: flex-start;
+      gap: 16px;
+    }
+    .warning-icon { color: #f59e0b; font-size: 22px; margin-top: 2px; }
+    .warning-title { font-weight: 600; font-size: 16px; color: var(--warning-text); margin-bottom: 4px; }
+    .warning-subtitle { color: var(--warning-text); opacity: 0.8; font-size: 13px; line-height: 1.5; }
+
+    .info-row { display: flex; margin-bottom: 12px; font-size: 14px; }
+    .info-row:last-child { margin-bottom: 0; }
+    .info-label { font-weight: 500; min-width: 100px; color: var(--text-muted); }
+    .info-value { flex: 1; word-break: break-all; color: var(--text-main); font-weight: 500; }
+
+    .details-container { margin-top: 12px; }
+    .detail-item { margin-bottom: 16px; }
+    .detail-item:last-child { margin-bottom: 0; }
+    .detail-title { font-weight: 600; color: var(--text-muted); font-size: 12px; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 8px; }
+
+    .json-content { background: #1e293b; color: #f8fafc; padding: 12px; border-radius: 6px; font-family: 'Consolas', monospace; font-size: 13px; overflow-x: auto; margin: 0; }
+    .string-value { color: var(--text-main); background: var(--code-bg); padding: 4px 8px; border-radius: 4px; font-family: 'Consolas', monospace; font-size: 13px; }
+    pre.code-block { background-color: var(--code-bg); color: var(--text-main); padding: 16px; border-radius: 6px; font-family: 'Consolas', monospace; font-size: 13px; line-height: 1.6; white-space: pre-wrap; word-break: break-all; margin: 0; border: 1px solid var(--border-color); }
+    .file-path { color: var(--primary); background: #eff6ff; padding: 4px 8px; border-radius: 4px; font-family: 'Consolas', monospace; font-size: 13px; }
+
+    /* ---------------- 底部固定操作区 ---------------- */
+    .footer {
+      background-color: var(--surface);
+      border-top: 1px solid var(--border-color);
+      padding: 16px 24px;
+      flex-shrink: 0; /* 确保底部不会被压缩 */
+      display: flex;
+      flex-direction: column;
+      gap: 16px;
+    }
+
+    /* 美化复选框容器 */
+    .options-row {
       display: flex;
       align-items: center;
-      gap: 12px;
-      margin-bottom: 20px;
-      padding: 15px;
-      background-color: #fff3cd;
-      border: 1px solid #ffeaa7;
-      border-radius: 8px;
-    }
-
-    .warning-icon {
-      color: var(--warning);
-      font-size: 24px;
-    }
-
-    .warning-text {
-      flex: 1;
-    }
-
-    .warning-title {
-      font-weight: bold;
-      color: var(--warning);
-      margin-bottom: 5px;
-    }
-
-    .warning-subtitle {
-      color: #666;
-      font-size: 14px;
-    }
-
-    /* 工具信息 */
-    .tool-info {
-      background-color: #f8f9fa;
-      border: 1px solid var(--border);
-      border-radius: 8px;
-      padding: 15px;
-      margin-bottom: 20px;
-    }
-
-    .info-row {
-      display: flex;
-      margin-bottom: 10px;
-    }
-
-    .info-label {
-      font-weight: bold;
-      min-width: 120px;
-      color: var(--dark);
-    }
-
-    .info-value {
-      flex: 1;
-      word-break: break-word;
-    }
-
-    /* 确认消息 */
-    .confirmation-message {
-      background-color: #e8f5e9;
-      border: 1px solid #c8e6c9;
-      border-radius: 8px;
-      padding: 15px;
-      margin-bottom: 20px;
-      font-style: italic;
-    }
-
-    /* 执行详情 */
-    .execution-details {
-      background-color: #f1f8ff;
-      border: 1px solid #c8e1ff;
-      border-radius: 8px;
-      padding: 15px;
-      margin-bottom: 20px;
-    }
-
-    .details-title {
-      font-weight: bold;
-      margin-bottom: 10px;
-      color: #0366d6;
-    }
-
-    .details-content {
-      font-family: monospace;
-      font-size: 12px;
-      white-space: pre-wrap;
-      max-height: 150px;
-      overflow-y: auto;
-      background-color: white;
-      padding: 10px;
-      border-radius: 4px;
-      border: 1px solid var(--border);
-    }
-
-    /* 选项 */
-    .options {
-      margin-bottom: 20px;
-      padding: 15px;
-      background-color: #f8f9fa;
-      border-radius: 8px;
-    }
-
-    .option-row {
-      display: flex;
-      align-items: center;
-      margin-bottom: 10px;
-    }
-
-    .option-checkbox {
-      margin-right: 10px;
-    }
-
-    .option-label {
-      font-size: 14px;
-      color: #666;
-    }
-
-    /* 按钮区域 */
-    .button-group {
-      display: flex;
-      justify-content: space-between;
       gap: 10px;
-      margin-top: 20px;
     }
 
-    .btn {
-      flex: 1;
-      padding: 12px 20px;
-      border-radius: 6px;
+    .options-row label {
+      font-size: 13px; 
+      color: var(--text-muted);
       cursor: pointer;
-      font-weight: bold;
-      border: none;
+      user-select: none;
+      font-weight: 500;
+    }
+
+    /* 纯 CSS 自定义现代复选框 */
+    .custom-checkbox {
+      appearance: none;
+      -webkit-appearance: none;
+      width: 18px;
+      height: 18px;
+      border: 2px solid #cbd5e1;
+      border-radius: 4px;
+      background-color: var(--surface);
+      cursor: pointer;
+      position: relative;
       transition: all 0.2s ease;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      gap: 8px;
+      margin: 0;
+      display: inline-block;
+      vertical-align: middle;
     }
 
-    .btn-cancel {
-      background-color: #6c757d;
-      color: white;
+    .custom-checkbox:hover { border-color: var(--primary); }
+
+    .custom-checkbox:checked {
+      background-color: var(--primary);
+      border-color: var(--primary);
     }
 
-    .btn-cancel:hover {
-      background-color: #5a6268;
+    /* 复选框里的对勾 */
+    .custom-checkbox:checked::after {
+      content: '';
+      position: absolute;
+      left: 5px;
+      top: 1px;
+      width: 4px;
+      height: 9px;
+      border: solid white;
+      border-width: 0 2px 2px 0;
+      transform: rotate(45deg);
     }
 
-    .btn-confirm {
-      background-color: var(--danger);
-      color: white;
-    }
+    /* 按钮组 */
+    .button-group { display: flex; gap: 12px; }
+    .btn { flex: 1; padding: 10px 12px; border-radius: 6px; cursor: pointer; font-weight: 500; font-size: 14px; border: none; display: flex; align-items: center; justify-content: center; gap: 8px; transition: background-color 0.2s; }
+    .btn:disabled { opacity: 0.5; cursor: not-allowed; }
+    
+    .btn-cancel { background: var(--surface); color: var(--text-main); border: 1px solid #cbd5e1; }
+    .btn-cancel:hover:not(:disabled) { background: var(--bg-color); border-color: var(--text-muted); }
+    
+    .btn-confirm { background: var(--danger); color: white; }
+    .btn-confirm:hover:not(:disabled) { background: var(--danger-hover); }
 
-    .btn-confirm:hover {
-      background-color: #d32f2f;
-    }
-
-    .btn-safe {
-      background-color: var(--success);
-      color: white;
-    }
-
-    .btn-safe:hover {
-      background-color: #218838;
-    }
+    /* 加载遮罩 */
+    .loading-overlay { position: absolute; top: 38px; left: 0; right: 0; bottom: 0; background: rgba(255, 255, 255, 0.8); display: none; align-items: center; justify-content: center; z-index: 100; backdrop-filter: blur(2px); }
+    body.loading .loading-overlay { display: flex; }
+    .loading-overlay i { color: var(--primary); }
   </style>
 </head>
 
 <body>
   <div class="title-bar">
-    <div class="title">
-      <i class="fas fa-exclamation-triangle"></i>
-      High Risk Tool Execution
-    </div>
+    <div class="title"><i class="fas fa-shield-check"></i> Security Check</div>
     <div class="window-controls">
       <div class="window-btn minimize-btn" id="minimize-btn"></div>
       <div class="window-btn close-btn" id="close-btn"></div>
     </div>
   </div>
 
+  <div class="loading-overlay">
+    <i class="fas fa-spinner fa-spin fa-2x"></i>
+  </div>
+
   <div class="content">
-    <div class="warning-header">
-      <div class="warning-icon">
-        <i class="fas fa-exclamation-triangle fa-2x"></i>
-      </div>
+    <div class="card warning-header">
+      <div class="warning-icon"><i class="fas fa-exclamation-circle"></i></div>
       <div class="warning-text">
-        <div class="warning-title">High Risk Tool Detected</div>
-        <div class="warning-subtitle">
-          This tool has been marked as high risk because it can execute commands or modify files.
-          Please review the details before proceeding.
-        </div>
+        <div class="warning-title">High-Risk Execution</div>
+        <div class="warning-subtitle">This tool requires system access. Please review the parameters carefully before allowing execution.</div>
       </div>
     </div>
 
-    <div class="tool-info">
+    <div class="card">
       <div class="info-row">
-        <div class="info-label">Tool ID:</div>
-        <div class="info-value" id="tool-id">Loading...</div>
+        <div class="info-label">Tool Name</div>
+        <div class="info-value" id="tool-name">---</div>
       </div>
-      <div class="info-row">
-        <div class="info-label">Tool Name:</div>
-        <div class="info-value" id="tool-name">Loading...</div>
-      </div>
-      <div class="info-row" id="tool-description-row" style="display: none;">
-        <div class="info-label">Description:</div>
-        <div class="info-value" id="tool-description"></div>
+      <div class="info-row" id="desc-row" style="display:none">
+        <div class="info-label">Description</div>
+        <div class="info-value" id="tool-desc"></div>
       </div>
     </div>
 
-    <div class="confirmation-message" id="confirmation-message">
-      Are you sure you want to execute this high risk tool?
+    <div class="card">
+      <div style="font-weight: 600; font-size: 15px; margin-bottom: 16px; color: var(--text-main);">Execution Parameters</div>
+      <div class="details-container" id="execution-details">No details available.</div>
     </div>
+  </div>
 
-    <div class="execution-details">
-      <div class="details-title">Execution Details:</div>
-      <div class="details-content" id="execution-details">
-        Loading execution details...
-      </div>
-    </div>
-
-    <div class="options">
-      <div class="option-row">
-        <input type="checkbox" id="remember-choice" class="option-checkbox">
-        <label for="remember-choice" class="option-label">
-          Remember my choice for this tool (will not ask again)
-        </label>
-      </div>
+  <div class="footer">
+    <div class="options-row">
+      <input type="checkbox" id="remember-choice" class="custom-checkbox">
+      <label for="remember-choice">Remember my choice for this tool</label>
     </div>
 
     <div class="button-group">
-      <button class="btn btn-cancel" id="cancel-btn">
-        <i class="fas fa-times"></i>
-        Cancel Execution
-      </button>
-      <button class="btn btn-confirm" id="confirm-btn">
-        <i class="fas fa-check"></i>
-        Confirm Execution
-      </button>
+      <button class="btn btn-cancel" id="cancel-btn">Cancel</button>
+      <button class="btn btn-confirm" id="confirm-btn">Confirm Execution</button>
     </div>
   </div>
 
   <script>
     const { ipcRenderer } = require('electron');
 
-    // 窗口控制
-    document.getElementById('minimize-btn').addEventListener('click', () => {
-      ipcRenderer.send('confirmation-minimize-window');
-    });
+    const ui = {
+      name: document.getElementById('tool-name'),
+      desc: document.getElementById('tool-desc'),
+      descRow: document.getElementById('desc-row'),
+      details: document.getElementById('execution-details'),
+      remember: document.getElementById('remember-choice'),
+      cancelBtn: document.getElementById('cancel-btn'),
+      confirmBtn: document.getElementById('confirm-btn'),
+      body: document.body
+    };
 
-    document.getElementById('close-btn').addEventListener('click', () => {
-      ipcRenderer.send('confirmation-close-window');
-    });
-
-    // 加载确认请求数据
-    async function loadConfirmationRequest() {
+    async function loadData() {
+      ui.body.classList.add('loading');
       try {
-        const request = await ipcRenderer.invoke('get-confirmation-request');
-        
-        if (request) {
-          document.getElementById('tool-id').textContent = request.toolId;
-          document.getElementById('tool-name').textContent = request.toolName;
-          
-          if (request.toolDescription) {
-            document.getElementById('tool-description').textContent = request.toolDescription;
-            document.getElementById('tool-description-row').style.display = 'flex';
+        const data = await ipcRenderer.invoke('get-confirmation-request');
+        if (data) {
+          ui.name.textContent = data.toolName || 'Unknown Tool';
+          if (data.toolDescription) {
+            ui.desc.textContent = data.toolDescription;
+            ui.descRow.style.display = 'flex';
           }
-          
-          if (request.confirmationMessage) {
-            document.getElementById('confirmation-message').textContent = request.confirmationMessage;
-          }
-          
-          if (request.executionDetails) {
-            const detailsText = typeof request.executionDetails === 'string' 
-              ? request.executionDetails 
-              : JSON.stringify(request.executionDetails, null, 2);
-            document.getElementById('execution-details').textContent = detailsText;
+          if (data.executionDetails) {
+            ui.details.innerHTML = formatParams(data.executionDetails);
           }
         }
-      } catch (error) {
-        console.error('Failed to load confirmation request:', error);
+      } catch (err) {
+        ui.details.innerHTML = `<span style="color:var(--danger)">Failed to load data: ${err.message}</span>`;
+      } finally {
+        ui.body.classList.remove('loading');
       }
     }
 
-    // 按钮事件处理
-    document.getElementById('cancel-btn').addEventListener('click', () => {
-      const rememberChoice = document.getElementById('remember-choice').checked;
-      ipcRenderer.invoke('confirmation-response', {
-        confirmed: false,
-        rememberChoice: rememberChoice
-      });
-    });
+    function formatParams(obj) {
+      if (!obj || typeof obj !== 'object') return `<div>${esc(String(obj))}</div>`;
+      
+      return Object.entries(obj).map(([key, val]) => {
+        const title = key.replace(/([A-Z])/g, ' $1').replace(/_/g, ' ');
+        let content = '';
 
-    document.getElementById('confirm-btn').addEventListener('click', () => {
-      const rememberChoice = document.getElementById('remember-choice').checked;
-      ipcRenderer.invoke('confirmation-response', {
-        confirmed: true,
-        rememberChoice: rememberChoice
-      });
-    });
+        if (typeof val === 'object') {
+          content = `<pre class="json-content">${JSON.stringify(val, null, 2)}</pre>`;
+        } else if (typeof val === 'string') {
+          if (val.includes('\n')) {
+            content = `<pre class="code-block">${esc(val)}</pre>`;
+          } else if (val.includes('/') || val.includes('\\')) {
+            content = `<span class="file-path">${esc(val)}</span>`;
+          } else {
+            content = `<span class="string-value">${esc(val)}</span>`;
+          }
+        } else {
+          content = `<span class="string-value">${esc(String(val))}</span>`;
+        }
 
-    // 页面加载完成后初始化
-    document.addEventListener('DOMContentLoaded', () => {
-      loadConfirmationRequest();
-    });
+        return `
+          <div class="detail-item">
+            <div class="detail-title">${title}</div>
+            <div class="details-value">${content}</div>
+          </div>`;
+      }).join('');
+    }
+
+    function esc(str) {
+      const p = document.createElement('p');
+      p.textContent = str;
+      return p.innerHTML;
+    }
+
+    const sendResponse = (isConfirmed) => {
+      ui.cancelBtn.disabled = true;
+      ui.confirmBtn.disabled = true;
+      ipcRenderer.invoke('confirmation-response', {
+        confirmed: isConfirmed,
+        rememberChoice: ui.remember.checked
+      });
+    };
+
+    document.getElementById('minimize-btn').onclick = () => ipcRenderer.send('confirmation-minimize-window');
+    document.getElementById('close-btn').onclick = () => ipcRenderer.send('confirmation-close-window');
+    ui.cancelBtn.onclick = () => sendResponse(false);
+    ui.confirmBtn.onclick = () => sendResponse(true);
+
+    document.addEventListener('DOMContentLoaded', loadData);
   </script>
 </body>
 </html>

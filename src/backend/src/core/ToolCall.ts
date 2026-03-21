@@ -458,13 +458,30 @@ You MUST respond ONLY with a valid JSON object. DO NOT call any tools.
                 const requireConfirmation = true;
                 
                 if (requireConfirmation) {
+                    // 获取工具描述
+                    let toolDescription = '';
+                    const toolName = this.toolInfo.tool;
+                    
+                    // 尝试从工具定义中获取描述
+                    if (this.tools[toolName] && this.tools[toolName].getPrompt) {
+                        try {
+                            const promptInfo = this.tools[toolName].getPrompt();
+                            if (promptInfo && promptInfo.description) {
+                                toolDescription = promptInfo.description;
+                            }
+                        } catch (error) {
+                            console.warn(`Failed to get description for tool ${toolName}:`, error);
+                        }
+                    }
+                    
                     // 显示确认窗口
-                    const confirmationMessage = `即将执行高风险工具: ${this.toolInfo.tool}\n\n参数: ${JSON.stringify(this.toolInfo.params, null, 2)}`;
+                    const confirmationMessage = `即将执行高风险工具: ${toolName}`;
                     
                     // 创建确认请求
                     const confirmationRequest = {
                         toolId: this.toolInfo?.id || '',
-                        toolName: this.toolInfo.tool,
+                        toolName: toolName,
+                        toolDescription: toolDescription,
                         confirmationMessage: confirmationMessage,
                         executionDetails: this.toolInfo.params
                     };

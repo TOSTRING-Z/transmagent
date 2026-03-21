@@ -25,6 +25,8 @@ export class ConfirmationWindow extends BaseWindow {
 
     public create() {
         if (this.window) {
+            // 窗口已存在，重新加载页面以确保状态重置
+            this.window.loadFile('src/frontend/confirmation.html');
             this.window.restore();
             this.window.show();
             this.window.focus();
