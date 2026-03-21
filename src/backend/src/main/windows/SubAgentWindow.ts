@@ -181,7 +181,8 @@ export class SubAgentWindow extends BaseWindow {
             { agent_prompt, subagent: true, todolist, mcp_server },
             this.windowManager
         );
-        tool_call.changeMode("auto");
+        // 子代理模式同主代理模式一样
+        tool_call.changeMode(this.windowManager.mainWindow.tool_call.environment_details.mode);
 
         this.agentTools[tool_name] = {
             tool_call,
