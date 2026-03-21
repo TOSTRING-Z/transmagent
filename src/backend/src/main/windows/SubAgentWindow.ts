@@ -114,6 +114,8 @@ export class SubAgentWindow extends BaseWindow {
                 win.webContents.send('windowInfo', { id: win.id, name: agentToolName });
 
                 agentTool.tool_call.changeWindow(win);
+                // 子代理模式同主代理模式一样
+                agentTool.tool_call.changeMode(this.windowManager.mainWindow.llm_service.chatManager.chat.mode);
 
                 if (utils.getConfig("tool_call")?.subagent_llm_init || this.windows.length > 1) {
                     agentTool.tool_call.llm_service.chatManager.init();
@@ -181,8 +183,6 @@ export class SubAgentWindow extends BaseWindow {
             { agent_prompt, subagent: true, todolist, mcp_server },
             this.windowManager
         );
-        // 子代理模式同主代理模式一样
-        tool_call.changeMode(this.windowManager.mainWindow.tool_call.environment_details.mode);
 
         this.agentTools[tool_name] = {
             tool_call,
