@@ -87,6 +87,10 @@ export class LLMService {
             } else {
                 const errorText = await resp.text();
                 logger.error(`HTTP Error ${resp.status}: ${errorText}`);
+                this.window?.webContents.send('infoData', {
+                    group_id: this.chatManager.chat.group_id,
+                    content: `Response error: ${errorText}\n`
+                });
                 return messageOutput;
             }
 
@@ -116,12 +120,10 @@ export class LLMService {
 
         } catch (error: any) {
             logger.error(error);
-            if (!data?.return_response) {
-                this.window?.webContents.send('infoData', {
-                    group_id: this.chatManager.chat.group_id,
-                    content: `Response error: ${error.message}\n`
-                });
-            }
+            this.window?.webContents.send('infoData', {
+                group_id: this.chatManager.chat.group_id,
+                content: `Response error: ${error.message}\n`
+            });
             return null;
         }
     }
@@ -186,8 +188,12 @@ export class LLMService {
         let respJson: any;
         try {
             respJson = await resp.json()
-        } catch (err: any) {
-            console.error(err);
+        } catch (error: any) {
+            console.error(error);
+            this.window?.webContents.send('infoData', {
+                group_id: this.chatManager.chat.group_id,
+                content: `Response error: ${error.message}\n`
+            });
             return;
         }
 

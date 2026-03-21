@@ -64,6 +64,7 @@ export class ToolCall extends ReActAgent {
     public environment_details!: EnvironmentDetails;
     public toolInfo: ToolInfo | undefined;
     public modeMap: Record<string, Mode> = { "auto": Mode.AUTO, "plan": Mode.PLAN, "flash": Mode.FLASH, "act": Mode.ACT };
+    private rememberedChoices: Record<string, boolean> = {};
 
     constructor(
         plugins: Plugins,
@@ -345,6 +346,23 @@ You MUST respond ONLY with a valid JSON object. DO NOT call any tools.
         return null;
     }
 
+    /**
+     * 获取已记住的工具选择
+     */
+    private getRememberedChoice(toolName: string): boolean | null {
+        if (this.rememberedChoices.hasOwnProperty(toolName)) {
+            return this.rememberedChoices[toolName];
+        }
+        return null;
+    }
+
+    /**
+     * 记住工具选择
+     */
+    private setRememberedChoice(toolName: string, confirmed: boolean) {
+        this.rememberedChoices[toolName] = confirmed;
+    }
+
     public async step(data: Record<string, any>) {
         if (this.state === State.IDLE) {
             this.state = State.RUNNING;
@@ -461,7 +479,38 @@ You MUST respond ONLY with a valid JSON object. DO NOT call any tools.
                     // 获取工具描述
                     let toolDescription = '';
                     const toolName = this.toolInfo.tool;
-                    
+
+                    // 检查是否有已记住的选择
+                    const rememberedChoice = this.getRememberedChoice(toolName);
+                    if (rememberedChoice !== null) {
+                        // 有记住的选择，直接执行或取消
+                        if (rememberedChoice) {
+                            let observation = await this.act(this.toolInfo!);
+                            this.handleToolObservation(observation);
+                        } else {
+                            const cancelMessage = `用户取消了高风险工具 ${this.toolInfo!.tool} 的执行（已记住的选择）`;
+                            this.llm_service.chatManager.pushMessage({
+                                role: "tool",
+                                content: cancelMessage,
+                                tool_call_id: this.toolInfo?.id,
+                                tool_call_name: this.toolInfo?.tool,
+                                group_id: this.llm_service.chatManager.chat.group_id,
+                                context_id: this.llm_service.chatManager.chat.context_id,
+                                show: true,
+                                react: true
+                            });
+                            this.window?.webContents.send('streamData', {
+                                group_id: this.llm_service.chatManager.chat.group_id,
+                                context_id: this.llm_service.chatManager.chat.context_id,
+                                content: `❌ **执行取消**: ${cancelMessage}
+
+`,
+                                chat: this.llm_service.chatManager.chat
+                            });
+                        }
+                        return; // 跳过确认窗口
+                    }
+
                     // 尝试从工具定义中获取描述
                     if (this.tools[toolName] && this.tools[toolName].getPrompt) {
                         try {
@@ -473,10 +522,10 @@ You MUST respond ONLY with a valid JSON object. DO NOT call any tools.
                             console.warn(`Failed to get description for tool ${toolName}:`, error);
                         }
                     }
-                    
+
                     // 显示确认窗口
                     const confirmationMessage = `即将执行高风险工具: ${toolName}`;
-                    
+
                     // 创建确认请求
                     const confirmationRequest = {
                         toolId: this.toolInfo?.id || '',
@@ -485,11 +534,16 @@ You MUST respond ONLY with a valid JSON object. DO NOT call any tools.
                         confirmationMessage: confirmationMessage,
                         executionDetails: this.toolInfo.params
                     };
-                    
+
                     try {
                         // 显示确认窗口并等待用户响应
                         const response = await this.windowManager.confirmationWindow.showConfirmation(confirmationRequest);
-                        
+
+                        // 如果用户选择记住选择，保存到配置
+                        if (response.rememberChoice) {
+                            this.setRememberedChoice(toolName, response.confirmed);
+                        }
+
                         if (response.confirmed) {
                             // 用户确认后执行工具
                             let observation = await this.act(this.toolInfo!);
@@ -507,11 +561,13 @@ You MUST respond ONLY with a valid JSON object. DO NOT call any tools.
                                 show: true,
                                 react: true
                             });
-                            
+
                             this.window?.webContents.send('streamData', {
                                 group_id: this.llm_service.chatManager.chat.group_id,
                                 context_id: this.llm_service.chatManager.chat.context_id,
-                                content: `❌ **执行取消**: ${cancelMessage}\n\n`,
+                                content: `❌ **执行取消**: ${cancelMessage}
+
+`,
                                 chat: this.llm_service.chatManager.chat
                             });
                         }
@@ -521,7 +577,7 @@ You MUST respond ONLY with a valid JSON object. DO NOT call any tools.
                         let observation = await this.act(this.toolInfo!);
                         this.handleToolObservation(observation);
                     }
-                    
+
                     return; // 等待用户确认或取消
                 }
             }
