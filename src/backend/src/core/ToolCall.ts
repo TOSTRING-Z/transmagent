@@ -416,7 +416,14 @@ You MUST respond ONLY with a valid JSON object. DO NOT call any tools.
             return;
         }
 
-        if (!this.toolInfo) return; // 容错处理
+        if (!this.toolInfo){
+            logger.error(`Tool Info Error`);
+                this.window?.webContents.send('infoData', {
+                    group_id: this.llm_service.chatManager.chat.group_id,
+                    content: `Tool Info Error\n`
+                });
+                return
+        }; // 容错处理
 
         // ==========================================
         // 1. 记录与判断重复思考

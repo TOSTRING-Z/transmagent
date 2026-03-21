@@ -221,10 +221,7 @@ export class PromptToolCallAdapter implements IToolCallAdapter {
         let aiRespnse: any = null;
         let toolInfo!: ToolInfo;
         try {
-            aiRespnse = utils.parseJsonContent(message.content as string);
-            if (!aiRespnse) {
-                aiRespnse = JSON5.parse(message.content as string);
-            }
+            aiRespnse = JSON5.parse(message.content as string);
             toolInfo = { thinking: aiRespnse.thinking, tool: aiRespnse?.tool, id: null, params: aiRespnse?.params || {}, error: null };
         } catch (error: any) {
             if ((message.content as string).startsWith("```json") || (message.content as string).startsWith("{")) {
