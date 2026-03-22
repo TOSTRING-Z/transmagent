@@ -221,8 +221,24 @@ export class PromptToolCallAdapter implements IToolCallAdapter {
         let aiRespnse: any = null;
         let toolInfo!: ToolInfo;
         try {
-            aiRespnse = JSON5.parse(message.content as string);
+            aiRespnse = utils.parseJsonContent(message.content as string);
+            if (!aiRespnse) {
+                aiRespnse = JSON5.parse(message.content as string);
+            }
             toolInfo = { thinking: aiRespnse.thinking, tool: aiRespnse?.tool, id: null, params: aiRespnse?.params || {}, error: null };
+            if (!aiRespnse.thinking && !aiRespnse?.tool) {
+                toolInfo = {
+                    thinking: `\`\`\`text
+                    ${message.content as string}
+                    \`\`\`
+                    
+                    **Function calling is not a pure JSON text, or there is a problem with the JSON format.**`,
+                    tool: null,
+                    id: null,
+                    params: {},
+                    error: `Error Message: Tool parsing failed`
+                };
+            }
         } catch (error: any) {
             if ((message.content as string).startsWith("```json") || (message.content as string).startsWith("{")) {
                 toolInfo = {

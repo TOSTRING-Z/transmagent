@@ -238,23 +238,6 @@
       font-size: 13px;
     }
 
-    /* 高风险配置样式 */
-    .risk-section-header {
-      color: var(--danger);
-      font-weight: bold;
-      font-size: 16px;
-      margin-bottom: 15px;
-      display: flex;
-      align-items: center;
-      gap: 8px;
-    }
-
-    .risk-section-description {
-      border-left: 3px solid var(--danger);
-      padding-left: 15px;
-      margin: 10px 0 20px 0;
-    }
-
     .risk-config-card {
       margin-bottom: 20px;
       padding: 15px;
@@ -436,17 +419,6 @@
         </div>
 
         <!-- 高风险工具配置 -->
-        <div class="form-row">
-          <label class="risk-section-header">
-            <i class="fas fa-exclamation-triangle"></i> High Risk Configuration
-          </label>
-          <div class="risk-section-description">
-            <small class="muted" style="display: block; margin-bottom: 15px;">
-              Configure security settings for tools that can execute commands, modify files, or perform other potentially dangerous operations.
-            </small>
-          </div>
-        </div>
-
         <div class="risk-config-card highlight">
           <div class="risk-checkbox-group">
             <input type="checkbox" id="tool-high-risk">

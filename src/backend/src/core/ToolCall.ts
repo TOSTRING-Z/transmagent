@@ -135,12 +135,12 @@ export class ToolCall extends ReActAgent {
         if (!this.plugins) {
             return null;
         }
-        
+
         const tool = this.plugins.getTool(toolName);
         if (tool && typeof tool === 'object') {
             return tool;
         }
-        
+
         return null;
     }
 
@@ -416,13 +416,13 @@ You MUST respond ONLY with a valid JSON object. DO NOT call any tools.
             return;
         }
 
-        if (!this.toolInfo){
+        if (!this.toolInfo) {
             logger.error(`Tool Info Error`);
-                this.window?.webContents.send('infoData', {
-                    group_id: this.llm_service.chatManager.chat.group_id,
-                    content: `Tool Info Error\n`
-                });
-                return
+            this.window?.webContents.send('infoData', {
+                group_id: this.llm_service.chatManager.chat.group_id,
+                content: `Tool Info Error\n`
+            });
+            return
         }; // 容错处理
 
         // ==========================================
@@ -502,12 +502,12 @@ You MUST respond ONLY with a valid JSON object. DO NOT call any tools.
             // [新增] 高风险工具确认逻辑 - 从配置文件读取
             const isHighRiskTool = this.isHighRiskTool(this.toolInfo.tool);
             const toolConfig = this.getToolConfig(this.toolInfo.tool);
-            
+
             // 使用传入的windowManager
             if (isHighRiskTool && WindowManager.instance?.confirmationWindow && this.environment_details.mode === Mode.ACT) {
                 // 从工具配置中检查是否需要确认
                 const requireConfirmation = toolConfig?.require_confirmation !== false; // 默认需要确认
-                
+
                 if (requireConfirmation) {
                     // 获取工具描述和确认消息
                     let toolDescription = '';
