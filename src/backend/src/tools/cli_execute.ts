@@ -66,6 +66,7 @@ function validateParams(params: CliExecuteParams | undefined): Required<CliExecu
         max_chars_per_line: (typeof params.max_chars_per_line === 'number' && params.max_chars_per_line >= 100) ? params.max_chars_per_line : 100,
         bashrc: params.bashrc || '',
         show: !!params.show,
+        // 系统判断
         bash: params.bash || 'bash'
     };
 

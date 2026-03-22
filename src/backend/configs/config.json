@@ -128,13 +128,19 @@
       "enabled": true,
       "high_risk": true,
       "require_confirmation": true,
-      "confirmation_message": "⚠️ 警告：即将写入文件。这可能会覆盖现有文件或创建新文件。是否继续？"
+      "confirmation_message": "⚠️ 警告：即将写入文件。这可能会覆盖现有文件或创建新文件。是否继续？",
+      "sensitive_tool": true,
+      "require_audit": true,
+      "audit_enabled": true
     },
     "replace_in_file": {
       "enabled": true,
       "high_risk": true,
       "require_confirmation": true,
-      "confirmation_message": "⚠️ 警告：即将修改文件内容。这可能会破坏现有文件。是否继续？"
+      "confirmation_message": "⚠️ 警告：即将修改文件内容。这可能会破坏现有文件。是否继续？",
+      "sensitive_tool": true,
+      "require_audit": true,
+      "audit_enabled": true
     },
     "error_solution_search": {
       "enabled": false
@@ -157,7 +163,10 @@
       "enabled": true,
       "high_risk": true,
       "require_confirmation": true,
-      "confirmation_message": "⚠️ 警告：即将执行命令行命令。这可能会修改系统文件或执行危险操作。是否继续？"
+      "confirmation_message": "⚠️ 警告：即将执行命令行命令。这可能会修改系统文件或执行危险操作。是否继续？",
+      "sensitive_tool": true,
+      "require_audit": true,
+      "audit_enabled": true
     },
     "display_file": {
       "params": {

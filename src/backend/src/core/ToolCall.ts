@@ -144,6 +144,36 @@ export class ToolCall extends ReActAgent {
         return null;
     }
 
+    /**
+     * 检查工具是否为敏感工具
+     * @param toolName 工具名称
+     * @returns 是否为敏感工具
+     */
+    private isSensitiveTool(toolName: string): boolean {
+        const toolConfig = this.getToolConfig(toolName);
+        return toolConfig?.sensitive_tool === true;
+    }
+
+    /**
+     * 检查工具是否需要审计
+     * @param toolName 工具名称
+     * @returns 是否需要审计
+     */
+    private isToolRequireAudit(toolName: string): boolean {
+        const toolConfig = this.getToolConfig(toolName);
+        return toolConfig?.require_audit === true;
+    }
+
+    /**
+     * 检查工具审计是否启用
+     * @param toolName 工具名称
+     * @returns 审计是否启用
+     */
+    private isToolAuditEnabled(toolName: string): boolean {
+        const toolConfig = this.getToolConfig(toolName);
+        return toolConfig?.audit_enabled === true;
+    }
+
     public loadMessage(filePath: string) {
         super.loadMessage(filePath);
         this.changeMode(this.llm_service.chatManager.chat.mode);
@@ -275,12 +305,23 @@ export class ToolCall extends ReActAgent {
      * AI 审查者逻辑 (LLM-as-a-Judge) - 缓存优化版
      */
     public async auditToolCall(toolInfo: ToolInfo, assistantMessage: Message, data: Record<string, any>): Promise<string | null> {
-        const sensitiveTools = ['run_python', 'cli_execute', 'write_file', 'bash_execute'];
-        if (!toolInfo.tool || !sensitiveTools.includes(toolInfo.tool) || !utils.getConfig("tool_call")?.llm_judge) {
+        // 检查工具是否为敏感工具且需要审计
+        if (!toolInfo.tool || !this.isSensitiveTool(toolInfo.tool) || !this.isToolRequireAudit(toolInfo.tool)) {
             return null;
         }
 
-        logger.log(`[Critic] 正在审查工具调用: ${toolInfo.tool}...`);
+        // 检查审计是否启用
+        if (!this.isToolAuditEnabled(toolInfo.tool)) {
+            logger.log(`[Critic] 工具 ${toolInfo.tool} 审计已禁用，跳过审查`);
+            return null;
+        }
+
+        // 检查LLM审查器是否启用
+        if (!utils.getConfig("tool_call")?.llm_judge) {
+            return null;
+        }
+
+        logger.log(`[Critic] 正在审查敏感工具调用: ${toolInfo.tool}...`);
 
         const temp_llm_service = new LLMService();
         temp_llm_service.chatManager.chat = { ...this.llm_service.chatManager.chat };
@@ -472,7 +513,6 @@ You MUST respond ONLY with a valid JSON object. DO NOT call any tools.
             this.window?.webContents.send('streamData', { group_id: this.llm_service.chatManager.chat.group_id, context_id: this.llm_service.chatManager.chat.context_id, content: this.toolInfo?.error, chat: this.llm_service.chatManager.chat });
         }
         else if (this.toolInfo?.tool) {
-            this.llm_service.chatManager.pushMessage(assistantMessage);
             // [新增] 触发 AI 审查者，传入 assistantMessage 和 data 实现缓存命中
             let auditError = await this.auditToolCall(this.toolInfo, assistantMessage, data);
 
@@ -498,6 +538,9 @@ You MUST respond ONLY with a valid JSON object. DO NOT call any tools.
 
                 return; // 终止当前 step，带着失败观测进入下一轮思考
             }
+
+            // 审查通过后加入助手消息
+            this.llm_service.chatManager.pushMessage(assistantMessage);
 
             // [新增] 高风险工具确认逻辑 - 从配置文件读取
             const isHighRiskTool = this.isHighRiskTool(this.toolInfo.tool);
