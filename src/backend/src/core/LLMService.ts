@@ -78,11 +78,15 @@ export class LLMService {
             });
 
             // 6. 流式与非流式分流处理
+            let status: boolean;
             if (resp.ok) {
                 if (body?.stream) {
-                    await this.handleStream(resp, this.adapter, data, messageOutput);
+                    status = await this.handleStream(resp, this.adapter, data, messageOutput);
                 } else {
-                    await this.handleNormal(resp, this.adapter, headers, body, data, messageOutput);
+                    status = await this.handleNormal(resp, this.adapter, headers, body, data, messageOutput);
+                }
+                if (!status) {
+                    return null;
                 }
             } else {
                 const errorText = await resp.text();
@@ -91,7 +95,7 @@ export class LLMService {
                     group_id: this.chatManager.chat.group_id,
                     content: `Response error: ${errorText}\n`
                 });
-                return messageOutput;
+                return null;
             }
 
 
@@ -128,7 +132,7 @@ export class LLMService {
         }
     }
 
-    private async handleStream(resp: Response, adapter: any, data: ChatRequestData, messageOutput: Message) {
+    private async handleStream(resp: Response, adapter: any, data: ChatRequestData, messageOutput: Message): Promise<boolean> {
         const contentType = resp.headers.get('content-type');
         let streamRes;
 
@@ -139,7 +143,7 @@ export class LLMService {
         }
 
         for await (const chunk of streamRes) {
-            if (this.stopFlag) return;
+            if (this.stopFlag) return false;
 
             const { content, reasoning_content, tool_calls, tokens, is_incremental_tokens } = adapter.parseStreamChunk(chunk);
 
@@ -182,9 +186,11 @@ export class LLMService {
                 });
             }
         }
+
+        return true;
     }
 
-    private async handleNormal(resp: Response, adapter: ILLMAdapter, headers: any, body: any, data: ChatRequestData, messageOutput: Message) {
+    private async handleNormal(resp: Response, adapter: ILLMAdapter, headers: any, body: any, data: ChatRequestData, messageOutput: Message): Promise<boolean> {
         let respJson: any;
         try {
             respJson = await resp.json()
@@ -194,15 +200,7 @@ export class LLMService {
                 group_id: this.chatManager.chat.group_id,
                 content: `Response error: ${error.message}\n`
             });
-            return;
-        }
-
-        if (respJson.error && !data?.return_response) {
-            this.window?.webContents.send('infoData', {
-                group_id: this.chatManager.chat.group_id,
-                content: `POST Error:\n\`\`\`\n${respJson.error.message}\n\`\`\`\n`
-            });
-            return;
+            return false;
         }
 
         const { content, tool_calls, finish_reason, tokens } = adapter.parseResponse(respJson);
@@ -221,5 +219,7 @@ export class LLMService {
         if (finish_reason === "length" && data.output) {
             await adapter.truncatedResponse(body, headers, this.window, this.chatManager, messageOutput, data);
         }
+
+        return true;
     }
 }
