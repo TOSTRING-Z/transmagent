@@ -27,7 +27,7 @@ export function main() {
 
             // 安全获取 prompt 配置文件路径
             const config = utils.getConfig("tool_call") || {};
-            const prompt_file = config.cli_prompt || utils.getDefault("cli_prompt.md");
+            const prompt_file = config.cli_prompt || utils.getDefault("prompts/cli_prompt.md");
 
             if (!fs.existsSync(prompt_file)) {
                 // 如果文件不存在，初始化一个空文件
