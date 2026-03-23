@@ -232,7 +232,7 @@ export class ToolCall extends ReActAgent {
                     ? { type: "raw_string", name: key, content: schemaOrStr }
                     : schemaOrStr;
             })
-            .filter(Boolean); // 剔除 map 阶段可能产生的 null 值
+            .filter(tool => tool.name && tool.description && tool.parameters); // 剔除 map 阶段可能产生的 null 值
         // 获取对应的适配器
         const adapter: IToolCallAdapter = ToolCallAdapterFactory.getAdapter(format);
         // 执行格式化

@@ -84,12 +84,103 @@ except Exception as e:
 # Load TR info metadata
 TR_INFO_PATH = f"{data_docker}/trapt/library/TRs_info.txt"
 tr_info_df = None
+
+# Initialize new databases
+h3k27ac_info_df = None
+h3k27ac_data_db = {}
+erna_info_df = None
+erna_data_db = {}
+atac_info_df = None
+atac_data_db = {}
+atac_pseudo_info_df = None
+atac_pseudo_data_db = {}
 try:
     import pandas as pd
     tr_info_df = pd.read_csv(TR_INFO_PATH, sep='\t')
     print(f"Loaded TR info metadata with {len(tr_info_df)} rows")
 except Exception as e:
     print(f"Warning: Failed to load TR info metadata: {_truncate_error(str(e))}")
+
+# Load H3K27ac (super-enhancer) data
+try:
+    h3k27ac_info_path = f"{data_docker}/sedb/SEdb 3.0.csv"
+    h3k27ac_info_df = pd.read_csv(h3k27ac_info_path)
+    print(f"Loaded H3K27ac info metadata with {len(h3k27ac_info_df)} rows")
+    # Build bed file mapping
+    bed_dir = f"{data_docker}/sedb/bed/"
+    for sample_id in h3k27ac_info_df['Sample ID']:
+        # Convert Sample_00_0001 to SE_00_0001.bed
+        bed_num = sample_id.replace('Sample_', 'SE_')
+        bed_file = f"{bed_dir}{bed_num}.bed"
+        if os.path.exists(bed_file):
+            h3k27ac_data_db[sample_id] = bed_file
+        else:
+            print(f"Warning: Bed file not found for sample {sample_id}: {bed_file}")
+    print(f"Mapped {len(h3k27ac_data_db)} bed files for H3K27ac")
+except Exception as e:
+    print(f"Warning: Failed to load H3K27ac data: {_truncate_error(str(e))}")
+
+# Load eRNA data
+try:
+    erna_info_path = f"{data_docker}/ernabase/eRNAbase.csv"
+    erna_info_df = pd.read_csv(erna_info_path)
+    print(f"Loaded eRNA info metadata with {len(erna_info_df)} rows")
+    bed_dir = f"{data_docker}/ernabase/bed/"
+    for sample_id in erna_info_df['Sample_ID']:
+        bed_file = f"{bed_dir}{sample_id}.bed"
+        if os.path.exists(bed_file):
+            erna_data_db[sample_id] = bed_file
+        else:
+            print(f"Warning: Bed file not found for sample {sample_id}: {bed_file}")
+    print(f"Mapped {len(erna_data_db)} bed files for eRNA")
+except Exception as e:
+    print(f"Warning: Failed to load eRNA data: {_truncate_error(str(e))}")
+
+# Load ATAC-seq data (regular)
+try:
+    atac_excel_path = f"{data_docker}/atacdb/ATACdb2.0.xlsx"
+    atac_csv_path = f"{data_docker}/atacdb/ATACdb2.0.csv"
+    # Convert Excel to CSV if CSV doesn't exist
+    if not os.path.exists(atac_csv_path):
+        print(f"Converting {atac_excel_path} to CSV...")
+        df = pd.read_excel(atac_excel_path)
+        df.to_csv(atac_csv_path, index=False)
+        print(f"Saved CSV to {atac_csv_path}")
+    atac_info_df = pd.read_csv(atac_csv_path)
+    print(f"Loaded ATAC-seq info metadata with {len(atac_info_df)} rows")
+    bed_dir = f"{data_docker}/atacdb/bed/"
+    for sample_id in atac_info_df['sample_id']:
+        bed_file = f"{bed_dir}{sample_id}.bed"
+        if os.path.exists(bed_file):
+            atac_data_db[sample_id] = bed_file
+        else:
+            print(f"Warning: Bed file not found for sample {sample_id}: {bed_file}")
+    print(f"Mapped {len(atac_data_db)} bed files for ATAC-seq")
+except Exception as e:
+    print(f"Warning: Failed to load ATAC-seq data: {_truncate_error(str(e))}")
+
+# Load ATAC-seq pseudo-bulk data
+try:
+    atac_pseudo_excel_path = f"{data_docker}/atacdb/atacdb2.0 Pseudo-bulk ATAC-seq.xlsx"
+    atac_pseudo_csv_path = f"{data_docker}/atacdb/atacdb2.0 Pseudo-bulk ATAC-seq.csv"
+    # Convert Excel to CSV if CSV doesn't exist
+    if not os.path.exists(atac_pseudo_csv_path):
+        print(f"Converting {atac_pseudo_excel_path} to CSV...")
+        df = pd.read_excel(atac_pseudo_excel_path)
+        df.to_csv(atac_pseudo_csv_path, index=False)
+        print(f"Saved CSV to {atac_pseudo_csv_path}")
+    atac_pseudo_info_df = pd.read_csv(atac_pseudo_csv_path)
+    print(f"Loaded ATAC-seq pseudo-bulk info metadata with {len(atac_pseudo_info_df)} rows")
+    bed_dir = f"{data_docker}/atacdb/bed/"
+    for sample_id in atac_pseudo_info_df['sample_id']:
+        bed_file = f"{bed_dir}{sample_id}.bed"
+        if os.path.exists(bed_file):
+            atac_pseudo_data_db[sample_id] = bed_file
+        else:
+            print(f"Warning: Bed file not found for sample {sample_id}: {bed_file}")
+    print(f"Mapped {len(atac_pseudo_data_db)} bed files for ATAC-seq pseudo-bulk")
+except Exception as e:
+    print(f"Warning: Failed to load ATAC-seq pseudo-bulk data: {_truncate_error(str(e))}")
 
 # Configuration
 bed_config = {"gene_bed_path": f"{data_docker}/human/gene.bed"}
@@ -431,6 +522,262 @@ async def search_tr(keyword: str) -> str:
         if len(matches) > 20:
             output_lines.append(f"... and {len(matches)-20} more matches")
         return f"Found {len(matches)} matching TR(s):\n" + "\n".join(output_lines)
+
+    except Exception as e:
+        return f"Error: {_truncate_error(str(e))}"
+
+
+@mcp.tool(
+    description="""
+Search H3K27ac super-enhancer samples in the local database (hg38) by a keyword.
+
+Note:
+    For obtaining H3K27ac peak bed files, use the search_h3k27ac function to locate sample IDs and then use get_h3k27ac_bed
+    to retrieve their peak bed files.
+
+Args:
+    keyword: A partial or full term to search for. Use '+' to combine multiple conditions (e.g., 'Blood+Cell line').
+
+Returns:
+    A list of matching sample IDs and their corresponding bed file paths.
+"""
+)
+async def search_h3k27ac(keyword: str) -> str:
+    try:
+        if not isinstance(keyword, str) or not keyword.strip():
+            return "Error: Keyword cannot be empty"
+
+        # Check if keyword contains '+' for multi‑term matching
+        if '+' in keyword:
+            # Multi‑term fuzzy matching using metadata
+            if h3k27ac_info_df is None:
+                return "Error: H3K27ac info metadata not loaded"
+
+            # Split by '+' and strip whitespace
+            terms = [term.strip() for term in keyword.split('+') if term.strip()]
+            if not terms:
+                return "Error: No valid terms after splitting"
+
+            # Columns to search (text columns)
+            search_columns = ['Sample ID', 'Species', 'Data source', 'Biosample type', 'Tissue type', 'Biosample name']
+            # Ensure columns exist
+            available_cols = [col for col in search_columns if col in h3k27ac_info_df.columns]
+            if not available_cols:
+                return "Error: No expected columns found in H3K27ac info"
+
+            # Filter rows where each term matches at least one column (case‑insensitive substring)
+            mask = pd.Series([True] * len(h3k27ac_info_df), index=h3k27ac_info_df.index)
+            for term in terms:
+                term_mask = pd.Series([False] * len(h3k27ac_info_df), index=h3k27ac_info_df.index)
+                for col in available_cols:
+                    term_mask = term_mask | h3k27ac_info_df[col].astype(str).str.lower().str.contains(term.lower(), na=False)
+                mask = mask & term_mask
+
+            matched_samples = h3k27ac_info_df.loc[mask, 'Sample ID'].tolist()
+            # Map to bed paths
+            matches = {sample: h3k27ac_data_db.get(sample) for sample in matched_samples if sample in h3k27ac_data_db}
+            # Remove entries where path is None
+            matches = {sample: path for sample, path in matches.items() if path is not None}
+        else:
+            # Original single‑keyword search on sample IDs and other columns
+            # We'll search across all text columns
+            if h3k27ac_info_df is None:
+                return "Error: H3K27ac info metadata not loaded"
+
+            search_columns = ['Sample ID', 'Species', 'Data source', 'Biosample type', 'Tissue type', 'Biosample name']
+            available_cols = [col for col in search_columns if col in h3k27ac_info_df.columns]
+            if not available_cols:
+                return "Error: No expected columns found in H3K27ac info"
+
+            mask = pd.Series([False] * len(h3k27ac_info_df), index=h3k27ac_info_df.index)
+            for col in available_cols:
+                mask = mask | h3k27ac_info_df[col].astype(str).str.lower().str.contains(keyword.lower(), na=False)
+
+            matched_samples = h3k27ac_info_df.loc[mask, 'Sample ID'].tolist()
+            matches = {sample: h3k27ac_data_db.get(sample) for sample in matched_samples if sample in h3k27ac_data_db}
+            matches = {sample: path for sample, path in matches.items() if path is not None}
+
+        if not matches:
+            return f"No matching H3K27ac samples found for keyword: {keyword}"
+
+        output_lines = [f"{sample}: {path}" for sample, path in list(matches.items())[:20]]  # Limit output
+        if len(matches) > 20:
+            output_lines.append(f"... and {len(matches)-20} more matches")
+        return f"Found {len(matches)} matching sample(s):\n" + "\n".join(output_lines)
+
+    except Exception as e:
+        return f"Error: {_truncate_error(str(e))}"
+
+
+@mcp.tool(
+    description="""
+Search eRNA samples in the local database (hg38) by a keyword.
+
+Note:
+    For obtaining eRNA peak bed files, use the search_erna function to locate sample IDs and then use get_erna_bed
+    to retrieve their peak bed files.
+
+Args:
+    keyword: A partial or full term to search for. Use '+' to combine multiple conditions (e.g., 'Lung+Cell line').
+
+Returns:
+    A list of matching sample IDs and their corresponding bed file paths.
+"""
+)
+async def search_erna(keyword: str) -> str:
+    try:
+        if not isinstance(keyword, str) or not keyword.strip():
+            return "Error: Keyword cannot be empty"
+
+        # Check if keyword contains '+' for multi‑term matching
+        if '+' in keyword:
+            # Multi‑term fuzzy matching using metadata
+            if erna_info_df is None:
+                return "Error: eRNA info metadata not loaded"
+
+            # Split by '+' and strip whitespace
+            terms = [term.strip() for term in keyword.split('+') if term.strip()]
+            if not terms:
+                return "Error: No valid terms after splitting"
+
+            # Columns to search (text columns)
+            search_columns = ['Sample_ID', 'Species', 'Tissue Type', 'Biosample Type', 'Cell Type', 'Experiment Type']
+            # Ensure columns exist
+            available_cols = [col for col in search_columns if col in erna_info_df.columns]
+            if not available_cols:
+                return "Error: No expected columns found in eRNA info"
+
+            # Filter rows where each term matches at least one column (case‑insensitive substring)
+            mask = pd.Series([True] * len(erna_info_df), index=erna_info_df.index)
+            for term in terms:
+                term_mask = pd.Series([False] * len(erna_info_df), index=erna_info_df.index)
+                for col in available_cols:
+                    term_mask = term_mask | erna_info_df[col].astype(str).str.lower().str.contains(term.lower(), na=False)
+                mask = mask & term_mask
+
+            matched_samples = erna_info_df.loc[mask, 'Sample_ID'].tolist()
+            # Map to bed paths
+            matches = {sample: erna_data_db.get(sample) for sample in matched_samples if sample in erna_data_db}
+            # Remove entries where path is None
+            matches = {sample: path for sample, path in matches.items() if path is not None}
+        else:
+            # Original single‑keyword search on sample IDs and other columns
+            if erna_info_df is None:
+                return "Error: eRNA info metadata not loaded"
+
+            search_columns = ['Sample_ID', 'Species', 'Tissue Type', 'Biosample Type', 'Cell Type', 'Experiment Type']
+            available_cols = [col for col in search_columns if col in erna_info_df.columns]
+            if not available_cols:
+                return "Error: No expected columns found in eRNA info"
+
+            mask = pd.Series([False] * len(erna_info_df), index=erna_info_df.index)
+            for col in available_cols:
+                mask = mask | erna_info_df[col].astype(str).str.lower().str.contains(keyword.lower(), na=False)
+
+            matched_samples = erna_info_df.loc[mask, 'Sample_ID'].tolist()
+            matches = {sample: erna_data_db.get(sample) for sample in matched_samples if sample in erna_data_db}
+            matches = {sample: path for sample, path in matches.items() if path is not None}
+
+        if not matches:
+            return f"No matching eRNA samples found for keyword: {keyword}"
+
+        output_lines = [f"{sample}: {path}" for sample, path in list(matches.items())[:20]]  # Limit output
+        if len(matches) > 20:
+            output_lines.append(f"... and {len(matches)-20} more matches")
+        return f"Found {len(matches)} matching sample(s):\n" + "\n".join(output_lines)
+
+    except Exception as e:
+        return f"Error: {_truncate_error(str(e))}"
+
+
+@mcp.tool(
+    description="""
+Search ATAC-seq (including scATAC-seq pseudo-bulk) samples in the local database (hg38) by a keyword.
+
+Note:
+    For obtaining ATAC-seq peak bed files, use the search_atac function to locate sample IDs and then use get_atac_bed
+    to retrieve their peak bed files.
+
+Args:
+    keyword: A partial or full term to search for. Use '+' to combine multiple conditions (e.g., 'Blood+Cell line').
+
+Returns:
+    A list of matching sample IDs and their corresponding bed file paths.
+"""
+)
+async def search_atac(keyword: str) -> str:
+    try:
+        if not isinstance(keyword, str) or not keyword.strip():
+            return "Error: Keyword cannot be empty"
+
+        # Combine matches from regular ATAC-seq and pseudo-bulk
+        all_matches = {}
+
+        # Helper function to search a given info_df and data_db
+        def search_single_dataset(info_df, data_db, search_columns):
+            if info_df is None:
+                return {}
+
+            # Check if keyword contains '+' for multi‑term matching
+            if '+' in keyword:
+                # Split by '+' and strip whitespace
+                terms = [term.strip() for term in keyword.split('+') if term.strip()]
+                if not terms:
+                    return {}
+
+                # Ensure columns exist
+                available_cols = [col for col in search_columns if col in info_df.columns]
+                if not available_cols:
+                    return {}
+
+                # Filter rows where each term matches at least one column (case‑insensitive substring)
+                mask = pd.Series([True] * len(info_df), index=info_df.index)
+                for term in terms:
+                    term_mask = pd.Series([False] * len(info_df), index=info_df.index)
+                    for col in available_cols:
+                        term_mask = term_mask | info_df[col].astype(str).str.lower().str.contains(term.lower(), na=False)
+                    mask = mask & term_mask
+
+                matched_samples = info_df.loc[mask, 'sample_id'].tolist()
+                # Map to bed paths
+                matches = {sample: data_db.get(sample) for sample in matched_samples if sample in data_db}
+                # Remove entries where path is None
+                matches = {sample: path for sample, path in matches.items() if path is not None}
+                return matches
+            else:
+                # Single keyword search across all text columns
+                available_cols = [col for col in search_columns if col in info_df.columns]
+                if not available_cols:
+                    return {}
+
+                mask = pd.Series([False] * len(info_df), index=info_df.index)
+                for col in available_cols:
+                    mask = mask | info_df[col].astype(str).str.lower().str.contains(keyword.lower(), na=False)
+
+                matched_samples = info_df.loc[mask, 'sample_id'].tolist()
+                matches = {sample: data_db.get(sample) for sample in matched_samples if sample in data_db}
+                matches = {sample: path for sample, path in matches.items() if path is not None}
+                return matches
+
+        # Search regular ATAC-seq
+        atac_search_columns = ['sample_id', 'biosample_type', 'biosample_name', 'tissue_type', 'cell type',
+                               'cancer_or_disease_or_normal', 'cancer_or_disease_type', 'species']
+        atac_matches = search_single_dataset(atac_info_df, atac_data_db, atac_search_columns)
+        all_matches.update(atac_matches)
+
+        # Search pseudo-bulk ATAC-seq
+        atac_pseudo_search_columns = ['sample_id', 'biosample_type', 'biosample_name', 'tissue_type', 'cell type',
+                                      'cancer_or_disease_or_normal', 'cancer_or_disease_type', 'species']
+        atac_pseudo_matches = search_single_dataset(atac_pseudo_info_df, atac_pseudo_data_db, atac_pseudo_search_columns)
+        all_matches.update(atac_pseudo_matches)
+
+        if not all_matches:
+            return f"No matching ATAC-seq samples found for keyword: {keyword}"
+
+        output_lines = [f"{sample}: {path}" for sample, path in list(all_matches.items())[:20]]  # Limit output
+        if len(all_matches) > 20:
+            output_lines.append(f"... and {len(all_matches)-20} more matches")
+        return f"Found {len(all_matches)} matching sample(s):\n" + "\n".join(output_lines)
 
     except Exception as e:
         return f"Error: {_truncate_error(str(e))}"
