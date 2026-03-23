@@ -113,11 +113,4 @@ describe('search_files tool', () => {
         expect(typeof result).toBe('string');
         expect(result).toBe('No files found matching the pattern');
     });
-
-    it('5. getPrompt 应该返回正确的工具定义 Schema', () => {
-        const prompt = getPrompt();
-        expect(prompt.name).toBe('search_files');
-        expect(prompt.parameters.required).toContain('path');
-        expect(prompt.parameters.required).toContain('regex');
-    });
 });

@@ -228,11 +228,16 @@ export class ToolCall extends ReActAgent {
                     return key === 'ask_user' || key === 'list_dir' || key === 'display_file' || key === 'search_files' ? schemaOrStr : null;
                 }
                 // 步骤 E: 数据格式化
-                return typeof schemaOrStr === 'string'
-                    ? { type: "raw_string", name: key, content: schemaOrStr }
-                    : schemaOrStr;
+                if (typeof schemaOrStr === 'string') {
+                    return { type: "raw_string", name: key, content: schemaOrStr };
+                }
+                else if (Object.entries(schemaOrStr).length > 0) {
+                    return schemaOrStr;
+                } else {
+                    logger.error(`Error tool.getPrompt(): ${key}`);
+                }
             })
-            .filter(tool => tool.name && tool.description && tool.parameters); // 剔除 map 阶段可能产生的 null 值
+            .filter(Boolean); // 剔除 map 阶段可能产生的 null 值
         // 获取对应的适配器
         const adapter: IToolCallAdapter = ToolCallAdapterFactory.getAdapter(format);
         // 执行格式化
