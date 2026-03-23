@@ -382,7 +382,7 @@ export class MainWindow extends BaseWindow {
             return { del_mode: !!this.funcItems.del.statu };
         });
 
-        ipcMain.on("stream-message-stop", () => {
+        ipcMain.on("stopMessage", () => {
             this.llm_service.stopMessage();
             this.windowManager.subAgentWindow?.destroy();
         });

@@ -218,7 +218,6 @@ export function menuEvent(messageSystem: HTMLElement, message_content: HTMLEleme
 }
 
 export async function enterEnd(messageSystem: HTMLElement) {
-  await window.electronAPI.streamMessageStop();
   if (State.seconds_timer) clearInterval(State.seconds_timer);
   const message_content = messageSystem.getElementsByClassName('message')[0] as HTMLElement;
   const thinking = messageSystem?.getElementsByClassName("thinking")[0];
@@ -233,6 +232,7 @@ export function addRunning(messageSystem: HTMLElement) {
   thinking.classList.remove('hidden');
   const btn = messageSystem?.getElementsByClassName("btn")[0];
   btn?.addEventListener("click", async () => {
+    await window.electronAPI.stopMessage();
     enterEnd(messageSystem);
   });
 }

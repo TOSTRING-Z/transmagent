@@ -81,6 +81,16 @@ try:
 except Exception as e:
     print(f"Warning: Failed to load TR data: {_truncate_error(str(e))}")
 
+# Load TR info metadata
+TR_INFO_PATH = f"{data_docker}/trapt/library/TRs_info.txt"
+tr_info_df = None
+try:
+    import pandas as pd
+    tr_info_df = pd.read_csv(TR_INFO_PATH, sep='\t')
+    print(f"Loaded TR info metadata with {len(tr_info_df)} rows")
+except Exception as e:
+    print(f"Warning: Failed to load TR info metadata: {_truncate_error(str(e))}")
+
 # Configuration
 bed_config = {"gene_bed_path": f"{data_docker}/human/gene.bed"}
 gene_expression_TCGA = f"{data_docker}/exp/gene_expression_TCGA.feather"
@@ -377,9 +387,42 @@ async def search_tr(keyword: str) -> str:
         if not isinstance(keyword, str) or not keyword.strip():
             return "Error: Keyword cannot be empty"
 
-        matches = {
-            tr: path for tr, path in tr_data_db.items() if keyword.lower() in tr.lower()
-        }
+        # Check if keyword contains '+' for multi‑term matching
+        if '+' in keyword:
+            # Multi‑term fuzzy matching using TRs_info metadata
+            if tr_info_df is None:
+                return "Error: TR info metadata not loaded"
+            
+            # Split by '+' and strip whitespace
+            terms = [term.strip() for term in keyword.split('+') if term.strip()]
+            if not terms:
+                return "Error: No valid terms after splitting"
+            
+            # Columns to search (text columns)
+            search_columns = ['tr', 'tr_base', 'Sample ID', 'Biosample Type', 'Biosample Name', 'Source', 'File Accession']
+            # Ensure columns exist
+            available_cols = [col for col in search_columns if col in tr_info_df.columns]
+            if not available_cols:
+                return "Error: No expected columns found in TR info"
+            
+            # Filter rows where each term matches at least one column (case‑insensitive substring)
+            mask = pd.Series([True] * len(tr_info_df), index=tr_info_df.index)
+            for term in terms:
+                term_mask = pd.Series([False] * len(tr_info_df), index=tr_info_df.index)
+                for col in available_cols:
+                    term_mask = term_mask | tr_info_df[col].astype(str).str.lower().str.contains(term.lower(), na=False)
+                mask = mask & term_mask
+            
+            matched_trs = tr_info_df.loc[mask, 'tr'].tolist()
+            # Map to bed paths
+            matches = {tr: tr_data_db.get(tr) for tr in matched_trs if tr in tr_data_db}
+            # Remove entries where path is None
+            matches = {tr: path for tr, path in matches.items() if path is not None}
+        else:
+            # Original single‑keyword search on TR names
+            matches = {
+                tr: path for tr, path in tr_data_db.items() if keyword.lower() in tr.lower()
+            }
 
         if not matches:
             return f"No matching TR found for keyword: {keyword}"

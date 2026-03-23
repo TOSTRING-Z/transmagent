@@ -19,7 +19,7 @@ export interface ElectronAPI {
   toolData: (callback: (chunk: any) => void) => void;
   infoData: (callback: (info: any) => void) => void;
   userData: (callback: (data: any) => void) => void;
-  streamMessageStop: () => Promise<void>;
+  stopMessage: () => Promise<void>;
   startAgentLoop: (callback: (data: any) => void) => void;
   agentLoop: (data: any) => void;
   handleExtraLoad: (callback: (data: any[]) => void) => void;

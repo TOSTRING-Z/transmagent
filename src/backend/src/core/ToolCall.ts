@@ -189,7 +189,7 @@ export class ToolCall extends ReActAgent {
             'context_retrieval': not(isSubagent),
             'search_long_term_memory': not(isSubagent),
             'write_important_memory': not(isSubagent),
-            'ask_user': all(not(isSubagent), not(any(isMode('FLASH'), isMode('AUTO'))))
+            'ask_user': all(not(isSubagent), not(any(isMode('FLASH'), isMode('AUTO')))),
         };
 
         // --- 核心类方法中的逻辑 ---
@@ -223,9 +223,9 @@ export class ToolCall extends ReActAgent {
                 // 步骤 C: 获取 Schema
                 const schemaOrStr = tool.getPrompt();
                 // 步骤 D: 特殊的全局模式拦截
-                // 依据原代码逻辑：PLAN 模式下，即便其他工具过了策略，最终也只有 ask_user 产出 Schema
+                // 依据原代码逻辑：PLAN 模式下，即便其他工具过了策略，最终也只有 ask_user, list_dir, display_file, search_files 产出 Schema
                 if (context.currentMode === context.modes.PLAN) {
-                    return key === 'ask_user' ? schemaOrStr : null;
+                    return key === 'ask_user' || key === 'list_dir' || key === 'display_file' || key === 'search_files' ? schemaOrStr : null;
                 }
                 // 步骤 E: 数据格式化
                 return typeof schemaOrStr === 'string'
@@ -298,7 +298,9 @@ export class ToolCall extends ReActAgent {
         const shortMode = this.modeMap[mode || ""] ? mode : "act";
         this.environment_details.mode = selectedMode;
         this.llm_service.chatManager.chat.mode = shortMode as string;
-        this.setHistory();
+        if (!this.prompt_args.subagent) {
+            this.setHistory();
+        }
     }
 
     /**

@@ -495,7 +495,6 @@ $$
     });
   }
   async function enterEnd(messageSystem) {
-    await window.electronAPI.streamMessageStop();
     if (State.seconds_timer)
       clearInterval(State.seconds_timer);
     const message_content = messageSystem.getElementsByClassName("message")[0];
@@ -510,6 +509,7 @@ $$
     thinking.classList.remove("hidden");
     const btn = messageSystem?.getElementsByClassName("btn")[0];
     btn?.addEventListener("click", async () => {
+      await window.electronAPI.stopMessage();
       enterEnd(messageSystem);
     });
   }

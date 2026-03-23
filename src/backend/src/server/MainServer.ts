@@ -45,7 +45,7 @@ export class MainServer {
                     this.mainWindow.tool_call.setHistory();
 
                     let message_list = chatManager.getMessages(true)
-                        .filter((message: any) => message.group_id === result.group_id);
+                        .filter((message: any) => message.group_id === chatManager.chat.group_id);
 
                     message_list = this.mainWindow.llm_service.adapter.formatMessages(
                         message_list,
