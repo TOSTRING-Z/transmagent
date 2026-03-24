@@ -62,7 +62,8 @@ export class ToolCall extends ReActAgent {
     public thinking_repetitions: (string | null)[] = [];
     public repetitions_delay_empty: number = 0;
     public environment_details!: EnvironmentDetails;
-    public toolInfo: ToolInfo | undefined;
+    public toolInfos: ToolInfo[] = [];
+    public currentToolInfo: ToolInfo | undefined; // 用于记录当前执行的工具，方便 callReAct 等外部调用读取状态
     public modeMap: Record<string, Mode> = { "auto": Mode.AUTO, "plan": Mode.PLAN, "flash": Mode.FLASH, "act": Mode.ACT };
     private rememberedChoices: Record<string, boolean> = {};
 
@@ -309,45 +310,76 @@ export class ToolCall extends ReActAgent {
     }
 
     /**
-     * AI 审查者逻辑 (LLM-as-a-Judge) - 缓存优化版
+     * AI 审查者逻辑 (LLM-as-a-Judge) - 隔离优化版
      */
     public async auditToolCall(toolInfo: ToolInfo, assistantMessage: Message, data: Record<string, any>): Promise<string | null> {
-        // 检查工具是否为敏感工具且需要审计
+        // 1. 检查工具是否为敏感工具且需要审计
         if (!toolInfo.tool || !this.isSensitiveTool(toolInfo.tool) || !this.isToolRequireAudit(toolInfo.tool)) {
             return null;
         }
 
-        // 检查审计是否启用
+        // 2. 检查审计是否启用
         if (!this.isToolAuditEnabled(toolInfo.tool)) {
             logger.log(`[Critic] 工具 ${toolInfo.tool} 审计已禁用，跳过审查`);
             return null;
         }
 
-        // 检查LLM审查器是否启用
+        // 3. 检查LLM审查器是否启用
         if (!utils.getConfig("tool_call")?.llm_judge) {
             return null;
         }
 
-        logger.log(`[Critic] 正在审查敏感工具调用: ${toolInfo.tool}...`);
+        logger.log(`[Critic] 正在审查敏感工具调用: ${toolInfo.tool} (ID: ${toolInfo.id})...`);
 
         const temp_llm_service = new LLMService();
         temp_llm_service.chatManager.chat = { ...this.llm_service.chatManager.chat };
 
-        // 提取 tool_call_id，应对原生 API 的强校验
-        const isNativeToolCall = assistantMessage.tool_calls && assistantMessage.tool_calls.length > 0;
-        const toolCallId = isNativeToolCall ? assistantMessage.tool_calls![0].id : (toolInfo.id || "dummy_id");
+        // ==========================================
+        // 关键修复：构建隔离的助手消息，剔除并发的其他工具
+        // ==========================================
+        const isolatedAssistantMessage: Message = { ...assistantMessage };
+        const isNativeToolCall = isolatedAssistantMessage.tool_calls && isolatedAssistantMessage.tool_calls.length > 0;
 
+        if (isNativeToolCall) {
+            // [原生 API 模式] 只保留当前正在审查的这一个 tool_call
+            isolatedAssistantMessage.tool_calls = isolatedAssistantMessage.tool_calls!.filter(
+                call => call.id === toolInfo.id
+            );
+
+            // 容错：如果没匹配上（理论上不可能），直接赋一个单元素数组
+            if (isolatedAssistantMessage.tool_calls.length === 0) {
+                isolatedAssistantMessage.tool_calls = [{
+                    id: toolInfo.id || "dummy_id",
+                    type: "function",
+                    function: {
+                        name: toolInfo.tool,
+                        arguments: JSON.stringify(toolInfo.params)
+                    }
+                }];
+            }
+        } else {
+            // [Prompt 模式] 原始 content 可能是包含多个对象的 JSON 数组
+            // 重构 content，确保审查者只看到当前的单一工具负载
+            const isolatedPayload = {
+                thinking: toolInfo.thinking,
+                tool: toolInfo.tool,
+                params: toolInfo.params
+            };
+            isolatedAssistantMessage.content = JSON.stringify(isolatedPayload, null, 2);
+        }
+
+        // 组装审查上下文
         temp_llm_service.chatManager.messages = [
             ...this.llm_service.chatManager.getMessages(true),
-            assistantMessage
+            isolatedAssistantMessage
         ];
 
-        // 核心修复点：如果存在原生 tool_calls，必须紧跟一条 tool 消息闭环
+        // 闭环假消息：针对原生 API 补充单一的工具回复
         if (isNativeToolCall) {
             temp_llm_service.chatManager.messages.push({
                 role: "tool",
                 content: "SYSTEM: Execution paused. Proceed to internal audit.",
-                tool_call_id: toolCallId,
+                tool_call_id: toolInfo.id || "dummy_id",
                 tool_call_name: toolInfo.tool,
                 group_id: assistantMessage.group_id,
                 context_id: assistantMessage.context_id
@@ -457,14 +489,15 @@ You MUST respond ONLY with a valid JSON object. DO NOT call any tools.
         data.prompt = await this.system_prompt();
         const messageOutput = await this.llmCall(data);
         let assistantMessage!: Message;
+
         if (messageOutput) {
             assistantMessage = { ...messageOutput, ...{ group_id: this.llm_service.chatManager.chat.group_id, context_id: this.llm_service.chatManager.chat.context_id, tool_format: this.llm_service.chatManager.chat.tool_format, show: true, react: true } }
-            this.toolInfo = await this.getToolInfo(data, assistantMessage);
+            this.toolInfos = await this.getToolInfos(data, assistantMessage);
         } else {
             return;
         }
 
-        if (!this.toolInfo) {
+        if (!this.toolInfos || this.toolInfos.length === 0) {
             logger.error(`Tool Info Error`);
             this.window?.webContents.send('infoData', {
                 group_id: this.llm_service.chatManager.chat.group_id,
@@ -476,7 +509,7 @@ You MUST respond ONLY with a valid JSON object. DO NOT call any tools.
         // ==========================================
         // 1. 记录与判断重复思考
         // ==========================================
-        const currentThinking = this.toolInfo?.thinking;
+        const currentThinking = this.toolInfos[0]?.thinking;
 
         // 与上一次思考内容对比，而不是第一次
         if (this.thinking_repetitions.length === 0 || this.thinking_repetitions[this.thinking_repetitions.length - 1] === currentThinking) {
@@ -492,44 +525,61 @@ You MUST respond ONLY with a valid JSON object. DO NOT call any tools.
         }
 
         // ==========================================
-        // 2. 拦截死循环并打断 (从原有 else 块中剥离)
+        // 2. 先把包含所有 tool_calls 的助手消息压入历史记录 (只压一次！)
         // ==========================================
-        if (this.thinking_repetitions.length >= (utils.getConfig("tool_call")?.max_thinking_repetitions || 5)) {
+        const hasTool = this.toolInfos.some(t => t.tool);
+        const isThinkingOnly = this.toolInfos.length === 1 && !this.toolInfos[0].tool;
+
+        if (hasTool || isThinkingOnly) {
             this.llm_service.chatManager.pushMessage(assistantMessage);
-            let observation = {
-                ask: `You have been stuck in a thinking loop ${this.thinking_repetitions.length} times. Try a new approach to break through, or end it directly.`,
-                options: ["End Task", "Try New Approach", "Continue"]
-            };
-            const { ask, options } = observation;
+        }
 
-            this.state = State.PAUSE;
-            this.thinking_repetitions.length = 0; // 触发打断后清空历史，避免反复触发
-
-            this.window?.webContents.send('streamData', { group_id: this.llm_service.chatManager.chat.group_id, context_id: this.llm_service.chatManager.chat.context_id, content: ask, end: true, chat: this.llm_service.chatManager.chat });
-            this.window?.webContents.send("options", { options: options, group_id: this.llm_service.chatManager.chat.group_id, tool_call_id: this.toolInfo?.id, tool_call_name: this.toolInfo?.tool });
-
-            return; // ⚠️ 关键拦截点：直接 return 终止当前步骤，不再执行下方的工具逻辑
+        // 纯思考结束流程
+        if (isThinkingOnly) {
+            assistantMessage.react = false;
+            this.window?.webContents.send('streamData', { group_id: this.llm_service.chatManager.chat.group_id, context_id: this.llm_service.chatManager.chat.context_id, content: null, end: true, chat: this.llm_service.chatManager.chat });
+            this.state = State.FINAL;
+            return;
         }
 
         // ==========================================
-        // 3. 正常的工具执行流程 (完全解耦，不再被嵌套在重复判定中)
+        // 3. 循环并发遍历所有工具 (依次执行，确保上下文有序)
         // ==========================================
-        if (this.toolInfo?.error) {
-            this.llm_service.chatManager.pushMessage(assistantMessage);
-            this.llm_service.chatManager.pushMessage({ role: "tool", content: this.toolInfo.error, tool_call_id: this.toolInfo?.id, tool_call_name: this.toolInfo?.tool, group_id: this.llm_service.chatManager.chat.group_id, context_id: this.llm_service.chatManager.chat.context_id, show: true, react: true });
-            this.window?.webContents.send('streamData', { group_id: this.llm_service.chatManager.chat.group_id, context_id: this.llm_service.chatManager.chat.context_id, content: this.toolInfo?.error, chat: this.llm_service.chatManager.chat });
-        }
-        else if (this.toolInfo?.tool) {
-            // [新增] 触发 AI 审查者，传入 assistantMessage 和 data 实现缓存命中
-            let auditError = await this.auditToolCall(this.toolInfo, assistantMessage, data);
+        for (const toolInfo of this.toolInfos) {
+            if (!toolInfo.tool) continue;
 
+            this.currentToolInfo = toolInfo; // 更新当前状态引用，供 callReAct 等外部断点恢复使用
+
+            // [1. 解析错误处理]
+            if (toolInfo.error) {
+                this.llm_service.chatManager.pushMessage({
+                    role: "tool",
+                    content: toolInfo.error,
+                    tool_call_id: toolInfo.id,
+                    tool_call_name: toolInfo.tool,
+                    group_id: this.llm_service.chatManager.chat.group_id,
+                    context_id: this.llm_service.chatManager.chat.context_id,
+                    show: true,
+                    react: true
+                });
+                this.window?.webContents.send('streamData', {
+                    group_id: this.llm_service.chatManager.chat.group_id,
+                    context_id: this.llm_service.chatManager.chat.context_id,
+                    content: toolInfo.error,
+                    chat: this.llm_service.chatManager.chat
+                });
+                continue; // 当前工具执行失败，继续尝试数组中的下一个工具
+            }
+
+            // [2. 触发 AI 审查者 (Critic)]
+            let auditError = await this.auditToolCall(toolInfo, assistantMessage, data);
             if (auditError) {
                 // 如果被拦截，将 Critic 的报错喂回给原 Agent
                 this.llm_service.chatManager.pushMessage({
                     role: "tool",
                     content: auditError,
-                    tool_call_id: this.toolInfo?.id,
-                    tool_call_name: this.toolInfo?.tool,
+                    tool_call_id: toolInfo.id,
+                    tool_call_name: toolInfo.tool,
                     group_id: this.llm_service.chatManager.chat.group_id,
                     context_id: this.llm_service.chatManager.chat.context_id,
                     show: true,
@@ -543,40 +593,33 @@ You MUST respond ONLY with a valid JSON object. DO NOT call any tools.
                     chat: this.llm_service.chatManager.chat
                 });
 
-                return; // 终止当前 step，带着失败观测进入下一轮思考
+                continue; // 终止当前风险工具，继续执行数组中下一个工具
             }
 
-            // 审查通过后加入助手消息
-            this.llm_service.chatManager.pushMessage(assistantMessage);
+            // [3. 高风险工具确认逻辑]
+            const isHighRiskTool = this.isHighRiskTool(toolInfo.tool);
+            const toolConfig = this.getToolConfig(toolInfo.tool);
 
-            // [新增] 高风险工具确认逻辑 - 从配置文件读取
-            const isHighRiskTool = this.isHighRiskTool(this.toolInfo.tool);
-            const toolConfig = this.getToolConfig(this.toolInfo.tool);
-
-            // 使用传入的windowManager
             if (isHighRiskTool && WindowManager.instance?.confirmationWindow && this.environment_details.mode === Mode.ACT) {
-                // 从工具配置中检查是否需要确认
                 const requireConfirmation = toolConfig?.require_confirmation !== false; // 默认需要确认
 
                 if (requireConfirmation) {
-                    // 获取工具描述和确认消息
                     let toolDescription = '';
-                    const toolName = this.toolInfo.tool;
+                    const toolName = toolInfo.tool;
 
                     // 检查是否有已记住的选择
                     const rememberedChoice = this.getRememberedChoice(toolName);
                     if (rememberedChoice !== null) {
-                        // 有记住的选择，直接执行或取消
                         if (rememberedChoice) {
-                            let observation = await this.act(this.toolInfo!);
-                            this.handleToolObservation(observation);
+                            let observation = await this.act(toolInfo);
+                            this.handleToolObservation(observation, toolInfo);
                         } else {
-                            const cancelMessage = `用户取消了高风险工具 ${this.toolInfo!.tool} 的执行（已记住的选择）`;
+                            const cancelMessage = `用户取消了高风险工具 ${toolInfo.tool} 的执行（已记住的选择）`;
                             this.llm_service.chatManager.pushMessage({
                                 role: "tool",
                                 content: cancelMessage,
-                                tool_call_id: this.toolInfo?.id,
-                                tool_call_name: this.toolInfo?.tool,
+                                tool_call_id: toolInfo.id,
+                                tool_call_name: toolInfo.tool,
                                 group_id: this.llm_service.chatManager.chat.group_id,
                                 context_id: this.llm_service.chatManager.chat.context_id,
                                 show: true,
@@ -585,13 +628,14 @@ You MUST respond ONLY with a valid JSON object. DO NOT call any tools.
                             this.window?.webContents.send('streamData', {
                                 group_id: this.llm_service.chatManager.chat.group_id,
                                 context_id: this.llm_service.chatManager.chat.context_id,
-                                content: `❌ **执行取消**: ${cancelMessage}
-
-`,
+                                content: `❌ **执行取消**: ${cancelMessage}\n\n`,
                                 chat: this.llm_service.chatManager.chat
                             });
                         }
-                        return; // 跳过确认窗口
+
+                        // 如果工具触发了暂停（如提问等），打断并发遍历
+                        if (this.state === State.PAUSE) break;
+                        continue; // 跳过确认窗口，处理下一个工具
                     }
 
                     // 尝试从工具定义中获取描述
@@ -606,39 +650,35 @@ You MUST respond ONLY with a valid JSON object. DO NOT call any tools.
                         }
                     }
 
-                    // 显示确认窗口，使用配置中的确认消息
                     const finalConfirmationMessage = toolConfig?.confirmation_message || `即将执行高风险工具: ${toolName}`;
 
                     // 创建确认请求
                     const confirmationRequest = {
-                        toolId: this.toolInfo?.id || '',
+                        toolId: toolInfo.id || '',
                         toolName: toolName,
                         toolDescription: toolDescription,
                         confirmationMessage: finalConfirmationMessage,
-                        executionDetails: this.toolInfo.params
+                        executionDetails: toolInfo.params
                     };
 
                     try {
-                        // 显示确认窗口并等待用户响应
+                        // 挂起并等待用户在 Electron 弹窗响应
                         const response = await WindowManager.instance.confirmationWindow.showConfirmation(confirmationRequest);
 
-                        // 如果用户选择记住选择，保存到配置
                         if (response.rememberChoice) {
                             this.setRememberedChoice(toolName, response.confirmed);
                         }
 
                         if (response.confirmed) {
-                            // 用户确认后执行工具
-                            let observation = await this.act(this.toolInfo!);
-                            this.handleToolObservation(observation);
+                            let observation = await this.act(toolInfo);
+                            this.handleToolObservation(observation, toolInfo);
                         } else {
-                            // 用户取消，返回取消信息
-                            const cancelMessage = `用户取消了高风险工具 ${this.toolInfo!.tool} 的执行`;
+                            const cancelMessage = `用户取消了高风险工具 ${toolInfo.tool} 的执行`;
                             this.llm_service.chatManager.pushMessage({
                                 role: "tool",
                                 content: cancelMessage,
-                                tool_call_id: this.toolInfo?.id,
-                                tool_call_name: this.toolInfo?.tool,
+                                tool_call_id: toolInfo.id,
+                                tool_call_name: toolInfo.tool,
                                 group_id: this.llm_service.chatManager.chat.group_id,
                                 context_id: this.llm_service.chatManager.chat.context_id,
                                 show: true,
@@ -648,43 +688,52 @@ You MUST respond ONLY with a valid JSON object. DO NOT call any tools.
                             this.window?.webContents.send('streamData', {
                                 group_id: this.llm_service.chatManager.chat.group_id,
                                 context_id: this.llm_service.chatManager.chat.context_id,
-                                content: `❌ **执行取消**: ${cancelMessage}
-
-`,
+                                content: `❌ **执行取消**: ${cancelMessage}\n\n`,
                                 chat: this.llm_service.chatManager.chat
                             });
                         }
                     } catch (error) {
                         console.error("确认窗口错误:", error);
-                        // 如果确认窗口出错，直接执行工具
-                        let observation = await this.act(this.toolInfo!);
-                        this.handleToolObservation(observation);
+                        // 如果确认窗口本身出错（IPC 崩溃等），默认放行执行
+                        let observation = await this.act(toolInfo);
+                        this.handleToolObservation(observation, toolInfo);
                     }
 
-                    return; // 等待用户确认或取消
+                    // 状态机流转：如果弹窗后执行的工具（或回调）让状态变成了暂停，直接跳出并发循环
+                    if (this.state === State.PAUSE) break;
+                    continue; // 处理完毕当前高风险工具，进行下一个
                 }
             }
 
-            let observation = await this.act(this.toolInfo!);
-            this.handleToolObservation(observation);
-        }
-        else if (this.toolInfo?.thinking) {
-            assistantMessage.react = false;
-            this.llm_service.chatManager.pushMessage(assistantMessage);
-            this.window?.webContents.send('streamData', { group_id: this.llm_service.chatManager.chat.group_id, context_id: this.llm_service.chatManager.chat.context_id, content: null, end: true, chat: this.llm_service.chatManager.chat });
-            this.state = State.FINAL;
+            // [4. 标准工具安全执行]
+            let observation = await this.act(toolInfo);
+            this.handleToolObservation(observation, toolInfo);
+
+            // [关键防御点]：如果当前工具（例如 ask_user）需要挂起等待用户回复，必须立刻阻断后续工具的并发执行
+            if (this.state === State.PAUSE) {
+                break;
+            }
         }
     }
 
-    public async getToolInfo(data: Record<string, any>, assistantMessage): Promise<ToolInfo | undefined> {
-        const adapter: IToolCallAdapter = ToolCallAdapterFactory.getAdapter(this.llm_service.chatManager.chat.tool_format);
-        const toolInfo = adapter.getToolInfo(assistantMessage);
-        if (!toolInfo.thinking && !toolInfo.tool) return; // 网络或内容容错处理
-        let toolInfoStr = JSON.stringify(toolInfo, null, 2);
+    public async getToolInfos(data: Record<string, any>, assistantMessage: any): Promise<ToolInfo[]> {
+        const adapter: any = ToolCallAdapterFactory.getAdapter(this.llm_service.chatManager.chat.tool_format);
+        const toolInfos = adapter.getToolInfos(assistantMessage);
+
+        // 网络或内容容错处理
+        if (toolInfos.length === 1 && !toolInfos[0].thinking && !toolInfos[0].tool) return [];
+
+        let toolInfoStr = JSON.stringify(toolInfos, null, 2);
         data.output_format = toolInfoStr;
+
         this.window?.webContents.send('infoData', { group_id: this.llm_service.chatManager.chat.group_id, context_id: this.llm_service.chatManager.chat.context_id, content: this.getInfo(data) });
-        this.window?.webContents.send('streamData', { group_id: this.llm_service.chatManager.chat.group_id, context_id: this.llm_service.chatManager.chat.context_id, content: `${toolInfo.thinking}\n\n---\n\n`, chat: this.llm_service.chatManager.chat });
-        return toolInfo;
+
+        const thinking = toolInfos[0]?.thinking || "";
+        if (thinking) {
+            this.window?.webContents.send('streamData', { group_id: this.llm_service.chatManager.chat.group_id, context_id: this.llm_service.chatManager.chat.context_id, content: `${thinking}\n\n---\n\n`, chat: this.llm_service.chatManager.chat });
+        }
+
+        return toolInfos;
     }
 
     public async act(toolInfo: ToolInfo): Promise<Observation> {
@@ -718,14 +767,14 @@ You MUST respond ONLY with a valid JSON object. DO NOT call any tools.
         return observation;
     }
 
-    private handleToolObservation(observation: Observation): void {
+    private handleToolObservation(observation: Observation, toolInfo: ToolInfo): void {
         // 确保toolInfo存在
-        if (!this.toolInfo) {
+        if (!toolInfo) {
             console.error("toolInfo is undefined in handleToolObservation");
             return;
         }
 
-        switch (this.toolInfo?.tool) {
+        switch (toolInfo?.tool) {
             case "display_file":
                 this.window?.webContents.send('streamData', { group_id: this.llm_service.chatManager.chat.group_id, context_id: this.llm_service.chatManager.chat.context_id, content: `${observation.result}\n\n`, chat: this.llm_service.chatManager.chat });
                 break;
@@ -742,12 +791,12 @@ You MUST respond ONLY with a valid JSON object. DO NOT call any tools.
         if (this.state === (State.PAUSE as State)) {
             const { ask, options } = observation;
             this.window?.webContents.send('streamData', { group_id: this.llm_service.chatManager.chat.group_id, context_id: this.llm_service.chatManager.chat.context_id, content: ask, end: true, chat: this.llm_service.chatManager.chat });
-            this.window?.webContents.send("options", { options: options, group_id: this.llm_service.chatManager.chat.group_id, tool_call_id: this.toolInfo?.id, tool_call_name: this.toolInfo?.tool });
+            this.window?.webContents.send("options", { options: options, group_id: this.llm_service.chatManager.chat.group_id, tool_call_id: toolInfo?.id, tool_call_name: toolInfo?.tool });
         } else if (this.state === (State.FINAL as State)) {
-            this.llm_service.chatManager.pushMessage({ role: "tool", content: observation.result, tool_call_id: this.toolInfo?.id, tool_call_name: this.toolInfo?.tool, group_id: this.llm_service.chatManager.chat.group_id, context_id: this.llm_service.chatManager.chat.context_id, show: true, react: true });
+            this.llm_service.chatManager.pushMessage({ role: "tool", content: observation.result, tool_call_id: toolInfo?.id, tool_call_name: toolInfo?.tool, group_id: this.llm_service.chatManager.chat.group_id, context_id: this.llm_service.chatManager.chat.context_id, show: true, react: true });
             this.window?.webContents.send('streamData', { group_id: this.llm_service.chatManager.chat.group_id, context_id: this.llm_service.chatManager.chat.context_id, content: observation, end: true, chat: this.llm_service.chatManager.chat });
         } else {
-            this.llm_service.chatManager.pushMessage({ role: "tool", content: observation.result, tool_call_id: this.toolInfo?.id, tool_call_name: this.toolInfo?.tool, group_id: this.llm_service.chatManager.chat.group_id, context_id: this.llm_service.chatManager.chat.context_id, show: true, react: true });
+            this.llm_service.chatManager.pushMessage({ role: "tool", content: observation.result, tool_call_id: toolInfo?.id, tool_call_name: toolInfo?.tool, group_id: this.llm_service.chatManager.chat.group_id, context_id: this.llm_service.chatManager.chat.context_id, show: true, react: true });
             // 这里需要获取当前的data，但data不在这个方法的上下文中
             // 我们可以创建一个默认的data对象或者从其他地方获取
             const defaultData = { output_format: observation.result };
@@ -758,9 +807,17 @@ You MUST respond ONLY with a valid JSON object. DO NOT call any tools.
     public async callReAct(data: Record<string, any>): Promise<any> {
         if (this.state === State.PAUSE) {
             data.role = "tool";
-            // 工具响应应和助手消息同一id
             let context_id = `${this.llm_service.chatManager.chat.group_id}${this.llm_service.chatManager.chat.step - 1}`
-            this.llm_service.chatManager.pushMessage({ role: "tool", content: data.query, tool_call_id: this.toolInfo?.id, tool_call_name: this.toolInfo?.tool, group_id: this.llm_service.chatManager.chat.group_id, context_id: context_id, show: true, react: true });
+            this.llm_service.chatManager.pushMessage({
+                role: "tool",
+                content: data.query,
+                tool_call_id: this.currentToolInfo?.id,
+                tool_call_name: this.currentToolInfo?.tool,
+                group_id: this.llm_service.chatManager.chat.group_id,
+                context_id: context_id,
+                show: true,
+                react: true
+            });
             this.window.webContents.send('toolData', { group_id: this.llm_service.chatManager.chat.group_id, context_id: this.llm_service.chatManager.chat.context_id, content: data.query, del: false });
         } else {
             this.llm_service.chatManager.chat.step = 1;

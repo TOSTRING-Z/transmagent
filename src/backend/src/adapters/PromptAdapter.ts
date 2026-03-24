@@ -217,53 +217,80 @@ export class PromptToolCallAdapter implements IToolCallAdapter {
         }
         return tool_prompt;
     }
-    public getToolInfo(message: Message): ToolInfo {
-        let aiRespnse: any = null;
-        let toolInfo!: ToolInfo;
+
+    public getToolInfos(message: Message): ToolInfo[] {
+        let toolInfos: ToolInfo[] = [];
+        const contentStr = message.content as string;
+
         try {
-            aiRespnse = utils.parseJsonContent(message.content as string);
-            if (!aiRespnse) {
-                aiRespnse = JSON5.parse(message.content as string);
+            // 尝试解析文本中的 JSON
+            let aiResponse: any = utils.parseJsonContent(contentStr);
+            if (!aiResponse) {
+                aiResponse = JSON5.parse(contentStr);
             }
-            toolInfo = { thinking: aiRespnse.thinking, tool: aiRespnse?.tool, id: null, params: aiRespnse?.params || {}, error: null };
-            if (!aiRespnse.thinking && !aiRespnse?.tool) {
-                toolInfo = {
-                    thinking: `\`\`\`text
-                    ${message.content as string}
-                    \`\`\`
-                    
-                    **Function calling is not a pure JSON text, or there is a problem with the JSON format.**`,
-                    tool: null,
-                    id: null,
-                    params: {},
-                    error: `Error Message: Tool parsing failed`
-                };
+
+            // 兼容模型输出的是单工具对象 {...} 还是多工具数组 [...]
+            const calls = Array.isArray(aiResponse) ? aiResponse : [aiResponse];
+
+            for (let i = 0; i < calls.length; i++) {
+                const call = calls[i];
+
+                // 容错：如果解析出的对象既没有 thinking 也没有 tool
+                if (!call.thinking && !call?.tool) {
+                    toolInfos.push({
+                        thinking: `\`\`\`text\n${contentStr}\n\`\`\`\n\n**Function calling is not a pure JSON text, or there is a problem with the JSON format.**`,
+                        tool: null,
+                        // 生成一个伪id，便于追踪
+                        id: `prompt_call_${Date.now()}_${i}`,
+                        params: {},
+                        error: `Error Message: Tool parsing failed at index ${i}`
+                    });
+                    continue;
+                }
+
+                // 正常解析推入数组
+                toolInfos.push({
+                    thinking: call.thinking || "",
+                    tool: call?.tool || null,
+                    // 原生Prompt没有ID，这里为并行调用生成一个伪唯一ID，或者使用模型自己生成的ID
+                    id: call?.id || `prompt_call_${Date.now()}_${i}`,
+                    params: call?.params || {},
+                    error: null
+                });
             }
+
         } catch (error: any) {
-            if ((message.content as string).startsWith("```json") || (message.content as string).startsWith("{")) {
-                toolInfo = {
-                    thinking: `\`\`\`text
-                    ${message.content as string}
-                    \`\`\`
-                    
-                    **Function calling is not a pure JSON text, or there is a problem with the JSON format.**`,
+            // 解析失败时的降级处理
+            const trimmedStr = contentStr.trim();
+            if (trimmedStr.startsWith("```json") || trimmedStr.startsWith("{") || trimmedStr.startsWith("[")) {
+                // 模型试图进行 JSON 输出但格式损坏
+                toolInfos.push({
+                    thinking: `\`\`\`text\n${contentStr}\n\`\`\`\n\n**Function calling is not a pure JSON text, or there is a problem with the JSON format.**`,
                     tool: null,
                     id: null,
                     params: {},
                     error: `Error Message: ${error.message}`
-                };
+                });
             } else {
-                toolInfo = {
-                    thinking: message.content as string,
+                // 纯文本思考，不含工具调用
+                toolInfos.push({
+                    thinking: contentStr,
                     tool: null,
                     id: null,
                     params: {},
                     error: null
-                };
+                });
             }
         }
-        return toolInfo;
+
+        // 兜底：如果数组无论何种原因变为空，塞入一条纯文本记录
+        if (toolInfos.length === 0) {
+            toolInfos.push({ thinking: contentStr, tool: null, id: null, params: {}, error: null });
+        }
+
+        return toolInfos;
     }
+
     extractText(message: any): string {
         return typeof message.content === 'string' ? message.content : "";
     }

@@ -56,7 +56,7 @@ describe('PromptToolCallAdapter Unit Tests', () => {
             // 模拟 utils.parseJsonContent 无法解析时，自动降级为 JSON5.parse
             (utils.parseJsonContent as jest.Mock).mockReturnValueOnce(null);
 
-            const result = adapter.getToolInfo(mockMessage);
+            const result = adapter.getToolInfos(mockMessage);
 
             expect(result.thinking).toBe('checking weather');
             expect(result.tool).toBe('weather');
@@ -72,7 +72,7 @@ describe('PromptToolCallAdapter Unit Tests', () => {
 
             (utils.parseJsonContent as jest.Mock).mockReturnValueOnce(null);
 
-            const result = adapter.getToolInfo(mockMessage);
+            const result = adapter.getToolInfos(mockMessage);
 
             expect(result.tool).toBeNull();
             expect(result.error).toContain('Error Message:');
@@ -89,7 +89,7 @@ describe('PromptToolCallAdapter Unit Tests', () => {
 
             (utils.parseJsonContent as jest.Mock).mockReturnValueOnce(null);
 
-            const result = adapter.getToolInfo(mockMessage);
+            const result = adapter.getToolInfos(mockMessage);
 
             expect(result.tool).toBeNull();
             expect(result.thinking).toBe('Hello, I am a standard AI response without any JSON.');

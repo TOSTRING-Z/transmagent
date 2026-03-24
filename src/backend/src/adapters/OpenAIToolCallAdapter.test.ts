@@ -24,7 +24,7 @@ describe('OpenAI Adapters Unit Tests', () => {
                 }]
             };
 
-            const result = toolCallAdapter.getToolInfo(mockMessage);
+            const result = toolCallAdapter.getToolInfos(mockMessage);
 
             expect(result.tool).toBe('get_weather');
             expect(result.id).toBe('call_123');
@@ -48,7 +48,7 @@ describe('OpenAI Adapters Unit Tests', () => {
                 }]
             };
 
-            const result = toolCallAdapter.getToolInfo(mockMessage);
+            const result = toolCallAdapter.getToolInfos(mockMessage);
 
             expect(result.tool).toBe('get_weather');
             expect(result.id).toBe('call_456');
@@ -64,7 +64,7 @@ describe('OpenAI Adapters Unit Tests', () => {
                 content: 'Hello world'
             };
 
-            const result = toolCallAdapter.getToolInfo(mockMessage);
+            const result = toolCallAdapter.getToolInfos(mockMessage);
 
             expect(result.tool).toBeNull();
             expect(result.params).toEqual({});

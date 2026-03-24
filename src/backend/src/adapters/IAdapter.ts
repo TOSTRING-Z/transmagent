@@ -22,6 +22,6 @@ export interface ILLMAdapter {
 
 export interface IToolCallAdapter {
     formatTools(toolSchemas: any[]): any;
-    getToolInfo(message: Message): any;
+    getToolInfos(message: Message): any;
     extractText(message: any): string;
 }

@@ -257,33 +257,35 @@ export class OpenAIToolCallAdapter implements IToolCallAdapter {
             return { type: "function", function: schema };
         }).filter(Boolean);
     }
-    public getToolInfo(message: Message): ToolInfo {
-        let toolInfo: ToolInfo;
+    public getToolInfos(message: Message): ToolInfo[] {
+        // 内部逻辑同上 AnthropicToolCallAdapter 
+        let toolInfos: ToolInfo[] = [];
+        const thinking = message.content as string;
+
         if (message?.tool_calls && message.tool_calls.length > 0) {
-            let call = message.tool_calls[0];
-            try {
-                toolInfo = {
-                    thinking: message.content as string,
-                    tool: call?.function?.name ?? null,
-                    id: call?.id ?? null,
-                    params: call?.function?.arguments ? JSON5.parse(call.function.arguments as string) : {},
-                    error: null
-                };
-            } catch (error: any) {
-                // 解析失败时的兜底错误处理
-                let observation = `Arguments are not a pure JSON text, or there is a problem with the JSON format: ${error.message}`;
-                toolInfo = {
-                    thinking: message.content as string,
-                    tool: call?.function?.name ?? null,
-                    id: call?.id ?? null,
-                    params: call?.function?.arguments,
-                    error: observation
-                };
+            for (let call of message.tool_calls) {
+                try {
+                    toolInfos.push({
+                        thinking: thinking,
+                        tool: call?.function?.name ?? null,
+                        id: call?.id ?? null,
+                        params: call?.function?.arguments ? JSON5.parse(call.function.arguments as string) : {},
+                        error: null
+                    });
+                } catch (error: any) {
+                    toolInfos.push({
+                        thinking: thinking,
+                        tool: call?.function?.name ?? null,
+                        id: call?.id ?? null,
+                        params: call?.function?.arguments,
+                        error: `Arguments are not a pure JSON text, or there is a problem with the JSON format: ${error.message}`
+                    });
+                }
             }
         } else {
-            toolInfo = { thinking: message.content as string, tool: null, id: null, params: {}, error: null };
+            toolInfos.push({ thinking: thinking, tool: null, id: null, params: {}, error: null });
         }
-        return toolInfo;
+        return toolInfos;
     }
     extractText(message: any): string {
         return typeof message.content === 'string' ? message.content : "";

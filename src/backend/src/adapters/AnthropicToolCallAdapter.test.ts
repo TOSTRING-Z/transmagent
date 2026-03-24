@@ -48,7 +48,7 @@ describe('AnthropicToolCallAdapter Unit Tests', () => {
                 }]
             };
 
-            const result = adapter.getToolInfo(mockMessage);
+            const result = adapter.getToolInfos(mockMessage);
 
             expect(result.tool).toBe('search');
             expect(result.id).toBe('call_1');
@@ -68,7 +68,7 @@ describe('AnthropicToolCallAdapter Unit Tests', () => {
                 }]
             };
 
-            const result = adapter.getToolInfo(mockMessage);
+            const result = adapter.getToolInfos(mockMessage);
 
             expect(result.tool).toBe('search');
             expect(result.params).toBe('{"query": "Jest'); // 保留原始残缺文本
