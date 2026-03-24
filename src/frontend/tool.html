@@ -418,21 +418,6 @@
           </select>
         </div>
 
-        <!-- 高风险工具配置 -->
-        <div class="risk-config-card highlight">
-          <div class="risk-checkbox-group">
-            <input type="checkbox" id="tool-high-risk">
-            <div>
-              <label class="risk-checkbox-label">
-                Mark as High Risk Tool
-              </label>
-              <small class="muted" style="display: block;">
-                Tools that can execute commands or modify files should be marked as high risk.
-              </small>
-            </div>
-          </div>
-        </div>
-
         <div class="risk-config-card normal">
           <div class="risk-checkbox-group">
             <input type="checkbox" id="tool-require-confirmation" disabled>
@@ -457,33 +442,7 @@
           </small>
         </div>
 
-        <!-- 敏感工具审计配置 -->
-        <div class="form-row">
-          <label class="risk-section-header" style="color: #8b5a2b; margin-top: 25px;">
-            <i class="fas fa-shield-alt"></i> Sensitive Tool Audit Configuration
-          </label>
-          <div class="risk-section-description" style="border-left-color: #8b5a2b;">
-            <small class="muted" style="display: block; margin-bottom: 15px;">
-              Configure audit settings for sensitive tools that require LLM-based security review before execution.
-            </small>
-          </div>
-        </div>
-
-        <div class="risk-config-card" style="background-color: #fffaf0; border-left: 4px solid #8b5a2b;">
-          <div class="risk-checkbox-group">
-            <input type="checkbox" id="tool-sensitive-tool">
-            <div>
-              <label class="risk-checkbox-label">
-                Mark as Sensitive Tool
-              </label>
-              <small class="muted" style="display: block;">
-                Tools that execute code, modify files, or access system resources should be marked as sensitive.
-              </small>
-            </div>
-          </div>
-        </div>
-
-        <div class="risk-config-card" style="background-color: #f9f9f9;">
+        <div class="risk-config-card normal">
           <div class="risk-checkbox-group">
             <input type="checkbox" id="tool-require-audit">
             <div>
@@ -497,19 +456,6 @@
           </div>
         </div>
 
-        <div class="risk-config-card" style="background-color: #f9f9f9;">
-          <div class="risk-checkbox-group">
-            <input type="checkbox" id="tool-audit-enabled">
-            <div>
-              <label class="risk-checkbox-label">
-                Audit Enabled
-              </label>
-              <small class="muted" style="display: block;">
-                Enable or disable audit functionality for this tool.
-              </small>
-            </div>
-          </div>
-        </div>
       </div>
 
       <div class="modal-actions">
@@ -535,18 +481,12 @@
 
     function init() {
       loadTools();
-      // 绑定高风险选项的交互逻辑
-      document.getElementById('tool-high-risk').addEventListener('change', function() {
-        const requireConfirmationCheckbox = document.getElementById('tool-require-confirmation');
+      // 绑定确认选项的交互逻辑
+      document.getElementById('tool-require-confirmation').addEventListener('change', function() {
         const confirmationMessageTextarea = document.getElementById('tool-confirmation-message');
-        
         if (this.checked) {
-          requireConfirmationCheckbox.disabled = false;
-          requireConfirmationCheckbox.checked = true;
           confirmationMessageTextarea.disabled = false;
         } else {
-          requireConfirmationCheckbox.disabled = true;
-          requireConfirmationCheckbox.checked = false;
           confirmationMessageTextarea.disabled = true;
         }
       });
@@ -596,7 +536,6 @@
               <span class="detail-label">Status:</span>
               <span>
                 ${isEnabled ? '<span class="feature-tag enabled-tag">Enabled</span>' : '<span class="feature-tag disabled-tag">Disabled</span>'}
-                ${tool.high_risk ? '<span class="feature-tag" style="background-color: #ffebee; color: #c62828;">High Risk</span>' : ''}
               </span>
             </div>
           </div>
@@ -630,35 +569,16 @@
         document.getElementById('tool-extra').value = tool.extra ? JSON.stringify(tool.extra, null, 2) : '';
         document.getElementById('tool-enabled').value = tool.enabled !== false ? 'true' : 'false';
         
-        // 加载高风险配置
-        const highRisk = tool.high_risk || false;
+        // 加载配置
         const requireConfirmation = tool.require_confirmation !== false;
         const confirmationMessage = tool.confirmation_message || '';
-        
-        document.getElementById('tool-high-risk').checked = highRisk;
-        document.getElementById('tool-require-confirmation').checked = requireConfirmation;
-        document.getElementById('tool-confirmation-message').value = confirmationMessage;
-        
-        // 根据高风险状态设置其他控件的可用性
-        const requireConfirmationCheckbox = document.getElementById('tool-require-confirmation');
-        const confirmationMessageTextarea = document.getElementById('tool-confirmation-message');
-        
-        if (highRisk) {
-          requireConfirmationCheckbox.disabled = false;
-          confirmationMessageTextarea.disabled = false;
-        } else {
-          requireConfirmationCheckbox.disabled = true;
-          confirmationMessageTextarea.disabled = true;
-        }
-        
-        // 加载敏感工具审计配置
-        const sensitiveTool = tool.sensitive_tool || false;
         const requireAudit = tool.require_audit !== false;
-        const auditEnabled = tool.audit_enabled !== false;
         
-        document.getElementById('tool-sensitive-tool').checked = sensitiveTool;
+        document.getElementById('tool-require-confirmation').checked = requireConfirmation;
+        document.getElementById('tool-require-confirmation').disabled = false;
+        document.getElementById('tool-confirmation-message').value = confirmationMessage;
+        document.getElementById('tool-confirmation-message').disabled = !requireConfirmation;
         document.getElementById('tool-require-audit').checked = requireAudit;
-        document.getElementById('tool-audit-enabled').checked = auditEnabled;
         
         document.getElementById('m-add-tool').style.display = 'flex';
       }
@@ -674,18 +594,11 @@
       document.getElementById('tool-params').value = '';
       document.getElementById('tool-extra').value = '';
       document.getElementById('tool-enabled').value = 'true';
-      
-      // 重置高风险选项
-      document.getElementById('tool-high-risk').checked = false;
       document.getElementById('tool-require-confirmation').checked = false;
       document.getElementById('tool-require-confirmation').disabled = true;
       document.getElementById('tool-confirmation-message').value = '';
       document.getElementById('tool-confirmation-message').disabled = true;
-      
-      // 重置敏感工具审计选项
-      document.getElementById('tool-sensitive-tool').checked = false;
       document.getElementById('tool-require-audit').checked = false;
-      document.getElementById('tool-audit-enabled').checked = false;
     }
 
     function browseFile() {
@@ -702,14 +615,9 @@
       const paramsText = document.getElementById('tool-params').value.trim();
       const extraText = document.getElementById('tool-extra').value.trim();
       const enabled = document.getElementById('tool-enabled').value === 'true';
-      const highRisk = document.getElementById('tool-high-risk').checked;
       const requireConfirmation = document.getElementById('tool-require-confirmation').checked;
       const confirmationMessage = document.getElementById('tool-confirmation-message').value.trim();
-      
-      // 获取敏感工具审计配置
-      const sensitiveTool = document.getElementById('tool-sensitive-tool').checked;
       const requireAudit = document.getElementById('tool-require-audit').checked;
-      const auditEnabled = document.getElementById('tool-audit-enabled').checked;
 
       if (!id) {
         alert('Tool ID cannot be empty');
@@ -742,12 +650,9 @@
         params,
         extra,
         enabled,
-        high_risk: highRisk,
-        require_confirmation: highRisk ? requireConfirmation : false, // 只有高风险工具才需要确认
-        confirmation_message: highRisk ? confirmationMessage : '',
-        sensitive_tool: sensitiveTool,
-        require_audit: sensitiveTool ? requireAudit : false, // 只有敏感工具才需要审计
-        audit_enabled: sensitiveTool ? auditEnabled : false
+        require_confirmation: requireConfirmation,
+        confirmation_message: confirmationMessage,
+        require_audit: requireAudit
       };
 
       ipcRenderer.invoke('save-tool', toolData).then(() => {
