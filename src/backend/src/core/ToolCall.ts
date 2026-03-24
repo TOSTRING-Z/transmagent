@@ -14,6 +14,7 @@ import { Plugins } from './Plugins';
 import { ToolDSL, Primitives } from "../utils/ToolDSL";
 import { logger } from '../utils/logger';
 import { WindowManager } from '../main/windows/WindowManager';
+import { LLMAssistant } from './LLMAssistant';
 const { all, any, not, always } = ToolDSL;
 const { isSubagent, isMode, hasArg } = Primitives;
 
@@ -66,6 +67,7 @@ export class ToolCall extends ReActAgent {
     public currentToolInfo: ToolInfo | undefined; // 用于记录当前执行的工具，方便 callReAct 等外部调用读取状态
     public modeMap: Record<string, Mode> = { "auto": Mode.AUTO, "plan": Mode.PLAN, "flash": Mode.FLASH, "act": Mode.ACT };
     private rememberedChoices: Record<string, boolean> = {};
+    public assistant: LLMAssistant;
 
     constructor(
         plugins: Plugins,
@@ -84,6 +86,7 @@ export class ToolCall extends ReActAgent {
     ) {
         super(llm_service, window, alertWindow);
         this.plugins = plugins;
+        this.assistant = new LLMAssistant(llm_service, plugins);
         this.mcp_client = new MCPClient(this);
         this.prompt_args = prompt_args;
         this.windowManager = windowManager;
@@ -118,61 +121,45 @@ export class ToolCall extends ReActAgent {
     }
 
     /**
-     * 检查工具是否为高风险工具
-     * @param toolName 工具名称
-     * @returns 是否为高风险工具
+     * 检查工具是否为高风险工具（委托给 LLMAssistant）
      */
-    private isHighRiskTool(toolName: string): boolean {
-        const toolConfig = this.getToolConfig(toolName);
-        return toolConfig?.high_risk === true;
+    public isHighRiskTool(toolName: string): boolean {
+        return this.assistant.isHighRiskTool(toolName);
     }
 
     /**
-     * 获取工具配置
-     * @param toolName 工具名称
-     * @returns 工具配置对象
+     * 获取工具配置（委托给 LLMAssistant）
      */
-    private getToolConfig(toolName: string): any {
-        if (!this.plugins) {
-            return null;
-        }
-
-        const tool = this.plugins.getTool(toolName);
-        if (tool && typeof tool === 'object') {
-            return tool;
-        }
-
-        return null;
+    public getToolConfig(toolName: string): any {
+        return this.assistant.getToolConfig(toolName);
     }
 
     /**
-     * 检查工具是否为敏感工具
-     * @param toolName 工具名称
-     * @returns 是否为敏感工具
+     * 检查工具是否为敏感工具（委托给 LLMAssistant）
      */
-    private isSensitiveTool(toolName: string): boolean {
-        const toolConfig = this.getToolConfig(toolName);
-        return toolConfig?.sensitive_tool === true;
+    public isSensitiveTool(toolName: string): boolean {
+        return this.assistant.isSensitiveTool(toolName);
     }
 
     /**
-     * 检查工具是否需要审计
-     * @param toolName 工具名称
-     * @returns 是否需要审计
+     * 检查工具是否需要审计（委托给 LLMAssistant）
      */
-    private isToolRequireAudit(toolName: string): boolean {
-        const toolConfig = this.getToolConfig(toolName);
-        return toolConfig?.require_audit === true;
+    public isToolRequireAudit(toolName: string): boolean {
+        return this.assistant.isToolRequireAudit(toolName);
     }
 
     /**
-     * 检查工具审计是否启用
-     * @param toolName 工具名称
-     * @returns 审计是否启用
+     * 检查工具审计是否启用（委托给 LLMAssistant）
      */
-    private isToolAuditEnabled(toolName: string): boolean {
-        const toolConfig = this.getToolConfig(toolName);
-        return toolConfig?.audit_enabled === true;
+    public isToolAuditEnabled(toolName: string): boolean {
+        return this.assistant.isToolAuditEnabled(toolName);
+    }
+
+    /**
+     * AI 审查者逻辑 (LLM-as-a-Judge) - 委托给 LLMAssistant
+     */
+    public async auditToolCall(toolInfo: ToolInfo, assistantMessage: Message, data: Record<string, any>): Promise<string | null> {
+        return this.assistant.auditToolCall(toolInfo, assistantMessage, data);
     }
 
     public loadMessage(filePath: string) {
@@ -308,152 +295,6 @@ export class ToolCall extends ReActAgent {
             this.setHistory();
         }
     }
-
-    /**
-     * AI 审查者逻辑 (LLM-as-a-Judge) - 隔离优化版
-     */
-    public async auditToolCall(toolInfo: ToolInfo, assistantMessage: Message, data: Record<string, any>): Promise<string | null> {
-        // 1. 检查工具是否为敏感工具且需要审计
-        if (!toolInfo.tool || !this.isSensitiveTool(toolInfo.tool) || !this.isToolRequireAudit(toolInfo.tool)) {
-            return null;
-        }
-
-        // 2. 检查审计是否启用
-        if (!this.isToolAuditEnabled(toolInfo.tool)) {
-            logger.log(`[Critic] 工具 ${toolInfo.tool} 审计已禁用，跳过审查`);
-            return null;
-        }
-
-        // 3. 检查LLM审查器是否启用
-        if (!utils.getConfig("tool_call")?.llm_judge) {
-            return null;
-        }
-
-        logger.log(`[Critic] 正在审查敏感工具调用: ${toolInfo.tool} (ID: ${toolInfo.id})...`);
-
-        const temp_llm_service = new LLMService();
-        temp_llm_service.chatManager.chat = { ...this.llm_service.chatManager.chat };
-
-        // ==========================================
-        // 关键修复：构建隔离的助手消息，剔除并发的其他工具
-        // ==========================================
-        const isolatedAssistantMessage: Message = { ...assistantMessage };
-        const isNativeToolCall = isolatedAssistantMessage.tool_calls && isolatedAssistantMessage.tool_calls.length > 0;
-
-        if (isNativeToolCall) {
-            // [原生 API 模式] 只保留当前正在审查的这一个 tool_call
-            isolatedAssistantMessage.tool_calls = isolatedAssistantMessage.tool_calls!.filter(
-                call => call.id === toolInfo.id
-            );
-
-            // 容错：如果没匹配上（理论上不可能），直接赋一个单元素数组
-            if (isolatedAssistantMessage.tool_calls.length === 0) {
-                isolatedAssistantMessage.tool_calls = [{
-                    id: toolInfo.id || "dummy_id",
-                    type: "function",
-                    function: {
-                        name: toolInfo.tool,
-                        arguments: JSON.stringify(toolInfo.params)
-                    }
-                }];
-            }
-        } else {
-            // [Prompt 模式] 原始 content 可能是包含多个对象的 JSON 数组
-            // 重构 content，确保审查者只看到当前的单一工具负载
-            const isolatedPayload = {
-                thinking: toolInfo.thinking,
-                tool: toolInfo.tool,
-                params: toolInfo.params
-            };
-            isolatedAssistantMessage.content = JSON.stringify(isolatedPayload, null, 2);
-        }
-
-        // 组装审查上下文
-        temp_llm_service.chatManager.messages = [
-            ...this.llm_service.chatManager.getMessages(true),
-            isolatedAssistantMessage
-        ];
-
-        // 闭环假消息：针对原生 API 补充单一的工具回复
-        if (isNativeToolCall) {
-            temp_llm_service.chatManager.messages.push({
-                role: "tool",
-                content: "SYSTEM: Execution paused. Proceed to internal audit.",
-                tool_call_id: toolInfo.id || "dummy_id",
-                tool_call_name: toolInfo.tool,
-                group_id: assistantMessage.group_id,
-                context_id: assistantMessage.context_id
-            });
-        }
-
-        const critic_agent = new ReActAgent(temp_llm_service);
-
-        // 利用 System Override 强行扭转模型视角
-        const criticQuery = `
-[SYSTEM OVERRIDE: INTERNAL AUDIT PROTOCOL]
-You must now pause your current task and act as a strict Data Integrity Critic. 
-Review the tool call payload you just generated above.
-
-# OBJECTIVE:
-Distinguish between "Developing Tools/Scripts" (Allowed) and "Hallucinating Final Data" (Blocked).
-
-# CRITICAL CHECK CRITERIA:
-* ALLOWED (Pass = true): 
-  - Writing scripts to query APIs, scrape websites, or parse local files.
-  - Using placeholders for credentials (e.g., 'YOUR_API_KEY', 'TEMP_TOKEN').
-  - Creating boilerplate code or skeleton functions intended to be executed for real data retrieval.
-  - Mocking structure for testing logic flow, UNLESS it replaces a factual data source.
-
-* BLOCKED (Pass = false): 
-  - Hardcoding factual/scientific results (e.g., specific protein sequences, GPS coordinates, experimental values) instead of writing code to fetch them.
-  - Using random number generators (e.g., \`random.random()\`) to simulate analytical results.
-  - Providing a "mock response" script that prints hardcoded fake data to bypass an actual API/Tool requirement.
-
-# OUTPUT FORMAT:
-You MUST respond ONLY with a valid JSON object. DO NOT call any tools.
-{
-  "pass": boolean,
-  "reason": "If false, state EXACTLY which specific data point was mocked and how it should be correctly fetched."
-}
-        `.trim();
-
-        const callData = critic_agent.getDataDefault({
-            ...data,
-            query: criticQuery,
-            push_message: true,
-            output_format: null
-        });
-
-        try {
-            if (!callData.params) callData.params = {};
-            callData.params.llm_params = {
-                ...callData.params.llm_params,
-                temperature: 0.1,
-                tool_choice: "none",
-                response_format: { type: "json_object" }
-            };
-
-            const messageOutput = await critic_agent.llmCall(callData);
-
-            if (messageOutput && messageOutput.content) {
-                const resultStr = messageOutput.content as string;
-                const jsonMatch = resultStr.match(/\{[\s\S]*\}/);
-
-                if (jsonMatch) {
-                    const verdict = JSON.parse(jsonMatch[0]);
-                    if (verdict.pass === false) {
-                        logger.log(`[Critic] 拦截成功! 发现伪造数据: ${verdict.reason}`);
-                        return `[CRITIC REJECTION] Execution Blocked. Your payload violates data integrity rules:\nReason: ${verdict.reason}`;
-                    }
-                }
-            }
-        } catch (error) {
-            console.error("[Critic] 审查过程发生异常，默认放行:", error);
-        }
-
-        return null;
-    }
-
     /**
      * 获取已记住的工具选择
      */
@@ -506,9 +347,7 @@ You MUST respond ONLY with a valid JSON object. DO NOT call any tools.
             return
         }; // 容错处理
 
-        // ==========================================
         // 1. 记录与判断重复思考
-        // ==========================================
         const currentThinking = this.toolInfos[0]?.thinking;
 
         // 与上一次思考内容对比，而不是第一次
@@ -524,9 +363,7 @@ You MUST respond ONLY with a valid JSON object. DO NOT call any tools.
             }
         }
 
-        // ==========================================
         // 2. 先把包含所有 tool_calls 的助手消息压入历史记录 (只压一次！)
-        // ==========================================
         const hasTool = this.toolInfos.some(t => t.tool);
         const isThinkingOnly = this.toolInfos.length === 1 && !this.toolInfos[0].tool;
 
@@ -542,9 +379,7 @@ You MUST respond ONLY with a valid JSON object. DO NOT call any tools.
             return;
         }
 
-        // ==========================================
         // 3. 循环并发遍历所有工具 (依次执行，确保上下文有序)
-        // ==========================================
         for (const toolInfo of this.toolInfos) {
             if (!toolInfo.tool) continue;
 

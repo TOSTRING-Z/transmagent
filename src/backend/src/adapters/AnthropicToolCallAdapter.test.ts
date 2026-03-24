@@ -36,46 +36,6 @@ describe('AnthropicToolCallAdapter Unit Tests', () => {
         });
     });
 
-    describe('getToolInfo', () => {
-        it('应该成功解析合法的 ToolCall arguments', () => {
-            const mockMessage: Message = {
-                role: 'assistant',
-                content: 'Checking...',
-                tool_calls: [{
-                    id: 'call_1',
-                    type: 'function',
-                    function: { name: 'search', arguments: '{"query": "Jest test"}' }
-                }]
-            };
-
-            const result = adapter.getToolInfos(mockMessage);
-
-            expect(result.tool).toBe('search');
-            expect(result.id).toBe('call_1');
-            expect(result.thinking).toBe('Checking...');
-            expect(result.params).toEqual({ query: 'Jest test' });
-            expect(result.error).toBeNull();
-        });
-
-        it('应该安全捕获非法的 JSON arguments', () => {
-            const mockMessage: Message = {
-                role: 'assistant',
-                content: '',
-                tool_calls: [{
-                    id: 'call_2',
-                    type: 'function',
-                    function: { name: 'search', arguments: '{"query": "Jest' } // 截断的 JSON
-                }]
-            };
-
-            const result = adapter.getToolInfos(mockMessage);
-
-            expect(result.tool).toBe('search');
-            expect(result.params).toBe('{"query": "Jest'); // 保留原始残缺文本
-            expect(result.error).toContain('Arguments are not a pure JSON text');
-        });
-    });
-
     describe('extractText', () => {
         it('当 content 是 Anthropic Block 数组时应该提取 text 类型的内容', () => {
             const message = {

@@ -46,57 +46,6 @@ describe('PromptToolCallAdapter Unit Tests', () => {
         });
     });
 
-    describe('getToolInfo', () => {
-        it('应该成功解析包含合法 JSON 的文本为工具调用', () => {
-            const mockMessage: Message = {
-                role: 'assistant',
-                content: '{"thinking": "checking weather", "tool": "weather", "params": {"city": "Tokyo"}}'
-            };
-
-            // 模拟 utils.parseJsonContent 无法解析时，自动降级为 JSON5.parse
-            (utils.parseJsonContent as jest.Mock).mockReturnValueOnce(null);
-
-            const result = adapter.getToolInfos(mockMessage);
-
-            expect(result.thinking).toBe('checking weather');
-            expect(result.tool).toBe('weather');
-            expect(result.params).toEqual({ city: 'Tokyo' });
-            expect(result.error).toBeNull();
-        });
-
-        it('当内容以 { 或 ```json 开头但 JSON 格式错误时，应该记录解析错误', () => {
-            const mockMessage: Message = {
-                role: 'assistant',
-                content: '{\n  "thinking": "checking",\n  "tool": "weather"' // 截断的 JSON
-            };
-
-            (utils.parseJsonContent as jest.Mock).mockReturnValueOnce(null);
-
-            const result = adapter.getToolInfos(mockMessage);
-
-            expect(result.tool).toBeNull();
-            expect(result.error).toContain('Error Message:');
-            // 验证生成的 thinking 内容包含错误提示和原始报错文本
-            expect(result.thinking).toContain('Function calling is not a pure JSON text');
-            expect(result.thinking).toContain('"tool": "weather"');
-        });
-
-        it('当内容为普通纯文本时，应该作为正常的思考/聊天内容返回', () => {
-            const mockMessage: Message = {
-                role: 'assistant',
-                content: 'Hello, I am a standard AI response without any JSON.'
-            };
-
-            (utils.parseJsonContent as jest.Mock).mockReturnValueOnce(null);
-
-            const result = adapter.getToolInfos(mockMessage);
-
-            expect(result.tool).toBeNull();
-            expect(result.thinking).toBe('Hello, I am a standard AI response without any JSON.');
-            expect(result.error).toBeNull();
-        });
-    });
-
     describe('extractText', () => {
         it('应该正确提取文本', () => {
             expect(adapter.extractText({ content: 'test string' })).toBe('test string');

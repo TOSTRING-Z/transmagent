@@ -5,6 +5,7 @@ import { utils, CONSTANTS, CHAT_CONST } from '../utils/globals';
 import { Message, ChatState, MessageContent, TextContent } from '../types';
 import { ToolCallAdapterFactory } from '../factories/AdapterFactory';
 import { Plugins } from './Plugins';
+import { LLMAssistant } from './LLMAssistant';
 
 export enum State {
     IDLE = 'idle',
@@ -44,6 +45,7 @@ export class ReActAgent {
     public window: any;
     public alertWindow: any;
     public context_id?: string; // 用于记录当前的 memory id
+    public assistant: LLMAssistant; // LLM对话辅助功能实例
 
     constructor(
         llm_service: LLMService,
@@ -56,6 +58,7 @@ export class ReActAgent {
         // 将窗口句柄注入到 llm_service（若 LLMService 中声明了 window 属性）
         (this.llm_service as any).window = window;
         this.alertWindow = alertWindow;
+        this.assistant = new LLMAssistant(llm_service);
     }
 
     // 安全的模板字符串格式化函数（替代被废弃的 String.prototype.format）
@@ -227,116 +230,6 @@ export class ReActAgent {
         return { ...defaults, ...data };
     }
 
-    public async compressionGroupMessage({ group_id }: { group_id: string }): Promise<string | null> {
-        try {
-            const will_compress_messages = this.llm_service.chatManager.getMessages().filter(m => m.group_id === group_id);
-            if (will_compress_messages.length > 0) {
-                const temp_llm_service = new LLMService();
-                const react_agent = new ReActAgent(temp_llm_service);
-
-                let combined_content = will_compress_messages.map(msg =>
-                    typeof msg.content === 'string' ? msg.content : JSON.stringify(msg.content)
-                ).join("\n\n");
-
-                const prompt = `You are an intelligent assistant skilled at compressing and summarizing contextual content into detailed documents. Please ensure the generated documents are comprehensive and clear, accurately reflecting the original content.`;
-                const query = `# context\n\`\`\`text\n${combined_content}\n\`\`\`\nPlease compress the above context into a detailed document. \nRequirements: use concise language while retaining all essential information.\nplease generate the compressed document:`;
-
-                const data = react_agent.getDataDefault({
-                    prompt, query, params: { ...utils.getConfig("llm_params"), temperature: 0.3 }
-                });
-
-                let messageOutput = await react_agent.llmCall(data);
-                if (messageOutput) {
-                    let content = "The user compressed the execution process of the current task. The compressed document is as follows:\n\n---\n\n" + (messageOutput.content as string).trim();
-
-                    const firstMsg = will_compress_messages[0];
-                    const preservedUser = will_compress_messages.find(m => m.role === 'user');
-
-                    const compressed_message: Message = {
-                        ...firstMsg,
-                        content: content,
-                        role: "assistant",
-                        react: false,
-                        context_id: preservedUser?.context_id ?? firstMsg.context_id
-                    };
-
-                    let allMessages = this.llm_service.chatManager.getMessages(true);
-                    const originalFirstIndex = allMessages.findIndex(m => m.group_id === group_id);
-
-                    const newMessages: Message[] = [];
-                    let keptUser = false;
-
-                    for (const m of allMessages) {
-                        if (m.group_id !== group_id) {
-                            newMessages.push(m);
-                        } else if (!keptUser && m.role === 'user') {
-                            newMessages.push(m);
-                            keptUser = true;
-                        }
-                    }
-
-                    if (keptUser) {
-                        const insertPos = newMessages.findIndex(m => m.group_id === group_id && m.role === 'user');
-                        newMessages.splice(insertPos + 1, 0, compressed_message);
-                    } else {
-                        const insertPos = originalFirstIndex === -1 ? newMessages.length : originalFirstIndex;
-                        newMessages.splice(insertPos, 0, compressed_message);
-                    }
-
-                    this.llm_service.chatManager.messages = newMessages;
-                    logger.log(`Compression success for id: ${group_id}`);
-                    return compressed_message.content as string;
-                }
-            }
-        } catch (error: any) {
-            logger.log(`Compression failed for id: ${group_id}, Error: ${error}`);
-        }
-        return null;
-    }
-
-    public async setChatName(_data: any) {
-        if (_data?.is_plugin) {
-            this.llm_service.chatManager.chat.name = utils.formatDate();
-            return;
-        }
-
-        const temp_llm_service = new LLMService();
-        temp_llm_service.chatManager.chat.tool_format = this.llm_service.chatManager.chat.tool_format; // 继承当前 chat 的工具格式
-        const react_agent = new ReActAgent(temp_llm_service);
-
-        // 1. 构建上下文
-        const user_content = this.llm_service.chatManager.messages.find(m => m?.role === "user")?.content || "";
-        const history_content = this.llm_service.chatManager.messages
-            .filter(m => m?.role === "assistant")
-            .map(m => utils.parseJsonContent(m.content as string)?.thinking || "")
-            .join("===");
-
-        const prompt = `You are an intelligent assistant skilled at generating short chat names based on contextual content.`;
-        const query = `# history\n\`\`\`text\n# user\n${user_content}\n\n# assistant\n${history_content}\n\`\`\`\n\nGenerate a short ${_data?.language || utils.getLanguage()} chat name based on context...`;
-
-        // 2. 发起请求
-        const callData = react_agent.getDataDefault({
-            prompt,
-            query,
-            model: _data.model,
-            version: _data.version,
-        });
-
-        const messageOutput = await react_agent.llmCall(callData);
-
-        if (messageOutput) {
-            // 3. 使用适配器处理响应 (核心解耦点)
-            const format = this.llm_service.chatManager.chat.tool_format;
-            const adapter = ToolCallAdapterFactory.getAdapter(format); // 获取对应的适配器实例
-
-            const rawContent = adapter.extractText(messageOutput);
-            const chatName = rawContent.split("\n")[0].trim();
-
-            // 4. 设置结果
-            this.llm_service.chatManager.chat.name = chatName || utils.formatDate();
-        }
-    }
-
     public newChat(): ChatState {
         this.window.webContents.send('clear');
         this.initVar();
@@ -440,5 +333,19 @@ export class ReActAgent {
         data.output_format = output_format; // 恢复原数据
         logger.log(info);
         return info;
+    }
+
+    /**
+     * 对话压缩功能（委托给 LLMAssistant）
+     */
+    public async compressionGroupMessage(params: { group_id: string }): Promise<string | null> {
+        return this.assistant.compressionGroupMessage(params);
+    }
+
+    /**
+     * 聊天命名功能（委托给 LLMAssistant）
+     */
+    public async setChatName(data: Record<string, any>): Promise<void> {
+        return this.assistant.setChatName(data);
     }
 }
