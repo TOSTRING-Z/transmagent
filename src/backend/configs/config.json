@@ -151,6 +151,7 @@
         "show": true,
         "delay_time": 5,
         "timeout": 3600,
+        "monitor_interval": 10,
         "max_lines": 40,
         "max_chars_per_line": 200
       },

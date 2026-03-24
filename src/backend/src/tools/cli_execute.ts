@@ -6,6 +6,8 @@ import { BrowserWindow, ipcMain, IpcMainEvent } from 'electron';
 import { Client, ClientChannel } from 'ssh2';
 import { utils } from '../utils/globals';
 import { logger } from '../utils/logger';
+import { LLMAssistant } from '../core/LLMAssistant';
+import { LLMService } from '../core/LLMService';
 
 // --- 类型定义 ---
 export interface CliExecuteParams {
@@ -16,6 +18,7 @@ export interface CliExecuteParams {
     bashrc?: string;
     show?: boolean;
     bash?: string;
+    monitor_interval?: number; // 控制台监测间隔（分钟），默认10
 }
 
 export interface ExecuteArgs {
@@ -66,8 +69,8 @@ function validateParams(params: CliExecuteParams | undefined): Required<CliExecu
         max_chars_per_line: (typeof params.max_chars_per_line === 'number' && params.max_chars_per_line >= 100) ? params.max_chars_per_line : 100,
         bashrc: params.bashrc || '',
         show: !!params.show,
-        // 系统判断
-        bash: params.bash || 'bash'
+        bash: params.bash || 'bash',
+        monitor_interval: (typeof params.monitor_interval === 'number' && params.monitor_interval >= 1) ? params.monitor_interval : 10
     };
 
     return validated;
@@ -195,9 +198,74 @@ export function main(initialParams: CliExecuteParams = {}) {
             ipcMain.on('minimize-window', handleMinimize);
             ipcMain.once('close-window', handleCloseWindow);
 
+            // ================= 控制台输出循环监测逻辑 =================
+            let llmAssistant: LLMAssistant | null = null;
+            let monitorIntervalId: NodeJS.Timeout | null = null;
+            let lastCheckedLength = 0;
+            const executionStartTime = Date.now(); // 记录执行开始时间
+            
+            // 从 initialParams 读取监测间隔（默认10分钟）
+            const monitorIntervalMinutes = initialParams?.monitor_interval ?? 10;
+            const MONITOR_INTERVAL_MS = monitorIntervalMinutes * 60 * 1000;
+
+            try {
+                const llmService = new LLMService();
+                llmAssistant = new LLMAssistant(llmService, null);
+            } catch (initError) {
+                logger.warn(`[ConsoleMonitor] Failed to initialize: ${initError}`);
+            }
+
+            const startConsoleMonitor = async (): Promise<boolean> => {
+                if (!llmAssistant) return false;
+                try {
+                    const currentOutput = output + errorMsg;
+                    if (currentOutput.length <= lastCheckedLength) return false;
+                    const newOutput = currentOutput.substring(lastCheckedLength);
+                    lastCheckedLength = currentOutput.length;
+                    if (newOutput.trim().length === 0) return false;
+
+                    // 计算当前执行时间
+                    const executionTimeMs = Date.now() - executionStartTime;
+
+                    logger.log(`[ConsoleMonitor] Checking output (${newOutput.length} chars, elapsed: ${Math.round(executionTimeMs/1000)}s)...`);
+                    
+                    // 传入控制台输出和执行时间
+                    const checkResult = await llmAssistant.checkConsoleOutput(newOutput, executionTimeMs);
+
+                    if (checkResult.shouldInterrupt) {
+                        logger.warn(`[ConsoleMonitor] INTERRUPT: ${checkResult.reason}`);
+                        if (conn) conn.end();
+                        finish({
+                            success: false,
+                            output: threshold(output, params.max_lines, params.max_chars_per_line),
+                            error: `[INTERRUPTED BY CONSOLE MONITOR]\nReason: ${checkResult.reason}`,
+                            message: 'Execution interrupted due to detected risky operations'
+                        });
+                        return true;
+                    }
+                } catch (checkError) {
+                    logger.warn(`[ConsoleMonitor] Check error: ${checkError}`);
+                }
+                return false;
+            };
+
+            monitorIntervalId = setInterval(async () => {
+                const interrupted = await startConsoleMonitor();
+                if (interrupted && monitorIntervalId) {
+                    clearInterval(monitorIntervalId);
+                    monitorIntervalId = null;
+                }
+            }, MONITOR_INTERVAL_MS);
+            // ================= END 监测逻辑 =================
+
             const finish = (result: ExecuteResult) => {
                 if (isResolved) return;
                 isResolved = true;
+
+                if (monitorIntervalId) {
+                    clearInterval(monitorIntervalId);
+                    monitorIntervalId = null;
+                }
 
                 if (timeoutId) clearTimeout(timeoutId);
 
