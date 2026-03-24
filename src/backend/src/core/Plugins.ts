@@ -1,6 +1,6 @@
 import * as fs from 'fs';
 import * as path from 'path';
-import { utils, globalState } from '../utils/globals';
+import { utils } from '../utils/globals';
 import { logger } from '../utils/logger';
 
 export interface PluginItem {
@@ -11,8 +11,8 @@ export interface PluginItem {
     show?: boolean; 
     version?: string;
     params?: any;
-    high_risk?: boolean;
     require_confirmation?: boolean;
+    require_audit?: boolean;
     confirmation_message?: string;
 }
 
@@ -23,8 +23,8 @@ interface PluginInfo {
     extra?: any;
     enabled?: boolean;
     show?: boolean;
-    high_risk?: boolean;
     require_confirmation?: boolean;
+    require_audit?: boolean;
     confirmation_message?: string;
 }
 
@@ -74,8 +74,8 @@ export class Plugins {
                 show: info?.show,
                 version: info?.version,
                 params: info?.params,
-                high_risk: info?.high_risk,
                 require_confirmation: info?.require_confirmation,
+                require_audit: info?.require_audit,
                 confirmation_message: info?.confirmation_message,
             };
             logger.log(`[Plugins] Success to load plugin '${info.version}'`);

@@ -141,10 +141,6 @@ export class AnthropicAdapter implements ILLMAdapter {
 
         if (data.tools && data.tools.length > 0) {
             body.tools = data.tools;
-            body.tool_choice = {
-                "type": "auto",  // 必需，枚举值: "auto"
-                "disable_parallel_tool_use": false  // 可选，默认 false。如果为 true，模型最多只会使用一个工具
-            }
         }
 
         if (body.stream) {
@@ -235,7 +231,7 @@ export class AnthropicAdapter implements ILLMAdapter {
         }
 
         if (respJson.usage) {
-            tokens = (respJson.usage.input_tokens || 0) + (respJson.usage.output_tokens || 0);
+            tokens = (respJson.usage.cache_read_input_tokens || 0) + (respJson.usage.input_tokens || 0) + (respJson.usage.output_tokens || 0);
         }
 
         return { content, tool_calls, finish_reason, tokens };

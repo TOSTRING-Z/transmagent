@@ -169,39 +169,12 @@ export class LLMAssistant {
     // ==================== 工具审计功能 ====================
 
     /**
-     * 检查工具是否为高风险工具
-     * @param toolName 工具名称
-     */
-    public isHighRiskTool(toolName: string): boolean {
-        const toolConfig = this.getToolConfig(toolName);
-        return toolConfig?.high_risk === true;
-    }
-
-    /**
-     * 检查工具是否为敏感工具
-     * @param toolName 工具名称
-     */
-    public isSensitiveTool(toolName: string): boolean {
-        const toolConfig = this.getToolConfig(toolName);
-        return toolConfig?.sensitive_tool === true;
-    }
-
-    /**
      * 检查工具是否需要审计
      * @param toolName 工具名称
      */
     public isToolRequireAudit(toolName: string): boolean {
         const toolConfig = this.getToolConfig(toolName);
         return toolConfig?.require_audit === true;
-    }
-
-    /**
-     * 检查工具审计是否启用
-     * @param toolName 工具名称
-     */
-    public isToolAuditEnabled(toolName: string): boolean {
-        const toolConfig = this.getToolConfig(toolName);
-        return toolConfig?.audit_enabled === true;
     }
 
     /**
@@ -227,15 +200,9 @@ export class LLMAssistant {
      * @param data 额外数据
      * @returns 审查结果，如果通过返回null，如果拦截返回错误信息
      */
-    public async auditToolCall(toolInfo: ToolInfo, assistantMessage: Message, data: Record<string, any>): Promise<string | null> {
+    public async auditToolCall(toolInfo: ToolInfo, data: Record<string, any>): Promise<string | null> {
         // 1. 检查工具是否为敏感工具且需要审计
-        if (!toolInfo.tool || !this.isSensitiveTool(toolInfo.tool) || !this.isToolRequireAudit(toolInfo.tool)) {
-            return null;
-        }
-
-        // 2. 检查审计是否启用
-        if (!this.isToolAuditEnabled(toolInfo.tool)) {
-            logger.log(`[Critic] 工具 ${toolInfo.tool} 审计已禁用，跳过审查`);
+        if (!toolInfo.tool || !this.isToolRequireAudit(toolInfo.tool)) {
             return null;
         }
 
@@ -249,54 +216,18 @@ export class LLMAssistant {
         const temp_llm_service = new LLMService();
         temp_llm_service.chatManager.chat = { ...this.llm_service.chatManager.chat };
 
-        // 构建隔离的助手消息，剔除并发的其他工具
-        const isolatedAssistantMessage: Message = { ...assistantMessage };
-        const isNativeToolCall = isolatedAssistantMessage.tool_calls && isolatedAssistantMessage.tool_calls.length > 0;
-
-        if (isNativeToolCall) {
-            // [原生 API 模式] 只保留当前正在审查的这一个 tool_call
-            isolatedAssistantMessage.tool_calls = isolatedAssistantMessage.tool_calls!.filter(
-                call => call.id === toolInfo.id
-            );
-
-            // 容错：如果没匹配上，直接赋一个单元素数组
-            if (isolatedAssistantMessage.tool_calls.length === 0) {
-                isolatedAssistantMessage.tool_calls = [{
-                    id: toolInfo.id || "dummy_id",
-                    type: "function",
-                    function: {
-                        name: toolInfo.tool,
-                        arguments: JSON.stringify(toolInfo.params)
-                    }
-                }];
-            }
-        } else {
-            // [Prompt 模式] 重构 content，确保审查者只看到当前的单一工具负载
-            const isolatedPayload = {
-                thinking: toolInfo.thinking,
-                tool: toolInfo.tool,
-                params: toolInfo.params
-            };
-            isolatedAssistantMessage.content = JSON.stringify(isolatedPayload, null, 2);
-        }
-
         // 组装审查上下文
         temp_llm_service.chatManager.messages = [
-            ...this.llm_service.chatManager.getMessages(true),
-            isolatedAssistantMessage
+            ...this.llm_service.chatManager.getMessages(true)
         ];
 
-        // 闭环假消息：针对原生 API 补充单一的工具回复
-        if (isNativeToolCall) {
-            temp_llm_service.chatManager.messages.push({
-                role: "tool",
-                content: "SYSTEM: Execution paused. Proceed to internal audit.",
-                tool_call_id: toolInfo.id || "dummy_id",
-                tool_call_name: toolInfo.tool,
-                group_id: assistantMessage.group_id,
-                context_id: assistantMessage.context_id
-            });
-        }
+        // 闭环假消息
+        temp_llm_service.chatManager.messages.push({
+            role: "tool",
+            content: "SYSTEM: Execution paused. Proceed to internal audit.",
+            tool_call_id: toolInfo.id || "dummy_id",
+            tool_call_name: toolInfo.tool
+        });
 
         const critic_agent = new ReActAgent(temp_llm_service);
 
@@ -365,6 +296,117 @@ You MUST respond ONLY with a valid JSON object. DO NOT call any tools.
         }
 
         return null;
+    }
+
+    // ==================== 控制台输出检查功能 ====================
+
+    /**
+     * 检查控制台输出是否需要中断指令
+     * @param consoleOutput 控制台输出内容
+     * @param executionTimeMs 执行时间（毫秒）
+     * @returns 检查结果，包含是否中断以及中断理由
+     */
+    public async checkConsoleOutput(
+        consoleOutput: string,
+        executionTimeMs: number = 0
+    ): Promise<{ shouldInterrupt: boolean; reason: string | null }> {
+        try {
+            // 创建临时 LLM 服务，复制聊天上下文以利用 kv_cache
+            const temp_llm_service = new LLMService();
+            temp_llm_service.chatManager.chat = { ...this.llm_service.chatManager.chat };
+
+            // 构建历史对话上下文（保持 kv_cache 命中）
+            const historyMessages = this.llm_service.chatManager.getMessages(true);
+
+            // 组装审查上下文：历史消息 + 系统指令
+            temp_llm_service.chatManager.messages = [...historyMessages];
+
+            const react_agent = new ReActAgent(temp_llm_service);
+
+            // 格式化执行时间
+            const formatDuration = (ms: number): string => {
+                if (ms < 60000) return `${Math.round(ms / 1000)} 秒`;
+                if (ms < 3600000) return `${Math.round(ms / 60000)} 分钟`;
+                return `${(ms / 3600000).toFixed(1)} 小时`;
+            };
+
+            const executionDuration = formatDuration(executionTimeMs);
+
+            const query = `
+[SYSTEM OVERRIDE: CONSOLE OUTPUT MONITORING PROTOCOL]
+You are a strict security and safety monitor. Your role is to analyze console output and determine if the ongoing command should be interrupted.
+
+# EXECUTION CONTEXT:
+- Execution Time: ${executionDuration}
+- History Context: See above conversation history
+
+# CURRENT CONSOLE OUTPUT TO ANALYZE:
+\`\`\`text
+${consoleOutput}
+\`\`\`
+
+# INTERRUPTION CRITERIA:
+
+* INTERRUPT (shouldInterrupt: true) if:
+  - Detection of malicious activities (file deletion attempts, system compromise commands)
+  - Detection of unauthorized access attempts
+  - Detection of commands that may cause data loss or corruption
+  - Detection of suspicious network connections or transfers
+  - User explicitly requested interruption in the output
+  - Commands that appear to be attempting privilege escalation
+  - Detection of potentially dangerous operations that could harm the system
+  - Execution time is abnormally long and the output suggests the command is stuck in an infinite loop or waiting indefinitely
+
+* CONTINUE (shouldInterrupt: false) if:
+  - Normal command execution output
+  - Expected results from legitimate operations
+  - Informational messages
+  - Error messages from failed but non-critical operations
+  - Progress indicators or status updates
+  - Long-running but legitimate operations (e.g., large file transfers, compilation)
+
+# OUTPUT FORMAT:
+You MUST respond ONLY with a valid JSON object. DO NOT call any tools.
+{
+  "shouldInterrupt": boolean,
+  "reason": "If shouldInterrupt is true, provide a specific reason explaining what triggered the interruption"
+}
+            `.trim();
+
+            const callData = react_agent.getDataDefault({
+                query,
+                params: { ...utils.getConfig("llm_params"), temperature: 0.1 },
+                push_message: true,
+                output_format: null
+            });
+
+            if (!callData.params) callData.params = {};
+            callData.params.llm_params = {
+                ...callData.params.llm_params,
+                tool_choice: "none",
+                response_format: { type: "json_object" }
+            };
+
+            const messageOutput = await react_agent.llmCall(callData);
+
+            if (messageOutput && messageOutput.content) {
+                const resultStr = messageOutput.content as string;
+                const jsonMatch = resultStr.match(/\{[\s\S]*\}/);
+
+                if (jsonMatch) {
+                    const verdict = JSON.parse(jsonMatch[0]);
+                    logger.log(`[ConsoleMonitor] Interrupt check: shouldInterrupt=${verdict.shouldInterrupt}, reason=${verdict.reason}`);
+                    return {
+                        shouldInterrupt: verdict.shouldInterrupt === true,
+                        reason: verdict.reason || null
+                    };
+                }
+            }
+        } catch (error) {
+            logger.warn(`[ConsoleMonitor] Check failed, allowing execution to continue: ${error}`);
+        }
+
+        return { shouldInterrupt: false, reason: null };
     }
 }
 

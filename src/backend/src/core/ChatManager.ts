@@ -142,7 +142,7 @@ export class ChatManager {
             }
         }
 
-        if (lastAssistantIdx !== -1) {
+        if (lastAssistantIdx !== this.messages.length - 1) {
             const assistantMsg = this.messages[lastAssistantIdx];
 
             // 3. 如果这个 assistant 消息包含了并发的工具调用
@@ -188,11 +188,6 @@ export class ChatManager {
                     });
                 }
 
-            } else {
-                // 4. 如果最后一条 assistant 并没有调用工具（只是纯文本说到一半被打断）
-                if (lastAssistantIdx === this.messages.length - 1) {
-                    assistantMsg.content += "\n\n**The user interrupted the task.**";
-                }
             }
         }
     }

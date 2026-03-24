@@ -121,24 +121,10 @@ export class ToolCall extends ReActAgent {
     }
 
     /**
-     * 检查工具是否为高风险工具（委托给 LLMAssistant）
-     */
-    public isHighRiskTool(toolName: string): boolean {
-        return this.assistant.isHighRiskTool(toolName);
-    }
-
-    /**
      * 获取工具配置（委托给 LLMAssistant）
      */
     public getToolConfig(toolName: string): any {
         return this.assistant.getToolConfig(toolName);
-    }
-
-    /**
-     * 检查工具是否为敏感工具（委托给 LLMAssistant）
-     */
-    public isSensitiveTool(toolName: string): boolean {
-        return this.assistant.isSensitiveTool(toolName);
     }
 
     /**
@@ -149,17 +135,10 @@ export class ToolCall extends ReActAgent {
     }
 
     /**
-     * 检查工具审计是否启用（委托给 LLMAssistant）
-     */
-    public isToolAuditEnabled(toolName: string): boolean {
-        return this.assistant.isToolAuditEnabled(toolName);
-    }
-
-    /**
      * AI 审查者逻辑 (LLM-as-a-Judge) - 委托给 LLMAssistant
      */
-    public async auditToolCall(toolInfo: ToolInfo, assistantMessage: Message, data: Record<string, any>): Promise<string | null> {
-        return this.assistant.auditToolCall(toolInfo, assistantMessage, data);
+    public async auditToolCall(toolInfo: ToolInfo, data: Record<string, any>): Promise<string | null> {
+        return this.assistant.auditToolCall(toolInfo, data);
     }
 
     public loadMessage(filePath: string) {
@@ -407,7 +386,7 @@ export class ToolCall extends ReActAgent {
             }
 
             // [2. 触发 AI 审查者 (Critic)]
-            let auditError = await this.auditToolCall(toolInfo, assistantMessage, data);
+            let auditError = await this.auditToolCall(toolInfo, data);
             if (auditError) {
                 // 如果被拦截，将 Critic 的报错喂回给原 Agent
                 this.llm_service.chatManager.pushMessage({
@@ -432,112 +411,109 @@ export class ToolCall extends ReActAgent {
             }
 
             // [3. 高风险工具确认逻辑]
-            const isHighRiskTool = this.isHighRiskTool(toolInfo.tool);
             const toolConfig = this.getToolConfig(toolInfo.tool);
+            const requireConfirmation = toolConfig?.require_confirmation !== false; // 默认需要确认
 
-            if (isHighRiskTool && WindowManager.instance?.confirmationWindow && this.environment_details.mode === Mode.ACT) {
-                const requireConfirmation = toolConfig?.require_confirmation !== false; // 默认需要确认
+            if (requireConfirmation && WindowManager.instance?.confirmationWindow && this.environment_details.mode === Mode.ACT) {
 
-                if (requireConfirmation) {
-                    let toolDescription = '';
-                    const toolName = toolInfo.tool;
+                let toolDescription = '';
+                const toolName = toolInfo.tool;
 
-                    // 检查是否有已记住的选择
-                    const rememberedChoice = this.getRememberedChoice(toolName);
-                    if (rememberedChoice !== null) {
-                        if (rememberedChoice) {
-                            let observation = await this.act(toolInfo);
-                            this.handleToolObservation(observation, toolInfo);
-                        } else {
-                            const cancelMessage = `用户取消了高风险工具 ${toolInfo.tool} 的执行（已记住的选择）`;
-                            this.llm_service.chatManager.pushMessage({
-                                role: "tool",
-                                content: cancelMessage,
-                                tool_call_id: toolInfo.id,
-                                tool_call_name: toolInfo.tool,
-                                group_id: this.llm_service.chatManager.chat.group_id,
-                                context_id: this.llm_service.chatManager.chat.context_id,
-                                show: true,
-                                react: true
-                            });
-                            this.window?.webContents.send('streamData', {
-                                group_id: this.llm_service.chatManager.chat.group_id,
-                                context_id: this.llm_service.chatManager.chat.context_id,
-                                content: `❌ **执行取消**: ${cancelMessage}\n\n`,
-                                chat: this.llm_service.chatManager.chat
-                            });
-                        }
-
-                        // 如果工具触发了暂停（如提问等），打断并发遍历
-                        if (this.state === State.PAUSE) break;
-                        continue; // 跳过确认窗口，处理下一个工具
-                    }
-
-                    // 尝试从工具定义中获取描述
-                    if (this.tools[toolName] && this.tools[toolName].getPrompt) {
-                        try {
-                            const promptInfo = this.tools[toolName].getPrompt();
-                            if (promptInfo && promptInfo.description) {
-                                toolDescription = promptInfo.description;
-                            }
-                        } catch (error) {
-                            console.warn(`Failed to get description for tool ${toolName}:`, error);
-                        }
-                    }
-
-                    const finalConfirmationMessage = toolConfig?.confirmation_message || `即将执行高风险工具: ${toolName}`;
-
-                    // 创建确认请求
-                    const confirmationRequest = {
-                        toolId: toolInfo.id || '',
-                        toolName: toolName,
-                        toolDescription: toolDescription,
-                        confirmationMessage: finalConfirmationMessage,
-                        executionDetails: toolInfo.params
-                    };
-
-                    try {
-                        // 挂起并等待用户在 Electron 弹窗响应
-                        const response = await WindowManager.instance.confirmationWindow.showConfirmation(confirmationRequest);
-
-                        if (response.rememberChoice) {
-                            this.setRememberedChoice(toolName, response.confirmed);
-                        }
-
-                        if (response.confirmed) {
-                            let observation = await this.act(toolInfo);
-                            this.handleToolObservation(observation, toolInfo);
-                        } else {
-                            const cancelMessage = `用户取消了高风险工具 ${toolInfo.tool} 的执行`;
-                            this.llm_service.chatManager.pushMessage({
-                                role: "tool",
-                                content: cancelMessage,
-                                tool_call_id: toolInfo.id,
-                                tool_call_name: toolInfo.tool,
-                                group_id: this.llm_service.chatManager.chat.group_id,
-                                context_id: this.llm_service.chatManager.chat.context_id,
-                                show: true,
-                                react: true
-                            });
-
-                            this.window?.webContents.send('streamData', {
-                                group_id: this.llm_service.chatManager.chat.group_id,
-                                context_id: this.llm_service.chatManager.chat.context_id,
-                                content: `❌ **执行取消**: ${cancelMessage}\n\n`,
-                                chat: this.llm_service.chatManager.chat
-                            });
-                        }
-                    } catch (error) {
-                        console.error("确认窗口错误:", error);
-                        // 如果确认窗口本身出错（IPC 崩溃等），默认放行执行
+                // 检查是否有已记住的选择
+                const rememberedChoice = this.getRememberedChoice(toolName);
+                if (rememberedChoice !== null) {
+                    if (rememberedChoice) {
                         let observation = await this.act(toolInfo);
                         this.handleToolObservation(observation, toolInfo);
+                    } else {
+                        const cancelMessage = `用户取消了高风险工具 ${toolInfo.tool} 的执行（已记住的选择）`;
+                        this.llm_service.chatManager.pushMessage({
+                            role: "tool",
+                            content: cancelMessage,
+                            tool_call_id: toolInfo.id,
+                            tool_call_name: toolInfo.tool,
+                            group_id: this.llm_service.chatManager.chat.group_id,
+                            context_id: this.llm_service.chatManager.chat.context_id,
+                            show: true,
+                            react: true
+                        });
+                        this.window?.webContents.send('streamData', {
+                            group_id: this.llm_service.chatManager.chat.group_id,
+                            context_id: this.llm_service.chatManager.chat.context_id,
+                            content: `❌ **执行取消**: ${cancelMessage}\n\n`,
+                            chat: this.llm_service.chatManager.chat
+                        });
                     }
 
-                    // 状态机流转：如果弹窗后执行的工具（或回调）让状态变成了暂停，直接跳出并发循环
+                    // 如果工具触发了暂停（如提问等），打断并发遍历
                     if (this.state === State.PAUSE) break;
-                    continue; // 处理完毕当前高风险工具，进行下一个
+                    continue; // 跳过确认窗口，处理下一个工具
                 }
+
+                // 尝试从工具定义中获取描述
+                if (this.tools[toolName] && this.tools[toolName].getPrompt) {
+                    try {
+                        const promptInfo = this.tools[toolName].getPrompt();
+                        if (promptInfo && promptInfo.description) {
+                            toolDescription = promptInfo.description;
+                        }
+                    } catch (error) {
+                        console.warn(`Failed to get description for tool ${toolName}:`, error);
+                    }
+                }
+
+                const finalConfirmationMessage = toolConfig?.confirmation_message || `即将执行高风险工具: ${toolName}`;
+
+                // 创建确认请求
+                const confirmationRequest = {
+                    toolId: toolInfo.id || '',
+                    toolName: toolName,
+                    toolDescription: toolDescription,
+                    confirmationMessage: finalConfirmationMessage,
+                    executionDetails: toolInfo.params
+                };
+
+                try {
+                    // 挂起并等待用户在 Electron 弹窗响应
+                    const response = await WindowManager.instance.confirmationWindow.showConfirmation(confirmationRequest);
+
+                    if (response.rememberChoice) {
+                        this.setRememberedChoice(toolName, response.confirmed);
+                    }
+
+                    if (response.confirmed) {
+                        let observation = await this.act(toolInfo);
+                        this.handleToolObservation(observation, toolInfo);
+                    } else {
+                        const cancelMessage = `用户取消了高风险工具 ${toolInfo.tool} 的执行`;
+                        this.llm_service.chatManager.pushMessage({
+                            role: "tool",
+                            content: cancelMessage,
+                            tool_call_id: toolInfo.id,
+                            tool_call_name: toolInfo.tool,
+                            group_id: this.llm_service.chatManager.chat.group_id,
+                            context_id: this.llm_service.chatManager.chat.context_id,
+                            show: true,
+                            react: true
+                        });
+
+                        this.window?.webContents.send('streamData', {
+                            group_id: this.llm_service.chatManager.chat.group_id,
+                            context_id: this.llm_service.chatManager.chat.context_id,
+                            content: `❌ **执行取消**: ${cancelMessage}\n\n`,
+                            chat: this.llm_service.chatManager.chat
+                        });
+                    }
+                } catch (error) {
+                    console.error("确认窗口错误:", error);
+                    // 如果确认窗口本身出错（IPC 崩溃等），默认放行执行
+                    let observation = await this.act(toolInfo);
+                    this.handleToolObservation(observation, toolInfo);
+                }
+
+                // 状态机流转：如果弹窗后执行的工具（或回调）让状态变成了暂停，直接跳出并发循环
+                if (this.state === State.PAUSE) break;
+                continue; // 处理完毕当前高风险工具，进行下一个
             }
 
             // [4. 标准工具安全执行]
