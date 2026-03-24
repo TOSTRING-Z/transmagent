@@ -98,7 +98,10 @@ export class OpenAIAdapter implements ILLMAdapter {
         // 处理 OpenAI 规范的 Function Calling
         if (data.tools && data.tools.length > 0) {
             body.tools = data.tools;
-            body.tool_choice = "auto";
+            body.tool_choice = {
+                "type": "auto",  // 必需，枚举值: "auto"
+                "disable_parallel_tool_use": false  // 可选，默认 false。如果为 true，模型最多只会使用一个工具
+            }
         }
 
         // 默认启用 Usage 统计 (Claude 不支持此参数，原逻辑做了排除)
