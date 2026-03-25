@@ -4,18 +4,9 @@ import * as os from 'os';
 import * as path from 'path';
 import JSON5 from 'json5';
 import { formatString } from './format';
+import { store, sysConfig } from './globals';
 
 export class Utils {
-    private static instance: Utils;
-        public configName: string | undefined;
-
-    constructor(configName: string) {
-        if (!Utils.instance) {
-                this.configName = configName;
-            Utils.instance = this;
-        }
-        return Utils.instance;
-    }
 
     public hashCode(str: string): string {
         let hash = 0;
@@ -132,14 +123,14 @@ export class Utils {
     }
 
     public setFile(content: string, file_path: string | null = null): boolean {
-        const configPath = file_path || this.getDefault(this.configName);
+        const configPath = file_path || this.getDefault(sysConfig[store.get('agentMode', 'transagent')]);
         fs.writeFileSync(configPath, content);
         return true;
     }
 
     public getConfig(key: string | null = null, config_name: string | null = null): any {
         const sysConfigFilePath = this.getSystem();
-        const configFilePath = this.getDefault(config_name || this.configName);
+        const configFilePath = this.getDefault(config_name || sysConfig[store.get('agentMode', 'transagent')]);
         
         // 加入容错机制，防止系统首次运行无文件报错
         let defaultConfig = fs.existsSync(sysConfigFilePath) ? this.parseJsonContent(fs.readFileSync(sysConfigFilePath, 'utf-8')) : {};
@@ -167,7 +158,7 @@ export class Utils {
     }
 
     public setConfig(config: any): boolean {
-        const configPath = this.getDefault(this.configName);
+        const configPath = this.getDefault(sysConfig[store.get('agentMode', 'transagent')]);
         fs.writeFileSync(configPath, JSON.stringify(config, null, 2));
         return true;
     }

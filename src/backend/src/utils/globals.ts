@@ -5,7 +5,7 @@ import { Utils } from './Utils';
 
 function createStore() {
     const configPath = path.join(os.homedir(), '.transmagent', 'story.json');
-  
+
     const ensureConfigFile = () => {
         const dir = path.dirname(configPath);
         if (!fs.existsSync(dir)) {
@@ -36,6 +36,7 @@ function createStore() {
 }
 
 export const store = createStore();
+export const utils = new Utils();
 
 export const CONSTANTS = {
     COLLECTION_URL: '/collection',
@@ -49,13 +50,13 @@ export const sysConfig = {
     multagent: "configs/config_multagent.json",
 };
 
-export const utils = new Utils(store.get('config', sysConfig.transagent));
-
-export const globalState = {
-    config: store.get('config', sysConfig.transagent),
-    last_clipboard_content: null as string | null,
-    concat: false,
+export const extraPrompt = {
+    transagent: "prompts/transagent.md",
+    baseagent: "prompts/baseagent.md",
+    multagent: "prompts/multagent.md",
 };
+
+export const getCliPromptPath = () => utils.getConfig("tool_call").cli_prompt || utils.getDefault("prompts/cli_prompt.md")
 
 export const CHAT_CONST = {
     DEFAULT_NAME: "New Chat"

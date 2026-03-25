@@ -22,6 +22,28 @@ export enum Mode {
     FLASH = 'Flash mode',
 }
 
+export const MODE_CONSTRAINTS: Record<Mode, string> = {
+    [Mode.AUTO]: `
+- **STRICT AUTONOMY**: You are FORBIDDEN from asking the user for ANY information, clarification, or confirmation.
+- **FORCE COMPLETION**: Solve all ambiguities using your best logical judgment. If a non-critical error occurs, bypass or self-correct to reach the goal.
+- **ZERO INTERRUPTION**: Execute the entire workflow from start to finish in a single, uninterrupted stream of logic.`,
+
+    [Mode.ACT]: `
+- **STEP-BY-STEP VERIFICATION**: You MUST perform environment checks before each major command.
+- **GATEKEEPER PROTOCOL**: If any ambiguity, missing context, or multiple technical paths exist, you MUST pause and use \`ask_user\` for explicit guidance.
+- **CONFIRM DESTRUCTION**: You MUST obtain user permission via \`ask_user\` before any file deletion, overwriting, or high-cost API calls.`,
+
+    [Mode.PLAN]: `
+- **READ-ONLY PROTOCOL**: You are STERNLY FORBIDDEN from creating/modifying files, writing scripts, or executing any system-altering actions.
+- **ARCHITECT ROLE**: Focus 100% on deep discussion and blueprinting. Your output must be a detailed plan, NOT execution.
+- **HANDOVER**: Upon plan completion, you MUST explicitly prompt the user to switch to "Execution mode" or "Automatic mode" to proceed.`,
+
+    [Mode.FLASH]: `
+- **MAXIMUM VELOCITY**: Execute the most direct path to task completion. 
+- **SILENT EXECUTION**: Strictly minimize all conversational text, explanations, and pleasantries. Talk less, do more.
+- **NO OVERHEAD**: You are FORBIDDEN from generating Mermaid charts, subtask breakdowns, or long summaries. Reach the end state as fast as possible.`
+};
+
 // 模拟 Electron window 对象的默认结构
 const createMockWindow = () => ({
     webContents: {

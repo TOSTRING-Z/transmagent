@@ -1,7 +1,6 @@
 import { BrowserWindow, ipcMain, desktopCapturer } from 'electron';
 import { BaseWindow } from './BaseWindow';
 import { WindowManager } from './WindowManager';
-import { globalState } from '../../utils/globals';
 
 export class OverlayWindow extends BaseWindow {
     constructor(windowManager: WindowManager) {

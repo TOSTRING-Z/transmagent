@@ -1,9 +1,8 @@
-import { utils } from '../utils/globals'
+import { getCliPromptPath, utils } from '../utils/globals'
 import { logger } from '../utils/logger';
 import * as fs from 'fs';
 import { SkillManager } from './SkillManager';
 import { ToolCall } from './ToolCall';
-import { Mode } from './ReActAgent';
 
 class Prompts {
   public agent: ToolCall;
@@ -17,7 +16,7 @@ class Prompts {
   getCliPrompt() {
     if (this.agent.prompt_args.agent_mode === "transagent") {
       try {
-        const cliPromptPath = utils.getConfig("tool_call").cli_prompt || utils.getDefault("prompts/cli_prompt.md");
+        const cliPromptPath = getCliPromptPath();
         if (fs.existsSync(cliPromptPath)) {
           return fs.readFileSync(cliPromptPath, 'utf-8');
         }
@@ -72,11 +71,6 @@ class Prompts {
    - **Prohibition**: Never assume a tool "knows" what happened in the previous step.
 `: `You are **TransMAgent**, a versatile, high-efficiency AI assistant capable of solving complex user requests through strategic tool usage.`)}
 
-${!this.agent.prompt_args.subagent && this.agent.environment_details.mode === Mode.ACT ? `# 🗣️ INTERACTIVE COMMUNICATION PROTOCOL
-1. **Low Confidence? Ask.** If the user's request is ambiguous or has multiple technical paths, do NOT guess. Present options and ask for a preference.
-2. **Destructive Action? Confirm.** Before deleting files, overwriting critical code, or spending significant API/Cloud resources, you MUST use \`ask_user\` to get explicit permission.
-3. **Progress Updates**: After completing a major subtask, summarize what was done and ask: "Should I proceed to the next step according to the plan?"`: ""}
-
 # 🛡️ DATA INTEGRITY & ANTI-HALLUCINATION (ZERO TOLERANCE)
 
 ## 1. Execution Reality vs. Simulation
@@ -110,9 +104,9 @@ You support **Agent Skills**—modular capabilities loaded dynamically from the 
 - **Discovery**: When a user's request matches a skill's description, its instructions are injected below.
 - **Constraints**: If a skill specifies \`allowed-tools\`, you MUST prioritize those tools and adhere to the specialized workflow provided.
 
-${this.agent.prompt_args.todolist && this.agent.environment_details.mode !== Mode.FLASH ? `
-# 🏗️ Complex Task Protocol
-For complex requests, enforce this strict pipeline:
+${this.agent.prompt_args.todolist ? `
+# 🏗️ Complex Task Protocol (Skip in Flash Mode)
+For complex requests, enforce this strict pipeline (Unless Active Mode is Flash):
 
 ## Phase 1: Blueprint & De-fragmentation
 1. **Plan**: ${this.agent.prompt_args.agent_mode === "multagent" ? "Call `workflow_planner`." : "Design workflow using Mermaid."}
@@ -127,7 +121,8 @@ For complex requests, enforce this strict pipeline:
    - *Reason*: This creates a "Save Game" state.
 3. **Gating**: You are **FORBIDDEN** from starting Subtask N+1 until Subtask N is recorded.
 ` : ""}
-${!this.agent.prompt_args.subagent && this.agent.prompt_args.todolist && this.agent.environment_details.mode !== Mode.FLASH ? "4. **Finalize**: The last subtask MUST be: **Summarize execution using Mermaid syntax.**" : this.agent.prompt_args.agent_mode === "multagent" ? "**Pre-flight**: Call `workflow_planner` before any execution." : ""}
+${!this.agent.prompt_args.subagent && this.agent.prompt_args.todolist ? "4. **Finalize**: The last subtask MUST be: **Summarize execution using Mermaid syntax (N/A in Flash Mode).**" : this.agent.prompt_args.agent_mode === "multagent" ? "**Pre-flight**: Call `workflow_planner` before any execution." : ""}
+
 ${!this.agent.prompt_args.subagent && utils.getConfig('embedding')?.enabled ? `
 # 💾 Memory Operations
 - **Retrieval**: If context is ambiguous or involves past projects, call \`search_long_term_memory\` **BEFORE** acting.
@@ -188,16 +183,8 @@ ${!this.agent.prompt_args.subagent && this.agent.prompt_args.mcp_server ? `
 
 {extra_prompt}
 
-${!this.agent.prompt_args.subagent && this.agent.environment_details.mode !== Mode.FLASH ? `
-# ⚙️ Operational Modes Table
-
-| Mode | Mandatory Behavior |
-| :--- | :--- |
-| **Automatic** | **Do it all.** No confirmation. |
-| **Execution** | **Do it, but check in** after each major step. |
-| **Planning** | **Understand, then blueprint.** <br>1. **Talk to me:** Ask questions to fully grasp the goal. <br>2. **Don't act:** No code, no changes. <br>3. **Deliver a plan:** Provide a detailed, step-by-step plan for someone else to follow. |
-
-# 📊 Mermaid Standard
+${!this.agent.prompt_args.subagent ? `
+# 📊 Mermaid Standard (N/A for Flash Mode)
 Use this syntax for all planning/summaries:
 \`\`\`mermaid
 graph TD
@@ -205,13 +192,8 @@ graph TD
     Step1 -->|Result| Check{{Success?}}
     Check -->|Yes| Step2[[Next Step]]
     Check -->|No| Fix[Fix Strategy]
-\`\`\`` : ""}
-
-# 🖥️ Environment Snapshot
-- **Time**: Current system time
-- **CWD**: Temporary workspace folder
-${!this.agent.prompt_args.subagent ? `- **Active Mode**: The current operating mode (Auto/Exec/Plan)` : ""}
-- **System**: {system_type} / {system_platform} / {system_arch}
+\`\`\`
+` : ""}
 ${!this.agent.prompt_args.subagent ? `
 # 📌 Important Memory
 {important_memory}`: ""}
@@ -220,24 +202,27 @@ ${!this.agent.prompt_args.subagent ? `
   }
 
   getEnvPrompts() {
-    // 这是一个高频注入的 Prompt，必须极其精简，避免挤占 Context
-    // 它跟随在 User 消息后，作为“即时状态快照”
+    // 采用极简 Markdown 符号，利用加粗强化 Agent 对模式状态的捕获
     const { subagent, todolist } = this.agent.prompt_args;
 
-    // 使用紧凑的 Key-Value 格式
     const env = `
 ---
-### 🖥️ CRITICAL CONTEXT SNAPSHOT
+### ⚡ SYSTEM STATE SNAPSHOT
 - **Time**: {time}
-- **Lang**: {language}
-- **Dir**: {tmpdir}
-${!subagent ? `- **Mode**: {mode}\n{envs}` : ""}
-${todolist ? `
-### ✅ TASK LIST STATUS
-{todolist}
-` : ""}
-`;
-    return env.trim();
+- **Env**: {system_platform}/{system_arch} | **Lang**: {language}
+- **CWD**: \`{tmpdir}\`
+${!subagent ? `
+### 🛠️ MODE: **{mode}**
+> **STRICT CONSTRAINT**: 
+{mode_constraint}
+
+{envs}` : ""}
+
+${todolist ? `### 📋 PROGRESS: {todolist}` : ""}
+---
+`.trim();
+
+    return env;
   }
 }
 

@@ -188,7 +188,6 @@
     "repetitions_delay_empty": 1,
     "tmpdir": "/tmp",
     "language": "english",
-    "system_type": "linux",
     "system_platform": "debian12",
     "system_arch": "x86_64",
     "ssh_config": {

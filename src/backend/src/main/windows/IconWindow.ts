@@ -1,7 +1,7 @@
 import { BrowserWindow, ipcMain, clipboard } from 'electron';
 import { BaseWindow } from './BaseWindow';
 import { WindowManager } from './WindowManager';
-import { globalState, utils } from '../../utils/globals';
+import { utils } from '../../utils/globals';
 
 export class IconWindow extends BaseWindow {
     public width = 200;
@@ -66,32 +66,32 @@ export class IconWindow extends BaseWindow {
 
     public setup() {
         ipcMain.on('concat-clicked', () => {
-            globalState.concat = true;
+            WindowManager.instance.mainWindow.concat = true;
             this.destroy();
         });
 
         ipcMain.on('translation-clicked', () => {
-            globalState.concat = false;
+            WindowManager.instance.mainWindow.concat = false;
             const mainWin = this.windowManager.mainWindow;
             mainWin.sendQuery(
-                { query: globalState.last_clipboard_content || "" },
+                { query: WindowManager.instance.mainWindow.last_clipboard_content || "" },
             );
             this.destroy();
         });
 
         ipcMain.on('submit-clicked', () => {
-            globalState.concat = false;
+            WindowManager.instance.mainWindow.concat = false;
             const mainWin = this.windowManager.mainWindow;
             mainWin.sendQuery(
-                { query: globalState.last_clipboard_content || "" }
+                { query: WindowManager.instance.mainWindow.last_clipboard_content || "" }
             );
             this.destroy();
         });
 
         ipcMain.on('clear-clicked', () => {
-            globalState.concat = false;
+            WindowManager.instance.mainWindow.concat = false;
             this.destroy();
-            globalState.last_clipboard_content = "";
+            WindowManager.instance.mainWindow.last_clipboard_content = "";
             clipboard.writeText("");
         });
     }

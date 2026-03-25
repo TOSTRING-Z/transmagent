@@ -1,5 +1,5 @@
 import { existsSync, readFileSync } from "fs";
-import { utils } from "../utils/globals";
+import { getCliPromptPath, utils } from "../utils/globals";
 import { WindowManager } from "../main/windows/WindowManager";
 import { SkillManager } from "../core/SkillManager"; // 确保路径正确
 
@@ -56,7 +56,7 @@ export function main() {
         const mcp_prompt = mcp_client.mcpPrompt;
         const mcp_tool_prompts = mcp_client.toolPrompts; 
         
-        const prompt_file = utils.getConfig("tool_call")?.cli_prompt || utils.getDefault("prompts/cli_prompt.md");
+        const prompt_file = getCliPromptPath();
         
         if (!existsSync(prompt_file)) {
             return {

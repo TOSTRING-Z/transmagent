@@ -8,7 +8,7 @@ import { Worker } from 'worker_threads';
 
 import { BaseWindow } from "./BaseWindow";
 import { WindowManager } from "./WindowManager";
-import { store, globalState, CONSTANTS, utils, sysConfig } from '../../utils/globals';
+import { store, CONSTANTS, utils, sysConfig, extraPrompt, getCliPromptPath } from '../../utils/globals';
 import { LLMService } from '../../core/LLMService';
 import { State } from "../../core/ReActAgent";
 import { PromptArgs, ToolCall } from '../../core/ToolCall';
@@ -17,7 +17,6 @@ import { PluginItem, Plugins } from '../../core/Plugins';
 import { captureMouse } from '../../mouse/CaptureMouse';
 import { install } from '../../core/Install';
 import { MainServer } from '../../server/MainServer';
-import { assert } from 'console';
 
 // 定义 FuncItems 结构以启用严格模式
 interface FuncItemNode {
@@ -35,9 +34,12 @@ export class MainWindow extends BaseWindow {
     public chain_call!: ChainCall;
     public main_server: any;
     public worker: any;
+    public last_clipboard_content?: string | null;
+    public concat?: boolean;
 
     constructor(windowManager: WindowManager) {
         super(windowManager);
+
         this.funcItems = {
             clip: {
                 statu: utils.getConfig("func_status")?.clip || false,
@@ -66,30 +68,30 @@ export class MainWindow extends BaseWindow {
                 statu: utils.getConfig("func_status")?.react || true,
                 event: () => { },
                 transagent: {
-                    statu: globalState.config === sysConfig.transagent,
-                    config: sysConfig.transagent,
+                    statu: sysConfig[store.get('agentMode', 'transagent')] === sysConfig.transagent,
                     click: () => {
                         this.funcItems.react.event();
-                        store.set("config", sysConfig.transagent);
-                        this.restart(this.window);
+                        store.set('agentMode', 'transagent');
+                        this.setActiveAgent('transagent');
+                        this.serverInit();
                     }
                 },
                 baseagent: {
-                    statu: globalState.config === sysConfig.baseagent,
-                    config: sysConfig.baseagent,
+                    statu: sysConfig[store.get('agentMode', 'transagent')] === sysConfig.baseagent,
                     click: () => {
                         this.funcItems.react.event();
-                        store.set("config", sysConfig.baseagent);
-                        this.restart(this.window);
+                        store.set('agentMode', 'baseagent');
+                        this.setActiveAgent('baseagent');
+                        this.serverInit();
                     }
                 },
                 multagent: {
-                    statu: globalState.config === sysConfig.multagent,
-                    config: sysConfig.multagent,
+                    statu: sysConfig[store.get('agentMode', 'transagent')] === sysConfig.multagent,
                     click: () => {
                         this.funcItems.react.event();
-                        store.set("config", sysConfig.multagent);
-                        this.restart(this.window);
+                        store.set('agentMode', 'multagent');
+                        this.setActiveAgent('multagent');
+                        this.serverInit();
                     }
                 },
                 llm: {
@@ -103,6 +105,26 @@ export class MainWindow extends BaseWindow {
                 },
             },
         };
+    }
+
+    public setActiveAgent(activeAgent) {
+        // 重置所有状态
+        this.funcItems.react.transagent.statu = false;
+        this.funcItems.react.baseagent.statu = false;
+        this.funcItems.react.multagent.statu = false;
+
+        // 激活选中的 agent
+        switch (activeAgent) {
+            case 'transagent':
+                this.funcItems.react.transagent.statu = true;
+                break;
+            case 'multagent':
+                this.funcItems.react.multagent.statu = true;
+                break;
+            case 'baseagent':
+                this.funcItems.react.baseagent.statu = true;
+                break;
+        }
     }
 
     destroy(): void {
@@ -148,16 +170,7 @@ export class MainWindow extends BaseWindow {
         }
     }
 
-    public create() {
-
-        this.window = new BrowserWindow({
-            width: 1200,
-            height: 800,
-            webPreferences: {
-                preload: path.join(__dirname, '../preloads/main_window_preload.js'),
-            },
-        });
-
+    public serverInit() {
         this.plugins = new Plugins();
         this.plugins.loadInit();
         this.llm_service = new LLMService([], this.window);
@@ -223,20 +236,33 @@ export class MainWindow extends BaseWindow {
             console.error('[MainWindow] Worker error:', err);
         });
 
-        this.window.on('focus', () => {
-            this.window?.setAlwaysOnTop(true);
-            setTimeout(() => this.window?.setAlwaysOnTop(false), 0);
-        });
-
         const menu = Menu.buildFromTemplate(this.getTemplate());
         Menu.setApplicationMenu(menu);
 
-        this.window.loadFile('src/frontend/index.html');
+        this.window?.loadFile('src/frontend/index.html');
 
-        this.window.webContents.on('did-finish-load', () => {
+        this.window?.webContents.on('did-finish-load', () => {
             this.initFuncItems();
             this.initInfo();
             this.setupHeartbeat();
+        });
+    }
+
+    public create() {
+
+        this.window = new BrowserWindow({
+            width: 1200,
+            height: 800,
+            webPreferences: {
+                preload: path.join(__dirname, '../preloads/main_window_preload.js'),
+            },
+        });
+
+        this.serverInit();
+
+        this.window.on('focus', () => {
+            this.window?.setAlwaysOnTop(true);
+            setTimeout(() => this.window?.setAlwaysOnTop(false), 0);
         });
 
         this.window.webContents.on('will-navigate', (event, url) => {
@@ -260,7 +286,7 @@ export class MainWindow extends BaseWindow {
             this.window = null;
         });
 
-        globalState.last_clipboard_content = clipboard.readText();
+        this.last_clipboard_content = clipboard.readText();
     }
 
     public async agentLoop(data) {
@@ -471,19 +497,19 @@ export class MainWindow extends BaseWindow {
     private getClipEvent(e: FuncItemNode) {
         return setInterval(async () => {
             let clipboardContent = clipboard.readText();
-            if (clipboardContent !== globalState.last_clipboard_content) {
-                if (globalState.concat) {
-                    globalState.last_clipboard_content = `${globalState.last_clipboard_content} ${clipboardContent}`;
-                    clipboard.writeText(globalState.last_clipboard_content);
+            if (clipboardContent !== this.last_clipboard_content) {
+                if (this.concat) {
+                    this.last_clipboard_content = `${this.last_clipboard_content} ${clipboardContent}`;
+                    clipboard.writeText(this.last_clipboard_content);
                 } else {
-                    globalState.last_clipboard_content = clipboardContent;
+                    this.last_clipboard_content = clipboardContent;
                 }
 
                 if (this.funcItems.text.statu) {
                     try {
-                        const dom = new JSDOM(globalState.last_clipboard_content);
+                        const dom = new JSDOM(this.last_clipboard_content);
                         const plainText = dom.window.document.body.textContent || "";
-                        globalState.last_clipboard_content = plainText;
+                        this.last_clipboard_content = plainText;
                         clipboard.writeText(plainText);
                     } catch (error: any) {
                         console.error('Failed to clear clipboard formatting:', error);
@@ -545,7 +571,9 @@ export class MainWindow extends BaseWindow {
         const history_data = utils.getHistoryData();
         this.window?.webContents.send('init-info', {
             prompt,
-            ...globalState,
+            config: sysConfig[store.get('agentMode', 'transagent')],
+            concat: this.concat,
+            last_clipboard_content: this.last_clipboard_content,
             model: this.llm_service.chatManager.chat.model,
             version: this.llm_service.chatManager.chat.version,
             tool_format: this.llm_service.chatManager.chat.tool_format,
@@ -664,7 +692,7 @@ export class MainWindow extends BaseWindow {
                     {
                         label: 'Save Configuration',
                         click: () => {
-                            const lastPath = path.join(store.get('lastSaveConfigurationPath') || utils.getDefault(), globalState.config);
+                            const lastPath = path.join(store.get('lastSaveConfigurationPath') || utils.getDefault(), sysConfig[store.get('agentMode', 'transagent')]);
                             dialog.showSaveDialog(this.window!, {
                                 defaultPath: lastPath,
                                 filters: [{ name: 'JSON File', extensions: ['json'] }, { name: 'All Files', extensions: ['*'] }]
@@ -686,7 +714,7 @@ export class MainWindow extends BaseWindow {
                             }).then(result => {
                                 if (!result.canceled) {
                                     store.set('lastLoadConfigurationPath', path.dirname(result.filePaths[0]));
-                                    const configFilePath = path.join(utils.getDefault(), globalState.config);
+                                    const configFilePath = path.join(utils.getDefault(), sysConfig[store.get('agentMode', 'transagent')]);
                                     fs.copyFile(result.filePaths[0], configFilePath, (err) => {
                                         if (!err) {
                                             this.windowManager.configWindow?.window?.webContents.send('load-config', configFilePath);
@@ -794,8 +822,24 @@ export class MainWindow extends BaseWindow {
                         label: 'Open Memory',
                         click: () => {
                             const memoryPath = path.join(utils.getDefault(), 'memory.md');
-                            if (!fs.existsSync(memoryPath)) fs.writeFileSync(memoryPath, '# Memory\n\n');
-                            shell.openPath(memoryPath).catch(err => console.error('Failed to open memory.md:', err));
+                            if (!fs.existsSync(memoryPath)) fs.writeFileSync(memoryPath, '');
+                            shell.openPath(memoryPath).catch(err => WindowManager.instance.alertWindow.show('error', `Failed to open :${memoryPath}`));
+                        }
+                    },
+                    {
+                        label: 'Open Extra Prompt',
+                        click: () => {
+                            const promptPath = path.join(utils.getDefault(), extraPrompt[store.get('agentMode', 'transagent')]);
+                            if (!fs.existsSync(promptPath)) fs.writeFileSync(promptPath, '');
+                            shell.openPath(promptPath).catch(err => WindowManager.instance.alertWindow.show('error', `Failed to open :${promptPath}`));
+                        }
+                    },
+                    {
+                        label: 'Open CLI Prompt',
+                        click: () => {
+                            const promptPath = getCliPromptPath();
+                            if (!fs.existsSync(promptPath)) fs.writeFileSync(promptPath, '');
+                            shell.openPath(promptPath).catch(err => WindowManager.instance.alertWindow.show('error', `Failed to open :${promptPath}`));
                         }
                     },
                     { type: 'separator' },

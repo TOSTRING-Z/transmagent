@@ -201,12 +201,11 @@ export class LLMAssistant {
      * @returns 审查结果，如果通过返回null，如果拦截返回错误信息
      */
     public async auditToolCall(toolInfo: ToolInfo, data: Record<string, any>): Promise<string | null> {
-        // 1. 检查工具是否为敏感工具且需要审计
+        // 1. 基础检查
         if (!toolInfo.tool || !this.isToolRequireAudit(toolInfo.tool)) {
             return null;
         }
 
-        // 3. 检查LLM审查器是否启用
         if (!utils.getConfig("tool_call")?.llm_judge) {
             return null;
         }
@@ -216,51 +215,60 @@ export class LLMAssistant {
         const temp_llm_service = new LLMService();
         temp_llm_service.chatManager.chat = { ...this.llm_service.chatManager.chat };
 
-        // 组装审查上下文
-        temp_llm_service.chatManager.messages = [
-            ...this.llm_service.chatManager.getMessages(true)
-        ];
+        // 2. 获取并修剪上下文：只截取到当前正在触发工具的那条 assistant 消息
+        const allMessages = [...this.llm_service.chatManager.getMessages(true)];
+        // 从后往前找最近的一个 assistant 消息
+        const lastAssistantIdx = allMessages.map(m => m.role).lastIndexOf('assistant');
 
-        // 闭环假消息
-        temp_llm_service.chatManager.messages.push({
-            role: "tool",
-            content: "SYSTEM: Execution paused. Proceed to internal audit.",
-            tool_call_id: toolInfo.id || "dummy_id",
-            tool_call_name: toolInfo.tool
-        });
+        if (lastAssistantIdx === -1) {
+            logger.warn("[Critic] 未找到对应的助手消息，跳过审计");
+            return null;
+        }
+
+        // 截断消息列表，保留到该 assistant 消息为止
+        const slicedMessages = allMessages.slice(0, lastAssistantIdx + 1);
+
+        // 闭环处理：修改最后一条消息的内容，防止审计器产生递归调用或逻辑干扰
+        const targetMessage = slicedMessages[slicedMessages.length - 1];
+        const originalContent = targetMessage.content;
+
+        // 临时修改内容，隐藏 tool_calls 以防 LLM 混乱，仅让它作为“记忆”存在
+        targetMessage.content = `[LOGGED ASSISTANT THOUGHT]: ${toolInfo.thinking || originalContent}\nSYSTEM: Execution paused for data integrity audit.`;
+        delete targetMessage.tool_calls;
+
+        temp_llm_service.chatManager.messages = slicedMessages;
 
         const critic_agent = new ReActAgent(temp_llm_service);
 
-        // 审查查询
+        // 3. 构造注入了 ToolInfo 的审查 Prompt
+        const payloadString = JSON.stringify(toolInfo.params || {}, null, 2);
         const criticQuery = `
 [SYSTEM OVERRIDE: INTERNAL AUDIT PROTOCOL]
-You must now pause your current task and act as a strict Data Integrity Critic. 
-Review the tool call payload you just generated above.
+You are a strict Data Integrity Critic. Review the following proposed tool call:
+
+# TARGET TOOL
+Tool: ${toolInfo.tool}
+
+# PROPOSED PAYLOAD
+\`\`\`json
+${payloadString}
+\`\`\`
 
 # OBJECTIVE:
-Distinguish between "Developing Tools/Scripts" (Allowed) and "Hallucinating Final Data" (Blocked).
+Determine if the payload contains "Hallucinated/Fake Data" (Blocked) or "Functional Code/Queries" (Allowed).
 
-# CRITICAL CHECK CRITERIA:
+# CRITERIA:
+- ALLOWED: Scripts/SQL/API calls that use placeholders or fetch real-time data.
+- BLOCKED: Hardcoded factual data (sequences, coordinates, constants) that should have been retrieved but were instead invented by the LLM.
 
-* ALLOWED (Pass = true): 
-  - Writing scripts to query APIs, scrape websites, or parse local files.
-  - Using placeholders for credentials (e.g., 'YOUR_API_KEY', 'TEMP_TOKEN').
-  - Creating boilerplate code or skeleton functions intended to be executed for real data retrieval.
-  - Mocking structure for testing logic flow, UNLESS it replaces a factual data source.
-
-* BLOCKED (Pass = false): 
-  - Hardcoding factual/scientific results (e.g., specific protein sequences, GPS coordinates, experimental values) instead of writing code to fetch them.
-  - Using random number generators (e.g., \`random.random()\`) to simulate analytical results.
-  - Providing a "mock response" script that prints hardcoded fake data to bypass an actual API/Tool requirement.
-
-# OUTPUT FORMAT:
-You MUST respond ONLY with a valid JSON object. DO NOT call any tools.
+# OUTPUT FORMAT (JSON ONLY):
 {
   "pass": boolean,
-  "reason": "If false, state EXACTLY which specific data point was mocked and how it should be correctly fetched."
+  "reason": "Required if pass is false"
 }
         `.trim();
 
+        // 4. 执行审计请求
         const callData = critic_agent.getDataDefault({
             ...data,
             query: criticQuery,
@@ -272,27 +280,25 @@ You MUST respond ONLY with a valid JSON object. DO NOT call any tools.
             if (!callData.params) callData.params = {};
             callData.params.llm_params = {
                 ...callData.params.llm_params,
-                temperature: 0.1,
-                tool_choice: "none",
-                response_format: { type: "json_object" }
+                temperature: 0, // 审计需要极高的确定性
             };
 
             const messageOutput = await critic_agent.llmCall(callData);
 
-            if (messageOutput && messageOutput.content) {
+            if (messageOutput?.content) {
                 const resultStr = messageOutput.content as string;
                 const jsonMatch = resultStr.match(/\{[\s\S]*\}/);
 
                 if (jsonMatch) {
                     const verdict = JSON.parse(jsonMatch[0]);
                     if (verdict.pass === false) {
-                        logger.log(`[Critic] 拦截成功! 发现伪造数据: ${verdict.reason}`);
-                        return `[CRITIC REJECTION] Execution Blocked. Your payload violates data integrity rules:\nReason: ${verdict.reason}`;
+                        logger.log(`[Critic] 拦截! 理由: ${verdict.reason}`);
+                        return `[CRITIC REJECTION] Data Integrity Violation.\nReason: ${verdict.reason}`;
                     }
                 }
             }
         } catch (error) {
-            console.error("[Critic] 审查过程发生异常，默认放行:", error);
+            console.error("[Critic] 审计异常:", error);
         }
 
         return null;

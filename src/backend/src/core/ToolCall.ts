@@ -1,5 +1,5 @@
 import * as os from 'os';
-import { ReActAgent, State, Mode } from './ReActAgent';
+import { ReActAgent, State, Mode, MODE_CONSTRAINTS } from './ReActAgent';
 import { utils, CHAT_CONST } from '../utils/globals';
 import { formatString } from '../utils/format';
 import { LLMService } from './LLMService';
@@ -35,10 +35,13 @@ export interface PromptArgs {
 }
 
 export interface EnvironmentDetails {
+    system_platform: string;
+    system_arch: string;
     language: string;
     tmpdir: string;
     time: string;
     mode: Mode;
+    mode_constraint: string;
     envs: string | null;
     todolist: string | null;
     skills?: string;
@@ -111,10 +114,13 @@ export class ToolCall extends ReActAgent {
         this.repetitions_delay_empty = 0;
 
         this.environment_details = {
+            system_platform: utils.getConfig("tool_call")?.system_platform || os.platform(),
+            system_arch: utils.getConfig("tool_call")?.system_arch || os.arch(),
             language: utils.getLanguage(),
             tmpdir: utils.getConfig("tool_call")?.tmpdir || os.tmpdir(),
             time: utils.formatDate(),
             mode: Mode.ACT,
+            mode_constraint: MODE_CONSTRAINTS[Mode.ACT],
             envs: null,
             todolist: null,
         };
@@ -228,9 +234,6 @@ export class ToolCall extends ReActAgent {
         this.system_prompt = async () => {
             const important_memory = await this.memory_manager.getImportantMemory();
             const paramsToFormat = {
-                system_type: utils.getConfig("tool_call")?.system_type || os.type(),
-                system_platform: utils.getConfig("tool_call")?.system_platform || os.platform(),
-                system_arch: utils.getConfig("tool_call")?.system_arch || os.arch(),
                 mcp_prompt: this.mcp_prompt,
                 cli_prompt: this.prompts.getCliPrompt(),
                 extra_prompt: this.prompts.getExtraPrompt(data.extra_prompt),
@@ -269,6 +272,7 @@ export class ToolCall extends ReActAgent {
         const selectedMode = this.modeMap[mode || ""] || Mode.ACT;
         const shortMode = this.modeMap[mode || ""] ? mode : "act";
         this.environment_details.mode = selectedMode;
+        this.environment_details.mode_constraint = MODE_CONSTRAINTS[selectedMode];
         this.llm_service.chatManager.chat.mode = shortMode as string;
         if (!this.prompt_args.subagent) {
             this.setHistory();
@@ -412,7 +416,7 @@ export class ToolCall extends ReActAgent {
 
             // [3. 高风险工具确认逻辑]
             const toolConfig = this.getToolConfig(toolInfo.tool);
-            const requireConfirmation = toolConfig?.require_confirmation !== false; // 默认需要确认
+            const requireConfirmation = !!toolConfig?.require_confirmation;
 
             if (requireConfirmation && WindowManager.instance?.confirmationWindow && this.environment_details.mode === Mode.ACT) {
 

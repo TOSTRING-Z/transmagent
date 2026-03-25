@@ -50,7 +50,7 @@ const prompt = {
 4. **Command Execution**: Monitor the execution process.  
 5. **Result Analysis**: Collect and analyze output results.  
 6. **Professional Coordination**: Invoke specialized agents as needed.  
-7. **Tool Improvement Reporting**: Before finalizing the result summary, report issues encountered during tool execution to the \`tool_manager\` and request improvements to tool documentation.  
+7. **Tool Improvement Reporting**: Before finalizing the result summary, report issues encountered during \`Bash Tool Execution\` to the \`tool_manager\` and request improvements to tool documentation.  
 8. **Final Result Summary**.  
 
 **Task Routing**:  
