@@ -17,6 +17,7 @@ import { PluginItem, Plugins } from '../../core/Plugins';
 import { captureMouse } from '../../mouse/CaptureMouse';
 import { install } from '../../core/Install';
 import { MainServer } from '../../server/MainServer';
+import { AgentMode } from '../../types';
 
 // 定义 FuncItems 结构以启用严格模式
 interface FuncItemNode {
@@ -36,9 +37,11 @@ export class MainWindow extends BaseWindow {
     public worker: any;
     public last_clipboard_content?: string | null;
     public concat?: boolean;
+    public agentMode: AgentMode;
 
     constructor(windowManager: WindowManager) {
         super(windowManager);
+        this.agentMode = store.get('agentMode', 'transagent');
 
         this.funcItems = {
             clip: {
@@ -68,27 +71,33 @@ export class MainWindow extends BaseWindow {
                 statu: utils.getConfig("func_status")?.react || true,
                 event: () => { },
                 transagent: {
-                    statu: sysConfig[store.get('agentMode', 'transagent')] === sysConfig.transagent,
+                    statu: sysConfig[this.agentMode] === sysConfig.transagent,
                     click: () => {
                         this.funcItems.react.event();
+                        this.agentMode = 'transagent';
+                        utils.agentMode = this.agentMode;
                         store.set('agentMode', 'transagent');
                         this.setActiveAgent('transagent');
                         this.serverInit();
                     }
                 },
                 baseagent: {
-                    statu: sysConfig[store.get('agentMode', 'transagent')] === sysConfig.baseagent,
+                    statu: sysConfig[this.agentMode] === sysConfig.baseagent,
                     click: () => {
                         this.funcItems.react.event();
+                        this.agentMode = 'baseagent';
+                        utils.agentMode = this.agentMode;
                         store.set('agentMode', 'baseagent');
                         this.setActiveAgent('baseagent');
                         this.serverInit();
                     }
                 },
                 multagent: {
-                    statu: sysConfig[store.get('agentMode', 'transagent')] === sysConfig.multagent,
+                    statu: sysConfig[this.agentMode] === sysConfig.multagent,
                     click: () => {
                         this.funcItems.react.event();
+                        this.agentMode = 'multagent';
+                        utils.agentMode = this.agentMode;
                         store.set('agentMode', 'multagent');
                         this.setActiveAgent('multagent');
                         this.serverInit();
@@ -571,7 +580,7 @@ export class MainWindow extends BaseWindow {
         const history_data = utils.getHistoryData();
         this.window?.webContents.send('init-info', {
             prompt,
-            config: sysConfig[store.get('agentMode', 'transagent')],
+            config: sysConfig[this.agentMode],
             concat: this.concat,
             last_clipboard_content: this.last_clipboard_content,
             model: this.llm_service.chatManager.chat.model,
@@ -692,7 +701,7 @@ export class MainWindow extends BaseWindow {
                     {
                         label: 'Save Configuration',
                         click: () => {
-                            const lastPath = path.join(store.get('lastSaveConfigurationPath') || utils.getDefault(), sysConfig[store.get('agentMode', 'transagent')]);
+                            const lastPath = path.join(store.get('lastSaveConfigurationPath') || utils.getDefault(), sysConfig[this.agentMode]);
                             dialog.showSaveDialog(this.window!, {
                                 defaultPath: lastPath,
                                 filters: [{ name: 'JSON File', extensions: ['json'] }, { name: 'All Files', extensions: ['*'] }]
@@ -714,7 +723,7 @@ export class MainWindow extends BaseWindow {
                             }).then(result => {
                                 if (!result.canceled) {
                                     store.set('lastLoadConfigurationPath', path.dirname(result.filePaths[0]));
-                                    const configFilePath = path.join(utils.getDefault(), sysConfig[store.get('agentMode', 'transagent')]);
+                                    const configFilePath = path.join(utils.getDefault(), sysConfig[this.agentMode]);
                                     fs.copyFile(result.filePaths[0], configFilePath, (err) => {
                                         if (!err) {
                                             this.windowManager.configWindow?.window?.webContents.send('load-config', configFilePath);
@@ -829,7 +838,7 @@ export class MainWindow extends BaseWindow {
                     {
                         label: 'Open Extra Prompt',
                         click: () => {
-                            const promptPath = path.join(utils.getDefault(), extraPrompt[store.get('agentMode', 'transagent')]);
+                            const promptPath = path.join(utils.getDefault(), extraPrompt[this.agentMode]);
                             if (!fs.existsSync(promptPath)) fs.writeFileSync(promptPath, '');
                             shell.openPath(promptPath).catch(err => WindowManager.instance.alertWindow.show('error', `Failed to open :${promptPath}`));
                         }

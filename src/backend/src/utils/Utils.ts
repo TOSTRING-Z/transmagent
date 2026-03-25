@@ -5,8 +5,13 @@ import * as path from 'path';
 import JSON5 from 'json5';
 import { formatString } from './format';
 import { store, sysConfig } from './globals';
+import { AgentMode } from '../types';
 
 export class Utils {
+    public agentMode: AgentMode;
+    constructor(agentMode: AgentMode) {
+        this.agentMode = agentMode;
+    }
 
     public hashCode(str: string): string {
         let hash = 0;
@@ -123,19 +128,19 @@ export class Utils {
     }
 
     public setFile(content: string, file_path: string | null = null): boolean {
-        const configPath = file_path || this.getDefault(sysConfig[store.get('agentMode', 'transagent')]);
+        const configPath = file_path || this.getDefault(sysConfig[this.agentMode]);
         fs.writeFileSync(configPath, content);
         return true;
     }
 
     public getConfig(key: string | null = null, config_name: string | null = null): any {
         const sysConfigFilePath = this.getSystem();
-        const configFilePath = this.getDefault(config_name || sysConfig[store.get('agentMode', 'transagent')]);
-        
+        const configFilePath = this.getDefault(config_name || sysConfig[this.agentMode]);
+
         // 加入容错机制，防止系统首次运行无文件报错
         let defaultConfig = fs.existsSync(sysConfigFilePath) ? this.parseJsonContent(fs.readFileSync(sysConfigFilePath, 'utf-8')) : {};
         let userConfig = fs.existsSync(configFilePath) ? this.parseJsonContent(fs.readFileSync(configFilePath, 'utf-8')) : {};
-        
+
         const enhancedResult = this.mergeConfigEnhanced(defaultConfig, userConfig);
         const config = enhancedResult.mergedConfig;
 
@@ -158,7 +163,7 @@ export class Utils {
     }
 
     public setConfig(config: any): boolean {
-        const configPath = this.getDefault(sysConfig[store.get('agentMode', 'transagent')]);
+        const configPath = this.getDefault(sysConfig[this.agentMode]);
         fs.writeFileSync(configPath, JSON.stringify(config, null, 2));
         return true;
     }

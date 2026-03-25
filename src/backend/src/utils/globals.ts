@@ -36,7 +36,7 @@ function createStore() {
 }
 
 export const store = createStore();
-export const utils = new Utils();
+export let utils = new Utils(store.get('agentMode', 'transagent'));
 
 export const CONSTANTS = {
     COLLECTION_URL: '/collection',

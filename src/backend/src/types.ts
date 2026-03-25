@@ -17,6 +17,8 @@ export interface ImageContent {
 // 联合类型
 export type MessageContent = TextContent | ImageContent;
 
+export type AgentMode = 'transagent' | 'baseagent' | 'multagent'
+
 // openai内容
 export interface OpenAIContent {
     role: "system" | "user" | "assistant" | "tool";
