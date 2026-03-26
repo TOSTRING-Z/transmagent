@@ -7,7 +7,7 @@ jest.setTimeout(60000);
 describe('Image Vision Tool Integration Tests', () => {
     const params = {
         api_url: "https://api.gptgod.online/v1/chat/completions",
-        api_key: "sk-k1wlz1w32yy00lw54kl4yxjoy2x50nymk1wlz1w32yy00lw5",
+        api_key: "...",
         model: "gpt-4o"
     };
 
