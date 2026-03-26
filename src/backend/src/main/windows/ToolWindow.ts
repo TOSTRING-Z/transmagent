@@ -57,12 +57,7 @@ export class ToolWindow extends BaseWindow {
             }
             const config = utils.getConfig();
             const plugins = config.plugins || {};
-            plugins[toolData.id] = {
-                path: toolData.path,
-                params: toolData.params,
-                extra: toolData.extra,
-                enabled: toolData.enabled
-            };
+            plugins[toolData.id] = toolData;
             config.plugins = plugins;
             utils.setConfig(config);
             this.windowManager.alertWindow?.show("success", "Tool saved successfully!");

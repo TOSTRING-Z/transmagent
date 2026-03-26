@@ -569,10 +569,10 @@
         document.getElementById('tool-extra').value = tool.extra ? JSON.stringify(tool.extra, null, 2) : '';
         document.getElementById('tool-enabled').value = tool.enabled !== false ? 'true' : 'false';
         
-        // 加载配置
-        const requireConfirmation = tool.require_confirmation !== false;
+        // 加载配置 - 使用严格比较，避免 undefined 时默认为 true
+        const requireConfirmation = tool.require_confirmation === true;
         const confirmationMessage = tool.confirmation_message || '';
-        const requireAudit = tool.require_audit !== false;
+        const requireAudit = tool.require_audit === true;
         
         document.getElementById('tool-require-confirmation').checked = requireConfirmation;
         document.getElementById('tool-require-confirmation').disabled = false;

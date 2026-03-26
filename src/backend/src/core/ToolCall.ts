@@ -198,7 +198,7 @@ export class ToolCall extends ReActAgent {
                 // 步骤 D: 特殊的全局模式拦截
                 // 依据原代码逻辑：PLAN 模式下，即便其他工具过了策略，最终也只有 ask_user, list_dir, display_file, search_files 产出 Schema
                 if (context.currentMode === context.modes.PLAN) {
-                    return key === 'ask_user' || key === 'list_dir' || key === 'display_file' || key === 'search_files' ? schemaOrStr : null;
+                    return key === 'ask_user' || key === 'list_dir' || key === 'display_file' || key === 'search_files' || key === 'browser_client' || key === 'fetch_search' || key === 'fetch_url' ? schemaOrStr : null;
                 }
                 // 步骤 E: 数据格式化
                 if (typeof schemaOrStr === 'string') {
