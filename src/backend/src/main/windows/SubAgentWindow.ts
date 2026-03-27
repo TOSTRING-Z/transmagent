@@ -260,6 +260,7 @@ export class SubAgentWindow extends BaseWindow {
                         list_dir: this.plugins.getTool("list_dir"),
                         write_to_file: this.plugins.getTool("write_to_file"),
                         replace_in_file: this.plugins.getTool("replace_in_file"),
+                        image_vision: this.plugins.getTool("image_vision"),
                     }),
                     options: { todolist: false, env: true, mcp_server: false },
                     isMain: true

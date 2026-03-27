@@ -80,7 +80,7 @@
     "baidu_translate": {
       "show": true
     },
-    "screenshot_vision": {
+    "image_vision": {
       "params": {
         "api_url": "https://api.gptgod.online/v1/chat/completions",
         "api_key": "...",
