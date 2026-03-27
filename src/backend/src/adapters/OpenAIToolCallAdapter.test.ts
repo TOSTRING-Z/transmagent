@@ -1,13 +1,24 @@
 import { OpenAIAdapter, OpenAIToolCallAdapter } from './OpenAIAdapter';
-import { Message } from '../types';
+import { ChatRequestData, Message } from '../types';
 
 describe('OpenAI Adapters Unit Tests', () => {
 
     describe('OpenAIAdapter.formatMessages', () => {
         let adapter: OpenAIAdapter;
+        let data: ChatRequestData;
 
         beforeEach(() => {
             adapter = new OpenAIAdapter();
+            data = {
+                id: "string",
+                input: "string",
+                tool_format: "string",
+                api_url: "string",
+                version: "string",
+                params: { ollama: true, vision: ['image'] },
+                todolist_message: "string",
+                env_message: 'Current time is 10 AM'
+            }
         });
 
         it('应该正确提取非视觉模型的多模态文本内容', () => {
@@ -20,7 +31,7 @@ describe('OpenAI Adapters Unit Tests', () => {
             }];
 
             // params.vision 为 undefined，模拟非视觉模型
-            const result = adapter.formatMessages(messages, {});
+            const result = adapter.formatMessages(messages, data);
 
             expect(result[0].role).toBe('user');
             // 图片对象被过滤，只剩下合并后的纯文本
@@ -32,10 +43,10 @@ describe('OpenAI Adapters Unit Tests', () => {
                 role: 'tool',
                 tool_call_id: 'call_789',
                 // 模拟工具返回的 JSON 对象
-                content: { temperature: 25, condition: 'Sunny' } as any 
+                content: { temperature: 25, condition: 'Sunny' } as any
             }];
 
-            const result = adapter.formatMessages(messages, {});
+            const result = adapter.formatMessages(messages, data);
 
             expect(result[0].role).toBe('tool');
             expect(result[0].tool_call_id).toBe('call_789');

@@ -145,6 +145,9 @@
     "update_tool": {
       "enabled": false
     },
+    "update_env": {
+      "enabled": true
+    },
     "cli_execute": {
       "params": {
         "bashrc": "/root/.bashrc",
@@ -184,6 +187,7 @@
     "subagent": true,
     "subagent_llm_init": false,
     "env_message": true,
+    "todolist_message": true,
     "max_thinking_repetitions": 5,
     "repetitions_delay_empty": 1,
     "tmpdir": "/tmp",

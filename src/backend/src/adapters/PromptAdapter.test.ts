@@ -3,9 +3,20 @@ import { ChatRequestData, Message } from '../types';
 
 describe('PromptAdapter Unit Tests', () => {
     let adapter: PromptAdapter;
+    let data: ChatRequestData;
 
     beforeEach(() => {
         adapter = new PromptAdapter();
+        data = {
+            id: "string",
+            input: "string",
+            tool_format: "string",
+            api_url: "string",
+            version: "string",
+            params: { ollama: true, vision: ['image'] },
+            todolist_message: "string",
+            env_message: 'Current time is 10 AM'
+        }
         // 彻底重置 fetch Mock
         global.fetch = jest.fn();
     });
@@ -17,7 +28,7 @@ describe('PromptAdapter Unit Tests', () => {
     describe('formatMessages', () => {
         it('应该将 tool 角色转换为 user', () => {
             const messages: Message[] = [{ role: 'tool', content: 'result' }];
-            const result = adapter.formatMessages(messages, {});
+            const result = adapter.formatMessages(messages, data);
 
             expect(result[0].role).toBe('user');
             expect(result[0].content).toBe('result');
@@ -33,7 +44,7 @@ describe('PromptAdapter Unit Tests', () => {
             }];
 
             // 关键：必须传入 vision 参数，否则会被逻辑第一步过滤掉图片
-            const result = adapter.formatMessages(messages, { ollama: true, vision: ['image'] });
+            const result = adapter.formatMessages(messages, data);
 
             expect(result[0].role).toBe('user');
             expect(result[0].content).toBe('Describe this');
@@ -44,9 +55,8 @@ describe('PromptAdapter Unit Tests', () => {
 
         it('如果传入 env_message，应该追加到最后一条消息的末尾', () => {
             const messages: Message[] = [{ role: 'user', content: 'What time is it?' }];
-            const envMessage: Message = { role: 'system', content: 'Current time is 10 AM' } as any;
 
-            const result = adapter.formatMessages(messages, {}, envMessage);
+            const result = adapter.formatMessages(messages, data);
 
             expect(result[0].content).toBe('What time is it?\nCurrent time is 10 AM');
         });
@@ -85,20 +95,20 @@ describe('PromptAdapter Unit Tests', () => {
             const mockHeaders = { 'Content-Type': 'application/json' };
             const mockWindow = { webContents: { send: jest.fn() } };
             const mockChatManager = { chat: { group_id: '1', tokens: 10 } };
-            
+
             // 核心修复：api_url 必须是合法完整的 URL 字符串
-            const mockData: Partial<ChatRequestData> = { 
-                api_url: 'http://localhost:11434/v1/chat', 
+            const mockData: Partial<ChatRequestData> = {
+                api_url: 'http://localhost:11434/v1/chat',
                 output: 'Once upon a time, '
             };
             const mockMessageOutput = { content: 'Once upon a time, ' };
 
             await adapter.truncatedResponse(
-                mockBody, 
-                mockHeaders, 
-                mockWindow, 
-                mockChatManager, 
-                mockMessageOutput, 
+                mockBody,
+                mockHeaders,
+                mockWindow,
+                mockChatManager,
+                mockMessageOutput,
                 mockData as ChatRequestData
             );
 
@@ -108,7 +118,7 @@ describe('PromptAdapter Unit Tests', () => {
             // 安全地获取调用参数并验证
             const calls = (global.fetch as jest.Mock).mock.calls;
             expect(calls.length).toBeGreaterThan(0);
-            
+
             const fetchOptions = calls[0][1];
             const sentBody = JSON.parse(fetchOptions.body);
 

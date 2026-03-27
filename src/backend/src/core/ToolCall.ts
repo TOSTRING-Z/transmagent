@@ -29,6 +29,7 @@ export interface PromptArgs {
     agent_prompt?: string | null;
     mcp_server?: boolean;
     todolist?: boolean;
+    env?: boolean;
     subagent?: boolean;
     agent_mode?: "transagent" | "multagent" | "baseagent";
     tool_format?: string;
@@ -61,6 +62,7 @@ export class ToolCall extends ReActAgent {
     public memory_manager: MemoryManager;
     public task_prompt: (toolsData) => string;
     public env_prompt: string;
+    public todolist_prompt: string;
     public current_context_id: number = 0;
     public memory_list: Message[] = [];
     public thinking_repetitions: (string | null)[] = [];
@@ -82,6 +84,7 @@ export class ToolCall extends ReActAgent {
             agent_prompt: null,
             mcp_server: true,
             todolist: true,
+            env: true,
             subagent: false,
             agent_mode: "transagent"
         },
@@ -105,6 +108,7 @@ export class ToolCall extends ReActAgent {
 
         this.task_prompt = (toolsData) => this.prompts.getSystemPrompts(toolsData);
         this.env_prompt = this.prompts.getEnvPrompts();
+        this.todolist_prompt = this.prompts.getTodoListPrompt();
     }
 
     public initVar() {
@@ -261,10 +265,15 @@ export class ToolCall extends ReActAgent {
         this.environment_details.envs = envs.length > 0 ? envs.join("\n") : "[]";
         this.environment_details.skills = this.prompts.getSkillPrompt();
 
-        if (utils.getConfig("tool_call")?.env_message) {
-            data.env_message = this.llm_service.chatManager.envMessage(formatString(this.env_prompt, this.environment_details as any));
+        if (this.prompt_args.env || utils.getConfig("tool_call")?.env_message) {
+            data.env_message = formatString(this.env_prompt, this.environment_details as any);
         } else {
             data.env_message = null;
+        }
+        if (this.prompt_args.todolist || utils.getConfig("tool_call")?.todolist_message) {
+            data.todolist_message = formatString(this.todolist_prompt, this.environment_details as any);
+        } else {
+            data.todolist_message = null;
         }
     }
 

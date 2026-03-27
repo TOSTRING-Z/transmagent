@@ -110,11 +110,11 @@ export interface ChatRequestData {
     id: string;
     input: string;
     tool_format: string;
+    api_url: string;
+    version: string;
     img_url?: string;
     system_prompt?: string;
-    api_url: string;
     api_key?: string;
-    version: string;
     params?: any;
     llm_params?: Record<string, any>;
     tools?: ToolCall[];
@@ -123,7 +123,8 @@ export interface ChatRequestData {
     return_response?: boolean;
     end?: boolean;
     memory_length?: number;
-    env_message?: Message;
+    env_message?: string;
+    todolist_message?: string;
     output?: string | any[] | undefined;
     output_template?: string;
 }

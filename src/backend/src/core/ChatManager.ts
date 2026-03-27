@@ -77,10 +77,6 @@ export class ChatManager {
         return null;
     }
 
-    public envMessage(content: string): Message {
-        return { role: "user", content: content } as Message;
-    }
-
     public getChatId(): string {
         return `chat-${crypto.randomUUID()}`;
     }

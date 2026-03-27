@@ -19,6 +19,7 @@ interface AgentTool {
 
 interface SubAgentOptions {
     todolist?: boolean;
+    env?: boolean;
     mcp_server?: boolean;
 }
 
@@ -169,7 +170,7 @@ export class SubAgentWindow extends BaseWindow {
         options: SubAgentOptions = {},
         mainSubAgent: boolean = false
     ): void {
-        const { todolist = true, mcp_server = false } = options;
+        const { todolist = true, env = true, mcp_server = false } = options;
 
         const llm_service = new LLMService();
         llm_service.chatManager.chat.id = null as any;
@@ -180,7 +181,7 @@ export class SubAgentWindow extends BaseWindow {
         const tool_call = new ToolCall(
             this.plugins, normalizedTools, llm_service, null,
             this.windowManager.alertWindow,
-            { agent_prompt, subagent: true, todolist, mcp_server },
+            { agent_prompt, subagent: true, todolist, env, mcp_server },
             this.windowManager
         );
 
@@ -230,7 +231,7 @@ export class SubAgentWindow extends BaseWindow {
                         fetch_url: this.plugins.getTool("fetch_url"),
                         browser_client: this.plugins.getTool("browser_client"),
                     }),
-                    options: { todolist: false, mcp_server: false },
+                    options: { todolist: false, env: false, mcp_server: false },
                     isMain: false
                 },
                 {
@@ -239,7 +240,7 @@ export class SubAgentWindow extends BaseWindow {
                         fetch_search: this.plugins.getTool("fetch_search"),
                         url_summarizer: this.agentTools["url_summarizer"]
                     }),
-                    options: { todolist: false, mcp_server: false },
+                    options: { todolist: false, env: false, mcp_server: false },
                     isMain: false
                 },
                 {
@@ -248,7 +249,7 @@ export class SubAgentWindow extends BaseWindow {
                         error_solution_search: this.plugins.getTool("error_solution_search"),
                         web_searcher: this.agentTools["web_searcher"],
                     }),
-                    options: { todolist: false, mcp_server: false },
+                    options: { todolist: false, env: false, mcp_server: false },
                     isMain: false
                 },
                 {
@@ -260,7 +261,7 @@ export class SubAgentWindow extends BaseWindow {
                         write_to_file: this.plugins.getTool("write_to_file"),
                         replace_in_file: this.plugins.getTool("replace_in_file"),
                     }),
-                    options: { todolist: false, mcp_server: false },
+                    options: { todolist: false, env: true, mcp_server: false },
                     isMain: true
                 },
                 {
@@ -269,7 +270,7 @@ export class SubAgentWindow extends BaseWindow {
                         fetch_search: this.plugins.getTool("fetch_search"),
                         url_summarizer: this.agentTools["url_summarizer"]
                     }),
-                    options: { todolist: false, mcp_server: false },
+                    options: { todolist: false, env: false, mcp_server: false },
                     isMain: false
                 },
                 {
@@ -284,7 +285,7 @@ export class SubAgentWindow extends BaseWindow {
                         tool_documentation_collector: this.agentTools["tool_documentation_collector"],
                         error_solution_finder: this.agentTools["error_solution_finder"],
                     }),
-                    options: { todolist: false, mcp_server: false },
+                    options: { todolist: false, env: true, mcp_server: false },
                     isMain: true
                 },
                 {
@@ -292,7 +293,7 @@ export class SubAgentWindow extends BaseWindow {
                     getTools: () => this.normalizeTools({
                         read_tools_prompt: this.plugins.getTool("read_tools_prompt"),
                     }),
-                    options: { todolist: false, mcp_server: false },
+                    options: { todolist: true, env: true, mcp_server: false },
                     isMain: true
                 },
                 {
@@ -307,7 +308,7 @@ export class SubAgentWindow extends BaseWindow {
                         chart_plotter: this.agentTools["chart_plotter"],
                         web_searcher: this.agentTools["web_searcher"],
                     }),
-                    options: { todolist: false, mcp_server: true },
+                    options: { todolist: false, env: true, mcp_server: true },
                     isMain: true
                 },
             ];

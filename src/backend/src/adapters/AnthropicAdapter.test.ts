@@ -3,9 +3,20 @@ import { ChatRequestData, Message } from '../types';
 
 describe('AnthropicAdapter Unit Tests', () => {
     let adapter: AnthropicAdapter;
+    let data: ChatRequestData;
 
     beforeEach(() => {
         adapter = new AnthropicAdapter();
+        data = {
+            id: "string",
+            input: "string",
+            tool_format: "string",
+            api_url: "string",
+            version: "string",
+            params: { ollama: true, vision: ['image'] },
+            todolist_message: "string",
+            env_message: 'Current time is 10 AM'
+        }
         global.fetch = jest.fn();
     });
 
@@ -20,7 +31,7 @@ describe('AnthropicAdapter Unit Tests', () => {
                 { role: 'tool', tool_call_id: 't_1', content: 'Tool Result Data' }
             ];
 
-            const result = adapter.formatMessages(messages, {});
+            const result = adapter.formatMessages(messages, data);
 
             expect(result).toHaveLength(1);
             expect(result[0].role).toBe('user'); // tool 被转为 user
@@ -36,7 +47,7 @@ describe('AnthropicAdapter Unit Tests', () => {
                 { role: 'assistant', content: 'How can I help?' }
             ];
 
-            const result = adapter.formatMessages(messages, {});
+            const result = adapter.formatMessages(messages, data);
 
             // 原本 4 条消息，合并后应只剩 2 条 (1个 user, 1个 assistant)
             expect(result).toHaveLength(2);
@@ -60,7 +71,7 @@ describe('AnthropicAdapter Unit Tests', () => {
                 }]
             }];
 
-            const result = adapter.formatMessages(messages, {});
+            const result = adapter.formatMessages(messages, data);
 
             expect(result[0].role).toBe('assistant');
             expect(result[0].content).toHaveLength(2);

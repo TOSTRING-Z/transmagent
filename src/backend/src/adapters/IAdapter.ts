@@ -2,7 +2,7 @@ import { ChatRequestData, Message, StreamChunkResult } from '../types';
 
 export interface ILLMAdapter {
     // 过滤和格式化发送给 API 的消息（去除内部字段、处理视觉格式）
-    formatMessages(messages: Message[], params: Record<string, any>, env_message?: any): any[];
+    formatMessages(messages: Message[], data: ChatRequestData): any[];
     
     // 组装最终的 Fetch Request Body
     buildPayload(data: ChatRequestData, formattedMessages: any[]): Record<string, any>;

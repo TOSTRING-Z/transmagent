@@ -50,8 +50,7 @@ export class MainServer {
 
                     message_list = this.mainWindow.llm_service.adapter.formatMessages(
                         message_list,
-                        result.params,
-                        result.env_message
+                        result
                     );
 
                     resolve({ messages: message_list });

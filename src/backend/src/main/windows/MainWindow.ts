@@ -204,6 +204,7 @@ export class MainWindow extends BaseWindow {
             agent_prompt: null,
             mcp_server: mcp_server,
             todolist: true,
+            env: true,
             subagent: false,
             agent_mode: agent_mode,
             tool_format: this.llm_service.chatManager.chat.tool_format

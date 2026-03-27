@@ -60,7 +60,7 @@ export class LLMService {
             let messageOutput: Message = { role: 'assistant', content: '', group_id: this.chatManager.chat.group_id, show: true, react: false };
 
             // 4. 构建 HTTP 发送载荷
-            const formattedMessages = this.adapter.formatMessages(messagesList, data.params, data?.env_message);
+            const formattedMessages = this.adapter.formatMessages(messagesList, data);
             const body = this.adapter.buildPayload(data, formattedMessages);
             const headers = this.adapter.buildHeaders(data);
 

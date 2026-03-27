@@ -116,9 +116,9 @@ ${this.agent.prompt_args.todolist ? `
 For complex requests, enforce this strict pipeline:
 
 ## Phase 1: Blueprint & De-fragmentation
-1. **Plan**: ${this.agent.prompt_args.agent_mode === "multagent" 
-    ? "**CRITICAL MULTAGENT RULE**: You MUST call \`workflow_planner\` as your absolute first step. This applies to ALL modes (including Flash mode). Do NOT skip this." 
-    : "Design workflow using Mermaid. *(Note: Skip this Mermaid planning if Active Mode is Flash).*"}
+1. **Plan**: ${this.agent.prompt_args.agent_mode === "multagent"
+          ? "**CRITICAL MULTAGENT RULE**: You MUST call \`workflow_planner\` as your absolute first step. This applies to ALL modes (including Flash mode). Do NOT skip this."
+          : "Design workflow using Mermaid. *(Note: Skip this Mermaid planning if Active Mode is Flash).*"}
 2. **Decompose**: Use \`add_subtasks\` *(Skip in Flash mode unless operating in multagent)*.
    - **⛔ ANTI-FRAGMENTATION**: **Do not over-split.**
    - Subtasks must be **Substantive Milestones** (e.g., "Complete Data Preprocessing"), NOT atomic actions (e.g., "Read file", "Print line").
@@ -218,9 +218,15 @@ ${!this.agent.prompt_args.subagent ? `
     return prompts;
   }
 
+  getTodoListPrompt() {
+    const { todolist } = this.agent.prompt_args;
+    // 如果存在 todolist 参数，则返回对应的模板字符串，否则返回空字符串
+    return todolist ? `### 📋 PROGRESS: {todolist}` : "";
+  }
+
   getEnvPrompts() {
     // 采用极简 Markdown 符号，利用加粗强化 Agent 对模式状态的捕获
-    const { subagent, todolist } = this.agent.prompt_args;
+    const { subagent } = this.agent.prompt_args;
 
     const env = `
 ---
@@ -235,7 +241,7 @@ ${!subagent ? `
 
 {envs}` : ""}
 
-${todolist ? `### 📋 PROGRESS: {todolist}` : ""}
+${this.getTodoListPrompt()}
 ---
 `.trim();
 

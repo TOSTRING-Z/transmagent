@@ -3,8 +3,8 @@ import { ChatRequestData, Message, MessageContent, OllamaContent, OpenAIContent,
 import JSON5 from 'json5';
 import { parse } from 'partial-json';
 
-export class OpenAIAdapter implements ILLMAdapter {
-    public formatMessages(messages: Message[], params: any, env_message?: any): any[] {
+export class OpenAIAdapter implements ILLMAdapter { 
+    public formatMessages(messages: Message[], data: ChatRequestData): any[] {
         let formattedMessages = messages.map((message) => {
             // 1. 深度拷贝并剔除本地状态字段
             const messageCopy: OpenAIContent = {
@@ -29,7 +29,7 @@ export class OpenAIAdapter implements ILLMAdapter {
             }
 
             // 2. 视觉模型参数处理
-            if (!params?.vision) {
+            if (!data.params?.vision) {
                 // 非视觉模型：如果是数组内容，提取出纯文本
                 if (Array.isArray(messageCopy.content)) {
                     messageCopy.content = messageCopy.content
@@ -43,9 +43,9 @@ export class OpenAIAdapter implements ILLMAdapter {
                     messageCopy.content = messageCopy.content.filter((c: any) => {
                         switch (c.type) {
                             case "image_url":
-                                return params.vision.includes("image");
+                                return data.params.vision.includes("image");
                             case "video_url":
-                                return params.vision.includes("video");
+                                return data.params.vision.includes("video");
                             case "text":
                                 return true;
                             default:
@@ -56,7 +56,7 @@ export class OpenAIAdapter implements ILLMAdapter {
             }
 
             // 3. 针对 Ollama 等兼容 OpenAI 格式的模型做特殊适配
-            if (params?.ollama && Array.isArray(messageCopy.content)) {
+            if (data.params?.ollama && Array.isArray(messageCopy.content)) {
                 try {
                     const textObj = messageCopy.content.find(
                         (c: MessageContent): c is TextContent => c.type === "text"
@@ -82,8 +82,11 @@ export class OpenAIAdapter implements ILLMAdapter {
             return messageCopy;
         });
 
-        if (env_message) {
-            formattedMessages[formattedMessages.length - 1].content += `\n${env_message.content}`;
+        if (data.env_message) {
+            formattedMessages[formattedMessages.length - 1].content += `\n${data.env_message}`;
+        }
+        if (data.todolist_message) {
+            formattedMessages[formattedMessages.length - 1].content += `\n${data.todolist_message}`;
         }
         return formattedMessages;
     }

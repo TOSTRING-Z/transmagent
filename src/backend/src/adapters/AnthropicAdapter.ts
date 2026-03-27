@@ -1,11 +1,10 @@
 import { ILLMAdapter, IToolCallAdapter } from './IAdapter';
-import { ChatRequestData, Message, MessageContent, StreamChunkResult, ToolInfo } from '../types';
+import { ChatRequestData, Message, StreamChunkResult, ToolInfo } from '../types';
 import JSON5 from 'json5';
-import { logger } from '../utils/logger';
 import { parse } from 'partial-json';
 
 export class AnthropicAdapter implements ILLMAdapter {
-    public formatMessages(messages: Message[], params: any, env_message?: any): any[] {
+    public formatMessages(messages: Message[], data: ChatRequestData): any[] {
         let formattedMessages = messages
             .filter(message => message.role !== 'system') // 过滤掉 system 消息
             .map((message) => {
@@ -53,7 +52,7 @@ export class AnthropicAdapter implements ILLMAdapter {
                 }
 
                 // 4. 视觉模型与普通模型内容过滤转换
-                if (params?.vision) {
+                if (data.params?.vision) {
                     messageCopy.content = contentArray.map((c: any) => {
                         if (c.type === "image_url" && c.image_url?.url) {
                             const match = c.image_url.url.match(/^data:(image\/[a-zA-Z]+);base64,(.+)$/);
@@ -81,13 +80,15 @@ export class AnthropicAdapter implements ILLMAdapter {
             });
 
         // 5. 添加环境变量消息
-        if (env_message) {
-            // 确保 env_message 也是数组格式
-            const envCopy = { ...env_message };
-            if (typeof envCopy.content === 'string') {
-                envCopy.content = [{ type: 'text', text: envCopy.content }];
-            }
-            formattedMessages.push(envCopy);
+        if (data.env_message) {
+            formattedMessages.push({
+                content: { type: 'text', text: data.env_message }
+            });
+        }
+        if (data.todolist_message) {
+            formattedMessages.push({
+                content: { type: 'text', text: data.todolist_message }
+            });
         }
 
         // 6. 核心修复：合并相邻的同角色消息 (解决连续 user 或连续 assistant 的问题)
