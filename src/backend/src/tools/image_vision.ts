@@ -111,7 +111,7 @@ export function main(params: VisionParams) {
 
                     // 如果是 PDF，稍等片刻确保渲染完成
                     if (ext === '.pdf') {
-                        await new Promise(r => setTimeout(r, 1500)); 
+                        await new Promise(r => setTimeout(r, 15000)); 
                     }
 
                     // 咔嚓！截图拿到纯净的 PNG Base64

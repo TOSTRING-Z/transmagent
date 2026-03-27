@@ -180,9 +180,7 @@ export class SubAgentWindow extends BaseWindow {
 
         const tool_call = new ToolCall(
             this.plugins, normalizedTools, llm_service, null,
-            this.windowManager.alertWindow,
             { agent_prompt, subagent: true, todolist, env, mcp_server },
-            this.windowManager
         );
 
         this.agentTools[tool_name] = {
@@ -228,7 +226,7 @@ export class SubAgentWindow extends BaseWindow {
                 {
                     promptModule: 'url_summarizer',
                     getTools: () => this.normalizeTools({
-                        fetch_url: this.plugins.getTool("fetch_url"),
+                        web_crawler_toolkit: this.plugins.getTool("web_crawler_toolkit"),
                         browser_client: this.plugins.getTool("browser_client"),
                     }),
                     options: { todolist: false, env: false, mcp_server: false },
@@ -237,7 +235,7 @@ export class SubAgentWindow extends BaseWindow {
                 {
                     promptModule: 'web_searcher',
                     getTools: () => this.normalizeTools({
-                        fetch_search: this.plugins.getTool("fetch_search"),
+                        web_crawler_toolkit: this.plugins.getTool("web_crawler_toolkit"),
                         url_summarizer: this.agentTools["url_summarizer"]
                     }),
                     options: { todolist: false, env: false, mcp_server: false },
@@ -268,7 +266,7 @@ export class SubAgentWindow extends BaseWindow {
                 {
                     promptModule: 'tool_documentation_collector',
                     getTools: () => this.normalizeTools({
-                        fetch_search: this.plugins.getTool("fetch_search"),
+                        web_crawler_toolkit: this.plugins.getTool("web_crawler_toolkit"),
                         url_summarizer: this.agentTools["url_summarizer"]
                     }),
                     options: { todolist: false, env: false, mcp_server: false },

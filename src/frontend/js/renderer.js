@@ -563,8 +563,6 @@ $$
         info_item.getElementsByClassName("info-item")[0].innerHTML = info_item_content;
         info_content.appendChild(info_item);
         info_content.dataset.content = (info_content.dataset.content || "") + info.content;
-        if (State.scroll_top.info)
-          info_content.scrollTop = info_content.scrollHeight;
       }
     }
   }
@@ -1029,7 +1027,6 @@ ${DOM.input.value}`;
       config.models[ai_model] = { api_url: "", api_key: "" };
     config.models[ai_model].api_url = api_url;
     config.models[ai_model].api_key = api_key;
-    config.compress_context = DOM.compress_box.checked;
     State.chat.model = ai_model;
     State.chat.compress_context = DOM.compress_box.checked;
     window.electronAPI.setGlobal(State.chat);
@@ -1070,6 +1067,14 @@ ${DOM.input.value}`;
       resizeObserver.observe(DOM.bottom_div);
     }
     window.addEventListener("resize", () => init_size());
+    DOM.top_div.addEventListener("mouseenter", () => {
+      State.scroll_top.info = false;
+      State.scroll_top.data = false;
+    });
+    DOM.top_div.addEventListener("mouseleave", () => {
+      State.scroll_top.info = true;
+      State.scroll_top.data = true;
+    });
     document.addEventListener("click", (e) => {
       if (!e.target.closest(".history-menu")) {
         document.querySelectorAll(".history-menu-dropdown").forEach((m) => m.style.display = "none");
@@ -1205,7 +1210,6 @@ ${DOM.input.value}`;
       if (State.scroll_top.data)
         DOM.top_div.scrollTop = DOM.top_div.scrollHeight;
       if (chunk.end) {
-        DOM.top_div.scrollTop = DOM.top_div.scrollHeight;
         enterEnd(messageSystems);
       }
     });
@@ -1217,7 +1221,7 @@ ${DOM.input.value}`;
         DOM.tokens.innerText = info.chat.tokens.toString();
       }
       infoData(info);
-      if (State.scroll_top.data)
+      if (State.scroll_top.info)
         DOM.top_div.scrollTop = DOM.top_div.scrollHeight;
     }
   });

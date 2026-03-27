@@ -1,10 +1,8 @@
 import JSON5 from 'json5';
 import { logger } from '../utils/logger';
 import { LLMService } from './LLMService';
-import { utils, CONSTANTS, CHAT_CONST } from '../utils/globals';
-import { Message, ChatState, MessageContent, TextContent } from '../types';
-import { ToolCallAdapterFactory } from '../factories/AdapterFactory';
-import { Plugins } from './Plugins';
+import { utils, CONSTANTS } from '../utils/globals';
+import { Message, ChatState } from '../types';
 import { LLMAssistant } from './LLMAssistant';
 
 export enum State {
@@ -54,32 +52,22 @@ const createMockWindow = () => ({
     }
 });
 
-const createMockAlertWindow = () => ({
-    create: (content: string) => {
-        const timestamp = new Date().toLocaleTimeString();
-        logger.log(`%c[time]${timestamp} AlertWindow Content:`, "color: green; font-weight: bold", content);
-    }
-});
-
 export class ReActAgent {
     public state: State;
     public llm_service: LLMService;
     public window: any;
-    public alertWindow: any;
     public context_id?: string; // 用于记录当前的 memory id
     public assistant: LLMAssistant; // LLM对话辅助功能实例
 
     constructor(
         llm_service: LLMService,
         window: any = createMockWindow(),
-        alertWindow: any = createMockAlertWindow()
     ) {
         this.state = State.IDLE;
         this.llm_service = llm_service;
         this.window = window;
         // 将窗口句柄注入到 llm_service（若 LLMService 中声明了 window 属性）
         (this.llm_service as any).window = window;
-        this.alertWindow = alertWindow;
         this.assistant = new LLMAssistant(llm_service);
     }
 

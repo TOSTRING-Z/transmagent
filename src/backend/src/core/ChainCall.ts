@@ -7,8 +7,8 @@ import { PluginItem, Plugins } from './Plugins';
 export class ChainCall extends ReActAgent {
     public plugins: Plugins;
 
-    constructor(plugins: Plugins, llm_service: LLMService, window: any, alertWindow: any) {
-        super(llm_service, window, alertWindow);
+    constructor(plugins: Plugins, llm_service: LLMService, window: any) {
+        super(llm_service, window);
         this.plugins = plugins;
         this.llm_service.chatManager.chat.is_plugin = false;
     }

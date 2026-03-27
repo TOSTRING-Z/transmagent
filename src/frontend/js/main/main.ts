@@ -1,10 +1,10 @@
 import { DOM, State } from './globals';
-import { init_size, autoResizeTextarea, loadOptions, showLog, toggleMode, toggleSidebar, updateProgress, showRenameDialog, hideRenameDialog } from './ui';
+import { init_size, autoResizeTextarea, loadOptions, showLog, toggleMode, toggleSidebar, updateProgress, hideRenameDialog } from './ui';
 import { addChatItem, newChat, selectChat, deleteChat, renameChat, confirmRename, showHistoryMenu } from './history';
 import { initConfigEvents, showConfig, saveConfig, hideConfig } from './config';
-import { userData, infoData, streamData, startAgentLoop, menuEvent, addRunning, toolData, enterEnd } from './chat';
-import { initMermaid, marked } from './markdown';
-import { getFileName, getIcon, formatString } from './utils';
+import { userData, infoData, streamData, startAgentLoop, addRunning, toolData, enterEnd } from './chat';
+import { initMermaid } from './markdown';
+import { getFileName } from './utils';
 
 // --- Event Listeners & Initialization ---
 
@@ -25,6 +25,16 @@ document.addEventListener("DOMContentLoaded", () => {
 
   // Window Resize
   window.addEventListener("resize", () => init_size());
+
+  // Scroll Top
+  DOM.top_div.addEventListener("mouseenter", () => {
+    State.scroll_top.info = false;
+    State.scroll_top.data = false;
+  });
+  DOM.top_div.addEventListener("mouseleave", () => {
+    State.scroll_top.info = true;
+    State.scroll_top.data = true;
+  });
 
   // Global Click (Close Menus)
   document.addEventListener('click', (e: any) => {
@@ -177,7 +187,6 @@ window.electronAPI.streamData((chunk) => {
     if (State.scroll_top.data)
       DOM.top_div.scrollTop = DOM.top_div.scrollHeight;
     if (chunk.end) {
-      DOM.top_div.scrollTop = DOM.top_div.scrollHeight;
       enterEnd(messageSystems);
     }
   });
@@ -192,7 +201,7 @@ window.electronAPI.infoData((info) => {
       DOM.tokens.innerText = info.chat.tokens.toString();
     }
     infoData(info)
-    if (State.scroll_top.data)
+    if (State.scroll_top.info)
       DOM.top_div.scrollTop = DOM.top_div.scrollHeight;
   }
 });

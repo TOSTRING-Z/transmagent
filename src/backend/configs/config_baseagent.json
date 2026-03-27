@@ -1,34 +1,10 @@
 {
   "plugins": {
-    "browser_client": {
-      "enabled": true
-    },
-    "fetch_search": {
-      "enabled": true
-    },
-    "fetch_url": {
-      "enabled": true
-    },
     "python_execute": {
       "enabled": true
     },
-    "search_files": {
-      "enabled": true
-    },
-    "write_to_file": {
-      "enabled": true
-    },
-    "replace_in_file": {
-      "enabled": true
-    },
-    "error_solution_search": {
-      "enabled": false
-    },
     "cli_execute": {
       "enabled": false
-    },
-    "display_file": {
-      "enabled": true
     }
   },
   "mcp_server": {

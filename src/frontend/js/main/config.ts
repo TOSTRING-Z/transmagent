@@ -126,7 +126,6 @@ export async function saveConfig() {
 
   config.models[ai_model].api_url = api_url;
   config.models[ai_model].api_key = api_key;
-  config.compress_context = DOM.compress_box.checked;
 
   State.chat.model = ai_model;
   State.chat.compress_context = DOM.compress_box.checked;

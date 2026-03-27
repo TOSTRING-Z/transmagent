@@ -25,7 +25,7 @@ export interface Observation {
     subagent_tool?: boolean;
 }
 
-export interface PromptArgs {
+export interface AgentConfigs {
     agent_prompt?: string | null;
     mcp_server?: boolean;
     todolist?: boolean;
@@ -51,7 +51,7 @@ export interface EnvironmentDetails {
 export class ToolCall extends ReActAgent {
     public plugins: Plugins;
     public mcp_client: MCPClient;
-    public prompt_args: PromptArgs;
+    public agentConfigs: AgentConfigs;
     public windowManager: any;
     public system_prompt!: () => Promise<string> | string;
     public mcp_prompt!: string;
@@ -79,8 +79,7 @@ export class ToolCall extends ReActAgent {
         agentTools: Record<string, any> = {},
         llm_service: LLMService,
         window: any,
-        alertWindow: any,
-        prompt_args: PromptArgs = {
+        agentConfigs: AgentConfigs = {
             agent_prompt: null,
             mcp_server: true,
             todolist: true,
@@ -88,14 +87,12 @@ export class ToolCall extends ReActAgent {
             subagent: false,
             agent_mode: "transagent"
         },
-        windowManager?: any
     ) {
-        super(llm_service, window, alertWindow);
+        super(llm_service, window);
         this.plugins = plugins;
         this.assistant = new LLMAssistant(llm_service, plugins);
         this.mcp_client = new MCPClient(this);
-        this.prompt_args = prompt_args;
-        this.windowManager = windowManager;
+        this.agentConfigs = agentConfigs;
 
         this.initVar();
 
@@ -172,18 +169,18 @@ export class ToolCall extends ReActAgent {
 
         // --- 核心类方法中的逻辑 ---
         // 1. 工具与插件初始化 (保持原有逻辑)
-        if (this.plugins && !this.prompt_args.subagent) {
+        if (this.plugins && !this.agentConfigs.subagent) {
             this.plugins.loadInit();
             this.tools = { ...this.plugins.getTool(), ...this.agentTools, ...this.baseTools };
-        } else if (this.prompt_args.subagent) {
+        } else if (this.agentConfigs.subagent) {
             this.tools = { ...this.agentTools, ...this.baseTools };
         }
         // 2. 组装上下文 (供 DSL 校验使用)
         const context = {
-            args: this.prompt_args || {},
+            args: this.agentConfigs || {},
             env: this.environment_details || {},
             modes: Mode || {},
-            isSubagent: !!this.prompt_args?.subagent,
+            isSubagent: !!this.agentConfigs?.subagent,
             currentMode: this.environment_details?.mode
         };
         const format = this.llm_service.chatManager.chat.tool_format;
@@ -203,7 +200,7 @@ export class ToolCall extends ReActAgent {
                 // 步骤 D: 特殊的全局模式拦截
                 // 依据原代码逻辑：PLAN 模式下，即便其他工具过了策略，最终也只有 ask_user, list_dir, display_file, search_files 产出 Schema
                 if (context.currentMode === context.modes.PLAN) {
-                    return key === 'ask_user' || key === 'list_dir' || key === 'display_file' || key === 'search_files' || key === 'browser_client' || key === 'fetch_search' || key === 'fetch_url' ? schemaOrStr : null;
+                    return key === 'ask_user' || key === 'list_dir' || key === 'display_file' || key === 'search_files' || key === 'browser_client' || key === 'web_crawler_toolkit' ? schemaOrStr : null;
                 }
                 // 步骤 E: 数据格式化
                 if (typeof schemaOrStr === 'string') {
@@ -253,7 +250,7 @@ export class ToolCall extends ReActAgent {
     public environmentUpdate(data: Record<string, any>) {
         this.environment_details.time = utils.formatDate();
         this.environment_details.language = data?.language || utils.getLanguage();
-        const chatState = this.llm_service.chatManager.chat;
+        const chatState = WindowManager.instance.mainWindow.llm_service.chatManager.chat;
 
         const envs = Object.keys(chatState.envs || {}).map(key => `- ${key}: ${chatState.envs[key]}`);
         const todolist = Object.keys(chatState.vars.tasks || {}).map(task_id => {
@@ -266,12 +263,12 @@ export class ToolCall extends ReActAgent {
         this.environment_details.envs = envs.length > 0 ? envs.join("\n") : "";
         this.environment_details.skills = this.prompts.getSkillPrompt();
 
-        if (this.prompt_args.env || utils.getConfig("tool_call")?.env_message) {
+        if (this.agentConfigs.env && utils.getConfig("tool_call")?.env_message) {
             data.env_message = formatString(this.env_prompt, this.environment_details as any);
         } else {
             data.env_message = null;
         }
-        if (this.prompt_args.todolist || utils.getConfig("tool_call")?.todolist_message) {
+        if (this.agentConfigs.todolist && utils.getConfig("tool_call")?.todolist_message) {
             data.todolist_message = formatString(this.todolist_prompt, this.environment_details as any);
         } else {
             data.todolist_message = null;
@@ -284,7 +281,7 @@ export class ToolCall extends ReActAgent {
         this.environment_details.mode = selectedMode;
         this.environment_details.mode_constraint = MODE_CONSTRAINTS[selectedMode];
         this.llm_service.chatManager.chat.mode = shortMode as string;
-        if (!this.prompt_args.subagent) {
+        if (!this.agentConfigs.subagent) {
             this.setHistory();
         }
     }
@@ -310,7 +307,7 @@ export class ToolCall extends ReActAgent {
             this.state = State.RUNNING;
         }
 
-        if (!this.mcp_prompt && this.prompt_args.mcp_server) {
+        if (!this.mcp_prompt && this.agentConfigs.mcp_server) {
             await this.mcp_client.initMcp();
             this.mcp_prompt = this.mcp_client.mcpPrompt;
         }
@@ -682,18 +679,18 @@ export class ToolCall extends ReActAgent {
                 });
             }
 
-            if (!this.prompt_args.subagent) {
+            if (!this.agentConfigs.subagent) {
                 this.setHistory();
             }
         }
 
         if (this.state === State.FINAL) {
-            if (!this.prompt_args.subagent) {
+            if (!this.agentConfigs.subagent) {
                 this.setHistory();
             }
         }
 
-        if (!this.prompt_args.subagent) {
+        if (!this.agentConfigs.subagent) {
             this.sendData(data);
         }
         return data;

@@ -289,8 +289,6 @@ export async function infoData(info: any) {
       info_item.getElementsByClassName('info-item')[0].innerHTML = info_item_content;
       info_content.appendChild(info_item);
       info_content.dataset.content = (info_content.dataset.content || '') + info.content;
-      if (State.scroll_top.info)
-        info_content.scrollTop = info_content.scrollHeight;
     }
   }
 }

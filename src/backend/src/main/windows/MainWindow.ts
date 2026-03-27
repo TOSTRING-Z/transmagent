@@ -11,7 +11,7 @@ import { WindowManager } from "./WindowManager";
 import { store, CONSTANTS, utils, sysConfig, extraPrompt, getCliPromptPath } from '../../utils/globals';
 import { LLMService } from '../../core/LLMService';
 import { State } from "../../core/ReActAgent";
-import { PromptArgs, ToolCall } from '../../core/ToolCall';
+import { AgentConfigs, ToolCall } from '../../core/ToolCall';
 import { ChainCall } from '../../core/ChainCall';
 import { PluginItem, Plugins } from '../../core/Plugins';
 import { captureMouse } from '../../mouse/CaptureMouse';
@@ -185,7 +185,7 @@ export class MainWindow extends BaseWindow {
         this.llm_service = new LLMService([], this.window);
 
         let agentTools = {};
-        let agent_mode: PromptArgs["agent_mode"] = "transagent";
+        let agent_mode: AgentConfigs["agent_mode"] = "transagent";
         let mcp_server = true;
 
         if (this.funcItems.react.transagent.statu && utils.getConfig("tool_call")?.subagent) {
@@ -200,7 +200,7 @@ export class MainWindow extends BaseWindow {
             agent_mode = "baseagent";
         }
 
-        this.tool_call = new ToolCall(this.plugins, agentTools, this.llm_service, this.window, this.windowManager.alertWindow, {
+        this.tool_call = new ToolCall(this.plugins, agentTools, this.llm_service, this.window, {
             agent_prompt: null,
             mcp_server: mcp_server,
             todolist: true,
@@ -208,9 +208,9 @@ export class MainWindow extends BaseWindow {
             subagent: false,
             agent_mode: agent_mode,
             tool_format: this.llm_service.chatManager.chat.tool_format
-        }, this.windowManager);
+        });
 
-        this.chain_call = new ChainCall(this.plugins, this.llm_service, this.window, this.windowManager.alertWindow);
+        this.chain_call = new ChainCall(this.plugins, this.llm_service, this.window);
         this.main_server = new MainServer(this);
 
         // 启动 WebServer Worker
@@ -330,7 +330,7 @@ export class MainWindow extends BaseWindow {
 
         ipcMain.handle('get-file-path', async () => {
             return new Promise((resolve, reject) => {
-                const lastDirectory = store.get('lastFileDirectory') || utils.getDefault("config.json");
+                const lastDirectory = store.get('lastFileDirectory') || utils.getDefault("config_transagent.json");
                 dialog.showOpenDialog(this.window!, { properties: ['openFile'], defaultPath: lastDirectory })
                     .then(result => {
                         if (!result.canceled) {

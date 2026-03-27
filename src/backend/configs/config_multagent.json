@@ -1,5 +1,23 @@
 {
   "plugins": {
+    "browser_client": {
+      "enabled": false
+    },
+    "web_crawler_toolkit": {
+      "enabled": false
+    },
+    "python_execute": {
+      "enabled": false
+    },
+    "search_files": {
+      "enabled": false
+    },
+    "write_to_file": {
+      "enabled": false
+    },
+    "replace_in_file": {
+      "enabled": false
+    },
     "cli_execute": {
       "enabled": false
     }

@@ -1,6 +1,7 @@
 import { State } from "./ReActAgent";
 import { utils } from '../utils/globals';
 import { ToolCall } from "./ToolCall";
+import { WindowManager } from "../main/windows/WindowManager";
 
 export default function getBaseTools(toolCallInstance: ToolCall): Record<string, any> {
     return {
@@ -11,8 +12,8 @@ export default function getBaseTools(toolCallInstance: ToolCall): Record<string,
                         return { status: "error", message: "Both key and value parameters are required." };
                     }
 
-                    // Direct access via the toolCallInstance
-                    const chatState = toolCallInstance.llm_service.chatManager.chat;
+                    // 主代理实例
+                    const chatState = WindowManager.instance.mainWindow.llm_service.chatManager.chat;
 
                     // Ensure envs object exists
                     if (!chatState.envs) {

@@ -45,7 +45,7 @@ export const CONSTANTS = {
 
 
 export const sysConfig = {
-    transagent: "configs/config.json",
+    transagent: "configs/config_transagent.json",
     baseagent: "configs/config_baseagent.json",
     multagent: "configs/config_multagent.json",
 };

@@ -3,6 +3,7 @@ import { logger } from '../utils/logger';
 import * as fs from 'fs';
 import { SkillManager } from './SkillManager';
 import { ToolCall } from './ToolCall';
+import { WindowManager } from '../main/windows/WindowManager';
 
 class Prompts {
   public agent: ToolCall;
@@ -14,7 +15,7 @@ class Prompts {
   }
 
   getCliPrompt() {
-    if (this.agent.prompt_args.agent_mode === "transagent") {
+    if (this.agent.agentConfigs.agent_mode === "transagent") {
       try {
         const cliPromptPath = getCliPromptPath();
         if (fs.existsSync(cliPromptPath)) {
@@ -23,7 +24,7 @@ class Prompts {
         return "";
       } catch (error: any) {
         logger.log(error.message);
-        this.agent.alertWindow.create({ type: "error", content: `[ToolCall.getCliPrompt]: ${error.message}` });
+        WindowManager.instance.alertWindow.create({ type: "error", content: `[ToolCall.getCliPrompt]: ${error.message}` });
         return "";
       }
     }
@@ -32,14 +33,14 @@ class Prompts {
 
   getExtraPrompt(extraPromptPath?: string | null) {
     try {
-      extraPromptPath = extraPromptPath || utils.getDefault(`prompts/${this.agent.prompt_args.agent_mode}.md`);
+      extraPromptPath = extraPromptPath || utils.getDefault(`prompts/${this.agent.agentConfigs.agent_mode}.md`);
       if (fs.existsSync(extraPromptPath)) {
         return fs.readFileSync(extraPromptPath, 'utf-8');
       }
       return "";
     } catch (error: any) {
       logger.log(error.message);
-      this.agent.alertWindow.create({ type: "error", content: `[ToolCall.getExtraPrompt]: ${error.message}` });
+      WindowManager.instance.alertWindow.create({ type: "error", content: `[ToolCall.getExtraPrompt]: ${error.message}` });
       return "";
     }
   }
@@ -62,7 +63,7 @@ class Prompts {
       .map(([_, val]) => val)
       .join("\n\n");
 
-    const prompts = `${this.agent.prompt_args.agent_prompt || (this.agent.prompt_args.agent_mode === "multagent" ? `You are **TransMAgent**, an elite bioinformatics and workflow orchestration assistant. You coordinate specialized sub-agents to solve complex scientific and engineering problems.
+    const prompts = `${this.agent.agentConfigs.agent_prompt || (this.agent.agentConfigs.agent_mode === "multagent" ? `You are **TransMAgent**, an elite bioinformatics and workflow orchestration assistant. You coordinate specialized sub-agents to solve complex scientific and engineering problems.
 
 # ⚠️ CRITICAL SYSTEM CONSTRAINTS
 1. **STATELESSNESS**: You have **NO MEMORY** of previous agent tool outputs.
@@ -89,7 +90,7 @@ You are a polished, user-facing AI. You must strictly hide your internal mechani
 ## 2. Scripting Standards
 - **Production Grade**: No "tutorial" or "demonstration" style code.
 - **Fail Fast**: If data is missing/corrupted, your script MUST \`raise Exception("Data Integrity Failure")\` instead of generating placeholders.
-${this.agent.prompt_args.env ? `
+${this.agent.agentConfigs.env ? `
 # 🌐 STATE PERSISTENCE PROTOCOL (MANDATORY)
 Since you are stateless, the \`update_env\` tool is your ONLY short-term working memory across conversational turns.
 - **When to trigger**: 
@@ -121,12 +122,12 @@ You support **Agent Skills**—modular capabilities loaded dynamically from the 
 - **Discovery**: When a user's request matches a skill's description, its instructions are injected below.
 - **Constraints**: If a skill specifies \`allowed-tools\`, you MUST prioritize those tools and adhere to the specialized workflow provided.
 
-${this.agent.prompt_args.todolist ? `
+${this.agent.agentConfigs.todolist ? `
 # 🏗️ COMPLEX TASK PROTOCOL
 For complex requests, enforce this strict pipeline:
 
 ## Phase 1: Blueprint & De-fragmentation
-1. **Plan**: ${this.agent.prompt_args.agent_mode === "multagent"
+1. **Plan**: ${this.agent.agentConfigs.agent_mode === "multagent"
           ? "**CRITICAL MULTAGENT RULE**: You MUST call \`workflow_planner\` as your absolute first step. This applies to ALL modes (including Flash mode). Do NOT skip this."
           : "Design workflow using Mermaid. *(Note: Skip this Mermaid planning if Active Mode is Flash).*"}
 2. **Decompose**: Use \`add_subtasks\` *(Skip in Flash mode unless operating in multagent)*.
@@ -140,9 +141,9 @@ For complex requests, enforce this strict pipeline:
    - *Context Binding*: You MUST also use \`update_env\` to save any key output file paths or metrics produced by this subtask so the next subtask can find them.
 3. **Gating**: You are **FORBIDDEN** from starting Subtask N+1 until Subtask N is recorded.
 ` : ""}
-${!this.agent.prompt_args.subagent && this.agent.prompt_args.todolist ? "4. **Finalize**: The last subtask MUST be: **Summarize execution using Mermaid syntax (N/A in Flash Mode).**" : this.agent.prompt_args.agent_mode === "multagent" ? "**Pre-flight**: Call `workflow_planner` before any execution." : ""}
+${!this.agent.agentConfigs.subagent && this.agent.agentConfigs.todolist ? "4. **Finalize**: The last subtask MUST be: **Summarize execution using Mermaid syntax (N/A in Flash Mode).**" : this.agent.agentConfigs.agent_mode === "multagent" ? "**Pre-flight**: Call `workflow_planner` before any execution." : ""}
 
-${!this.agent.prompt_args.subagent && utils.getConfig('embedding')?.enabled ? `
+${!this.agent.agentConfigs.subagent && utils.getConfig('embedding')?.enabled ? `
 # 💾 Memory Operations
 - **Retrieval**: If context is ambiguous or involves past projects, call \`search_long_term_memory\` **BEFORE** acting.
 - **Archival**: If the user provides high-value facts (preferences, secrets, milestones), use \`write_important_memory\`.
@@ -194,14 +195,14 @@ ${core_tool_prompt}
 ## Domain Tools
 ${tool_prompt}` : ""}
 
-${!this.agent.prompt_args.subagent && this.agent.prompt_args.agent_mode === "transagent" ? `
+${!this.agent.agentConfigs.subagent && this.agent.agentConfigs.agent_mode === "transagent" ? `
 ## 💻 CLI / BASH EXECUTION PROTOCOL (STRICT)
 **Target Tool**: \`cli_execute\`
 
 {cli_prompt}
 `: ""}
 
-${!this.agent.prompt_args.subagent && this.agent.prompt_args.mcp_server ? `
+${!this.agent.agentConfigs.subagent && this.agent.agentConfigs.mcp_server ? `
 ## MCP Services
 **Note**: Use \`mcp_server\` to access these external tools.
 {mcp_prompt}
@@ -210,7 +211,7 @@ ${!this.agent.prompt_args.subagent && this.agent.prompt_args.mcp_server ? `
 
 {extra_prompt}
 
-${!this.agent.prompt_args.subagent ? `
+${!this.agent.agentConfigs.subagent ? `
 # 📊 Mermaid Standard (N/A for Flash Mode)
 Use this syntax for all planning/summaries:
 \`\`\`mermaid
@@ -221,7 +222,7 @@ graph TD
     Check -->|No| Fix[Fix Strategy]
 \`\`\`
 ` : ""}
-${!this.agent.prompt_args.subagent ? `
+${!this.agent.agentConfigs.subagent ? `
 # 📌 Important Memory
 {important_memory}`: ""}
 `;
@@ -229,7 +230,7 @@ ${!this.agent.prompt_args.subagent ? `
   }
 
   getTodoListPrompt() {
-    const { todolist } = this.agent.prompt_args;
+    const { todolist } = this.agent.agentConfigs;
     // 如果存在 todolist 参数，则返回对应的模板字符串，否则返回空字符串
     return todolist ? `
 ### 📋 PROGRESS: {todolist}

@@ -89,18 +89,13 @@
       "enabled": false
     },
     "browser_client": {
-      "enabled": false
+      "enabled": true
     },
-    "fetch_search": {
+    "web_crawler_toolkit": {
       "params": {
-        "searcher_type": "DuckDuckGoSearch",
-        "api_key": null,
-        "region": "zh-CN"
+        "topk": 15
       },
-      "enabled": false
-    },
-    "fetch_url": {
-      "enabled": false
+      "enabled": true
     },
     "python_execute": {
       "params": {
@@ -116,7 +111,7 @@
       "confirmation_message": "⚠️ 警告：即将执行Python代码。这可能会执行任意代码，存在安全风险。是否继续？"
     },
     "search_files": {
-      "enabled": false
+      "enabled": true
     },
     "list_dir": {
       "params": {

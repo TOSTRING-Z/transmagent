@@ -115,7 +115,7 @@ export class Utils {
         return path.join(os.homedir(), '.transmagent', name);
     }
 
-    public getSystem(name: string = "config.json"): string {
+    public getSystem(name: string = "config_transagent.json"): string {
         // 注意：基于 src/utils 向上两级回到根目录
         return path.join(__dirname, '..', '..', 'configs', name);
     }
