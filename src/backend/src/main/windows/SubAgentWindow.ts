@@ -24,6 +24,8 @@ interface SubAgentOptions {
 }
 
 export class SubAgentWindow extends BaseWindow {
+    public agentToolName?: string;
+    public agentTool?: AgentTool;
     public agentTools: Record<string, AgentTool>;
     public windows: BrowserWindow[]; // 支持多个子 Agent 窗口
     private windowListeners: Map<BrowserWindow, { minimize: () => void; close: () => void }>;
@@ -98,12 +100,13 @@ export class SubAgentWindow extends BaseWindow {
 
             win.loadFile('src/frontend/subagent.html');
 
-            const agentTool = this.agentTools[agentToolName];
+            this.agentToolName = agentToolName;
+            this.agentTool = this.agentTools[agentToolName];
 
             win.on('closed', () => {
-                if (agentTool) {
-                    agentTool.tool_call.changeWindow();
-                    agentTool.tool_call.llm_service.stopMessage();
+                if (this.agentTool) {
+                    this.agentTool.tool_call.changeWindow();
+                    this.agentTool.tool_call.llm_service.stopMessage();
                     resolve("The user interrupted the task.");
                 }
             });
@@ -113,21 +116,22 @@ export class SubAgentWindow extends BaseWindow {
                 win.show();
                 win.focus();
                 win.webContents.send('windowInfo', { id: win.id, name: agentToolName });
+                if (this.agentTool) {
+                    this.agentTool.tool_call.changeWindow(win);
+                    // 子代理模式同主代理模式一样
+                    this.agentTool.tool_call.changeMode(this.windowManager.mainWindow.llm_service.chatManager.chat.mode);
 
-                agentTool.tool_call.changeWindow(win);
-                // 子代理模式同主代理模式一样
-                agentTool.tool_call.changeMode(this.windowManager.mainWindow.llm_service.chatManager.chat.mode);
-
-                if (utils.getConfig("tool_call")?.subagent_llm_init || this.windows.length > 1) {
-                    agentTool.tool_call.llm_service.chatManager.init();
+                    if (utils.getConfig("tool_call")?.subagent_llm_init || this.windows.length > 1) {
+                        this.agentTool.tool_call.llm_service.chatManager.init();
+                    }
+                    const mainChat = this.windowManager.mainWindow.llm_service.chatManager.chat;
+                    this.agentTool.tool_call.llm_service.chatManager.chat.tool_format = mainChat.tool_format;
+                    this.agentTool.tool_call.llm_service.startMessage();
+                    let data = this.agentTool.tool_call.getDataDefault({ query, model: mainChat.model, version: mainChat.version });
+                    data = await this.agentTool.tool_call.callReAct(data);
+                    const res_json = utils.parseJsonContent(data.output_format);
+                    resolve(res_json[0]?.thinking || data.output_format);
                 }
-                const mainChat = this.windowManager.mainWindow.llm_service.chatManager.chat;
-                agentTool.tool_call.llm_service.chatManager.chat.tool_format = mainChat.tool_format;
-                agentTool.tool_call.llm_service.startMessage();
-                let data = agentTool.tool_call.getDataDefault({ query, model: mainChat.model, version: mainChat.version });
-                data = await agentTool.tool_call.callReAct(data);
-                const res_json = utils.parseJsonContent(data.output_format);
-                resolve(res_json[0]?.thinking || data.output_format);
             });
         });
 

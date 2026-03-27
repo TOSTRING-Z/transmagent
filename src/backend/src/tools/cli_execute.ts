@@ -8,6 +8,8 @@ import { utils } from '../utils/globals';
 import { logger } from '../utils/logger';
 import { LLMAssistant } from '../core/LLMAssistant';
 import { LLMService } from '../core/LLMService';
+import { WindowManager } from '../main/windows/WindowManager';
+import { State } from '../core/ReActAgent';
 
 // --- 类型定义 ---
 export interface CliExecuteParams {
@@ -203,13 +205,21 @@ export function main(initialParams: CliExecuteParams = {}) {
             let monitorIntervalId: NodeJS.Timeout | null = null;
             let lastCheckedLength = 0;
             const executionStartTime = Date.now(); // 记录执行开始时间
-            
+
             // 从 initialParams 读取监测间隔（默认10分钟）
             const monitorIntervalMinutes = initialParams?.monitor_interval ?? 10;
             const MONITOR_INTERVAL_MS = monitorIntervalMinutes * 60 * 1000;
 
             try {
-                const llmService = new LLMService();
+                // 判断当前是否为正在运行的子代理
+                const tool_call = WindowManager.instance.subAgentWindow.agentTool?.tool_call;
+                let llmService: LLMService;
+                if (tool_call && tool_call.state === State.RUNNING) {
+                    llmService = tool_call.llm_service;
+                }
+                else {
+                    llmService = WindowManager.instance.mainWindow.llm_service;
+                }
                 llmAssistant = new LLMAssistant(llmService, null);
             } catch (initError) {
                 logger.warn(`[ConsoleMonitor] Failed to initialize: ${initError}`);
@@ -227,8 +237,8 @@ export function main(initialParams: CliExecuteParams = {}) {
                     // 计算当前执行时间
                     const executionTimeMs = Date.now() - executionStartTime;
 
-                    logger.log(`[ConsoleMonitor] Checking output (${newOutput.length} chars, elapsed: ${Math.round(executionTimeMs/1000)}s)...`);
-                    
+                    logger.log(`[ConsoleMonitor] Checking output (${newOutput.length} chars, elapsed: ${Math.round(executionTimeMs / 1000)}s)...`);
+
                     // 传入控制台输出和执行时间
                     const checkResult = await llmAssistant.checkConsoleOutput(newOutput, executionTimeMs);
 

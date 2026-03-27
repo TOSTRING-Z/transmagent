@@ -10,7 +10,7 @@ const prompt = {
 - Current issues, etc.
 
 ## Tool Information (CRITICAL REQUIREMENT)
-- **EXACT Tool Names**: You MUST explicitly provide the specific, exact names of the tools to be executed (e.g., \`bash_execute\`, \`read_tools_prompt\`). **Providing ONLY a description without the exact tool name is STRICTLY PROHIBITED and will cause execution failure.**
+- **EXACT Tool Names**: You MUST explicitly provide the specific, exact names of the tools (Bash/MCP/Skill Tools) to be executed (e.g., \`TRAPT\`, \`bedtools\`). **Providing ONLY a description without the exact tool name is STRICTLY PROHIBITED and will cause execution failure.**
 - **Tool Descriptions**: A simple description of what the tool will do.
 
 ## Data Paths or Information

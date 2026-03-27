@@ -215,9 +215,7 @@ export class LLMAssistant {
         const temp_llm_service = new LLMService();
         temp_llm_service.chatManager.chat = { ...this.llm_service.chatManager.chat };
 
-        // 2. 获取并修剪上下文：只截取到当前正在触发工具的那条 assistant 消息
         const allMessages = [...this.llm_service.chatManager.getMessages(true)];
-        // 从后往前找最近的一个 assistant 消息
         const lastAssistantIdx = allMessages.map(m => m.role).lastIndexOf('assistant');
 
         if (lastAssistantIdx === -1) {
@@ -225,14 +223,10 @@ export class LLMAssistant {
             return null;
         }
 
-        // 截断消息列表，保留到该 assistant 消息为止
         const slicedMessages = allMessages.slice(0, lastAssistantIdx + 1);
-
-        // 闭环处理：修改最后一条消息的内容，防止审计器产生递归调用或逻辑干扰
         const targetMessage = slicedMessages[slicedMessages.length - 1];
         const originalContent = targetMessage.content;
 
-        // 临时修改内容，隐藏 tool_calls 以防 LLM 混乱，仅让它作为“记忆”存在
         targetMessage.content = `[LOGGED ASSISTANT THOUGHT]: ${toolInfo.thinking || originalContent}\nSYSTEM: Execution paused for data integrity audit.`;
         delete targetMessage.tool_calls;
 
@@ -321,11 +315,26 @@ Determine if the payload contains "Hallucinated/Fake Data" (Blocked) or "Functio
             const temp_llm_service = new LLMService();
             temp_llm_service.chatManager.chat = { ...this.llm_service.chatManager.chat };
 
-            // 构建历史对话上下文（保持 kv_cache 命中）
-            const historyMessages = this.llm_service.chatManager.getMessages(true);
+            const allMessages = [...this.llm_service.chatManager.getMessages(true)];
+            const lastAssistantIdx = allMessages.map(m => m.role).lastIndexOf('assistant');
 
-            // 组装审查上下文：历史消息 + 系统指令
-            temp_llm_service.chatManager.messages = [...historyMessages];
+            if (lastAssistantIdx === -1) {
+                logger.warn("[Critic] 未找到对应的助手消息，跳过检查");
+                return { shouldInterrupt: false, reason: null };
+            }
+
+            const slicedMessages = allMessages.slice(0, lastAssistantIdx + 1);
+            const targetMessage = slicedMessages[slicedMessages.length - 1];
+            const toolMessages = allMessages.slice(lastAssistantIdx + 1, allMessages.length);
+            const originalContent = targetMessage.content;
+
+            targetMessage.content = `[LOGGED ASSISTANT CONTENT]: ${originalContent}
+            ${targetMessage.tool_calls ? `[LOGGED ASSISTANT TOOL_CALLS]: ${JSON.stringify(targetMessage.tool_calls)}` : ''}
+            ${toolMessages.map((toolMessage, i) => `[LOGGED TOOL_RESULT ${i}: ${toolMessage.content}`).join("\n")}
+            SYSTEM: Execution paused for data integrity audit.`;
+            delete targetMessage.tool_calls;
+
+            temp_llm_service.chatManager.messages = slicedMessages;
 
             const react_agent = new ReActAgent(temp_llm_service);
 
@@ -375,9 +384,9 @@ ${consoleOutput}
 You MUST respond ONLY with a valid JSON object. DO NOT call any tools.
 {
   "shouldInterrupt": boolean,
-  "reason": "If shouldInterrupt is true, provide a specific reason explaining what triggered the interruption"
+  "reason": "Provide a specific reason explaining why the command should be interrupted or why it is safe to continue, regardless of the shouldInterrupt value."
 }
-            `.trim();
+`.trim();
 
             const callData = react_agent.getDataDefault({
                 query,
