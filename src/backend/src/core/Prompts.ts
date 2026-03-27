@@ -52,7 +52,7 @@ class Prompts {
 
   getSystemPrompts(toolsData) {
 
-    const coreTools = ["add_subtasks", "record_subtasks", "ask_followup_question", "waiting_feedback", "plan_mode_response", "context_retrieval", "search_long_term_memory", "write_important_memory", "mcp_server"];
+    const coreTools = ["add_subtasks", "record_subtasks", "ask_followup_question", "waiting_feedback", "plan_mode_response", "context_retrieval", "search_long_term_memory", "write_important_memory", "mcp_server", "update_env"];
     const core_tool_prompt = Object.entries(toolsData)
       .filter(([key]) => coreTools.includes(key))
       .map(([_, val]) => val)
@@ -67,6 +67,7 @@ class Prompts {
 # ⚠️ CRITICAL SYSTEM CONSTRAINTS
 1. **STATELESSNESS**: You have **NO MEMORY** of previous agent tool outputs.
    - **Requirement**: You MUST explicitly pass all necessary context (task document, file paths, raw data, analysis results) into every tool call.
+   - **State Persistence (CRITICAL)**: Because you lack memory, you MUST actively and frequently call the \`update_env\` tool to save crucial context (e.g., CWD, generated output file paths, discovered parameters) into the \`### 🧠 CRITICAL CONTEXT & ENVS\` block. If you don't save it to the environment, you WILL forget it.
    - **Explicit Tool Naming**: Any task document, plan, or context payload MUST explicitly state the **EXACT names** of the required tools (e.g., \`TRAPT\`, \`bedtools\`). You are FORBIDDEN from using vague descriptions like "the execution tool" or "the search tool".
    - **Prohibition**: Never assume a tool "knows" what happened in the previous step.
 `: `You are **TransMAgent**, a versatile, high-efficiency AI assistant capable of solving complex user requests through strategic tool usage.`)}
@@ -88,7 +89,16 @@ You are a polished, user-facing AI. You must strictly hide your internal mechani
 ## 2. Scripting Standards
 - **Production Grade**: No "tutorial" or "demonstration" style code.
 - **Fail Fast**: If data is missing/corrupted, your script MUST \`raise Exception("Data Integrity Failure")\` instead of generating placeholders.
-
+${this.agent.prompt_args.env ? `
+# 🌐 STATE PERSISTENCE PROTOCOL (MANDATORY)
+Since you are stateless, the \`update_env\` tool is your ONLY short-term working memory across conversational turns.
+- **When to trigger**: 
+  1. EVERY TIME a new output file is generated or a critical file path is located.
+  2. EVERY TIME you successfully configure an environment or change the working directory (CWD).
+  3. EVERY TIME you figure out a complex tool parameter or successfully resolve an execution error.
+- **How to use**: Call \`update_env\` with a highly descriptive \`key\` (e.g., "clean_data_path", "alignment_index_dir", "latest_error_fix") and its corresponding \`value\`.
+- **Zero Tolerance**: Never assume paths or configurations will automatically carry over to the next step. You MUST persist them explicitly.
+`: ""}
 # 🧠 Core Execution Loop (ReAct)
 1. **THOUGHT**: Analyze the current state and plan the immediate next step.
 2. **ACTION**: Select **ONE** tool. (Single-threaded execution).
@@ -127,7 +137,7 @@ For complex requests, enforce this strict pipeline:
 ## Phase 2: The Checkpoint Loop
 1. **Execute**: Run tools to fulfill the current subtask.
 2. **Checkpoint**: **IMMEDIATELY** call \`record_subtasks\` upon completion.
-   - *Reason*: This creates a "Save Game" state.
+   - *Context Binding*: You MUST also use \`update_env\` to save any key output file paths or metrics produced by this subtask so the next subtask can find them.
 3. **Gating**: You are **FORBIDDEN** from starting Subtask N+1 until Subtask N is recorded.
 ` : ""}
 ${!this.agent.prompt_args.subagent && this.agent.prompt_args.todolist ? "4. **Finalize**: The last subtask MUST be: **Summarize execution using Mermaid syntax (N/A in Flash Mode).**" : this.agent.prompt_args.agent_mode === "multagent" ? "**Pre-flight**: Call `workflow_planner` before any execution." : ""}
@@ -221,28 +231,25 @@ ${!this.agent.prompt_args.subagent ? `
   getTodoListPrompt() {
     const { todolist } = this.agent.prompt_args;
     // 如果存在 todolist 参数，则返回对应的模板字符串，否则返回空字符串
-    return todolist ? `### 📋 PROGRESS: {todolist}` : "";
+    return todolist ? `
+### 📋 PROGRESS: {todolist}
+---` : "";
   }
 
   getEnvPrompts() {
-    // 采用极简 Markdown 符号，利用加粗强化 Agent 对模式状态的捕获
-    const { subagent } = this.agent.prompt_args;
-
     const env = `
 ---
 ### ⚡ SYSTEM STATE SNAPSHOT
 - **Time**: {time}
 - **Env**: {system_platform}/{system_arch} | **Lang**: {language}
 - **CWD**: \`{tmpdir}\`
-${!subagent ? `
+
 ### 🛠️ MODE: **{mode}**
 > **STRICT CONSTRAINT**: 
 {mode_constraint}
 
-{envs}` : ""}
-
-${this.getTodoListPrompt()}
----
+### 🧠 CRITICAL CONTEXT & ENVS
+{envs}
 `.trim();
 
     return env;

@@ -145,9 +145,6 @@
     "update_tool": {
       "enabled": false
     },
-    "update_env": {
-      "enabled": true
-    },
     "cli_execute": {
       "params": {
         "bashrc": "/root/.bashrc",

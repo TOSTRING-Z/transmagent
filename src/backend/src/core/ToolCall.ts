@@ -160,6 +160,7 @@ export class ToolCall extends ReActAgent {
         // --- 工具策略注册表 ---
         // 在这里声明每个工具在什么条件下允许被使用
         const TOOL_POLICY = {
+            'update_env': all(hasArg('env'), not(isMode('PLAN'))),
             'mcp_server': all(hasArg('mcp_server'), not(isMode('PLAN'))),
             'add_subtasks': all(hasArg('todolist'), not(any(isMode('PLAN'), isMode('FLASH')))),
             'record_subtasks': all(hasArg('todolist'), not(any(isMode('PLAN'), isMode('FLASH')))),
@@ -262,7 +263,7 @@ export class ToolCall extends ReActAgent {
         });
 
         this.environment_details.todolist = todolist.join("\n");
-        this.environment_details.envs = envs.length > 0 ? envs.join("\n") : "[]";
+        this.environment_details.envs = envs.length > 0 ? envs.join("\n") : "";
         this.environment_details.skills = this.prompts.getSkillPrompt();
 
         if (this.prompt_args.env || utils.getConfig("tool_call")?.env_message) {

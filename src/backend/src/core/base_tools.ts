@@ -4,6 +4,53 @@ import { ToolCall } from "./ToolCall";
 
 export default function getBaseTools(toolCallInstance: ToolCall): Record<string, any> {
     return {
+        "update_env": {
+            func: async ({ key, value }: { key: string, value: any }) => {
+                try {
+                    if (!key || value === undefined) {
+                        return { status: "error", message: "Both key and value parameters are required." };
+                    }
+
+                    // Direct access via the toolCallInstance
+                    const chatState = toolCallInstance.llm_service.chatManager.chat;
+
+                    // Ensure envs object exists
+                    if (!chatState.envs) {
+                        chatState.envs = {};
+                    }
+
+                    // Write or update the environment variable
+                    chatState.envs[key] = value;
+
+                    return {
+                        status: "success",
+                        key: key,
+                        message: `Environment variable '${key}' has been successfully set/updated.`
+                    };
+                } catch (e: any) {
+                    return { status: "error", message: `Update env failed: ${e.message}` };
+                }
+            },
+            getPrompt: () => ({
+                name: "update_env",
+                description: "Writes or updates an environment variable in the global `envs` object. CRITICAL: Use this tool to record important analytical processes, learned experiences, generated output file paths, working directories, and other key information so that context is not lost in future turns.",
+                parameters: {
+                    type: "object",
+                    properties: {
+                        key: {
+                            type: "string",
+                            description: "The name of the environment variable (e.g., 'working_dir', 'compile_experience', 'latest_output_file'). Use clear, descriptive keys."
+                        },
+                        value: {
+                            type: "string",
+                            description: "The value or content to store. Keep the information highly relevant and concise."
+                        }
+                    },
+                    required: ["key", "value"]
+                }
+            })
+        },
+
         "mcp_server": {
             func: async ({ name, args }: { name: string, args: any }) => {
                 try {
