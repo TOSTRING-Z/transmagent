@@ -22,23 +22,29 @@ export enum Mode {
 
 export const MODE_CONSTRAINTS: Record<Mode, string> = {
     [Mode.AUTO]: `
-- **STRICT AUTONOMY**: You are FORBIDDEN from asking the user for ANY information, clarification, or confirmation.
-- **FORCE COMPLETION**: Solve all ambiguities using your best logical judgment. If a non-critical error occurs, bypass or self-correct to reach the goal.
-- **ZERO INTERRUPTION**: Execute the entire workflow from start to finish in a single, uninterrupted stream of logic.`,
+- **ABSOLUTE AUTONOMY**: You are STRICTLY FORBIDDEN from asking the user for ANY information, clarification, or confirmation. This explicitly includes questions about missing data, tool choices, file paths, or environment configurations. You MUST make all decisions autonomously based on your best judgment.
+- **SELF-RELIANT EXPLORATION**: You must proactively use your available tools to inspect the environment, gather required data, and resolve dependencies. If information or context is missing, use your tools to find it or synthesize a viable assumption. Do NOT rely on the user to bridge information gaps.
+- **FORCE COMPLETION**: Solve all ambiguities and obstacles independently. If an error occurs, you must self-correct, debug using your tools, or pivot to an alternative technical path to reach the goal without pausing.
+- **ZERO INTERRUPTION**: Execute the entire workflow from start to finish in a single, uninterrupted stream of logic and tool executions.`,
 
     [Mode.ACT]: `
-- **STEP-BY-STEP VERIFICATION**: You MUST perform environment checks before each major command.
-- **GATEKEEPER PROTOCOL**: If any ambiguity, missing context, or multiple technical paths exist, you MUST pause and use \`ask_user\` for explicit guidance.
-- **CONFIRM DESTRUCTION**: You MUST obtain user permission via \`ask_user\` before any file deletion, overwriting, or high-cost API calls.`,
+- **ZERO ASSUMPTIONS**: You are STRICTLY FORBIDDEN from making guesses about missing data, tool choices, file paths, or environment configurations. If ANY information is implicit, missing, or ambiguous, you MUST pause and use the \`ask_user\` tool immediately.
+- **GRANULAR EXECUTION**: Do not string together long, uninterrupted workflows. Execute tasks step-by-step. After each major action or state change, report the outcome to the user and use \`ask_user\` to await explicit confirmation before proceeding.
+- **EXPLICIT ESCALATION**: If an error occurs, do NOT silently pivot or attempt unauthorized self-correction. You MUST present the error logs and use \`ask_user\` to propose resolution paths or ask for explicit guidance.
+- **CONFIRM DESTRUCTION**: You MUST obtain explicit user permission via \`ask_user\` before any file deletion, overwriting, system modification, or high-cost API calls.`,
 
     [Mode.PLAN]: `
 - **READ-ONLY PROTOCOL**: You are STERNLY FORBIDDEN from creating/modifying files, writing scripts, or executing any system-altering actions.
-- **ARCHITECT ROLE**: Focus 100% on deep discussion and blueprinting. Your output must be a detailed plan, NOT execution.
+- **NO MCP ACCESS**: You are STRICTLY FORBIDDEN from calling or interacting with ANY MCP (Model Context Protocol) servers. Your tool usage in this mode must be strictly limited to the READ-ONLY tools.
+- **MANDATORY CONSULTATION**: You MUST iteratively use the \`ask_user\` tool to ask clarifying questions, explore edge cases, and validate assumptions during the initial drafting phase.
+- **FINAL APPROVAL GATE**: Before finalizing any blueprint, you MUST present a summary or draft of the proposed solution. Then, use the \`ask_user\` tool to explicitly ask the user if they are satisfied. You are STRICTLY FORBIDDEN from generating the final execution plan until the user explicitly confirms satisfaction.
+- **ARCHITECT ROLE**: Focus 100% on deep discussion and blueprinting. Only AFTER receiving explicit user approval, output the detailed, finalized execution plan.
 - **HANDOVER**: Upon plan completion, you MUST explicitly prompt the user to switch to "Execution mode" or "Automatic mode" to proceed.`,
 
     [Mode.FLASH]: `
-- **MAXIMUM VELOCITY**: Execute the most direct path to task completion. 
-- **SILENT EXECUTION**: Strictly minimize all conversational text, explanations, and pleasantries. Talk less, do more.
+- **RUTHLESS AUTONOMY**: Do NOT pause to ask for clarification, permissions, or missing data. Make rapid, executive decisions on all ambiguities and missing context to maintain absolute momentum.
+- **MAXIMUM VELOCITY**: Execute the most direct technical path to task completion. Prioritize speed and immediate results over deep exploration, defensive checks, or edge-case handling.
+- **SILENT EXECUTION**: Strictly minimize all conversational text, step-by-step explanations, and pleasantries. Output only the final result or critical execution logs. Talk less, do more.
 - **NO OVERHEAD**: You are FORBIDDEN from generating Mermaid charts, subtask breakdowns, or long summaries. Reach the end state as fast as possible.`
 };
 
@@ -212,10 +218,10 @@ export class ReActAgent {
     public getDataDefault(cdata: any = {}): any {
         let data = utils.copy(cdata);
         let defaults = {
-            prompt: data?.prompt,
-            query: data?.query,
-            img_url: data?.img_url,
-            file_path: data?.file_path,
+            prompt: null,
+            query: null,
+            img_url: null,
+            file_path: null,
             api_url: null,
             api_key: null,
             model: this.llm_service.chatManager.chat.model,
@@ -225,8 +231,10 @@ export class ReActAgent {
             input_template: null,
             prompt_template: null,
             params: null,
-            llm_params: utils.getConfig("llm_params"),
-            memory_length: utils.getConfig("memory_length"),
+            llm_params: utils.getConfig('tool_call')["llm_params"],
+            memory_length: utils.getConfig('tool_call')["memory_length"],
+            long_memory_length: utils.getConfig('tool_call')["long_memory_length"],
+            max_tokens: utils.getConfig('tool_call')["max_tokens"],
             push_message: true,
             end: null,
             event: this.window?.webContents,

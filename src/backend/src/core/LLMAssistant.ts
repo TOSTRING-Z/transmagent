@@ -33,16 +33,6 @@ export class LLMAssistant {
         this.plugins = plugins;
     }
 
-    /**
-     * 创建临时 ReActAgent 实例用于独立LLM调用
-     */
-    private createTempAgent(temp_llm_service?: LLMService): ReActAgent {
-        if (!temp_llm_service) {
-            temp_llm_service = new LLMService();
-        }
-        return new ReActAgent(temp_llm_service);
-    }
-
     // ==================== 对话压缩功能 ====================
 
     /**
@@ -274,7 +264,7 @@ Determine if the payload contains "Hallucinated/Fake Data" (Blocked) or "Functio
             if (!callData.params) callData.params = {};
             callData.params.llm_params = {
                 ...callData.params.llm_params,
-                temperature: 0, // 审计需要极高的确定性
+                temperature: 0.3, // 审计需要极高的确定性
             };
 
             const messageOutput = await critic_agent.llmCall(callData);

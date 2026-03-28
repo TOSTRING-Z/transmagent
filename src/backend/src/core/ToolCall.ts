@@ -73,6 +73,7 @@ export class ToolCall extends ReActAgent {
     public modeMap: Record<string, Mode> = { "auto": Mode.AUTO, "plan": Mode.PLAN, "flash": Mode.FLASH, "act": Mode.ACT };
     private rememberedChoices: Record<string, boolean> = {};
     public assistant: LLMAssistant;
+    public tool_schemas?: any[];
 
     constructor(
         plugins: Plugins,
@@ -185,24 +186,24 @@ export class ToolCall extends ReActAgent {
         };
         const format = this.llm_service.chatManager.chat.tool_format;
         // 3. 流水线处理：过滤 -> 提取Schema -> 格式化
-        const tool_schemas = Object.entries(this.tools)
+        this.tool_schemas = Object.entries(this.tools)
             .filter(([key, tool]) => {
                 // 步骤 A: 基础校验 (是否有 getPrompt 方法，是否被显式禁用)
                 if (!tool?.getPrompt) return false;
                 if (tool.enabled === false && !context.isSubagent) return false;
                 // 步骤 B: 策略校验 (查表执行 DSL 规则)
-                const policy = TOOL_POLICY[key] || always; // 如果没有特殊配置，默认放行
+                const policy = TOOL_POLICY[key] || always;
                 return policy(context);
             })
             .map(([key, tool]) => {
-                // 步骤 C: 获取 Schema
                 const schemaOrStr = tool.getPrompt();
-                // 步骤 D: 特殊的全局模式拦截
-                // 依据原代码逻辑：PLAN 模式下，即便其他工具过了策略，最终也只有 ask_user, list_dir, display_file, search_files 产出 Schema
                 if (context.currentMode === context.modes.PLAN) {
-                    return key === 'ask_user' || key === 'list_dir' || key === 'display_file' || key === 'search_files' || key === 'browser_client' || key === 'web_crawler_toolkit' ? schemaOrStr : null;
+                    // 移除高风险工具、子代理工具
+                    const toolConfig = this.getToolConfig(key);
+                    const requireConfirmation = !!toolConfig?.require_confirmation;
+                    const isSubagentTool = Object.keys(this.agentTools).includes(key);
+                    return !requireConfirmation && !isSubagentTool ? schemaOrStr : null;
                 }
-                // 步骤 E: 数据格式化
                 if (typeof schemaOrStr === 'string') {
                     return { type: "raw_string", name: key, content: schemaOrStr };
                 }
@@ -212,11 +213,9 @@ export class ToolCall extends ReActAgent {
                     logger.error(`Error tool.getPrompt(): ${key}`);
                 }
             })
-            .filter(Boolean); // 剔除 map 阶段可能产生的 null 值
-        // 获取对应的适配器
+            .filter(Boolean);
         const adapter: IToolCallAdapter = ToolCallAdapterFactory.getAdapter(format);
-        // 执行格式化
-        return adapter.formatTools(tool_schemas);
+        return adapter.formatTools(this.tool_schemas);
     }
 
     public async saveLongTermMemory(user_content: string, final_answer: string) {
@@ -561,7 +560,7 @@ export class ToolCall extends ReActAgent {
     public async act(toolInfo: ToolInfo): Promise<Observation> {
         let observation: Observation;
         try {
-            if (!this.tools || !Object.prototype.hasOwnProperty.call(this.tools, toolInfo.tool as string)) {
+            if (!this.tool_schemas || !this.tool_schemas.map(tool => tool.name).includes(toolInfo.tool)) {
                 observation = {
                     result: "Tool does not exist."
                 };
@@ -640,7 +639,7 @@ export class ToolCall extends ReActAgent {
                 show: true,
                 react: true
             });
-            this.window.webContents.send('toolData', { group_id: this.llm_service.chatManager.chat.group_id, context_id: this.llm_service.chatManager.chat.context_id, content: data.query, del: false });
+            this.window.webContents.send('toolData', { group_id: this.llm_service.chatManager.chat.group_id, context_id: context_id, content: data.query, del: false });
         } else {
             this.llm_service.chatManager.chat.step = 1;
             this.llm_service.chatManager.chat.group_id = String((new Date()).getTime());

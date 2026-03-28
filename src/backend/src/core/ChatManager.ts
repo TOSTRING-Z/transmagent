@@ -84,8 +84,8 @@ export class ChatManager {
     public getDefaultConfig() {
         const defaultConfig = utils.getConfig("default") || {};
         return {
-            model: defaultConfig["model"] || "gpt-4",
-            version: defaultConfig["version"] || "latest",
+            model: defaultConfig["model"] || "deepseek",
+            version: defaultConfig["version"] || "deepseek-chat",
             tool_format: defaultConfig["tool_format"] || "prompt",
             is_plugin: defaultConfig["model"] === "plugins",
             compress_context: defaultConfig["compress_context"] || false,
@@ -347,6 +347,10 @@ export class ChatManager {
     public getMemory(data: Record<string, any>): Message[] {
         let messages = this.getMessages(false);
         messages = this.compressContext(messages);
+        if (this.chat.tokens >= data.max_tokens || 1e5) {
+            data.long_memory_length = Math.floor(data.long_memory_length);
+            data.memory_length = Math.floor(data.memory_length);
+        }
         // 截取最近记忆
         if (messages.length > data.memory_length) {
             let messages_list: Message[] = [];

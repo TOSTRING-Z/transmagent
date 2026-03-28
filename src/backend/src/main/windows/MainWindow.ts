@@ -480,16 +480,12 @@ export class MainWindow extends BaseWindow {
             }
         });
 
-        ipcMain.on('set-global', (_, chat) => {
-            this.llm_service.chatManager.chat.tokens = chat.tokens;
+        ipcMain.on('setChat', (_, chat) => {
             this.llm_service.chatManager.chat.seconds = chat.seconds;
             if (chat.compress_context !== undefined) {
                 this.llm_service.chatManager.chat.compress_context = chat.compress_context;
             }
-            if (chat.model !== undefined) {
-                this.llm_service.chatManager.chat.model = chat.model;
-            }
-            if (this.tool_call) this.tool_call.setHistory(this.llm_service.chatManager.chat);
+            this.tool_call.setHistory();
         });
 
         ipcMain.on('show-log', (_, data) => this.windowManager.alertWindow?.create(data));

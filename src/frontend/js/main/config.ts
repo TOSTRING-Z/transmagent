@@ -127,9 +127,8 @@ export async function saveConfig() {
   config.models[ai_model].api_url = api_url;
   config.models[ai_model].api_key = api_key;
 
-  State.chat.model = ai_model;
   State.chat.compress_context = DOM.compress_box.checked;
-  window.electronAPI.setGlobal(State.chat);
+  window.electronAPI.setChat(State.chat);
 
   if (!config.tool_call) config.tool_call = {};
   config.tool_call.cli_prompt = (document.getElementById('cli-prompt') as HTMLInputElement)?.value || '';

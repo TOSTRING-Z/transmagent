@@ -81,12 +81,19 @@ export default function getBaseTools(toolCallInstance: ToolCall): Record<string,
             },
             getPrompt: () => ({
                 name: "ask_user",
-                description: "1. Pause execution to request clarification or missing info from the user. Trigger: Ambiguity, missing parameters, or need for user decision.\n2. Interact with the user specifically during the 'Planning Phase'. Use for architecture design, requirements gathering, and blueprint confirmation.",
+                description: "Pause execution to interact with the user for clarification, decisions, missing data, or final approvals.\n\nCRITICAL RULES (Adaptive Querying):\n1. DECISIONS & APPROVALS: For strategic choices, technical paths, error resolutions, or plan/destructive action approvals, you MUST provide the `options` array (e.g., ['Approve', 'Needs adjustments', 'Abort']).\n2. UNGUESSABLE DATA: For specific user data (e.g., file paths, URLs, API keys, raw text input), you MUST LEAVE `options` EMPTY (undefined) to allow open-ended text input.",
                 parameters: {
                     type: "object",
                     properties: {
-                        ask: { type: "string", description: "Clear, specific inquiry." },
-                        options: { type: "array", items: { type: "string" }, description: "2-5 distinct choices to speed up user response." }
+                        ask: {
+                            type: "string",
+                            description: "The clear, specific question, context, or summary presented to the user. Explain WHY you are asking."
+                        },
+                        options: {
+                            type: "array",
+                            items: { type: "string" },
+                            description: "Actionable choices for the user. STRICTLY OMIT this parameter if asking for open-ended data like file paths, URLs, or keys."
+                        }
                     },
                     required: ["ask"]
                 }
