@@ -639,7 +639,7 @@ export class ToolCall extends ReActAgent {
                 show: true,
                 react: true
             });
-            this.window.webContents.send('toolData', { group_id: this.llm_service.chatManager.chat.group_id, context_id: context_id, content: data.query, del: false });
+            this.window.webContents.send('toolData', { group_id: this.llm_service.chatManager.chat.group_id, context_id: context_id, content: `\n\n---\n\n${data.query}`, del: false });
         } else {
             this.llm_service.chatManager.chat.step = 1;
             this.llm_service.chatManager.chat.group_id = String((new Date()).getTime());

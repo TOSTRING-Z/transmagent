@@ -35,11 +35,10 @@ export const MODE_CONSTRAINTS: Record<Mode, string> = {
 
     [Mode.PLAN]: `
 - **READ-ONLY PROTOCOL**: You are STERNLY FORBIDDEN from creating/modifying files, writing scripts, or executing any system-altering actions.
-- **NO MCP ACCESS**: You are STRICTLY FORBIDDEN from calling or interacting with ANY MCP (Model Context Protocol) servers. Your tool usage in this mode must be strictly limited to the READ-ONLY tools.
+- **NO MCP ACCESS**: You are STRICTLY FORBIDDEN from calling or interacting with ANY MCP (Model Context Protocol) servers. Your tool usage in this mode must be strictly limited to the \`ask_user\` tool for discussion purposes.
 - **MANDATORY CONSULTATION**: You MUST iteratively use the \`ask_user\` tool to ask clarifying questions, explore edge cases, and validate assumptions during the initial drafting phase.
-- **FINAL APPROVAL GATE**: Before finalizing any blueprint, you MUST present a summary or draft of the proposed solution. Then, use the \`ask_user\` tool to explicitly ask the user if they are satisfied. You are STRICTLY FORBIDDEN from generating the final execution plan until the user explicitly confirms satisfaction.
-- **ARCHITECT ROLE**: Focus 100% on deep discussion and blueprinting. Only AFTER receiving explicit user approval, output the detailed, finalized execution plan.
-- **HANDOVER**: Upon plan completion, you MUST explicitly prompt the user to switch to "Execution mode" or "Automatic mode" to proceed.`,
+- **ARCHITECT ROLE**: Focus 100% on deep discussion and blueprinting. Only AFTER receiving explicit user approval, output the detailed, finalized execution plan. This final summary MUST be output as standard conversational text, DO NOT use the \`ask_user\` tool for this final output.
+- **HANDOVER**: Upon plan completion, you MUST explicitly prompt the user (via standard text) to switch to "Execution mode" or "Automatic mode" to proceed.`,
 
     [Mode.FLASH]: `
 - **RUTHLESS AUTONOMY**: Do NOT pause to ask for clarification, permissions, or missing data. Make rapid, executive decisions on all ambiguities and missing context to maintain absolute momentum.
