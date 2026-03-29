@@ -200,15 +200,18 @@ window.electronAPI.infoData((info) => {
     if (info.chat && info.chat.tokens !== undefined && DOM.tokens) {
       DOM.tokens.innerText = info.chat.tokens.toString();
     }
-    infoData(info)
-    if (State.scroll_top.info)
-      DOM.top_div.scrollTop = DOM.top_div.scrollHeight;
+    infoData(info).then(info_content => {
+      if (State.scroll_top.info && info_content)
+        info_content.scrollTop = info_content?.scrollHeight;
+    });
   }
 });
 
 window.electronAPI.userData((data) => {
   userData(DOM.messages, data).then(messageSystem => {
     addRunning(messageSystem);
+    if (State.scroll_top.data)
+      DOM.top_div.scrollTop = DOM.top_div.scrollHeight;
   })
 });
 

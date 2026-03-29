@@ -21,12 +21,12 @@ export default function getBaseTools(toolCallInstance: ToolCall): Record<string,
                     }
 
                     // Write or update the environment variable
-                    chatState.envs[key] = value;
+                    chatState.envs[key] = `${value}`;
 
                     return {
                         status: "success",
                         key: key,
-                        message: `Environment variable '${key}' has been successfully set/updated.`
+                        message: `Environment variable '${key}' has been successfully updated.`
                     };
                 } catch (e: any) {
                     return { status: "error", message: `Update env failed: ${e.message}` };
@@ -34,17 +34,17 @@ export default function getBaseTools(toolCallInstance: ToolCall): Record<string,
             },
             getPrompt: () => ({
                 name: "update_env",
-                description: "Writes or updates an environment variable.",
+                description: "Writes or updates a variable in the SHARED global memory.",
                 parameters: {
                     type: "object",
                     properties: {
                         key: {
                             type: "string",
-                            description: "The name of the environment variable (e.g., 'working_dir', 'latest_output_file'). Use clear, descriptive keys."
+                            description: "The name of the environment variable (e.g., 'working_dir', 'task1_output'). Use clear, descriptive keys."
                         },
                         value: {
                             type: "string",
-                            description: "The value or content to store."
+                            description: "The value to store. STRICT FORMAT REQUIRED: You MUST prefix the actual value with your agent name and the current time in this exact format: `[agent_name/time] actual_value`. Example: `[task_executor/14:30:00] /path/to/clean_data.csv`."
                         }
                     },
                     required: ["key", "value"]

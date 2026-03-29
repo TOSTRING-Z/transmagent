@@ -561,6 +561,7 @@ $$
         info_content.appendChild(info_item);
         info_content.dataset.content = (info_content.dataset.content || "") + info2.content;
       }
+      return info_content;
     }
   }
   async function toolData(chunk) {
@@ -637,6 +638,12 @@ $$
   }
 
   // main/subagent.ts
+  var State2 = {
+    scroll_top: {
+      info: true,
+      data: true
+    }
+  };
   var info = {
     id: null,
     name: null
@@ -645,17 +652,42 @@ $$
     messages: document.getElementById("messages"),
     infoName: document.getElementById("info-name"),
     minimizeBtn: document.getElementById("minimize-btn"),
-    closeBtn: document.getElementById("close-btn")
+    closeBtn: document.getElementById("close-btn"),
+    top_div: document.getElementById("top_div")
   };
-  window.electronAPI.streamData((chunk) => streamData(chunk));
+  document.addEventListener("DOMContentLoaded", () => {
+    DOM2.top_div.addEventListener("mouseenter", () => {
+      State2.scroll_top.info = false;
+      State2.scroll_top.data = false;
+    });
+    DOM2.top_div.addEventListener("mouseleave", () => {
+      State2.scroll_top.info = true;
+      State2.scroll_top.data = true;
+    });
+  });
+  window.electronAPI.streamData((chunk) => {
+    streamData(chunk).then((_) => {
+      if (State2.scroll_top.data)
+        DOM2.top_div.scrollTop = DOM2.top_div.scrollHeight;
+    });
+  });
   window.electronAPI.toolData((chunk) => toolData(chunk));
-  window.electronAPI.infoData((info2) => infoData(info2));
-  window.electronAPI.userData((data) => userData(DOM2.messages, data).then((messageSystem) => {
-    const thinking = messageSystem?.getElementsByClassName("thinking")[0];
-    thinking.classList.remove("hidden");
-    const btn = messageSystem?.getElementsByClassName("btn")[0];
-    btn.remove();
-  }));
+  window.electronAPI.infoData((info2) => {
+    infoData(info2).then((info_content) => {
+      if (State2.scroll_top.info && info_content)
+        info_content.scrollTop = info_content?.scrollHeight;
+    });
+  });
+  window.electronAPI.userData((data) => {
+    userData(DOM2.messages, data).then((messageSystem) => {
+      const thinking = messageSystem?.getElementsByClassName("thinking")[0];
+      thinking.classList.remove("hidden");
+      const btn = messageSystem?.getElementsByClassName("btn")[0];
+      btn.remove();
+      if (State2.scroll_top.data)
+        DOM2.top_div.scrollTop = DOM2.top_div.scrollHeight;
+    });
+  });
   window.electronAPI.windowInfo((data) => {
     info = data;
     DOM2.infoName.innerHTML = info.name;

@@ -290,6 +290,7 @@ export async function infoData(info: any) {
       info_content.appendChild(info_item);
       info_content.dataset.content = (info_content.dataset.content || '') + info.content;
     }
+    return info_content;
   }
 }
 
