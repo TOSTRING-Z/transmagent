@@ -356,6 +356,28 @@ export class ToolCall extends ReActAgent {
             }
         }
 
+        if (this.thinking_repetitions.length > (utils.getConfig("tool_call")?.max_thinking_repetitions || 5)) {
+            const error_message = `Detected repetitive thinking: "${currentThinking}". Repetition count: ${this.thinking_repetitions.length}`;
+            logger.warn(error_message);
+            this.llm_service.chatManager.pushMessage({
+                role: "assistant",
+                content: error_message,
+                group_id: this.llm_service.chatManager.chat.group_id,
+                context_id: this.llm_service.chatManager.chat.context_id,
+                show: true,
+                react: false
+            });
+            this.window?.webContents.send('streamData', {
+                group_id: this.llm_service.chatManager.chat.group_id,
+                context_id: this.llm_service.chatManager.chat.context_id,
+                content: error_message,
+                end: true,
+                chat: this.llm_service.chatManager.chat,
+            });
+            this.state = State.ERROR;
+            return;
+        }
+
         // 2. 先把包含所有 tool_calls 的助手消息压入历史记录 (只压一次！)
         const hasTool = this.toolInfos.some(t => t.tool);
         const isThinkingOnly = this.toolInfos.length === 1 && !this.toolInfos[0].tool;
@@ -417,8 +439,8 @@ export class ToolCall extends ReActAgent {
                 this.window?.webContents.send('streamData', {
                     group_id: this.llm_service.chatManager.chat.group_id,
                     context_id: this.llm_service.chatManager.chat.context_id,
-                    content: `⚠️ **Security Intercept**: ${auditError}\n\n`,
-                    chat: this.llm_service.chatManager.chat
+                    content: `⚠️ **Security Intercept**: ${auditError}\n\n---\n\n`,
+                    chat: this.llm_service.chatManager.chat,
                 });
 
                 continue; // 终止当前风险工具，继续执行数组中下一个工具
@@ -687,7 +709,7 @@ export class ToolCall extends ReActAgent {
             }
         }
 
-        if (this.state === State.FINAL) {
+        if (this.state === State.FINAL || (this.state as State) === State.ERROR) {
             if (!this.agentConfigs.subagent) {
                 this.setHistory();
             }
