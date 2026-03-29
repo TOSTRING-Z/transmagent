@@ -177,7 +177,7 @@
     "env_message": true,
     "todolist_message": true,
     "max_thinking_repetitions": 5,
-    "repetitions_delay_empty": 1,
+    "repetitions_delay_empty": 2,
     "tmpdir": "/tmp",
     "language": "english",
     "system_platform": "debian12",
