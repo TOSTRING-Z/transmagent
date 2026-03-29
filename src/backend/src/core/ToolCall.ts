@@ -1,11 +1,11 @@
 import * as os from 'os';
-import { ReActAgent, State, Mode, MODE_CONSTRAINTS } from './ReActAgent';
+import { ReActAgent, State, Mode } from './ReActAgent';
 import { utils, CHAT_CONST } from '../utils/globals';
 import { formatString } from '../utils/format';
 import { LLMService } from './LLMService';
 import { Message, ToolInfo } from '../types';
 import { MCPClient } from './McpClient';
-import Prompts from './Prompts';
+import Prompts, { MODE_CONSTRAINTS } from './Prompts';
 import MemoryManager from '../data/MemoryManager';
 import getBaseTools from './base_tools';
 import { ToolCallAdapterFactory } from '../factories/AdapterFactory';
@@ -32,6 +32,7 @@ export interface AgentConfigs {
     env?: boolean;
     subagent?: boolean;
     agent_mode?: "transagent" | "multagent" | "baseagent";
+    agent_name?: string;
     tool_format?: string;
 }
 
@@ -86,7 +87,8 @@ export class ToolCall extends ReActAgent {
             todolist: true,
             env: true,
             subagent: false,
-            agent_mode: "transagent"
+            agent_mode: "transagent",
+            agent_name: "TransMAgent",
         },
     ) {
         super(llm_service, window);

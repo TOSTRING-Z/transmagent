@@ -207,6 +207,7 @@ export class MainWindow extends BaseWindow {
             env: true,
             subagent: false,
             agent_mode: agent_mode,
+            agent_name: "TransMAgent",
             tool_format: this.llm_service.chatManager.chat.tool_format
         });
 

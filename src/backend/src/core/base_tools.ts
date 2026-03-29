@@ -34,17 +34,17 @@ export default function getBaseTools(toolCallInstance: ToolCall): Record<string,
             },
             getPrompt: () => ({
                 name: "update_env",
-                description: "Writes or updates an environment variable in the global `envs` object. CRITICAL: Use this tool to record important analytical processes, learned experiences, generated output file paths, working directories, and other key information so that context is not lost in future turns.",
+                description: "Writes or updates an environment variable.",
                 parameters: {
                     type: "object",
                     properties: {
                         key: {
                             type: "string",
-                            description: "The name of the environment variable (e.g., 'working_dir', 'compile_experience', 'latest_output_file'). Use clear, descriptive keys."
+                            description: "The name of the environment variable (e.g., 'working_dir', 'latest_output_file'). Use clear, descriptive keys."
                         },
                         value: {
                             type: "string",
-                            description: "The value or content to store. Keep the information highly relevant and concise."
+                            description: "The value or content to store."
                         }
                     },
                     required: ["key", "value"]

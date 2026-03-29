@@ -19,7 +19,7 @@ const prompt = {
 ## Chart Types
 - Preferred types of charts to be drawn.
 \`\`\``,
-    agent_description: `I am a professional data visualization expert specializing in creating high-quality, multi-perspective data charts.
+    agent_description: `I am chart_plotter, specializing in creating high-quality, multi-perspective data charts.
     
 **Trigger Conditions (When to route tasks to me)**:
 - **Chart & Graph Generation**: The task requires transforming raw data files or analysis results into visual representations (e.g., plots, graphs, networks).

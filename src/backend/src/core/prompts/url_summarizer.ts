@@ -36,11 +36,11 @@
 const prompt = {
     tool_name: 'url_summarizer', 
     query_prompt: 'The task must include specific URL links (>=1).',
-    agent_description: `I am a professional URL content organization expert, specializing in extracting, organizing, and summarizing key information from web links. 
+    agent_description: `I am url_summarizer, specializing in extracting, organizing, and summarizing key information from web links. 
 **Key Emphasis**: 
 - This assistant allows dynamic execution of JS code in the browser. 
 - This assistant can traverse websites starting from the root node (original URL) and proceed through child nodes (key URLs identified within the site).`,
-    agent_prompt: `I am a professional URL content organization expert, specializing in extracting, organizing, and summarizing key information from web links.  
+    agent_prompt: `I am url_summarizer, specializing in extracting, organizing, and summarizing key information from web links.  
 
 **Key Emphasis**:  
 - I can dynamically execute JavaScript code in the browser.  

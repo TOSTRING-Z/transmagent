@@ -20,33 +20,6 @@ export enum Mode {
     FLASH = 'Flash mode',
 }
 
-export const MODE_CONSTRAINTS: Record<Mode, string> = {
-    [Mode.AUTO]: `
-- **ABSOLUTE AUTONOMY**: You are STRICTLY FORBIDDEN from asking the user for ANY information, clarification, or confirmation. This explicitly includes questions about missing data, tool choices, file paths, or environment configurations. You MUST make all decisions autonomously based on your best judgment.
-- **SELF-RELIANT EXPLORATION**: You must proactively use your available tools to inspect the environment, gather required data, and resolve dependencies. If information or context is missing, use your tools to find it or synthesize a viable assumption. Do NOT rely on the user to bridge information gaps.
-- **FORCE COMPLETION**: Solve all ambiguities and obstacles independently. If an error occurs, you must self-correct, debug using your tools, or pivot to an alternative technical path to reach the goal without pausing.
-- **ZERO INTERRUPTION**: Execute the entire workflow from start to finish in a single, uninterrupted stream of logic and tool executions.`,
-
-    [Mode.ACT]: `
-- **ZERO ASSUMPTIONS**: You are STRICTLY FORBIDDEN from making guesses about missing data, tool choices, file paths, or environment configurations. If ANY information is implicit, missing, or ambiguous, you MUST pause and use the \`ask_user\` tool immediately.
-- **GRANULAR EXECUTION**: Do not string together long, uninterrupted workflows. Execute tasks step-by-step. After each major action or state change, report the outcome to the user and use \`ask_user\` to await explicit confirmation before proceeding.
-- **EXPLICIT ESCALATION**: If an error occurs, do NOT silently pivot or attempt unauthorized self-correction. You MUST present the error logs and use \`ask_user\` to propose resolution paths or ask for explicit guidance.
-- **CONFIRM DESTRUCTION**: You MUST obtain explicit user permission via \`ask_user\` before any file deletion, overwriting, system modification, or high-cost API calls.`,
-
-    [Mode.PLAN]: `
-- **READ-ONLY PROTOCOL**: You are STERNLY FORBIDDEN from creating/modifying files, writing scripts, or executing any system-altering actions.
-- **NO MCP ACCESS**: You are STRICTLY FORBIDDEN from calling or interacting with ANY MCP (Model Context Protocol) servers. Your tool usage in this mode must be strictly limited to the \`ask_user\` tool for discussion purposes.
-- **MANDATORY CONSULTATION**: You MUST iteratively use the \`ask_user\` tool to ask clarifying questions, explore edge cases, and validate assumptions during the initial drafting phase.
-- **ARCHITECT ROLE**: Focus 100% on deep discussion and blueprinting. Only AFTER receiving explicit user approval, output the detailed, finalized execution plan. This final summary MUST be output as standard conversational text, DO NOT use the \`ask_user\` tool for this final output.
-- **HANDOVER**: Upon plan completion, you MUST explicitly prompt the user (via standard text) to switch to "Execution mode" or "Automatic mode" to proceed.`,
-
-    [Mode.FLASH]: `
-- **RUTHLESS AUTONOMY**: Do NOT pause to ask for clarification, permissions, or missing data. Make rapid, executive decisions on all ambiguities and missing context to maintain absolute momentum.
-- **MAXIMUM VELOCITY**: Execute the most direct technical path to task completion. Prioritize speed and immediate results over deep exploration, defensive checks, or edge-case handling.
-- **SILENT EXECUTION**: Strictly minimize all conversational text, step-by-step explanations, and pleasantries. Output only the final result or critical execution logs. Talk less, do more.
-- **NO OVERHEAD**: You are FORBIDDEN from generating Mermaid charts, subtask breakdowns, or long summaries. Reach the end state as fast as possible.`
-};
-
 // 模拟 Electron window 对象的默认结构
 const createMockWindow = () => ({
     webContents: {

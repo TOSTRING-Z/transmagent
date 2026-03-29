@@ -2,7 +2,7 @@
 const prompt = {
     tool_name: 'error_solution_finder', 
     query_prompt: 'The task must include at least one specific error message or programming issue (>=1). The error message should be complete and include contextual details such as the programming language, package name, and environment.',
-    agent_description: `I am a professional programming error solution expert specializing in resolving R language issues, conda installations, package dependencies, and related programming problems.`,
+    agent_description: `I am error_solution_finder, specializing in resolving R language issues, conda installations, package dependencies, and related programming problems.`,
     agent_prompt: `I am a professional programming error solution expert specializing in resolving R language issues, conda installations, package dependencies, and related programming problems.
 
 **Core Responsibilities**:

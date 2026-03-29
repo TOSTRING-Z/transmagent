@@ -184,7 +184,7 @@ export class SubAgentWindow extends BaseWindow {
 
         const tool_call = new ToolCall(
             this.plugins, normalizedTools, llm_service, null,
-            { agent_prompt, subagent: true, todolist, env, mcp_server },
+            { agent_prompt, subagent: true, todolist, env, mcp_server, agent_name: tool_name },
         );
 
         this.agentTools[tool_name] = {
