@@ -96,6 +96,7 @@ class Prompts {
       const isMultagent = this.agent.agentConfigs.agent_mode === "multagent";
       const hasTodolist = !!this.agent.agentConfigs.todolist;
       const hasEnv = !!this.agent.agentConfigs.env;
+      const hasSkill = !!this.agent.agentConfigs.skill;
       const hasMemory = !isSubagent && utils.getConfig('embedding')?.enabled;
       const isTransagent = this.agent.agentConfigs.agent_mode === "transagent";
       const hasMcpServer = !!this.agent.agentConfigs.mcp_server;
@@ -169,10 +170,12 @@ ${!isSubagent ? `
 3. **OBSERVATION**: Review tool output. Adjust plan.
 4. **FINISH (CRITICAL)**: If the overarching task is 100% complete, your final action is to output a plain-text summary directly. **YOU MUST NOT CALL ANY TOOLS WHEN THE TASK IS COMPLETE.**
 
+${hasSkill ? `
 # 🧩 Agent Skills Capability
 You support **Agent Skills**—modular capabilities loaded dynamically from the \`${this.skillManager.getSkillsPath()}\` directory. 
 - **Discovery**: When a user's request matches a skill's description, its instructions are injected below.
 - **Constraints**: If a skill specifies \`allowed-tools\`, you MUST prioritize those tools.
+` : ``}
 
 ${(!isSubagent && hasTodolist) ? `
 # 🏗️ COMPLEX TASK PROTOCOL

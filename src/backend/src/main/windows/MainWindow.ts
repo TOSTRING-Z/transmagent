@@ -187,6 +187,7 @@ export class MainWindow extends BaseWindow {
         let agentTools = {};
         let agent_mode: AgentConfigs["agent_mode"] = "transagent";
         let mcp_server = true;
+        let skill = true;
 
         if (this.funcItems.react.transagent.statu && utils.getConfig("tool_call")?.subagent) {
             agentTools = { "tool_manager": this.windowManager.subAgentWindow?.agentTools?.["tool_manager"] };
@@ -194,6 +195,7 @@ export class MainWindow extends BaseWindow {
         if (this.funcItems.react.multagent.statu) {
             agent_mode = "multagent";
             mcp_server = false;
+            skill = false;
             agentTools = { ...this.windowManager.subAgentWindow?.getMainSubAgent() };
         }
         if (this.funcItems.react.baseagent.statu) {
@@ -205,6 +207,7 @@ export class MainWindow extends BaseWindow {
             mcp_server: mcp_server,
             todolist: true,
             env: true,
+            skill: skill,
             subagent: false,
             agent_mode: agent_mode,
             agent_name: "TransMAgent",

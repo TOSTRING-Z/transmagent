@@ -30,6 +30,7 @@ export interface AgentConfigs {
     mcp_server?: boolean;
     todolist?: boolean;
     env?: boolean;
+    skill?: boolean;
     subagent?: boolean;
     agent_mode?: "transagent" | "multagent" | "baseagent";
     agent_name?: string;
@@ -86,6 +87,7 @@ export class ToolCall extends ReActAgent {
             mcp_server: true,
             todolist: true,
             env: true,
+            skill: true,
             subagent: false,
             agent_mode: "transagent",
             agent_name: "TransMAgent",
@@ -308,7 +310,7 @@ export class ToolCall extends ReActAgent {
             this.state = State.RUNNING;
         }
 
-        if (!this.mcp_prompt && this.agentConfigs.mcp_server) {
+        if (!this.mcp_prompt) {
             await this.mcp_client.initMcp();
             this.mcp_prompt = this.mcp_client.mcpPrompt;
         }
