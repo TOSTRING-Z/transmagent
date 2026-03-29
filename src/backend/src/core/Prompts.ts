@@ -247,11 +247,13 @@ ${(!isSubagent && isTransagent) ? `
 {cli_prompt}
 ` : ""}
 
-${(!isSubagent && hasMcpServer) ? `
+${hasMcpServer ? `
 ## MCP Services
 **Note**: Use \`mcp_server\` to access these external tools.
 {mcp_prompt}
+` : ""}
 
+${hasSkill ? `
 {skill_prompt}
 ` : ""}
 
