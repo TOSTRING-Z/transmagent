@@ -315,6 +315,17 @@ export class SubAgentWindow extends BaseWindow {
                     options: { todolist: false, env: true, skill: false, mcp_server: false },
                     isMain: true
                 },
+                {
+                    promptModule: 'deepresearch',
+                    getTools: () => this.normalizeTools({
+                        literature_search: this.plugins.getTool("literature_search"),
+                        web_crawler_toolkit: this.plugins.getTool("web_crawler_toolkit"),
+                        browser_client: this.plugins.getTool("browser_client"),
+                        url_summarizer: this.agentTools["url_summarizer"],
+                    }),
+                    options: { todolist: false, env: true, skill: false, mcp_server: false },
+                    isMain: true
+                },
             ];
 
         for (const def of agentDefs) {

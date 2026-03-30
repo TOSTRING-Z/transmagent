@@ -155,6 +155,16 @@
         "local_path": null
       },
       "enabled": true
+    },
+    "literature_search": {
+      "params": {
+        "maxResults": 20,
+        "source": "all"
+      },
+      "enabled": true,
+      "show": true,
+      "require_confirmation": false,
+      "confirmation_message": "即将搜索学术文献，是否继续？"
     }
   },
   "mcp_server": {
@@ -176,7 +186,7 @@
     "subagent_llm_init": false,
     "env_message": true,
     "todolist_message": true,
-    "max_thinking_repetitions": 5,
+    "max_response_repetitionss": 5,
     "repetitions_delay_empty": 2,
     "tmpdir": "/tmp",
     "language": "english",

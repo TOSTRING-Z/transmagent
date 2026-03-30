@@ -15,6 +15,7 @@ import { ToolDSL, Primitives } from "../utils/ToolDSL";
 import { logger } from '../utils/logger';
 import { WindowManager } from '../main/windows/WindowManager';
 import { LLMAssistant } from './LLMAssistant';
+import { json } from 'stream/consumers';
 const { all, any, not, always } = ToolDSL;
 const { isSubagent, isMode, hasArg } = Primitives;
 
@@ -67,7 +68,7 @@ export class ToolCall extends ReActAgent {
     public todolist_prompt: string;
     public current_context_id: number = 0;
     public memory_list: Message[] = [];
-    public thinking_repetitions: (string | null)[] = [];
+    public response_repetitions: (string | null)[] = [];
     public repetitions_delay_empty: number = 0;
     public environment_details!: EnvironmentDetails;
     public toolInfos: ToolInfo[] = [];
@@ -116,7 +117,7 @@ export class ToolCall extends ReActAgent {
     public initVar() {
         this.state = State.IDLE;
         this.memory_list = [];
-        this.thinking_repetitions = [];
+        this.response_repetitions = [];
         this.repetitions_delay_empty = 0;
 
         this.environment_details = {
@@ -340,24 +341,22 @@ export class ToolCall extends ReActAgent {
             return
         }; // 容错处理
 
-        // 1. 记录与判断重复思考
-        const currentThinking = this.toolInfos[0]?.thinking;
+        // 1. 记录与重复检测
+        const currentResponse = JSON.stringify(this.toolInfos);
 
-        // 与上一次思考内容对比，而不是第一次
-        if (this.thinking_repetitions.length === 0 || this.thinking_repetitions[this.thinking_repetitions.length - 1] === currentThinking) {
-            this.thinking_repetitions.push(currentThinking);
-            this.repetitions_delay_empty = 0; // 如果重复，重置容错延迟计数
+        if (this.response_repetitions.length === 0 || this.response_repetitions[this.response_repetitions.length - 1] === currentResponse) {
+            this.response_repetitions.push(currentResponse);
+            this.repetitions_delay_empty = 0;
         } else {
             this.repetitions_delay_empty += 1;
-            // 超过容错次数，清空记录并以当前的思考作为新的起点
             if (this.repetitions_delay_empty >= (utils.getConfig("tool_call")?.repetitions_delay_empty || 1)) {
-                this.thinking_repetitions = [currentThinking];
+                this.response_repetitions = [currentResponse];
                 this.repetitions_delay_empty = 0;
             }
         }
 
-        if (this.thinking_repetitions.length > (utils.getConfig("tool_call")?.max_thinking_repetitions || 5)) {
-            const error_message = `Detected repetitive thinking: "${currentThinking}". Repetition count: ${this.thinking_repetitions.length}`;
+        if (this.response_repetitions.length > (utils.getConfig("tool_call")?.max_response_repetitions || 5)) {
+            const error_message = `Detected repetitive response: "${currentResponse}". Repetition count: ${this.response_repetitions.length}`;
             logger.warn(error_message);
             this.llm_service.chatManager.pushMessage({
                 role: "assistant",
@@ -590,21 +589,22 @@ export class ToolCall extends ReActAgent {
                 observation = {
                     result: "Tool does not exist."
                 };
-            }
-            const will_tool = this.tools[toolInfo.tool as string].func;
-            const response = await will_tool(toolInfo?.params);
-            let result: string;
-            if (response?.subagent_tool) {
-                result = response.content;
             } else {
-                result = typeof response === 'string' ? response : JSON.stringify(response, null, 2);
+                const will_tool = this.tools[toolInfo.tool as string].func;
+                const response = await will_tool(toolInfo?.params);
+                let result: string;
+                if (response?.subagent_tool) {
+                    result = response.content;
+                } else {
+                    result = typeof response === 'string' ? response : JSON.stringify(response, null, 2);
+                }
+                observation = {
+                    result: result,
+                    ask: response?.ask,
+                    options: response?.options,
+                    subagent_tool: response?.subagent_tool
+                };
             }
-            observation = {
-                result: result,
-                ask: response?.ask,
-                options: response?.options,
-                subagent_tool: response?.subagent_tool
-            };
         } catch (error: any) {
             console.error(error);
             observation = {

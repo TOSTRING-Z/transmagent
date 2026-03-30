@@ -160,7 +160,7 @@ The installation follows all requirements: online tools are packaged as API inte
 
 ---
 
-## BaseAgent模式下实现转录调控工具自动化测试与修复
+## TransAgent模式下实现转录调控工具自动化测试与修复
 
 **用户提示词（测试）**
 
