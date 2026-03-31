@@ -1,10 +1,11 @@
+import { startAgentLoop } from './chat';
 import { DOM, State } from './globals';
 import { createElement } from './utils';
 // UI Helper Functions
 export function showLog(type, content) {
     window.electronAPI.showLog({ type, content });
 }
-export function toggleMode(mode, send = true) {
+export function toggleMode(mode, send = false) {
     if (send)
         window.electronAPI.changeMode(mode);
     DOM.auto.classList.remove("active");
@@ -106,7 +107,8 @@ export function loadOptions() {
             if (query) {
                 State.formData.query = query;
                 State.formData.prompt = DOM.system_prompt.value;
-                window.electronAPI.clickSubmit(State.formData);
+                startAgentLoop(State.formData);
+                window.electronAPI.agentLoop(State.formData);
             }
         });
         card.style.cursor = 'pointer';

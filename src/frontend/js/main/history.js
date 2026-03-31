@@ -51,16 +51,8 @@ export async function selectChat(chatId) {
     DOM.tokens.innerText = State.chat.tokens.toString();
     DOM.msg_count.innerText = State.chat.msg_count?.toString() || "0";
     DOM.seconds.innerText = State.chat.seconds.toFixed(1);
-    // ======== 小圆的魔法：同步配置面板的 UI ========
-    const model_select = document.getElementById('ai-model');
-    if (model_select && State.chat.model) {
-        model_select.value = State.chat.model;
-    }
-    const compress_box = document.getElementById('compress-context');
-    if (compress_box) {
-        compress_box.checked = !!State.chat.compress_context;
-    }
-    // ==============================================
+    DOM.model_select.value = State.chat.model;
+    DOM.compress_box.checked = State.chat.compress_context || false;
     const items = DOM.history_list.getElementsByClassName("history-item");
     Array.from(items).forEach((item) => {
         if (item.id == chatId)

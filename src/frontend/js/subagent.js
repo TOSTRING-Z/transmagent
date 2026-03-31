@@ -621,11 +621,25 @@ $$
         }
         message_content.dataset.content = (message_content.dataset.content || "") + chunk.content;
       }
+      if (chunk.reasoning_content) {
+        const thinking = messageSystem.getElementsByClassName("thinking")[0];
+        thinking.classList.remove("hidden");
+        const existingReasoning = message_content.dataset.reasoning_content || "";
+        message_content.dataset.reasoning_content = existingReasoning + chunk.reasoning_content;
+      }
       if (chunk.end) {
         if (State.seconds_timer) {
           clearInterval(State.seconds_timer);
           State.seconds_timer = null;
         }
+        const reasoningContent = message_content.dataset.reasoning_content || "";
+        const textContent = message_content.dataset.content || "";
+        const fullContent = (reasoningContent ? `<thinking>
+${reasoningContent}
+</thinking>
+` : "") + textContent;
+        const parsedContent = await marked.parse(fullContent);
+        message_content.innerHTML = parsedContent;
         const thinking = messageSystem.getElementsByClassName("thinking")[0];
         thinking.classList.add("hidden");
         if (!messageSystem.dataset?.event_stop) {
