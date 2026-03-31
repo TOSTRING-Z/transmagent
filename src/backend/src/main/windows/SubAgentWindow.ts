@@ -127,7 +127,6 @@ export class SubAgentWindow extends BaseWindow {
                         // 计划模式下，子代理默认为自动模式
                         this.agentTool.tool_call.changeMode("auto");
                     }
-                    this.agentTool.tool_call.changeMode(this.windowManager.mainWindow.llm_service.chatManager.chat.mode);
 
                     if (utils.getConfig("tool_call")?.subagent_llm_init || this.windows.length > 1) {
                         this.agentTool.tool_call.llm_service.chatManager.init();
