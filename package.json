@@ -80,8 +80,7 @@
     "clean": "rm -rf dist",
     "rebuild": "tsc --build --clean",
     "start": "electron . --enable-logging --log-level=debug --no-sandbox",
-    "dist": "electron-builder --win --x64",
-    "electron-build": "electron-builder --win --dir",
+    "dist": "electron-builder",
     "debug": "electron --inspect=5858 . --enable-logging --log-level=debug --no-sandbox",
     "start:dev": "NODE_ENV=development electron -r source-map-support/register . --enable-logging --log-level=debug --no-sandbox",
     "debug:dev": "electron --inspect=5858 -r source-map-support/register ."
