@@ -77,30 +77,36 @@ export function main() {
         try {
             // 1. 安全解析目标路径
             const resolvedTarget = path.resolve(targetPath);
-            if (!fs.existsSync(resolvedTarget)) {
-                throw new Error(`Directory not found: ${resolvedTarget}`);
-            }
-
-            // 2. 动态加载 Glob 模块
-            // eslint-disable-next-line @typescript-eslint/no-var-requires
-            const globModule = require('glob');
-            const globOptions = { cwd: resolvedTarget, nodir: true, absolute: true };
-
+            
+            // 2. 判断是单文件还是目录
+            const stats = fs.statSync(resolvedTarget);
             let files: string[] = [];
+            
+            if (stats.isFile()) {
+                // 如果是单文件，直接使用该文件
+                files = [resolvedTarget];
+            } else if (stats.isDirectory()) {
+                // 如果是目录，使用 glob 扫描
+                // eslint-disable-next-line @typescript-eslint/no-var-requires
+                const globModule = require('glob');
+                const globOptions = { cwd: resolvedTarget, nodir: true, absolute: true };
 
-            // 处理不同的 glob 版本 API
-            if (typeof globModule.globSync === 'function') {
-                files = globModule.globSync(file_pattern, globOptions);
-            } else if (typeof globModule.sync === 'function') {
-                files = globModule.sync(file_pattern, globOptions);
+                // 处理不同的 glob 版本 API
+                if (typeof globModule.globSync === 'function') {
+                    files = globModule.globSync(file_pattern, globOptions);
+                } else if (typeof globModule.sync === 'function') {
+                    files = globModule.sync(file_pattern, globOptions);
+                } else {
+                    // Promise-based API (glob v10+)
+                    files = await globModule(file_pattern, globOptions);
+                }
+
+                // 确保 files 是数组
+                if (!Array.isArray(files)) {
+                    files = [];
+                }
             } else {
-                // Promise-based API (glob v10+)
-                files = await globModule(file_pattern, globOptions);
-            }
-
-            // 确保 files 是数组
-            if (!Array.isArray(files)) {
-                files = [];
+                throw new Error(`Path is neither a file nor a directory: ${resolvedTarget}`);
             }
 
             // 检查 Glob 扫描是否超时
@@ -113,7 +119,9 @@ export function main() {
                 .map(f => path.isAbsolute(f) ? f : path.resolve(resolvedTarget, f))
                 .filter(f => {
                     const rel = path.relative(resolvedTarget, f);
-                    return rel && !rel.startsWith('..') && !path.isAbsolute(rel);
+                    // 单文件情况下 rel 为空字符串，也应该保留
+                    // 目录情况下要确保文件在目录内（不是父目录的..路径）
+                    return (rel === '' || (rel && !rel.startsWith('..') && !path.isAbsolute(rel)));
                 });
 
             if (validFiles.length === 0) {
