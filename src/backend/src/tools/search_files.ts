@@ -70,9 +70,9 @@ function isTextFile(filePath: string): boolean {
 }
 
 export function main() {
-    // [修改] 增加 timeout_ms 参数，默认 10000 毫秒
-    return async ({ path: targetPath, regex = "test$", file_pattern = "*.js", timeout_ms = 10000 }: SearchFilesParams): Promise<SearchResult[] | string> => {
-        const startTime = Date.now(); // [新增] 记录开始时间
+    return async ({ path: targetPath, regex = "", file_pattern = "**/*", timeout_ms = 30000 }: SearchFilesParams): Promise<SearchResult[] | string> => {
+        const startTime = Date.now();
+        const MAX_RESULTS = 100;
 
         try {
             // 1. 安全解析目标路径
@@ -81,38 +81,36 @@ export function main() {
                 throw new Error(`Directory not found: ${resolvedTarget}`);
             }
 
-            // 2. 动态兼容加载 Glob 模块
+            // 2. 动态加载 Glob 模块
             // eslint-disable-next-line @typescript-eslint/no-var-requires
             const globModule = require('glob');
             const globOptions = { cwd: resolvedTarget, nodir: true, absolute: true };
 
             let files: string[] = [];
 
-            if (globModule.globSync || globModule.sync) {
-                const syncFn = globModule.globSync || globModule.sync;
-                files = syncFn(file_pattern, globOptions);
+            // 处理不同的 glob 版本 API
+            if (typeof globModule.globSync === 'function') {
+                files = globModule.globSync(file_pattern, globOptions);
+            } else if (typeof globModule.sync === 'function') {
+                files = globModule.sync(file_pattern, globOptions);
             } else {
-                files = await new Promise((resolve, reject) => {
-                    const result = globModule(file_pattern, globOptions, (err: any, matches: string[]) => {
-                        if (err) reject(err);
-                        else resolve(matches);
-                    });
-                    if (result && typeof result.then === 'function') {
-                        result.then(resolve).catch(reject);
-                    }
-                });
+                // Promise-based API (glob v10+)
+                files = await globModule(file_pattern, globOptions);
             }
 
-            if (!Array.isArray(files)) files = [];
+            // 确保 files 是数组
+            if (!Array.isArray(files)) {
+                files = [];
+            }
 
-            // [新增] 检查 Glob 扫描是否已经超时
+            // 检查 Glob 扫描是否超时
             if (Date.now() - startTime > timeout_ms) {
                 throw new Error(`Search timed out after ${timeout_ms}ms during file gathering.`);
             }
 
-            // 3. 【终极防御机制】：强制丢弃所有逃逸出 targetPath 目录之外的文件
+            // 3. 防御机制：过滤出 targetPath 内的文件
             const validFiles = Array.from(new Set(files))
-                .map(f => path.resolve(resolvedTarget, f)) 
+                .map(f => path.isAbsolute(f) ? f : path.resolve(resolvedTarget, f))
                 .filter(f => {
                     const rel = path.relative(resolvedTarget, f);
                     return rel && !rel.startsWith('..') && !path.isAbsolute(rel);
@@ -124,29 +122,42 @@ export function main() {
 
             const results: SearchResult[] = [];
             const regexObj = new RegExp(regex, 'g');
+            let match: RegExpExecArray | null;
+            let fileProcessingTimedOut = false;
 
             // 4. 读取与正则匹配
             for (const file of validFiles) {
-                // [新增] 检查文件遍历是否超时
+                if (fileProcessingTimedOut) break;
+
+                // 检查文件遍历是否超时
                 if (Date.now() - startTime > timeout_ms) {
                     logger.warn(`Search interrupted: Timed out after ${timeout_ms}ms. Partial results returned.`);
-                    break; // 超时则中断，返回已收集到的结果
+                    fileProcessingTimedOut = true;
+                    break;
                 }
 
                 if (!isTextFile(file)) continue;
 
-                const content = fs.readFileSync(file, 'utf8');
-                let match;
+                // 单独捕获文件读取错误，避免一个文件失败影响其他文件
+                let content: string;
+                try {
+                    content = fs.readFileSync(file, 'utf8');
+                } catch (readError: any) {
+                    logger.warn(`Skipping file due to read error: ${file}, Error: ${readError.message}`);
+                    continue;
+                }
 
                 regexObj.lastIndex = 0;
                 let currentLine = 1;
                 let lastNewLineIndex = -1;
+                let regexTimedOut = false;
 
                 while ((match = regexObj.exec(content)) !== null) {
-                    // [新增] 检查正则匹配循环是否超时
+                    // 检查正则匹配循环是否超时
                     if (Date.now() - startTime > timeout_ms) {
                         logger.warn(`Search interrupted during regex execution: Timed out after ${timeout_ms}ms.`);
-                        break; 
+                        regexTimedOut = true;
+                        break;
                     }
 
                     if (match.index === regexObj.lastIndex) {
@@ -154,13 +165,13 @@ export function main() {
                     }
                     if (match[0].length === 0) continue;
 
-                    const MAX_MATCH_LENGTH = 150; 
+                    const MAX_MATCH_LENGTH = 150;
                     const isTruncated = match[0].length > MAX_MATCH_LENGTH;
                     const safeMatch = isTruncated
                         ? match[0].substring(0, MAX_MATCH_LENGTH) + '...'
                         : match[0];
 
-                    const CONTEXT_PADDING = 20; 
+                    const CONTEXT_PADDING = 20;
                     const start = Math.max(0, match.index - CONTEXT_PADDING);
                     const matchEnd = match.index + (isTruncated ? MAX_MATCH_LENGTH : match[0].length);
                     const end = Math.min(content.length, matchEnd + CONTEXT_PADDING);
@@ -182,23 +193,30 @@ export function main() {
                         line: currentLine
                     });
 
-                    if (results.length >= 100) break;
+                    if (results.length >= MAX_RESULTS) {
+                        fileProcessingTimedOut = true;
+                        break;
+                    }
                 }
-                if (results.length >= 100) break;
+
+                if (regexTimedOut) {
+                    fileProcessingTimedOut = true;
+                    break;
+                }
             }
 
-            return results; // 返回（部分或全部）结果
+            return results;
         } catch (error: any) {
             logger.error(`Search files error: ${error.message}`);
             return error.message;
         }
-    }
+    };
 }
 
 export function getPrompt() {
     return {
         "name": "search_files",
-        "description": "Recursively search text file contents under a specified directory, match using a regular expression, and return matches with surrounding context (up to 100 results).\nNote: regex matches file contents, not filenames. If you want to filter by filename, use file_pattern (glob).\nNotes: - In JSON strings, escape backslashes twice (see example).\n- file_pattern uses glob syntax; \"**\" means recursive.\n- regex is used to search file contents, not filenames. To filter by name, adjust file_pattern.\n- To avoid performance issues, narrow the path or restrict file_pattern. Binary files are automatically ignored.",
+        "description": "Recursively search text file contents under a specified directory, match using a regular expression, and return matches with surrounding context (up to 100 results).\nNote: regex matches file contents, not filenames. If you want to filter by filename, use file_pattern (glob).\nNotes: - In JSON strings, escape backslashes twice (see example).\n- file_pattern uses glob syntax; \"**\" means recursive.\n- To avoid performance issues, narrow the path or restrict file_pattern. Binary files are automatically ignored.",
         "parameters": {
             "type": "object",
             "properties": {
@@ -212,23 +230,11 @@ export function getPrompt() {
                 },
                 "file_pattern": {
                     "type": "string",
-                    "description": "(optional): glob pattern for files to scan (default \"*.js\"). Examples: \"**/*\" (all files), \"**/*.ts\" (all ts files), \"*.env\" (env files in current dir)"
+                    "description": "(optional): glob pattern for files to scan (default \"**/*\"). Examples: \"**/*\" (all files), \"**/*.ts\" (all ts files), \"*.env\" (env files in current dir)"
                 },
-                "file": {
-                    "type": "string",
-                    "description": "file path relative to path"
-                },
-                "match": {
-                    "type": "string",
-                    "description": "matched text (from file content)"
-                },
-                "context": {
-                    "type": "string",
-                    "description": "about 10 characters before and after the match"
-                },
-                "line": {
+                "timeout_ms": {
                     "type": "number",
-                    "description": "line number of the match (1-based)"
+                    "description": "(optional): timeout in milliseconds for the entire search operation (default 30000)"
                 }
             },
             "required": [
