@@ -644,22 +644,23 @@ $$
       let chunk_item_reasoning_content = null;
       let chunk_item = null;
       let chunk_item_query = message_content.querySelectorAll(`[chunk_data-id='${context_id}']`);
-      if (chunk_item_query.length > 0) {
-        let existingItem = chunk_item_query[0];
-        chunk_content = (existingItem.dataset.content || "") + chunk.content || "";
-        chunk_item_content = await marked.parse(chunk_content);
-        chunk_item = existingItem;
-        chunk_item.dataset.content = chunk_content;
-        chunk_item.getElementsByClassName("chunk-content")[0].innerHTML = chunk_item_content;
-        if (chunk.reasoning_content) {
-          chunk_item.getElementsByClassName("chunk-reasoning-content")[0].style.display = "block";
-          chunk_reasoning_content = (existingItem.dataset.reasoning_content || "") + chunk.reasoning_content || "";
-          chunk_item_reasoning_content = await marked.parse(chunk_reasoning_content);
-          chunk_item.dataset.reasoning_content = chunk_reasoning_content;
-          chunk_item.getElementsByClassName("chunk-reasoning-content")[0].innerHTML = chunk_item_reasoning_content;
-        }
-      } else {
-        chunk_item = createElement(`<div chunk_data-id="${context_id}">
+      if (chunk?.content || chunk?.reasoning_content) {
+        if (chunk_item_query.length > 0) {
+          let existingItem = chunk_item_query[0];
+          chunk_content = (existingItem.dataset.content || "") + chunk.content || "";
+          chunk_item_content = await marked.parse(chunk_content);
+          chunk_item = existingItem;
+          chunk_item.dataset.content = chunk_content;
+          chunk_item.getElementsByClassName("chunk-content")[0].innerHTML = chunk_item_content;
+          if (chunk.reasoning_content) {
+            chunk_item.getElementsByClassName("chunk-reasoning-content")[0].style.display = "block";
+            chunk_reasoning_content = (existingItem.dataset.reasoning_content || "") + chunk.reasoning_content || "";
+            chunk_item_reasoning_content = await marked.parse(chunk_reasoning_content);
+            chunk_item.dataset.reasoning_content = chunk_reasoning_content;
+            chunk_item.getElementsByClassName("chunk-reasoning-content")[0].innerHTML = chunk_item_reasoning_content;
+          }
+        } else {
+          chunk_item = createElement(`<div chunk_data-id="${context_id}">
           <div class="chunk">
             <div class="chunk-reasoning-content"></div>
             <div class="chunk-content"></div>
@@ -670,36 +671,37 @@ $$
             </div>
           </div>
         </div>`);
-        if (chunk?.del)
-          chunk_item.classList.add("del");
-        chunk_content = chunk.content || "";
-        chunk_item_content = await marked.parse(chunk_content);
-        chunk_item.dataset.content = chunk_content;
-        chunk_item.getElementsByClassName("chunk-content")[0].innerHTML = chunk_item_content;
-        if (chunk.reasoning_content) {
-          chunk_reasoning_content = chunk.reasoning_content || "";
-          chunk_item_reasoning_content = await marked.parse(chunk_reasoning_content);
-          chunk_item.dataset.reasoning_content = chunk_reasoning_content;
-          chunk_item.getElementsByClassName("chunk-reasoning-content")[0].innerHTML = chunk_item_reasoning_content;
-        } else {
-          chunk_item.getElementsByClassName("chunk-reasoning-content")[0].style.display = "none";
+          if (chunk?.del)
+            chunk_item.classList.add("del");
+          chunk_content = chunk.content || "";
+          chunk_item_content = await marked.parse(chunk_content);
+          chunk_item.dataset.content = chunk_content;
+          chunk_item.getElementsByClassName("chunk-content")[0].innerHTML = chunk_item_content;
+          if (chunk.reasoning_content) {
+            chunk_reasoning_content = chunk.reasoning_content || "";
+            chunk_item_reasoning_content = await marked.parse(chunk_reasoning_content);
+            chunk_item.dataset.reasoning_content = chunk_reasoning_content;
+            chunk_item.getElementsByClassName("chunk-reasoning-content")[0].innerHTML = chunk_item_reasoning_content;
+          } else {
+            chunk_item.getElementsByClassName("chunk-reasoning-content")[0].style.display = "none";
+          }
+          if (!State.react_statu || chunk?.is_plugin) {
+            chunk_item.getElementsByClassName("chunk-actions")[0].style.display = "none";
+          }
+          chunk_item.getElementsByClassName("chunk-delete")[0].addEventListener("click", () => {
+            toggleContextMessage(context_id);
+          });
+          chunk_item.getElementsByClassName("chunk-location")[0].addEventListener("click", () => {
+            locateContextMessage(context_id);
+          });
+          chunk_item.getElementsByClassName("chunk-quote")[0].addEventListener("click", () => {
+            quoteContextMessage(context_id);
+          });
+          message_content.appendChild(chunk_item);
         }
-        if (!State.react_statu || chunk?.is_plugin) {
-          chunk_item.getElementsByClassName("chunk-actions")[0].style.display = "none";
-        }
-        chunk_item.getElementsByClassName("chunk-delete")[0].addEventListener("click", () => {
-          toggleContextMessage(context_id);
-        });
-        chunk_item.getElementsByClassName("chunk-location")[0].addEventListener("click", () => {
-          locateContextMessage(context_id);
-        });
-        chunk_item.getElementsByClassName("chunk-quote")[0].addEventListener("click", () => {
-          quoteContextMessage(context_id);
-        });
-        message_content.appendChild(chunk_item);
+        message_content.dataset.content = (message_content.dataset.content || "") + chunk.content || "";
+        message_content.dataset.reasoning_content = (message_content.dataset.reasoning_content || "") + chunk.reasoning_content || "";
       }
-      message_content.dataset.content = (message_content.dataset.content || "") + chunk.content || "";
-      message_content.dataset.reasoning_content = (message_content.dataset.reasoning_content || "") + chunk.reasoning_content || "";
       if (chunk.end) {
         if (State.seconds_timer) {
           clearInterval(State.seconds_timer);

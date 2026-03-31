@@ -207,7 +207,7 @@ ${usePromptFormat ? `
 
 **Tool Use Schema**:
 {
-  "thinking": "Concise reasoning for this step.",
+  "content": "Concise reasoning for this step.",
   "tool": "tool_name",
   "params": { "key": "value" }
 }

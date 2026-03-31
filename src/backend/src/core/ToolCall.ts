@@ -442,7 +442,7 @@ export class ToolCall extends ReActAgent {
                 this.window?.webContents.send('streamData', {
                     group_id: this.llm_service.chatManager.chat.group_id,
                     context_id: this.llm_service.chatManager.chat.context_id,
-                    content: `⚠️ **Security Intercept**: ${auditError}\n\n`,
+                    content: `\n\n---\n\n⚠️ **Security Intercept**: ${auditError}`,
                     chat: this.llm_service.chatManager.chat,
                 });
 
@@ -479,7 +479,7 @@ export class ToolCall extends ReActAgent {
                         this.window?.webContents.send('streamData', {
                             group_id: this.llm_service.chatManager.chat.group_id,
                             context_id: this.llm_service.chatManager.chat.context_id,
-                            content: `❌ **执行取消**: ${cancelMessage}\n\n`,
+                            content: `\n\n---\n\n❌ **执行取消**: ${cancelMessage}`,
                             chat: this.llm_service.chatManager.chat
                         });
                     }
@@ -539,7 +539,7 @@ export class ToolCall extends ReActAgent {
                         this.window?.webContents.send('streamData', {
                             group_id: this.llm_service.chatManager.chat.group_id,
                             context_id: this.llm_service.chatManager.chat.context_id,
-                            content: `❌ **执行取消**: ${cancelMessage}\n\n`,
+                            content: `\n\n---\n\n❌ **执行取消**: ${cancelMessage}`,
                             chat: this.llm_service.chatManager.chat
                         });
                     }
@@ -584,7 +584,7 @@ export class ToolCall extends ReActAgent {
             this.window?.webContents.send('streamData', { 
                 group_id: this.llm_service.chatManager.chat.group_id, 
                 context_id: this.llm_service.chatManager.chat.context_id, 
-                content: content, 
+                content: `\n\n${content}`, 
                 reasoning_content: reasoning_content, 
                 chat: this.llm_service.chatManager.chat 
             });
@@ -634,25 +634,25 @@ export class ToolCall extends ReActAgent {
 
         switch (toolInfo?.tool) {
             case "display_file":
-                this.window?.webContents.send('streamData', { group_id: this.llm_service.chatManager.chat.group_id, context_id: this.llm_service.chatManager.chat.context_id, content: `${observation.result}\n\n`, chat: this.llm_service.chatManager.chat });
+                this.window?.webContents.send('streamData', { group_id: this.llm_service.chatManager.chat.group_id, context_id: this.llm_service.chatManager.chat.context_id, content: `\n\n${observation.result}`, chat: this.llm_service.chatManager.chat });
                 break;
             case "add_subtasks":
             case "record_subtasks":
-                this.window?.webContents.send('streamData', { group_id: this.llm_service.chatManager.chat.group_id, context_id: this.llm_service.chatManager.chat.context_id, content: `\`\`\`json\n${observation.result}\n\`\`\`\n\n`, chat: this.llm_service.chatManager.chat });
+                this.window?.webContents.send('streamData', { group_id: this.llm_service.chatManager.chat.group_id, context_id: this.llm_service.chatManager.chat.context_id, content: `\n\n\`\`\`json\n${observation.result}\n\`\`\``, chat: this.llm_service.chatManager.chat });
                 break;
         }
 
         if (observation.subagent_tool) {
-            this.window?.webContents.send('streamData', { group_id: this.llm_service.chatManager.chat.group_id, context_id: this.llm_service.chatManager.chat.context_id, content: observation.result, end: false, chat: this.llm_service.chatManager.chat });
+            this.window?.webContents.send('streamData', { group_id: this.llm_service.chatManager.chat.group_id, context_id: this.llm_service.chatManager.chat.context_id, content: `\n\n${observation.result}`, end: false, chat: this.llm_service.chatManager.chat });
         }
 
         if (this.state === (State.PAUSE as State)) {
             const { ask, options } = observation;
-            this.window?.webContents.send('streamData', { group_id: this.llm_service.chatManager.chat.group_id, context_id: this.llm_service.chatManager.chat.context_id, content: ask, end: true, chat: this.llm_service.chatManager.chat });
+            this.window?.webContents.send('streamData', { group_id: this.llm_service.chatManager.chat.group_id, context_id: this.llm_service.chatManager.chat.context_id, content: `\n\n${ask}`, end: true, chat: this.llm_service.chatManager.chat });
             this.window?.webContents.send("options", { options: options, group_id: this.llm_service.chatManager.chat.group_id, tool_call_id: toolInfo?.id, tool_call_name: toolInfo?.tool });
         } else if (this.state === (State.FINAL as State)) {
             this.llm_service.chatManager.pushMessage({ role: "tool", content: observation.result, tool_call_id: toolInfo?.id, tool_call_name: toolInfo?.tool, group_id: this.llm_service.chatManager.chat.group_id, context_id: this.llm_service.chatManager.chat.context_id, show: true, react: true });
-            this.window?.webContents.send('streamData', { group_id: this.llm_service.chatManager.chat.group_id, context_id: this.llm_service.chatManager.chat.context_id, content: observation, end: true, chat: this.llm_service.chatManager.chat });
+            this.window?.webContents.send('streamData', { group_id: this.llm_service.chatManager.chat.group_id, context_id: this.llm_service.chatManager.chat.context_id, content: `\n\n${observation.result}`, end: true, chat: this.llm_service.chatManager.chat });
         } else {
             this.llm_service.chatManager.pushMessage({ role: "tool", content: observation.result, tool_call_id: toolInfo?.id, tool_call_name: toolInfo?.tool, group_id: this.llm_service.chatManager.chat.group_id, context_id: this.llm_service.chatManager.chat.context_id, show: true, react: true });
             // 这里需要获取当前的data，但data不在这个方法的上下文中
@@ -695,7 +695,7 @@ export class ToolCall extends ReActAgent {
             await new Promise(resolve => setTimeout(resolve, 1000));
             if (this.llm_service.stopFlag) {
                 this.state = State.FINAL;
-                this.window?.webContents.send('streamData', { group_id: this.llm_service.chatManager.chat.group_id, content: "The user interrupted the task.", end: true, chat: this.llm_service.chatManager.chat });
+                this.window?.webContents.send('streamData', { group_id: this.llm_service.chatManager.chat.group_id, content: "\n\nThe user interrupted the task.", end: true, chat: this.llm_service.chatManager.chat });
                 break;
             }
             if (data?.max_step && this.llm_service.chatManager.chat.step > data.max_step) break;

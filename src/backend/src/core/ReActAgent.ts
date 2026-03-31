@@ -255,22 +255,22 @@ export class ReActAgent {
 
                     switch (tool_call_name) {
                         case "display_file":
-                            this.window.webContents.send('streamData', { group_id, context_id, content: `${content}\n\n`, end: true, del });
+                            this.window.webContents.send('streamData', { group_id, context_id, content: `\n\n${content}`, end: true, del });
                             break;
                         case "add_subtasks":
                         case "complete_subtasks":
-                            this.window.webContents.send('streamData', { group_id, context_id, content: `\`\`\`json\n${content}\n\`\`\`\n\n`, end: true, del });
+                            this.window.webContents.send('streamData', { group_id, context_id, content: `\n\n\`\`\`json\n${content}\n\`\`\``, end: true, del });
                             break;
                     }
 
                     if (["deep_researcher", "workflow_planner", "tool_manager", "web_searcher", "chart_plotter", "task_executor", "tool_documentation_collector", "url_summarizer"].includes(tool_call_name)) {
-                        this.window.webContents.send('streamData', { group_id, context_id, content: `${content}\n\n`, end: true, del });
+                        this.window.webContents.send('streamData', { group_id, context_id, content: `\n\n${content}`, end: true, del });
                     }
-                    if (["ask_followup_question", "waiting_feedback", "plan_mode_response"].includes(tool_call_name)) {
-                        this.window.webContents.send('streamData', { group_id, context_id, content: `${content}\n\n`, end: true, del });
+                    if (["ask_user"].includes(tool_call_name)) {
+                        this.window.webContents.send('streamData', { group_id, context_id, content: `\n\n${content}`, end: true, del });
                     }
 
-                    let content_format = (content as string).replaceAll("\\`", "'").replaceAll("`", "'");
+                    let content_format = (content as string).replaceAll("`", "\\`");
                     this.window.webContents.send('infoData', { group_id, context_id, content: `Step ${i}, group_id: ${group_id}, context_id: ${context_id}, Output:\n\n\`\`\`json\n${content_format}\n\`\`\`\n\n`, del });
                 }
                 if (role === "assistant") {
@@ -293,10 +293,10 @@ export class ReActAgent {
                                 toolInfo = utils.parseJsonContent(content as string);
                             }
 
-                            content = `${toolInfo?.content || `Tool call: ${toolInfo.tool || "error"}`}\n\n`;
-                            let toolInfoStr = JSON.stringify(toolInfo, null, 2).replaceAll("\\`", "'").replaceAll("`", "'");
+                            content = `\n\n${toolInfo?.content || `Tool call: ${toolInfo.tool || "error"}`}`;
+                            let toolInfoStr = JSON.stringify(toolInfo, null, 2).replaceAll("`", "\\`");
 
-                            this.window.webContents.send('infoData', { group_id, context_id, content: `Step ${i}, group_id: ${group_id}, context_id: ${context_id}, Output:\n\n\`\`\`json\n${toolInfoStr}\n\`\`\`\n\n`, del });
+                            this.window.webContents.send('infoData', { group_id, context_id, content: `Step ${i}, group_id: ${group_id}, context_id: ${context_id}, Output:\n\n\`\`\`json\n${toolInfoStr}\n\`\`\``, del });
                             this.window.webContents.send('streamData', { group_id, context_id, content: content, reasoning_content: toolInfo.reasoning_content, end: true, del });
 
                         } catch (e: any) {
@@ -316,7 +316,7 @@ export class ReActAgent {
 
     public getInfo(data: Record<string, any>): string {
         const output_format = utils.copy(data.output_format);
-        data.output_format = data.output_format?.replaceAll("\\`", "'").replaceAll("`", "'");
+        data.output_format = data.output_format?.replaceAll("`", "\\`");
 
         let infoTemplate = utils.getConfig("info_template");
         let info = this.formatTemplate(infoTemplate, { ...data, ...this.llm_service.chatManager.chat });
