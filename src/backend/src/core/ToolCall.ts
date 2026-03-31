@@ -171,6 +171,8 @@ export class ToolCall extends ReActAgent {
             'search_long_term_memory': not(isSubagent),
             'write_important_memory': not(isSubagent),
             'ask_user': all(not(isSubagent), not(any(isMode('FLASH'), isMode('AUTO')))),
+            // PLAN 模式专用：深度研究工具
+            'deepresearch': isMode('PLAN'),
         };
 
         // --- 核心类方法中的逻辑 ---
@@ -203,11 +205,13 @@ export class ToolCall extends ReActAgent {
             .map(([key, tool]) => {
                 const schemaOrStr = tool.getPrompt();
                 if (context.currentMode === context.modes.PLAN) {
-                    // 移除高风险工具、子代理工具
+                    // PLAN 模式过滤：移除风险工具 + 普通子代理工具，保留 deepresearch
                     const toolConfig = this.getToolConfig(key);
                     const requireConfirmation = !!toolConfig?.require_confirmation;
                     const isSubagentTool = Object.keys(this.agentTools).includes(key);
-                    return !requireConfirmation && !isSubagentTool ? schemaOrStr : null;
+                    const isDeepresearch = key === 'deepresearch';
+                    // deepresearch 允许在 PLAN 模式使用
+                    return !requireConfirmation && (!isSubagentTool || isDeepresearch) ? schemaOrStr : null;
                 }
                 if (typeof schemaOrStr === 'string') {
                     return { type: "raw_string", name: key, content: schemaOrStr };
