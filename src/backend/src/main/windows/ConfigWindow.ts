@@ -31,6 +31,7 @@ export class ConfigWindow extends BaseWindow {
         });
 
         this.window.loadFile('src/frontend/config.html');
+        this.window.once('ready-to-show', () => this.window?.show());
         this.window.on('closed', () => { this.window = null; });
         
         ipcMain.on('minimize-window', () => {

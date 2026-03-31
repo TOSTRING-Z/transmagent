@@ -101,11 +101,12 @@
     .detail-item { margin-bottom: 16px; }
     .detail-item:last-child { margin-bottom: 0; }
     .detail-title { font-weight: 600; color: var(--text-muted); font-size: 12px; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 8px; }
+    .detail-value { min-width: 0; }
 
     .json-content { background: #1e293b; color: #f8fafc; padding: 12px; border-radius: 6px; font-family: 'Consolas', monospace; font-size: 13px; overflow-x: auto; margin: 0; }
-    .string-value { color: var(--text-main); background: var(--code-bg); padding: 4px 8px; border-radius: 4px; font-family: 'Consolas', monospace; font-size: 13px; }
+    .string-value { color: var(--text-main); background: var(--code-bg); padding: 4px 8px; border-radius: 4px; font-family: 'Consolas', monospace; font-size: 13px; word-break: break-all; overflow-wrap: break-word; max-width: 100%; display: inline-block; }
     pre.code-block { background-color: var(--code-bg); color: var(--text-main); padding: 16px; border-radius: 6px; font-family: 'Consolas', monospace; font-size: 13px; line-height: 1.6; white-space: pre-wrap; word-break: break-all; margin: 0; border: 1px solid var(--border-color); }
-    .file-path { color: var(--primary); background: #eff6ff; padding: 4px 8px; border-radius: 4px; font-family: 'Consolas', monospace; font-size: 13px; }
+    .file-path { color: var(--primary); background: #eff6ff; padding: 4px 8px; border-radius: 4px; font-family: 'Consolas', monospace; font-size: 13px; word-break: break-all; overflow-wrap: break-word; max-width: 100%; display: inline-block; }
 
     /* ---------------- 底部固定操作区 ---------------- */
     .footer {
@@ -298,7 +299,7 @@
         return `
           <div class="detail-item">
             <div class="detail-title">${title}</div>
-            <div class="details-value">${content}</div>
+            <div class="detail-value">${content}</div>
           </div>`;
       }).join('');
     }

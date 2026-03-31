@@ -44,6 +44,11 @@ const { Shortcut } = require('./main/Shortcut');
 
 /* App 生命周期管控 */
 app.whenReady().then(() => {
+    // 设置应用名称，避免 DevTools 国际化错误 (Intl.Locale constructor can't be empty)
+    if (!app.name) {
+        app.name = 'TransMAgent';
+    }
+    
     logger.log("[App] Application is ready. Initializing subsystems...");
 
     const windowManager = new WindowManager();

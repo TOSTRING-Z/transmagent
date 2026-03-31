@@ -80,9 +80,6 @@ importers:
       string:
         specifier: ^3.3.3
         version: 3.3.3
-      transmagent:
-        specifier: 'link:'
-        version: 'link:'
       xlsx:
         specifier: ^0.18.5
         version: 0.18.5

@@ -574,7 +574,6 @@ body {
 }
 
 .action-btn {
-  display: none;
   background: none;
   border: none;
   cursor: pointer;
@@ -596,8 +595,25 @@ body {
   color: var(--primary);
 }
 
+/* 删除按钮默认样式 */
 .action-btn.delete:hover {
   color: var(--secondary);
+  transform: scale(1.15);
+  transition: all 0.2s ease;
+}
+
+/* 确保删除/恢复按钮在删除状态下始终可见 */
+.message_del .action-btn,
+.del .action-btn.chunk-delete {
+  display: block !important;
+  opacity: 0.6;
+}
+
+/* 删除状态下hover效果 - 恢复正常样式 */
+.message_del .action-btn:hover,
+.del .action-btn.chunk-delete:hover {
+  color: var(--primary);
+  opacity: 1;
 }
 
 /* Call Information */
@@ -1394,16 +1410,22 @@ body {
 
 .action-btn.chunk-delete:hover {
   color: var(--secondary);
-  transition: color 0.3s;
+  transform: scale(1.15);
+  transition: all 0.2s ease;
 }
 
 /* del */
 .del {
-  background-color: rgba(254, 0, 0, 0.227);
+  opacity: 0.35;
+  filter: grayscale(1);
+  text-decoration: line-through;
+  transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
 }
 
 .message_del {
-  border: 1px solid rgba(254, 0, 0, 0.227);
+  opacity: 0.4;
+  filter: grayscale(0.8);
+  transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
 }
 
 .message_toggle .info {

@@ -396,19 +396,34 @@ $$
   async function toggleMessageGroup(group_id) {
     let elements = document.querySelectorAll(`[data-id="${group_id}"]`);
     elements.forEach(async function(message_element) {
+      const deleteBtn = message_element.querySelector(".delete");
       if (message_element.classList.contains("message_del")) {
         let { del_mode } = await window.electronAPI.toggleMessageGroup({ group_id, del: false });
         if (del_mode) {
           message_element.remove();
         } else {
           message_element.classList.remove("message_del");
+          if (deleteBtn) {
+            deleteBtn.className = "far fa-trash-alt delete action-btn";
+            deleteBtn.title = "delete";
+          }
           message_element.querySelectorAll("[info_data-id]").forEach((element) => {
             if (element.classList.contains("del"))
               element.classList.remove("del");
+            const chunkDeleteBtn = element.querySelector(".chunk-delete");
+            if (chunkDeleteBtn) {
+              chunkDeleteBtn.className = "far fa-trash-alt action-btn chunk-delete";
+              chunkDeleteBtn.title = "delete";
+            }
           });
           message_element.querySelectorAll("[chunk_data-id]").forEach((element) => {
             if (element.classList.contains("del"))
               element.classList.remove("del");
+            const chunkDeleteBtn = element.querySelector(".chunk-delete");
+            if (chunkDeleteBtn) {
+              chunkDeleteBtn.className = "far fa-trash-alt action-btn chunk-delete";
+              chunkDeleteBtn.title = "delete";
+            }
           });
         }
       } else {
@@ -418,13 +433,27 @@ $$
         } else {
           message_element.classList.add("message_del");
           message_element.classList.add("message_toggle");
+          if (deleteBtn) {
+            deleteBtn.className = "fas fa-rotate-left delete action-btn";
+            deleteBtn.title = "restore";
+          }
           message_element.querySelectorAll("[info_data-id]").forEach((element) => {
             if (!element.classList.contains("del"))
               element.classList.add("del");
+            const chunkDeleteBtn = element.querySelector(".chunk-delete");
+            if (chunkDeleteBtn) {
+              chunkDeleteBtn.className = "fas fa-rotate-left action-btn chunk-delete";
+              chunkDeleteBtn.title = "restore";
+            }
           });
           message_element.querySelectorAll("[chunk_data-id]").forEach((element) => {
             if (!element.classList.contains("del"))
               element.classList.add("del");
+            const chunkDeleteBtn = element.querySelector(".chunk-delete");
+            if (chunkDeleteBtn) {
+              chunkDeleteBtn.className = "fas fa-rotate-left action-btn chunk-delete";
+              chunkDeleteBtn.title = "restore";
+            }
           });
         }
       }
@@ -436,15 +465,37 @@ $$
     elements.forEach(function(element) {
       if (del_mode)
         element.remove();
-      else
+      else {
         element.classList.toggle("del");
+        const deleteBtn = element.querySelector(".chunk-delete");
+        if (deleteBtn) {
+          if (element.classList.contains("del")) {
+            deleteBtn.className = "fas fa-rotate-left action-btn chunk-delete";
+            deleteBtn.title = "restore";
+          } else {
+            deleteBtn.className = "far fa-trash-alt action-btn chunk-delete";
+            deleteBtn.title = "delete";
+          }
+        }
+      }
     });
     elements = document.querySelectorAll(`[chunk_data-id="${context_id}"]`);
     elements.forEach(function(element) {
       if (del_mode)
         element.remove();
-      else
+      else {
         element.classList.toggle("del");
+        const deleteBtn = element.querySelector(".chunk-delete");
+        if (deleteBtn) {
+          if (element.classList.contains("del")) {
+            deleteBtn.className = "fas fa-rotate-left action-btn chunk-delete";
+            deleteBtn.title = "restore";
+          } else {
+            deleteBtn.className = "far fa-trash-alt action-btn chunk-delete";
+            deleteBtn.title = "delete";
+          }
+        }
+      }
     });
   }
   var compression_tasks = {};
@@ -596,6 +647,16 @@ $$
       messageSystem.classList.add("message_del");
       messageUser.classList.add("message_toggle");
       messageSystem.classList.add("message_toggle");
+      const updateDeleteBtn = (element) => {
+        const deleteBtn = element.querySelector(".delete");
+        if (deleteBtn) {
+          deleteBtn.className = "fas fa-rotate-left delete action-btn";
+          deleteBtn.title = "restore";
+          deleteBtn.classList.add("active");
+        }
+      };
+      updateDeleteBtn(messageUser);
+      updateDeleteBtn(messageSystem);
     }
     return messageSystem;
   }
@@ -657,12 +718,14 @@ $$
             chunk_item.getElementsByClassName("chunk-reasoning-content")[0].innerHTML = chunk_item_reasoning_content;
           }
         } else {
+          const deleteIcon = chunk?.del ? "fas fa-rotate-left" : "far fa-trash-alt";
+          const deleteTitle = chunk?.del ? "restore" : "delete";
           chunk_item = createElement(`<div chunk_data-id="${context_id}">
           <div class="chunk">
             <div class="chunk-reasoning-content"></div>
             <div class="chunk-content"></div>
             <div class="chunk-actions">
-              <i class="far fa-trash-alt action-btn chunk-delete" title="delete"></i>
+              <i class="${deleteIcon} action-btn chunk-delete" title="${deleteTitle}"></i>
               <i class="fa fa-location-crosshairs action-btn chunk-location" title="location"></i>
               <i class="fa fa-quote-right action-btn chunk-quote" title="quote"></i>
             </div>
