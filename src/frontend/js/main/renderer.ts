@@ -95,7 +95,7 @@ document.addEventListener("DOMContentLoaded", () => {
   });
 
   // Sidebar & Config Buttons
-  const collapseBtn = document.querySelector('.collapse-btn');
+  const collapseBtn = document.querySelector('.nav-collapse-btn');
   if (collapseBtn) collapseBtn.addEventListener('click', toggleSidebar);
 
   const configBtn = document.querySelector('.config-btn');

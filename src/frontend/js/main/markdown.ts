@@ -53,13 +53,61 @@ async function renderPDF(id: string) {
 }
 
 // 1. 将方法挂载到 globalThis 上，并直接接收 element 而不是 event
-(globalThis as any).copyCode = (btn: HTMLElement) => {
+(globalThis as any).copyCode = (btn: HTMLElement, event?: Event) => {
+  if (event) event.stopPropagation();
   const codeToCopy = decodeURIComponent(btn.getAttribute('data-code') || '');
   navigator.clipboard.writeText(codeToCopy).then(() => {
-    showLog('success', 'Copy successful');
+    // Add visual feedback
+    btn.classList.add('copied');
+    const originalText = btn.innerHTML;
+    btn.innerHTML = '<i class="fas fa-check"></i> Copied!';
+    setTimeout(() => {
+      btn.classList.remove('copied');
+      btn.innerHTML = originalText;
+    }, 1500);
   }).catch(err => {
     console.log('Copy failed', err);
   });
+};
+
+// Toggle code block collapse/expand
+(globalThis as any).toggleCodeCollapse = (element: HTMLElement, event?: Event) => {
+  if (event) event.stopPropagation();
+  
+  // Find the container
+  const container = element.closest('.code-container');
+  if (!container) return;
+  
+  const contentDiv = container.querySelector('.code-content');
+  const collapseBtn = container.querySelector('.collapse-btn');
+  const fadeHint = container.querySelector('.code-fade-hint');
+  const lineCount = fadeHint?.getAttribute('data-line-count') || '10';
+  
+  const isCollapsed = container.getAttribute('data-collapsed') === 'true';
+  
+  if (isCollapsed) {
+    // Expand
+    contentDiv?.classList.remove('collapsed');
+    container.setAttribute('data-collapsed', 'false');
+    if (fadeHint) {
+      fadeHint.innerHTML = '<i class="fas fa-arrow-up"></i> Collapse';
+    }
+    if (collapseBtn) {
+      collapseBtn.style.display = 'flex';
+      collapseBtn.title = 'Collapse';
+      collapseBtn.innerHTML = '<i class="fas fa-chevron-up"></i>';
+    }
+  } else {
+    // Collapse
+    contentDiv?.classList.add('collapsed');
+    container.setAttribute('data-collapsed', 'true');
+    if (fadeHint) {
+      fadeHint.innerHTML = `<i class="fas fa-arrow-down"></i> Expand all ${lineCount} lines`;
+    }
+    if (collapseBtn) {
+      collapseBtn.style.display = 'none';
+    }
+  }
 };
 
 // Formatters
@@ -73,12 +121,33 @@ const formatCode = (token: any) => {
   } else {
     encodeCode = encodeURIComponent(token.raw);
   }
-  return `<div class="code-container">
+  
+  // Count lines and determine if collapse is needed
+  const codeLines = token.text.split('\n');
+  const lineCount = codeLines.length;
+  const shouldCollapse = lineCount > 6;
+  
+  return `<div class="code-container" data-collapsed="${shouldCollapse ? 'true' : 'false'}">
   <div class="code-header">
-    <span class="language-tag">${token.type}</span>
-    <button class="copy-btn" onclick="copyCode(this)" data-code="${encodeCode}" title="Copy code">Copy</button>
+    <div class="code-header-left">
+      <span class="language-tag">${token.type}</span>
+      <span class="line-count">${lineCount} lines</span>
+    </div>
+    <div class="code-header-right">
+      <button class="collapse-btn" onclick="toggleCodeCollapse(this, event)" title="Collapse" style="display: none;">
+        <i class="fas fa-chevron-down"></i>
+      </button>
+      <button class="copy-btn" onclick="copyCode(this, event)" data-code="${encodeCode}" title="Copy code">Copy</button>
+    </div>
   </div>
-  <pre class="hljs"><code>${token.text}</code></pre>
+  <div class="code-content${shouldCollapse ? ' collapsed' : ''}">
+    <pre class="hljs"><code>${token.text}</code></pre>
+  </div>
+  <div class="code-fade-overlay">
+    <span class="code-fade-hint" onclick="toggleCodeCollapse(this, event)" data-line-count="${lineCount}">
+      <i class="fas fa-arrow-down"></i> Expand all ${lineCount} lines
+    </span>
+  </div>
 </div>`;
 };
 

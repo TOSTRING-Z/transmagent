@@ -61,11 +61,6 @@
     return is_plugin ? "api" : "ai";
   }
 
-  // main/ui.ts
-  function showLog(type, content) {
-    window.electronAPI.showLog({ type, content });
-  }
-
   // main/markdown.ts
   var { Marked } = globalThis.marked;
   var { markedHighlight } = globalThis.markedHighlight;
@@ -111,13 +106,54 @@
       }
     }, 500);
   }
-  globalThis.copyCode = (btn) => {
+  globalThis.copyCode = (btn, event) => {
+    if (event)
+      event.stopPropagation();
     const codeToCopy = decodeURIComponent(btn.getAttribute("data-code") || "");
     navigator.clipboard.writeText(codeToCopy).then(() => {
-      showLog("success", "Copy successful");
+      btn.classList.add("copied");
+      const originalText = btn.innerHTML;
+      btn.innerHTML = '<i class="fas fa-check"></i> Copied!';
+      setTimeout(() => {
+        btn.classList.remove("copied");
+        btn.innerHTML = originalText;
+      }, 1500);
     }).catch((err) => {
       console.log("Copy failed", err);
     });
+  };
+  globalThis.toggleCodeCollapse = (element, event) => {
+    if (event)
+      event.stopPropagation();
+    const container = element.closest(".code-container");
+    if (!container)
+      return;
+    const contentDiv = container.querySelector(".code-content");
+    const collapseBtn = container.querySelector(".collapse-btn");
+    const fadeHint = container.querySelector(".code-fade-hint");
+    const lineCount = fadeHint?.getAttribute("data-line-count") || "10";
+    const isCollapsed = container.getAttribute("data-collapsed") === "true";
+    if (isCollapsed) {
+      contentDiv?.classList.remove("collapsed");
+      container.setAttribute("data-collapsed", "false");
+      if (fadeHint) {
+        fadeHint.innerHTML = '<i class="fas fa-arrow-up"></i> Collapse';
+      }
+      if (collapseBtn) {
+        collapseBtn.style.display = "flex";
+        collapseBtn.title = "Collapse";
+        collapseBtn.innerHTML = '<i class="fas fa-chevron-up"></i>';
+      }
+    } else {
+      contentDiv?.classList.add("collapsed");
+      container.setAttribute("data-collapsed", "true");
+      if (fadeHint) {
+        fadeHint.innerHTML = `<i class="fas fa-arrow-down"></i> Expand all ${lineCount} lines`;
+      }
+      if (collapseBtn) {
+        collapseBtn.style.display = "none";
+      }
+    }
   };
   var formatCode = (token) => {
     let encodeCode;
@@ -129,12 +165,30 @@
     } else {
       encodeCode = encodeURIComponent(token.raw);
     }
-    return `<div class="code-container">
+    const codeLines = token.text.split("\n");
+    const lineCount = codeLines.length;
+    const shouldCollapse = lineCount > 6;
+    return `<div class="code-container" data-collapsed="${shouldCollapse ? "true" : "false"}">
   <div class="code-header">
-    <span class="language-tag">${token.type}</span>
-    <button class="copy-btn" onclick="copyCode(this)" data-code="${encodeCode}" title="Copy code">Copy</button>
+    <div class="code-header-left">
+      <span class="language-tag">${token.type}</span>
+      <span class="line-count">${lineCount} lines</span>
+    </div>
+    <div class="code-header-right">
+      <button class="collapse-btn" onclick="toggleCodeCollapse(this, event)" title="Collapse" style="display: none;">
+        <i class="fas fa-chevron-down"></i>
+      </button>
+      <button class="copy-btn" onclick="copyCode(this, event)" data-code="${encodeCode}" title="Copy code">Copy</button>
+    </div>
   </div>
-  <pre class="hljs"><code>${token.text}</code></pre>
+  <div class="code-content${shouldCollapse ? " collapsed" : ""}">
+    <pre class="hljs"><code>${token.text}</code></pre>
+  </div>
+  <div class="code-fade-overlay">
+    <span class="code-fade-hint" onclick="toggleCodeCollapse(this, event)" data-line-count="${lineCount}">
+      <i class="fas fa-arrow-down"></i> Expand all ${lineCount} lines
+    </span>
+  </div>
 </div>`;
   };
   var formatText = (token) => {
@@ -279,6 +333,11 @@ $$
   marked.use({ hooks: { preprocess } });
   marked.use(globalThis.markedKatex({ nonStandard: true, async: true }));
   marked.use({ walkTokens, renderer, async: true, extensions: [thinkExtension] });
+
+  // main/ui.ts
+  function showLog(type, content) {
+    window.electronAPI.showLog({ type, content });
+  }
 
   // main/chat.ts
   var user_message_template = `<div class="relative space-y-2 space-x-2" data-role="user" data-id="">
@@ -575,30 +634,29 @@ $$
     const messageSystem = messageSystems[1];
     if (messageSystem) {
       const message_content = messageSystem.getElementsByClassName("message")[0];
-      if (chunk.content) {
-        let context_id = Object.prototype.hasOwnProperty.call(chunk, "context_id") ? chunk.context_id : chunk.group_id;
-        let chunk_content = null;
-        let chunk_item_content = null;
-        let chunk_reasoning_content = null;
-        let chunk_item_reasoning_content = null;
-        let chunk_item = null;
-        let chunk_item_query = message_content.querySelectorAll(`[chunk_data-id='${context_id}']`);
-        if (chunk_item_query.length > 0) {
-          let existingItem = chunk_item_query[0];
-          chunk_content = (existingItem.dataset.content || "") + chunk.content;
-          chunk_item_content = await marked.parse(chunk_content);
-          chunk_item = existingItem;
-          chunk_item.dataset.content = chunk_content;
-          chunk_item.getElementsByClassName("chunk-content")[0].innerHTML = chunk_item_content;
-          if (chunk.reasoning_content) {
-            chunk_item.getElementsByClassName("chunk-reasoning-content")[0].style.display = "block";
-            chunk_reasoning_content = (existingItem.dataset.reasoning_content || "") + chunk.reasoning_content || "";
-            chunk_item_reasoning_content = await marked.parse(chunk_reasoning_content);
-            chunk_item.dataset.reasoning_content = chunk_reasoning_content;
-            chunk_item.getElementsByClassName("chunk-reasoning-content")[0].innerHTML = chunk_item_reasoning_content;
-          }
-        } else {
-          chunk_item = createElement(`<div chunk_data-id="${context_id}">
+      let context_id = Object.prototype.hasOwnProperty.call(chunk, "context_id") ? chunk.context_id : chunk.group_id;
+      let chunk_content = null;
+      let chunk_item_content = null;
+      let chunk_reasoning_content = null;
+      let chunk_item_reasoning_content = null;
+      let chunk_item = null;
+      let chunk_item_query = message_content.querySelectorAll(`[chunk_data-id='${context_id}']`);
+      if (chunk_item_query.length > 0) {
+        let existingItem = chunk_item_query[0];
+        chunk_content = (existingItem.dataset.content || "") + chunk.content || "";
+        chunk_item_content = await marked.parse(chunk_content);
+        chunk_item = existingItem;
+        chunk_item.dataset.content = chunk_content;
+        chunk_item.getElementsByClassName("chunk-content")[0].innerHTML = chunk_item_content;
+        if (chunk.reasoning_content) {
+          chunk_item.getElementsByClassName("chunk-reasoning-content")[0].style.display = "block";
+          chunk_reasoning_content = (existingItem.dataset.reasoning_content || "") + chunk.reasoning_content || "";
+          chunk_item_reasoning_content = await marked.parse(chunk_reasoning_content);
+          chunk_item.dataset.reasoning_content = chunk_reasoning_content;
+          chunk_item.getElementsByClassName("chunk-reasoning-content")[0].innerHTML = chunk_item_reasoning_content;
+        }
+      } else {
+        chunk_item = createElement(`<div chunk_data-id="${context_id}">
           <div class="chunk">
             <div class="chunk-reasoning-content"></div>
             <div class="chunk-content"></div>
@@ -609,37 +667,36 @@ $$
             </div>
           </div>
         </div>`);
-          if (chunk?.del)
-            chunk_item.classList.add("del");
-          chunk_content = chunk.content;
-          chunk_item_content = await marked.parse(chunk_content);
-          chunk_item.dataset.content = chunk.content;
-          chunk_item.getElementsByClassName("chunk-content")[0].innerHTML = chunk_item_content;
-          if (chunk.reasoning_content) {
-            chunk_reasoning_content = chunk.reasoning_content || "";
-            chunk_item_reasoning_content = await marked.parse(chunk_reasoning_content);
-            chunk_item.dataset.reasoning_content = chunk.reasoning_content;
-            chunk_item.getElementsByClassName("chunk-reasoning-content")[0].innerHTML = chunk_item_reasoning_content;
-          } else {
-            chunk_item.getElementsByClassName("chunk-reasoning-content")[0].style.display = "none";
-          }
-          if (!State.react_statu || chunk?.is_plugin) {
-            chunk_item.getElementsByClassName("chunk-actions")[0].style.display = "none";
-          }
-          chunk_item.getElementsByClassName("chunk-delete")[0].addEventListener("click", () => {
-            toggleContextMessage(context_id);
-          });
-          chunk_item.getElementsByClassName("chunk-location")[0].addEventListener("click", () => {
-            locateContextMessage(context_id);
-          });
-          chunk_item.getElementsByClassName("chunk-quote")[0].addEventListener("click", () => {
-            quoteContextMessage(context_id);
-          });
-          message_content.appendChild(chunk_item);
+        if (chunk?.del)
+          chunk_item.classList.add("del");
+        chunk_content = chunk.content || "";
+        chunk_item_content = await marked.parse(chunk_content);
+        chunk_item.dataset.content = chunk_content;
+        chunk_item.getElementsByClassName("chunk-content")[0].innerHTML = chunk_item_content;
+        if (chunk.reasoning_content) {
+          chunk_reasoning_content = chunk.reasoning_content || "";
+          chunk_item_reasoning_content = await marked.parse(chunk_reasoning_content);
+          chunk_item.dataset.reasoning_content = chunk_reasoning_content;
+          chunk_item.getElementsByClassName("chunk-reasoning-content")[0].innerHTML = chunk_item_reasoning_content;
+        } else {
+          chunk_item.getElementsByClassName("chunk-reasoning-content")[0].style.display = "none";
         }
-        message_content.dataset.content = (message_content.dataset.content || "") + chunk.content || "";
-        message_content.dataset.reasoning_content = (message_content.dataset.reasoning_content || "") + chunk.reasoning_content || "";
+        if (!State.react_statu || chunk?.is_plugin) {
+          chunk_item.getElementsByClassName("chunk-actions")[0].style.display = "none";
+        }
+        chunk_item.getElementsByClassName("chunk-delete")[0].addEventListener("click", () => {
+          toggleContextMessage(context_id);
+        });
+        chunk_item.getElementsByClassName("chunk-location")[0].addEventListener("click", () => {
+          locateContextMessage(context_id);
+        });
+        chunk_item.getElementsByClassName("chunk-quote")[0].addEventListener("click", () => {
+          quoteContextMessage(context_id);
+        });
+        message_content.appendChild(chunk_item);
       }
+      message_content.dataset.content = (message_content.dataset.content || "") + chunk.content || "";
+      message_content.dataset.reasoning_content = (message_content.dataset.reasoning_content || "") + chunk.reasoning_content || "";
       if (chunk.end) {
         if (State.seconds_timer) {
           clearInterval(State.seconds_timer);

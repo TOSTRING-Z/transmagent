@@ -293,7 +293,7 @@ export class ReActAgent {
                                 toolInfo = utils.parseJsonContent(content as string);
                             }
 
-                            content = `${toolInfo?.content || `Tool call: ${toolInfo.tool || "error"}`}\n\n---\n\n`;
+                            content = `${toolInfo?.content || `Tool call: ${toolInfo.tool || "error"}`}\n\n`;
                             let toolInfoStr = JSON.stringify(toolInfo, null, 2).replaceAll("\\`", "'").replaceAll("`", "'");
 
                             this.window.webContents.send('infoData', { group_id, context_id, content: `Step ${i}, group_id: ${group_id}, context_id: ${context_id}, Output:\n\n\`\`\`json\n${toolInfoStr}\n\`\`\`\n\n`, del });

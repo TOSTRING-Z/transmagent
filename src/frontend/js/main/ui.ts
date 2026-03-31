@@ -61,7 +61,7 @@ export function toggleSidebar() {
   const sidebar = document.querySelector('.sidebar');
   if (sidebar) {
     sidebar.classList.toggle('collapsed');
-    const icon = document.querySelector('.collapse-btn i');
+    const icon = document.querySelector('.nav-collapse-btn i');
     if (icon) {
       icon.classList.toggle('fa-chevron-left');
       icon.classList.toggle('fa-chevron-right');

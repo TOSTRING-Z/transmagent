@@ -442,7 +442,7 @@ export class ToolCall extends ReActAgent {
                 this.window?.webContents.send('streamData', {
                     group_id: this.llm_service.chatManager.chat.group_id,
                     context_id: this.llm_service.chatManager.chat.context_id,
-                    content: `⚠️ **Security Intercept**: ${auditError}\n\n---\n\n`,
+                    content: `⚠️ **Security Intercept**: ${auditError}\n\n`,
                     chat: this.llm_service.chatManager.chat,
                 });
 
@@ -676,7 +676,7 @@ export class ToolCall extends ReActAgent {
                 show: true,
                 react: true
             });
-            this.window.webContents.send('toolData', { group_id: this.llm_service.chatManager.chat.group_id, context_id: context_id, content: `\n\n---\n\n${data.query}`, del: false });
+            this.window.webContents.send('toolData', { group_id: this.llm_service.chatManager.chat.group_id, context_id: context_id, content: `${data.query}\n\n`, del: false });
         } else {
             this.llm_service.chatManager.chat.step = 1;
             this.llm_service.chatManager.chat.group_id = String((new Date()).getTime());

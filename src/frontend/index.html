@@ -40,7 +40,7 @@
   </div>
   <!-- 左侧面板 -->
   <div class="sidebar">
-    <div class="collapse-btn" onclick="toggleSidebar()">
+    <div class="nav-collapse-btn" onclick="toggleSidebar()">
       <i class="fas fa-chevron-left"></i>
     </div>
 
@@ -273,8 +273,47 @@
         window.electronAPI.send('open-code-editor-content', content);
     });
 </script>
+  <!-- Scroll to bottom floating button -->
+  <button id="scroll-to-bottom" class="scroll-to-bottom-btn" onclick="scrollToBottom()" title="Scroll to bottom">
+    <i class="fas fa-arrow-down"></i>
+  </button>
+
 </body>
 
 <script src="./js/renderer.js"></script>
+<script>
+  // Scroll to bottom button functionality
+  function scrollToBottom() {
+    const topDiv = document.getElementById('top_div');
+    if (topDiv) {
+      topDiv.scrollTo({
+        top: topDiv.scrollHeight,
+        behavior: 'smooth'
+      });
+    }
+  }
+
+  function updateScrollButton() {
+    const topDiv = document.getElementById('top_div');
+    const scrollBtn = document.getElementById('scroll-to-bottom');
+    if (topDiv && scrollBtn) {
+      // Show button when user has scrolled away from bottom (with a 100px threshold)
+      const isAtBottom = topDiv.scrollHeight - topDiv.scrollTop - topDiv.clientHeight < 100;
+      scrollBtn.style.display = isAtBottom ? 'none' : 'flex';
+    }
+  }
+
+  // Initialize scroll listener
+  document.addEventListener('DOMContentLoaded', () => {
+    const topDiv = document.getElementById('top_div');
+    if (topDiv) {
+      topDiv.addEventListener('scroll', updateScrollButton);
+      // Initial check
+      updateScrollButton();
+      // Periodic check for dynamic content
+      setInterval(updateScrollButton, 500);
+    }
+  });
+</script>
 
 </html>
