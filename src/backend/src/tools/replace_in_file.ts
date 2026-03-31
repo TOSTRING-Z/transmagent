@@ -27,7 +27,7 @@ async function readRemoteFile(filePath: string, sshConfig: any): Promise<string>
                     if (readErr) {
                         reject(new Error(`Failed to read remote file ${filePath}: ${readErr.message}`));
                     } else {
-                        resolve(data);
+                        resolve(data.toString());
                     }
                 });
             });

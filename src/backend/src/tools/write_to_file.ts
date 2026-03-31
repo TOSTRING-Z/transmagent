@@ -57,7 +57,9 @@ async function writeRemoteFile(filePath: string, content: string, mode: 'overwri
                         }
 
                         // 3. 使用原生 flag 处理覆盖与追加
-                        const writeOptions = mode === 'append' ? { encoding: 'utf8', flag: 'a' } : { encoding: 'utf8', flag: 'w' };
+                        const writeOptions: { encoding: BufferEncoding; flag: string } = mode === 'append' 
+                            ? { encoding: 'utf8', flag: 'a' } 
+                            : { encoding: 'utf8', flag: 'w' };
                         
                         sftp.writeFile(filePath, content, writeOptions, (writeErr) => {
                             conn.end();
