@@ -80,6 +80,7 @@ export interface Message {
     tool_call_id?: string | null;
     tool_calls?: ToolCall[];
     content: string | MessageContent[];
+    reasoning_content?: string; // thinking 内容 (MiniMax M2 等模型)
     show?: boolean;
     react?: boolean;
     del?: boolean;

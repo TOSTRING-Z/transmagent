@@ -624,6 +624,17 @@ $$
         }
         message_content.dataset.content = (message_content.dataset.content || "") + chunk.content;
       }
+
+      // 处理 reasoning_content (thinking 内容)
+      if (chunk.reasoning_content) {
+        const thinking = messageSystem.getElementsByClassName("thinking")[0];
+        thinking.classList.remove("hidden");
+        const thinkingContent = thinking.getElementsByClassName("thinking-content")[0];
+        if (thinkingContent) {
+          thinkingContent.innerHTML = await marked.parse(chunk.reasoning_content);
+        }
+      }
+
       if (chunk.end) {
         if (State.seconds_timer) {
           clearInterval(State.seconds_timer);

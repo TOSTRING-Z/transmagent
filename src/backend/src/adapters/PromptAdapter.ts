@@ -127,10 +127,14 @@ export class PromptAdapter implements ILLMAdapter {
 
     public parseResponse(respJson: any): any {
         let content = "";
+        let reasoning_content = "";
         let finish_reason = "";
 
         if (respJson.message) {
             content = respJson.message.content;
+            if (respJson.message.reasoning_content) {
+                reasoning_content = respJson.message.reasoning_content;
+            }
         } else {
             const choice = respJson.choices?.[0];
             content = choice?.message?.content || "";
@@ -139,6 +143,7 @@ export class PromptAdapter implements ILLMAdapter {
 
         return {
             content,
+            reasoning_content,
             finish_reason,
             tokens: respJson.usage?.total_tokens
         };

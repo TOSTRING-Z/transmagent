@@ -147,16 +147,20 @@ export class LLMService {
 
             const { content, reasoning_content, tool_calls, tokens, is_incremental_tokens } = adapter.parseStreamChunk(chunk);
 
-            // 组装文本
-            let textDelta = content || reasoning_content || "";
-            if (textDelta) {
-                messageOutput.content += textDelta;
+            // 组装文本内容
+            if (content) {
+                messageOutput.content += content;
+            }
+
+            // 组装 reasoning_content (thinking)
+            if (reasoning_content) {
+                messageOutput.reasoning_content = (messageOutput.reasoning_content || "") + reasoning_content;
             }
 
             // 组装并拼凑碎片的 Tool Calls
             if (this.chatManager.chat.tool_format === "openai" && tool_calls) {
                 if (!messageOutput.tool_calls) messageOutput.tool_calls = [];
-                for (let tc of tool_calls) {
+                for (const tc of tool_calls) {
                     if (tc.index !== undefined) {
                         if (!messageOutput.tool_calls[tc.index]) {
                             messageOutput.tool_calls[tc.index] = {
@@ -165,10 +169,13 @@ export class LLMService {
                                 function: { name: tc.function?.name || "", arguments: "" }
                             };
                         }
-                        // @ts-ignore
-                        if (tc.function?.name && messageOutput.tool_calls[tc.index]) messageOutput.tool_calls[tc.index].function.name += tc.function.name;
-                        // @ts-ignore
-                        if (tc.function?.arguments && messageOutput.tool_calls[tc.index]) messageOutput.tool_calls[tc.index].function.arguments += tc.function.arguments;
+                        const currentToolCall = messageOutput.tool_calls[tc.index];
+                        if (tc.function?.name && currentToolCall?.function) {
+                            currentToolCall.function.name += tc.function.name;
+                        }
+                        if (tc.function?.arguments && currentToolCall?.function) {
+                            currentToolCall.function.arguments += tc.function.arguments;
+                        }
                     }
                 }
             }
@@ -180,7 +187,8 @@ export class LLMService {
             if (!data?.react && !data?.return_response) {
                 this.window?.webContents.send('streamData', {
                     group_id: this.chatManager.chat.group_id,
-                    content: textDelta,
+                    content: content || "",
+                    reasoning_content: reasoning_content || undefined,
                     end: false,
                     chat: this.chatManager.chat
                 });
@@ -203,10 +211,11 @@ export class LLMService {
             return false;
         }
 
-        const { content, tool_calls, finish_reason, tokens } = adapter.parseResponse(respJson);
+        const { content, reasoning_content, tool_calls, finish_reason, tokens } = adapter.parseResponse(respJson);
 
         data.output = content;
         messageOutput.content = content;
+        if (reasoning_content) messageOutput.reasoning_content = reasoning_content;
         if (tool_calls) messageOutput.tool_calls = tool_calls;
 
         if (tokens) this.chatManager.chat.tokens = tokens;

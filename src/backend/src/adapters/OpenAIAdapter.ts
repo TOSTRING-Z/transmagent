@@ -152,11 +152,16 @@ export class OpenAIAdapter implements ILLMAdapter {
 
     public parseResponse(respJson: any): any {
         let content = "";
+        let reasoning_content = "";
         let tool_calls: any[] | undefined = undefined;
         let finish_reason = "";
 
         if (respJson.message) {
             content = respJson.message.content;
+            // OpenAI 兼容格式的 thinking/reasoning
+            if (respJson.message.reasoning_content) {
+                reasoning_content = respJson.message.reasoning_content;
+            }
         } else {
             const choice = respJson.choices?.[0];
             content = choice?.message?.content || "";
@@ -166,6 +171,7 @@ export class OpenAIAdapter implements ILLMAdapter {
 
         return {
             content,
+            reasoning_content,
             tool_calls,
             finish_reason,
             tokens: respJson.usage?.total_tokens

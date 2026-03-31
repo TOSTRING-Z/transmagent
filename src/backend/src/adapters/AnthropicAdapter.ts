@@ -205,15 +205,26 @@ export class AnthropicAdapter implements ILLMAdapter {
 
     public parseResponse(respJson: any): any {
         let content = "";
+        let reasoning_content = "";
         let tool_calls: any[] | undefined = undefined;
         let finish_reason = "";
         let tokens: number | undefined = undefined;
 
         if (respJson.content && respJson.content.length > 0) {
+            // 提取 text 内容
             content = respJson.content
                 .filter((block: any) => block.type === "text")
                 .map((block: any) => block.text)
                 .join('');
+
+            // 提取 thinking 内容 (MiniMax M2 模型)
+            const thinkingBlocks = respJson.content
+                .filter((block: any) => block.type === "thinking")
+                .map((block: any) => block.thinking || block.thought || '')
+                .join('');
+            if (thinkingBlocks) {
+                reasoning_content = thinkingBlocks;
+            }
         }
 
         const toolUseBlocks = respJson.content?.filter((block: any) => block.type === "tool_use");
@@ -235,7 +246,7 @@ export class AnthropicAdapter implements ILLMAdapter {
             tokens = (respJson.usage.cache_read_input_tokens || 0) + (respJson.usage.input_tokens || 0) + (respJson.usage.output_tokens || 0);
         }
 
-        return { content, tool_calls, finish_reason, tokens };
+        return { content, reasoning_content, tool_calls, finish_reason, tokens };
     }
 
     public async truncatedResponse(body: any, headers: any, window: any, chatManager: any, messageOutput: any, data: ChatRequestData) {
