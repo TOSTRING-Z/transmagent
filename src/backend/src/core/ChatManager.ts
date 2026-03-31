@@ -319,8 +319,8 @@ export class ChatManager {
             }
             if (message_copy.role === "assistant") {
                 content_parse.params = "[User deleted this record]";
-                if (truncateThinking && typeof content_parse.thinking === 'string' && content_parse.thinking.length > 50) {
-                    content_parse.thinking = content_parse.thinking.slice(0, 50) + "…[User deleted this record]";
+                if (truncateThinking && typeof content_parse.content === 'string' && content_parse.content.length > 50) {
+                    content_parse.content = content_parse.content.slice(0, 50) + "…[User deleted this record]";
                 }
                 message_copy.content = JSON.stringify(content_parse);
             }

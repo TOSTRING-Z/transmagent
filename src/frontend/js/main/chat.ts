@@ -311,6 +311,8 @@ export async function streamData(chunk: any): Promise<HTMLElement> {
 
       let chunk_content = null;
       let chunk_item_content = null;
+      let chunk_reasoning_content = null;
+      let chunk_item_reasoning_content = null;
       let chunk_item = null;
       let chunk_item_query = message_content.querySelectorAll(`[chunk_data-id='${context_id}']`);
 
@@ -321,9 +323,17 @@ export async function streamData(chunk: any): Promise<HTMLElement> {
         chunk_item = existingItem;
         chunk_item.dataset.content = chunk_content;
         chunk_item.getElementsByClassName('chunk-content')[0].innerHTML = chunk_item_content;
+        if (chunk.reasoning_content) {
+          (chunk_item.getElementsByClassName('chunk-reasoning-content')[0] as HTMLElement).style.display = "block";
+          chunk_reasoning_content = (existingItem.dataset.reasoning_content || '') + chunk.reasoning_content || '';
+          chunk_item_reasoning_content = await marked.parse(chunk_reasoning_content);
+          chunk_item.dataset.reasoning_content = chunk_reasoning_content;
+          chunk_item.getElementsByClassName('chunk-reasoning-content')[0].innerHTML = chunk_item_reasoning_content;
+        }
       } else {
         chunk_item = createElement(`<div chunk_data-id="${context_id}">
           <div class="chunk">
+            <div class="chunk-reasoning-content"></div>
             <div class="chunk-content"></div>
             <div class="chunk-actions">
               <i class="far fa-trash-alt action-btn chunk-delete" title="delete"></i>
@@ -337,6 +347,14 @@ export async function streamData(chunk: any): Promise<HTMLElement> {
         chunk_item_content = await marked.parse(chunk_content);
         chunk_item.dataset.content = chunk.content;
         chunk_item.getElementsByClassName('chunk-content')[0].innerHTML = chunk_item_content;
+        if (chunk.reasoning_content) {
+          chunk_reasoning_content = chunk.reasoning_content || '';
+          chunk_item_reasoning_content = await marked.parse(chunk_reasoning_content);
+          chunk_item.dataset.reasoning_content = chunk.reasoning_content;
+          chunk_item.getElementsByClassName('chunk-reasoning-content')[0].innerHTML = chunk_item_reasoning_content;
+        } else {
+          (chunk_item.getElementsByClassName('chunk-reasoning-content')[0] as HTMLElement).style.display = "none";
+        }
 
         if (!State.react_statu || chunk?.is_plugin) {
           (chunk_item.getElementsByClassName('chunk-actions')[0] as HTMLElement).style.display = "none";
@@ -352,16 +370,8 @@ export async function streamData(chunk: any): Promise<HTMLElement> {
         });
         message_content.appendChild(chunk_item);
       }
-      message_content.dataset.content = (message_content.dataset.content || '') + chunk.content;
-    }
-
-    // 处理 reasoning_content (thinking 内容)
-    if (chunk.reasoning_content) {
-      const thinking = messageSystem.getElementsByClassName("thinking")[0] as HTMLElement;
-      thinking.classList.remove("hidden");
-      // 累积 reasoning_content（后续 chunk 追加到后面）
-      const existingReasoning = message_content.dataset.reasoning_content || "";
-      message_content.dataset.reasoning_content = existingReasoning + chunk.reasoning_content;
+      message_content.dataset.content = (message_content.dataset.content || '') + chunk.content || '';
+      message_content.dataset.reasoning_content = (message_content.dataset.reasoning_content || '') + chunk.reasoning_content || '';
     }
 
     if (chunk.end) {
@@ -369,13 +379,6 @@ export async function streamData(chunk: any): Promise<HTMLElement> {
         clearInterval(State.seconds_timer);
         State.seconds_timer = null;
       }
-      // 构建最终内容：thinking 在前，content 在后
-      const reasoningContent = message_content.dataset.reasoning_content || "";
-      const textContent = message_content.dataset.content || "";
-      const fullContent = (reasoningContent ? `<thinking>\n${reasoningContent}\n</thinking>\n` : "") + textContent;
-      const parsedContent = await marked.parse(fullContent);
-      message_content.innerHTML = parsedContent;
-
       const thinking = messageSystem.getElementsByClassName("thinking")[0];
       thinking.classList.add('hidden');
       if (!messageSystem.dataset?.event_stop) {

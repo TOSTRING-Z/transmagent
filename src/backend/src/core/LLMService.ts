@@ -152,7 +152,7 @@ export class LLMService {
                 messageOutput.content += content;
             }
 
-            // 组装 reasoning_content (thinking)
+            // 组装 reasoning_content
             if (reasoning_content) {
                 messageOutput.reasoning_content = (messageOutput.reasoning_content || "") + reasoning_content;
             }
@@ -221,7 +221,7 @@ export class LLMService {
         if (tokens) this.chatManager.chat.tokens = tokens;
 
         if (!data?.react && !data?.return_response) {
-            this.window?.webContents.send('streamData', { group_id: this.chatManager.chat.group_id, content: data.output, end: false, chat: this.chatManager.chat });
+            this.window?.webContents.send('streamData', { group_id: this.chatManager.chat.group_id, content: data.output, reasoning_content: reasoning_content || undefined, end: false, chat: this.chatManager.chat });
         }
 
         // ========== 截断检测与自动续传机制 (Max: 3) ==========

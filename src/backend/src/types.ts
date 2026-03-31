@@ -64,7 +64,8 @@ export interface ToolCall {
 
 // ToolInfo
 export interface ToolInfo {
-    thinking: string | null;
+    reasoning_content?: string | null;
+    content: string | null;
     tool: string | null;
     id: string | null;
     params: Record<string, any> | any;
@@ -80,7 +81,7 @@ export interface Message {
     tool_call_id?: string | null;
     tool_calls?: ToolCall[];
     content: string | MessageContent[];
-    reasoning_content?: string; // thinking 内容 (MiniMax M2 等模型)
+    reasoning_content?: string;
     show?: boolean;
     react?: boolean;
     del?: boolean;

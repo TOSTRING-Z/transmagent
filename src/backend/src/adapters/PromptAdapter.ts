@@ -229,6 +229,26 @@ export class PromptToolCallAdapter implements IToolCallAdapter {
     public getToolInfos(message: Message): ToolInfo[] {
         let toolInfos: ToolInfo[] = [];
         const contentStr = message.content as string;
+        let reasoningContent = message.reasoning_content || "";
+
+        // 当 reasoningContent 为空时，尝试从 contentStr 中提取 <thinking> 标签
+        if (!reasoningContent && typeof contentStr === 'string') {
+            const thinkingPatterns = [
+                /<thinking>([\s\S]*?)<\/thinking>/gi,
+                /\[thinking\]([\s\S]*?)\[\/thinking\]/gi,
+                /<think>([\s\S]*?)<\/think>/gi,
+                /```thinking\n([\s\S]*?)\n```/gi,
+                /<thinking_process>([\s\S]*?)<\/thinking_process>/gi,
+            ];
+
+            for (const pattern of thinkingPatterns) {
+                const match = pattern.exec(contentStr);
+                if (match && match[1]) {
+                    reasoningContent = match[1].trim();
+                    break;
+                }
+            }
+        }
 
         try {
             // 尝试解析文本中的 JSON
@@ -243,10 +263,11 @@ export class PromptToolCallAdapter implements IToolCallAdapter {
             for (let i = 0; i < calls.length; i++) {
                 const call = calls[i];
 
-                // 容错：如果解析出的对象既没有 thinking 也没有 tool
-                if (!call.thinking && !call?.tool) {
+                // 容错：如果解析出的对象既没有 content 也没有 tool
+                if (!reasoningContent && !call.content && !call?.tool) {
                     toolInfos.push({
-                        thinking: `\`\`\`text\n${contentStr}\n\`\`\`\n\n**Function calling is not a pure JSON text, or there is a problem with the JSON format.**`,
+                        reasoning_content: null,
+                        content: `\`\`\`text\n${contentStr}\n\`\`\`\n\n**Function calling is not a pure JSON text, or there is a problem with the JSON format.**`,
                         tool: null,
                         // 生成一个伪id，便于追踪
                         id: `prompt_call_${Date.now()}_${i}`,
@@ -258,7 +279,8 @@ export class PromptToolCallAdapter implements IToolCallAdapter {
 
                 // 正常解析推入数组
                 toolInfos.push({
-                    thinking: call.thinking || "",
+                    reasoning_content: reasoningContent || null,
+                    content: call.content || "",
                     tool: call?.tool || null,
                     // 原生Prompt没有ID，这里为并行调用生成一个伪唯一ID，或者使用模型自己生成的ID
                     id: call?.id || `prompt_call_${Date.now()}_${i}`,
@@ -273,7 +295,8 @@ export class PromptToolCallAdapter implements IToolCallAdapter {
             if (trimmedStr.startsWith("```json") || trimmedStr.startsWith("{") || trimmedStr.startsWith("[")) {
                 // 模型试图进行 JSON 输出但格式损坏
                 toolInfos.push({
-                    thinking: `\`\`\`text\n${contentStr}\n\`\`\`\n\n**Function calling is not a pure JSON text, or there is a problem with the JSON format.**`,
+                    reasoning_content: reasoningContent || null,
+                    content: `\`\`\`text\n${contentStr}\n\`\`\`\n\n**Function calling is not a pure JSON text, or there is a problem with the JSON format.**`,
                     tool: null,
                     id: null,
                     params: {},
@@ -282,7 +305,8 @@ export class PromptToolCallAdapter implements IToolCallAdapter {
             } else {
                 // 纯文本思考，不含工具调用
                 toolInfos.push({
-                    thinking: contentStr,
+                    reasoning_content: reasoningContent || null,
+                    content: contentStr,
                     tool: null,
                     id: null,
                     params: {},
@@ -293,7 +317,7 @@ export class PromptToolCallAdapter implements IToolCallAdapter {
 
         // 兜底：如果数组无论何种原因变为空，塞入一条纯文本记录
         if (toolInfos.length === 0) {
-            toolInfos.push({ thinking: contentStr, tool: null, id: null, params: {}, error: null });
+            toolInfos.push({ reasoning_content: reasoningContent || null, content: contentStr, tool: null, id: null, params: {}, error: null });
         }
 
         return toolInfos;

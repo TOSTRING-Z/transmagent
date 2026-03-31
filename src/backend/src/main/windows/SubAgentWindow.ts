@@ -131,7 +131,7 @@ export class SubAgentWindow extends BaseWindow {
                     let data = this.agentTool.tool_call.getDataDefault({ query, model: mainChat.model, version: mainChat.version });
                     data = await this.agentTool.tool_call.callReAct(data);
                     const res_json = utils.parseJsonContent(data.output_format);
-                    resolve(res_json[0]?.thinking || data.output_format);
+                    resolve(res_json[0]?.content || data.output_format);
                 }
             });
         });

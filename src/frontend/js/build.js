@@ -4,7 +4,7 @@ const path = require('path');
 const watchMode = process.argv.includes('--watch');
 
 const buildRendererOptions = {
-  entryPoints: [path.join(__dirname, 'main', 'main.ts')],
+  entryPoints: [path.join(__dirname, 'main', 'renderer.ts')],
   outfile: path.join(__dirname, 'renderer.js'),
   bundle: true,
   minify: false, // Set to true for production

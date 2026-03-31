@@ -219,15 +219,15 @@
     }
   };
   var thinkExtension = {
-    name: "think",
+    name: "thinking",
     level: "block",
     start(src) {
-      return src.match(/<think>/)?.index;
+      return src.match(/<thinking>/)?.index;
     },
     tokenizer(src) {
-      const rule0 = /^<think>([\s\S]*?)<\/think>/;
+      const rule0 = /^<thinking>([\s\S]*?)<\/thinking>/;
       const match0 = rule0.exec(src);
-      const rule1 = /^<think>([\s\S]*)/;
+      const rule1 = /^<thinking>([\s\S]*)/;
       const match1 = rule1.exec(src);
       const match = match0 || match1;
       if (match) {
@@ -579,6 +579,8 @@ $$
         let context_id = Object.prototype.hasOwnProperty.call(chunk, "context_id") ? chunk.context_id : chunk.group_id;
         let chunk_content = null;
         let chunk_item_content = null;
+        let chunk_reasoning_content = null;
+        let chunk_item_reasoning_content = null;
         let chunk_item = null;
         let chunk_item_query = message_content.querySelectorAll(`[chunk_data-id='${context_id}']`);
         if (chunk_item_query.length > 0) {
@@ -588,9 +590,17 @@ $$
           chunk_item = existingItem;
           chunk_item.dataset.content = chunk_content;
           chunk_item.getElementsByClassName("chunk-content")[0].innerHTML = chunk_item_content;
+          if (chunk.reasoning_content) {
+            chunk_item.getElementsByClassName("chunk-reasoning-content")[0].style.display = "block";
+            chunk_reasoning_content = (existingItem.dataset.reasoning_content || "") + chunk.reasoning_content || "";
+            chunk_item_reasoning_content = await marked.parse(chunk_reasoning_content);
+            chunk_item.dataset.reasoning_content = chunk_reasoning_content;
+            chunk_item.getElementsByClassName("chunk-reasoning-content")[0].innerHTML = chunk_item_reasoning_content;
+          }
         } else {
           chunk_item = createElement(`<div chunk_data-id="${context_id}">
           <div class="chunk">
+            <div class="chunk-reasoning-content"></div>
             <div class="chunk-content"></div>
             <div class="chunk-actions">
               <i class="far fa-trash-alt action-btn chunk-delete" title="delete"></i>
@@ -605,6 +615,14 @@ $$
           chunk_item_content = await marked.parse(chunk_content);
           chunk_item.dataset.content = chunk.content;
           chunk_item.getElementsByClassName("chunk-content")[0].innerHTML = chunk_item_content;
+          if (chunk.reasoning_content) {
+            chunk_reasoning_content = chunk.reasoning_content || "";
+            chunk_item_reasoning_content = await marked.parse(chunk_reasoning_content);
+            chunk_item.dataset.reasoning_content = chunk.reasoning_content;
+            chunk_item.getElementsByClassName("chunk-reasoning-content")[0].innerHTML = chunk_item_reasoning_content;
+          } else {
+            chunk_item.getElementsByClassName("chunk-reasoning-content")[0].style.display = "none";
+          }
           if (!State.react_statu || chunk?.is_plugin) {
             chunk_item.getElementsByClassName("chunk-actions")[0].style.display = "none";
           }
@@ -619,27 +637,14 @@ $$
           });
           message_content.appendChild(chunk_item);
         }
-        message_content.dataset.content = (message_content.dataset.content || "") + chunk.content;
-      }
-      if (chunk.reasoning_content) {
-        const thinking = messageSystem.getElementsByClassName("thinking")[0];
-        thinking.classList.remove("hidden");
-        const existingReasoning = message_content.dataset.reasoning_content || "";
-        message_content.dataset.reasoning_content = existingReasoning + chunk.reasoning_content;
+        message_content.dataset.content = (message_content.dataset.content || "") + chunk.content || "";
+        message_content.dataset.reasoning_content = (message_content.dataset.reasoning_content || "") + chunk.reasoning_content || "";
       }
       if (chunk.end) {
         if (State.seconds_timer) {
           clearInterval(State.seconds_timer);
           State.seconds_timer = null;
         }
-        const reasoningContent = message_content.dataset.reasoning_content || "";
-        const textContent = message_content.dataset.content || "";
-        const fullContent = (reasoningContent ? `<thinking>
-${reasoningContent}
-</thinking>
-` : "") + textContent;
-        const parsedContent = await marked.parse(fullContent);
-        message_content.innerHTML = parsedContent;
         const thinking = messageSystem.getElementsByClassName("thinking")[0];
         thinking.classList.add("hidden");
         if (!messageSystem.dataset?.event_stop) {

@@ -127,7 +127,7 @@ export class LLMAssistant {
         const user_content = this.llm_service.chatManager.messages.find(m => m?.role === "user")?.content || "";
         const history_content = this.llm_service.chatManager.messages
             .filter(m => m?.role === "assistant")
-            .map(m => utils.parseJsonContent(m.content as string)?.thinking || "")
+            .map(m => utils.parseJsonContent(m.content as string)?.content || "")
             .join("===");
 
         const prompt = `You are an intelligent assistant skilled at generating short chat names based on contextual content.`;
@@ -217,7 +217,7 @@ export class LLMAssistant {
         const targetMessage = slicedMessages[slicedMessages.length - 1];
         const originalContent = targetMessage.content;
 
-        targetMessage.content = `[LOGGED ASSISTANT THOUGHT]: ${toolInfo.thinking || originalContent}\nSYSTEM: Execution paused for data integrity audit.`;
+        targetMessage.content = `[LOGGED ASSISTANT THOUGHT]: ${toolInfo.content || originalContent}\nSYSTEM: Execution paused for data integrity audit.`;
         delete targetMessage.tool_calls;
 
         temp_llm_service.chatManager.messages = slicedMessages;

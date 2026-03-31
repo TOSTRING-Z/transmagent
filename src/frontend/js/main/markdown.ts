@@ -173,13 +173,13 @@ const walkTokens = async (token: any) => {
 };
 
 const thinkExtension = {
-  name: 'think',
+  name: 'thinking',
   level: 'block',
-  start(src: string) { return src.match(/<think>/)?.index; },
+  start(src: string) { return src.match(/<thinking>/)?.index; },
   tokenizer(src: string) {
-    const rule0 = /^<think>([\s\S]*?)<\/think>/;
+    const rule0 = /^<thinking>([\s\S]*?)<\/thinking>/;
     const match0 = rule0.exec(src);
-    const rule1 = /^<think>([\s\S]*)/;
+    const rule1 = /^<thinking>([\s\S]*)/;
     const match1 = rule1.exec(src);
     const match = match0 || match1;
     if (match) {

@@ -245,7 +245,7 @@ export class ReActAgent {
 
         if (messages.length > 0) {
             messages.forEach((message, i) => {
-                let { role, content, group_id, context_id, react, del } = message;
+                let { role, content, reasoning_content, group_id, context_id, react, del } = message;
 
                 if (role === "user") {
                     this.window.webContents.send('userData', { group_id, context_id, content, del });
@@ -263,7 +263,7 @@ export class ReActAgent {
                             break;
                     }
 
-                    if (["workflow_planner", "tool_manager", "web_searcher", "chart_plotter", "task_executor", "tool_documentation_collector", "url_summarizer"].includes(tool_call_name)) {
+                    if (["deep_researcher", "workflow_planner", "tool_manager", "web_searcher", "chart_plotter", "task_executor", "tool_documentation_collector", "url_summarizer"].includes(tool_call_name)) {
                         this.window.webContents.send('streamData', { group_id, context_id, content: `${content}\n\n`, end: true, del });
                     }
                     if (["ask_followup_question", "waiting_feedback", "plan_mode_response"].includes(tool_call_name)) {
@@ -281,28 +281,29 @@ export class ReActAgent {
                                 if (message?.tool_calls) {
                                     let call = message.tool_calls[0];
                                     toolInfo = {
-                                        thinking: content,
+                                        content: content,
+                                        reasoning_content: reasoning_content || null,
                                         tool: call?.function?.name,
                                         params: call?.function?.arguments ? JSON5.parse(String(call.function.arguments)) : {}
                                     };
                                 } else {
-                                    toolInfo = { thinking: content, tool: null, params: null };
+                                    toolInfo = { content: content, reasoning_content: reasoning_content || null, tool: null, params: null };
                                 }
                             } else {
                                 toolInfo = utils.parseJsonContent(content as string);
                             }
 
-                            const thinking = `${toolInfo?.thinking || `Tool call: ${toolInfo.tool || "error"}`}\n\n---\n\n`;
+                            content = `${toolInfo?.content || `Tool call: ${toolInfo.tool || "error"}`}\n\n---\n\n`;
                             let toolInfoStr = JSON.stringify(toolInfo, null, 2).replaceAll("\\`", "'").replaceAll("`", "'");
 
                             this.window.webContents.send('infoData', { group_id, context_id, content: `Step ${i}, group_id: ${group_id}, context_id: ${context_id}, Output:\n\n\`\`\`json\n${toolInfoStr}\n\`\`\`\n\n`, del });
-                            this.window.webContents.send('streamData', { group_id, context_id, content: thinking, end: true, del });
+                            this.window.webContents.send('streamData', { group_id, context_id, content: content, reasoning_content: toolInfo.reasoning_content, end: true, del });
 
                         } catch (e: any) {
-                            this.window?.webContents.send('streamData', { group_id, context_id, content: null, end: true, del });
+                            this.window?.webContents.send('streamData', { group_id, context_id, content: null, reasoning_content: null, end: true, del });
                         }
                     } else {
-                        this.window.webContents.send('streamData', { group_id: group_id, content: content, end: true, del: del });
+                        this.window.webContents.send('streamData', { group_id: group_id, content: content, reasoning_content: reasoning_content || null, end: true, del: del });
                     }
                 }
             });

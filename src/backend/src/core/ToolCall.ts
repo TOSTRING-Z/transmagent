@@ -567,20 +567,27 @@ export class ToolCall extends ReActAgent {
     }
 
     public async getToolInfos(data: Record<string, any>, assistantMessage: any): Promise<ToolInfo[]> {
-        const adapter: any = ToolCallAdapterFactory.getAdapter(this.llm_service.chatManager.chat.tool_format);
+        const adapter: IToolCallAdapter = ToolCallAdapterFactory.getAdapter(this.llm_service.chatManager.chat.tool_format);
         const toolInfos = adapter.getToolInfos(assistantMessage);
 
         // 网络或内容容错处理
-        if (toolInfos.length === 1 && !toolInfos[0].thinking && !toolInfos[0].tool) return [];
+        if (toolInfos.length === 1 && !toolInfos[0].content && !toolInfos[0].tool) return [];
 
         let toolInfoStr = JSON.stringify(toolInfos, null, 2);
         data.output_format = toolInfoStr;
 
         this.window?.webContents.send('infoData', { group_id: this.llm_service.chatManager.chat.group_id, context_id: this.llm_service.chatManager.chat.context_id, content: this.getInfo(data) });
 
-        const thinking = toolInfos[0]?.thinking || "";
-        if (thinking) {
-            this.window?.webContents.send('streamData', { group_id: this.llm_service.chatManager.chat.group_id, context_id: this.llm_service.chatManager.chat.context_id, content: `${thinking}\n\n---\n\n`, chat: this.llm_service.chatManager.chat });
+        const content = toolInfos[0]?.content || "";
+        const reasoning_content = toolInfos[0]?.reasoning_content || "";
+        if (content || reasoning_content) {
+            this.window?.webContents.send('streamData', { 
+                group_id: this.llm_service.chatManager.chat.group_id, 
+                context_id: this.llm_service.chatManager.chat.context_id, 
+                content: content, 
+                reasoning_content: reasoning_content, 
+                chat: this.llm_service.chatManager.chat 
+            });
         }
 
         return toolInfos;

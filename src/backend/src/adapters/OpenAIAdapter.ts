@@ -264,15 +264,16 @@ export class OpenAIToolCallAdapter implements IToolCallAdapter {
         }).filter(Boolean);
     }
     public getToolInfos(message: Message): ToolInfo[] {
-        // 内部逻辑同上 AnthropicToolCallAdapter 
         let toolInfos: ToolInfo[] = [];
-        const thinking = message.content as string;
+        const reasoningContent = message.reasoning_content || "";
+        const textContent = message.content as string || "";
 
         if (message?.tool_calls && message.tool_calls.length > 0) {
             for (let call of message.tool_calls) {
                 try {
                     toolInfos.push({
-                        thinking: thinking,
+                        reasoning_content: reasoningContent || null,
+                        content: textContent,
                         tool: call?.function?.name ?? null,
                         id: call?.id ?? null,
                         params: call?.function?.arguments ? JSON5.parse(call.function.arguments as string) : {},
@@ -280,7 +281,8 @@ export class OpenAIToolCallAdapter implements IToolCallAdapter {
                     });
                 } catch (error: any) {
                     toolInfos.push({
-                        thinking: thinking,
+                        reasoning_content: reasoningContent || null,
+                        content: textContent,
                         tool: call?.function?.name ?? null,
                         id: call?.id ?? null,
                         params: call?.function?.arguments,
@@ -289,7 +291,7 @@ export class OpenAIToolCallAdapter implements IToolCallAdapter {
                 }
             }
         } else {
-            toolInfos.push({ thinking: thinking, tool: null, id: null, params: {}, error: null });
+            toolInfos.push({ reasoning_content: reasoningContent || null, content: textContent, tool: null, id: null, params: {}, error: null });
         }
         return toolInfos;
     }
