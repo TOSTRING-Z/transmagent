@@ -138,7 +138,7 @@ export class ChatManager {
             }
         }
 
-        if (lastAssistantIdx !== this.messages.length - 1) {
+        if (lastAssistantIdx !== -1 && lastAssistantIdx !== this.messages.length - 1) {
             const assistantMsg = this.messages[lastAssistantIdx];
 
             // 3. 如果这个 assistant 消息包含了并发的工具调用
