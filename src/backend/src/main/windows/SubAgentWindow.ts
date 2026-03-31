@@ -8,6 +8,7 @@ import { utils, sysConfig } from '../../utils/globals';
 import { LLMService } from '../../core/LLMService';
 import { ToolCall } from '../../core/ToolCall';
 import { Plugins } from '../../core/Plugins';
+import { Mode } from '../../core/ReActAgent';
 
 interface AgentTool {
     tool_call: ToolCall;
@@ -119,7 +120,13 @@ export class SubAgentWindow extends BaseWindow {
                 win.webContents.send('windowInfo', { id: win.id, name: agentToolName });
                 if (this.agentTool) {
                     this.agentTool.tool_call.changeWindow(win);
-                    // 子代理模式同主代理模式一样
+                    // 子代理模式同主代理模式一样（计划模式例外）
+                    if (this.windowManager.mainWindow.llm_service.chatManager.chat.mode !== Mode.PLAN) {
+                        this.agentTool.tool_call.changeMode(this.windowManager.mainWindow.llm_service.chatManager.chat.mode);
+                    } else {
+                        // 计划模式下，子代理默认为自动模式
+                        this.agentTool.tool_call.changeMode(Mode.AUTO);
+                    }
                     this.agentTool.tool_call.changeMode(this.windowManager.mainWindow.llm_service.chatManager.chat.mode);
 
                     if (utils.getConfig("tool_call")?.subagent_llm_init || this.windows.length > 1) {
