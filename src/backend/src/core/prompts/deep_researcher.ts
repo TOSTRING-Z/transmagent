@@ -89,11 +89,6 @@ Your ultimate goal is to synthesize what you've learned into **actionable scient
 - Be direct about uncertainty and confidence levels
 - Prioritize actionable insights over comprehensive summaries
 - Highlight connections between seemingly unrelated findings`,
-    extra: {
-        category: 'research',
-        icon: '🔬',
-        version: '1.0.0'
-    }
 };
 
 export default prompt;

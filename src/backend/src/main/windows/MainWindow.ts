@@ -201,6 +201,7 @@ export class MainWindow extends BaseWindow {
         if (this.funcItems.react.baseagent.statu) {
             agent_mode = "baseagent";
         }
+        agentTools["deep_researcher"] = this.windowManager.subAgentWindow?.agentTools?.["deep_researcher"];
 
         this.tool_call = new ToolCall(this.plugins, agentTools, this.llm_service, this.window, {
             agent_prompt: null,

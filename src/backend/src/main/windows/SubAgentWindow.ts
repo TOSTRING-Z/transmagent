@@ -316,7 +316,7 @@ export class SubAgentWindow extends BaseWindow {
                     isMain: true
                 },
                 {
-                    promptModule: 'deepresearch',
+                    promptModule: 'deep_researcher',
                     getTools: () => this.normalizeTools({
                         literature_search: this.plugins.getTool("literature_search"),
                         web_crawler_toolkit: this.plugins.getTool("web_crawler_toolkit"),

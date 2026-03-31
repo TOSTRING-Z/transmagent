@@ -172,7 +172,7 @@ export class ToolCall extends ReActAgent {
             'write_important_memory': not(isSubagent),
             'ask_user': all(not(isSubagent), not(any(isMode('FLASH'), isMode('AUTO')))),
             // PLAN 模式专用：深度研究工具
-            'deepresearch': isMode('PLAN'),
+            'deep_researcher': isMode('PLAN'),
         };
 
         // --- 核心类方法中的逻辑 ---
@@ -209,7 +209,7 @@ export class ToolCall extends ReActAgent {
                     const toolConfig = this.getToolConfig(key);
                     const requireConfirmation = !!toolConfig?.require_confirmation;
                     const isSubagentTool = Object.keys(this.agentTools).includes(key);
-                    const isDeepresearch = key === 'deepresearch';
+                    const isDeepresearch = key === 'deep_researcher';
                     // deepresearch 允许在 PLAN 模式使用
                     return !requireConfirmation && (!isSubagentTool || isDeepresearch) ? schemaOrStr : null;
                 }
@@ -676,7 +676,7 @@ export class ToolCall extends ReActAgent {
                 show: true,
                 react: true
             });
-            this.window.webContents.send('toolData', { group_id: this.llm_service.chatManager.chat.group_id, context_id: context_id, content: `${data.query}\n\n`, del: false });
+            this.window.webContents.send('toolData', { group_id: this.llm_service.chatManager.chat.group_id, context_id: context_id, content: `\n\n---\n\n${data.query}`, del: false });
         } else {
             this.llm_service.chatManager.chat.step = 1;
             this.llm_service.chatManager.chat.group_id = String((new Date()).getTime());

@@ -20,10 +20,10 @@ export const MODE_CONSTRAINTS: Record<Mode, string> = {
 - **CONFIRM DESTRUCTION**: You MUST obtain explicit user permission via \`ask_user\` before any file deletion, overwriting, system modification, or high-cost API calls.`,
 
   [Mode.PLAN]: `
-- **READ-ONLY PROTOCOL**: You are STERNLY FORBIDDEN from creating/modifying files, writing scripts, or executing any system-altering actions.
-- **NO MCP ACCESS**: You are STRICTLY FORBIDDEN from calling or interacting with ANY MCP (Model Context Protocol) servers. Your tool usage in this mode must be strictly limited to the \`ask_user\` tool for discussion purposes.
-- **MANDATORY CONSULTATION**: You MUST iteratively use the \`ask_user\` tool to ask clarifying questions, explore edge cases, and validate assumptions during the initial drafting phase.
-- **ARCHITECT ROLE**: Focus 100% on deep discussion and blueprinting. Only AFTER receiving explicit user approval, output the detailed, finalized execution plan. This final summary MUST be output as standard conversational text, DO NOT use the \`ask_user\` tool for this final output.
+- **INVESTIGATIVE READ-ONLY PROTOCOL**: You are STERNLY FORBIDDEN from creating/modifying files, writing scripts, or executing any system-altering actions. However, you are ENCOURAGED to conduct research by reading files, listing directories, and performing web searches to gather necessary context.
+- **LIMITED TOOL ACCESS**: You may freely use read-only tools (e.g., file inspection, web search, read-only MCP servers) to explore the environment and gather information. You are STRICTLY FORBIDDEN from using any tools that modify the system state.
+- **MANDATORY CONSULTATION**: You MUST iteratively use the \`ask_user\` tool to ask clarifying questions, discuss your research findings, explore edge cases, and validate assumptions during the initial drafting phase.
+- **ARCHITECT ROLE**: Focus 100% on deep discussion, research, and blueprinting. Only AFTER receiving explicit user approval, output the detailed, finalized execution plan. This final summary MUST be output as standard conversational text, DO NOT use the \`ask_user\` tool for this final output.
 - **HANDOVER**: Upon plan completion, you MUST explicitly prompt the user (via standard text) to switch to "Execution mode" or "Automatic mode" to proceed.`,
 
   [Mode.FLASH]: `
