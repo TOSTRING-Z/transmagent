@@ -1,5 +1,4 @@
 import * as https from 'https';
-import * as http from 'http';
 import { URL } from 'url';
 import { parse as htmlParse } from 'node-html-parser';
 import * as cheerio from 'cheerio';
@@ -495,22 +494,69 @@ export function main(params: any = {}) {
 export function getPrompt() {
     return {
         "name": "web_crawler_toolkit",
-        "description": "A robust suite for web exploration: handles multi-engine searching (defaults to DuckDuckGo, falls back to Baidu), batch result selection, deep content extraction (HTML-to-Text), and URL status verification.",
+        "description": `A robust suite for web exploration: handles multi-engine web searching (DuckDuckGo → Baidu fallback), batch result selection, deep content extraction, and URL status verification.
+
+⚠️ IMPORTANT CAPABILITIES & LIMITATIONS:
+- 'search' action: Performs WEB SEARCH via search engines. The 'url' parameter is IGNORED in search action.
+  ✗ WRONG: search + url (to search within a website)
+  ✓ CORRECT: search + query (to find relevant websites)
+- 'read_url' action: Scrapes text content from a single target URL.
+  ✓ Use this to fetch content from a specific page (e.g., GitHub repo, documentation)
+- This tool does NOT support in-site searching. To find files within a repository:
+  1. Use 'read_url' to fetch the page (e.g., GitHub file tree)
+  2. Use 'select' to extract content from search results
+  3. Process/analyze the content in your reasoning
+
+WORKFLOW EXAMPLES:
+① Find websites about a topic:
+   {action: "search", query: ["Claude Code system prompt analysis"]}
+
+② Get content from a specific URL:
+   {action: "read_url", url: "https://github.com/user/repo", max_length: 15000}
+
+③ Extract content from search results by ID:
+   {action: "select", select_ids: [0, 1, 2], max_length: 8192}`,
         "parameters": {
             "type": "object",
             "properties": {
                 "action": { 
                     "type": "string", 
-                    "description": "(Required) Select from: 'search' (web search), 'select' (fetch multiple search results by ID), 'read_url' (scrape full page text), 'check_status' (validate URL accessibility)" 
+                    "description": "(Required) Select from: 'search' | 'select' | 'read_url' | 'check_status'\n\n• 'search': Web search via DuckDuckGo/Baidu (uses 'query', ignores 'url')\n• 'select': Fetch content from previously found URLs by their result IDs\n• 'read_url': Scrape full text from a target URL\n• 'check_status': Verify if a URL is accessible" 
                 },
-                "query": { "type": "array", "items": { "type": "string" }, "description": "Search queries for 'search' action" },
-                "select_ids": { "type": "array", "items": { "type": "string" }, "description": "IDs from search results to extract content" },
-                "url": { "type": "string", "description": "Target URL for 'read_url' or 'check_status'" },
-                "topk": { "type": "number", "description": "Results count. Default: 10" },
-                "max_length": { "type": "number", "description": "Max characters of page content to return. Default: 8192" },
-                "timeout": { "type": "number", "description": "Timeout for requests in milliseconds. Default: 5000" }
+                "query": { 
+                    "type": "array", 
+                    "items": { "type": "string" }, 
+                    "description": "⚠️ Only for 'search' action. Web search keywords/phrases to query search engines. NOT for in-site search." 
+                },
+                "select_ids": { 
+                    "type": "array", 
+                    "items": { "type": "string" }, 
+                    "description": "⚠️ Only for 'select' action. IDs (0, 1, 2...) from previous search results to fetch content from." 
+                },
+                "url": { 
+                    "type": "string", 
+                    "description": "⚠️ Only for 'read_url' or 'check_status' actions. Target URL to scrape or verify. Ignored in 'search' action." 
+                },
+                "topk": { 
+                    "type": "number", 
+                    "description": "Number of web search results to return. Default: 10. Only for 'search' action." 
+                },
+                "max_length": { 
+                    "type": "number", 
+                    "description": "Max characters of page content to return. Default: 8192. For 'select' and 'read_url'." 
+                },
+                "timeout": { 
+                    "type": "number", 
+                    "description": "Timeout for requests in milliseconds. Default: 5000. For 'check_status'." 
+                }
             },
-            "required": ["action"]
+            "required": ["action"],
+            "dependencies": {
+                "search": ["query"],
+                "select": ["select_ids"],
+                "read_url": ["url"],
+                "check_status": ["url"]
+            }
         }
     };
 }
