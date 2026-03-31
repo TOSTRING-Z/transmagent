@@ -24,9 +24,14 @@
       "!**/{__pycache__,.venv,thumbs.db,.flowconfig,.idea,.vs,.nyc_output}",
       "!**/{appveyor.yml,.travis.yml,circle.yml}",
       "!**/{npm-debug.log,yarn.lock,.yarn-integrity,.yarn-metadata.json}",
+      "!**/{AUTO_ENV_AND_TOOLS_INSTALL.md,CONFIG.md,README_zh.md,README.md}",
       "!biotools",
       "!public",
-      "!dist"
+      "!render",
+      "!dist",
+      "!src/backend/src",
+      "!web",
+      "!*.ts"
     ],
     "extraResources": [
       {
@@ -75,7 +80,8 @@
     "clean": "rm -rf dist",
     "rebuild": "tsc --build --clean",
     "start": "electron . --enable-logging --log-level=debug --no-sandbox",
-    "dist": "electron-builder",
+    "dist": "electron-builder --win --x64",
+    "electron-build": "electron-builder --win --dir",
     "debug": "electron --inspect=5858 . --enable-logging --log-level=debug --no-sandbox",
     "start:dev": "NODE_ENV=development electron -r source-map-support/register . --enable-logging --log-level=debug --no-sandbox",
     "debug:dev": "electron --inspect=5858 -r source-map-support/register ."
@@ -105,7 +111,6 @@
     "sqlite3": "^5.1.7",
     "ssh2": "^1.16.0",
     "string": "^3.3.3",
-    "transmagent": "link:",
     "xlsx": "^0.18.5"
   },
   "devDependencies": {
