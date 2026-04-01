@@ -129,61 +129,31 @@ export class ChatManager {
             return;
         }
 
-        // 2. 往前寻找最近的一条 assistant 消息
-        let lastAssistantIdx = -1;
-        for (let i = this.messages.length - 1; i >= 0; i--) {
-            if (this.messages[i].role === 'assistant') {
-                lastAssistantIdx = i;
-                break;
+        // 2. 如果最后一条是 assistant 且有 tool_calls（工具调用被中断）
+        if (lastMessage?.role === "assistant" && lastMessage.tool_calls && lastMessage.tool_calls.length > 0) {
+            // 收集已有的 tool 结果 ID
+            const existingToolIds = new Set<string>();
+            for (let i = this.messages.length - 2; i >= 0; i--) {
+                const msg = this.messages[i];
+                if (msg.role === 'tool' && msg.tool_call_id) {
+                    existingToolIds.add(msg.tool_call_id);
+                }
             }
-        }
 
-        if (lastAssistantIdx !== -1 && lastAssistantIdx !== this.messages.length - 1) {
-            const assistantMsg = this.messages[lastAssistantIdx];
-
-            // 3. 如果这个 assistant 消息包含了并发的工具调用
-            if (assistantMsg.tool_calls && assistantMsg.tool_calls.length > 0) {
-                
-                // a. 收集在这之后已经成功返回结果的工具 ID
-                const existingToolIds = new Set<string>();
-                for (let i = lastAssistantIdx + 1; i < this.messages.length; i++) {
-                    const msg = this.messages[i];
-                    if (msg.role === 'tool' && msg.tool_call_id) {
-                        existingToolIds.add(msg.tool_call_id);
-                    }
-                }
-
-                // b. 遍历所有的工具调用，找出还没被回复的（被中断的）
-                let hasInterruptedTools = false;
-                for (const call of assistantMsg.tool_calls) {
-                    if (!existingToolIds.has(call.id as string)) {
-                        hasInterruptedTools = true;
-                        // 为缺失的工具伪造一个“被中断”的回调消息，强制闭环
-                        this.pushMessage({
-                            role: 'tool',
-                            content: "The task was interrupted by the user before execution.",
-                            tool_call_id: call.id,
-                            tool_call_name: call.function?.name,
-                            group_id: assistantMsg.group_id,
-                            context_id: assistantMsg.context_id,
-                            show: false, // 补充的伪造消息没必要在界面渲染
-                            react: false
-                        });
-                    }
-                }
-
-                // c. 如果确实有工具被中断，或者所有工具都刚执行完但还没给总结，统一补一句 Assistant 的结论
-                if (hasInterruptedTools || lastMessage?.role === "tool") {
-                    this.pushMessage({ 
-                        role: 'assistant', 
-                        content: "The user interrupted the task.", 
-                        group_id: assistantMsg.group_id, 
-                        context_id: assistantMsg.context_id,
-                        show: true, 
-                        react: false 
+            // 为缺失的工具调用补充"被中断"的结果
+            for (const call of lastMessage.tool_calls) {
+                if (!existingToolIds.has(call.id as string)) {
+                    this.pushMessage({
+                        role: 'tool',
+                        content: "The user interrupted the task.",
+                        tool_call_id: call.id,
+                        tool_call_name: call.function?.name,
+                        group_id: lastMessage.group_id,
+                        context_id: lastMessage.context_id,
+                        show: false,
+                        react: false
                     });
                 }
-
             }
         }
     }
