@@ -564,6 +564,8 @@ $$
     DOM.input.value = quotedContent + "\n" + DOM.input.value;
   }
   function menuEvent(messageSystem, message_content, is_plugin) {
+    const message_actions = messageSystem.getElementsByClassName("message-actions")[0];
+    message_actions.classList.add("active");
     const copy = messageSystem.getElementsByClassName("copy")[0];
     const del = messageSystem.getElementsByClassName("delete")[0];
     const compression = messageSystem.getElementsByClassName("compression")[0];
@@ -604,13 +606,18 @@ $$
       thumbMessageGroup(thumbs_up, thumbs_down, { group_id: messageSystem.dataset.id, thumb: -1 });
     });
   }
-  async function enterEnd(messageSystem) {
-    if (State.seconds_timer)
+  async function enterEnd(messageSystem, chunk = null) {
+    if (State.seconds_timer) {
       clearInterval(State.seconds_timer);
+      State.seconds_timer = null;
+    }
     const message_content = messageSystem.getElementsByClassName("message")[0];
     const thinking = messageSystem?.getElementsByClassName("thinking")[0];
     thinking.classList.add("hidden");
-    menuEvent(messageSystem, message_content.dataset.content, false);
+    if (!messageSystem.dataset?.event_stop) {
+      messageSystem.dataset.event_stop = "true";
+      menuEvent(messageSystem, message_content.dataset.content, chunk?.is_plugin);
+    }
     DOM.submit.classList.remove("running");
   }
   function addRunning(messageSystem) {
@@ -766,16 +773,7 @@ $$
         message_content.dataset.reasoning_content = (message_content.dataset.reasoning_content || "") + chunk.reasoning_content || "";
       }
       if (chunk.end) {
-        if (State.seconds_timer) {
-          clearInterval(State.seconds_timer);
-          State.seconds_timer = null;
-        }
-        const thinking = messageSystem.getElementsByClassName("thinking")[0];
-        thinking.classList.add("hidden");
-        if (!messageSystem.dataset?.event_stop) {
-          messageSystem.dataset.event_stop = "true";
-          menuEvent(messageSystem, message_content, chunk?.is_plugin);
-        }
+        enterEnd(messageSystem, chunk);
       }
     }
     return messageSystem;

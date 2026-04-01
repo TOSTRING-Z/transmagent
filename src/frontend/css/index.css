@@ -567,7 +567,7 @@ body {
 }
 
 .message-actions {
-  display: flex;
+  display: none;
   justify-content: flex-start;
   gap: var(--action-gap);
   padding-left: var(--message-left);
@@ -588,7 +588,7 @@ body {
 }
 
 [data-role="system"]:hover .active {
-  display: block;
+  display: flex;
 }
 
 .action-btn.copy:hover {

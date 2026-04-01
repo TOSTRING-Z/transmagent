@@ -111,7 +111,9 @@ class MCPClient {
         );
 
         await this.refreshPrompts();
-        this.isInitialized = true;
+        if (Object.keys(this.clients).length > 0 && this.mcpPrompt) {
+            this.isInitialized = true;
+        }
     }
 
     /**
