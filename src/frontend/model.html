@@ -334,7 +334,7 @@
       color: #1976d2;
     }
 
-    .ollama-tag {
+    .api-type-tag {
       background-color: #e8f5e9;
       color: #2e7d32;
     }
@@ -386,6 +386,15 @@
         </div>
 
         <div class="form-row">
+          <label>API Type:</label>
+          <select id="model-api-type">
+            <option value="openai">OpenAI</option>
+            <option value="anthropic">Anthropic</option>
+            <option value="ollama">Ollama</option>
+          </select>
+        </div>
+
+        <div class="form-row">
           <label>API Url:</label>
           <input type="text" id="model-api-url" placeholder="https://api.example.com/v1">
         </div>
@@ -420,16 +429,6 @@
           <small class="muted">Whether this model supports image processing capabilities.</small>
         </div>
 
-        <div class="form-row">
-          <label>Ollama Model:</label>
-          <select id="model-ollama">
-            <option value="false">Not an Ollama Model</option>
-            <option value="true">Ollama Model</option>
-          </select>
-        </div>
-        <div class="form-row">
-          <small class="muted">Whether this model is running through Ollama.</small>
-        </div>
       </div>
 
       <div class="modal-actions">
@@ -483,7 +482,7 @@
         document.getElementById('model-params').value = model.params ? JSON.stringify(model.params, null, 2) : '';
         document.getElementById('model-version').value = model.version || '';
         document.getElementById('model-vision').value = model.vision ? 'true' : 'false';
-        document.getElementById('model-ollama').value = model.ollama ? 'true' : 'false';
+        document.getElementById('model-api-type').value = model.api_type || 'openai';
         document.getElementById('m-add-model').style.display = 'flex';
       }
     }
@@ -498,10 +497,10 @@
       document.getElementById('model-name').value = '';
       document.getElementById('model-api-url').value = '';
       document.getElementById('model-api-key').value = '';
+      document.getElementById('model-api-type').value = '';
       document.getElementById('model-params').value = '';
       document.getElementById('model-version').value = '';
       document.getElementById('model-vision').value = 'false';
-      document.getElementById('model-ollama').value = 'false';
     }
 
     // 保存模型
@@ -509,10 +508,10 @@
       const name = document.getElementById('model-name').value.trim();
       const api_url = document.getElementById('model-api-url').value.trim();
       const api_key = document.getElementById('model-api-key').value.trim();
+      const api_type = document.getElementById('model-api-type').value.trim();
       const paramsText = document.getElementById('model-params').value.trim();
       const version = document.getElementById('model-version').value.trim();
       const vision = document.getElementById('model-vision').value === 'true';
-      const ollama = document.getElementById('model-ollama').value === 'true';
 
       // 基本验证
       if (!name) {
@@ -534,10 +533,10 @@
         name,
         api_url,
         api_key,
+        api_type,
         params,
         version,
         vision,
-        ollama
       };
 
       // 如果是编辑模式
@@ -622,7 +621,7 @@
               <span>
                 <span class="feature-tag llm-tag">LLM</span>
                 ${model.vision ? '<span class="feature-tag vision-tag">Vision</span>' : ''}
-                ${model.ollama ? '<span class="feature-tag ollama-tag">Ollama</span>' : ''}
+                ${model.api_type ? `<span class="feature-tag api-type-tag">${model.api_type}</span>` : ''}
               </span>
             </div>
           </div>

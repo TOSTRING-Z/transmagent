@@ -31,7 +31,7 @@ export class LLMService {
     public async chatBase(data: ChatRequestData): Promise<Message | null> {
         try {
             // 1. 根据 api_type 获取 API 通信适配器
-            this.adapter = LLMAdapterFactory.getAdapter(this.chatManager.chat.api_type);
+            this.adapter = LLMAdapterFactory.getAdapter(data.api_type);
 
             // 2. 输入数据清洗与格式化
             let content: string | MessageContent[];
@@ -200,11 +200,6 @@ export class LLMService {
             }
         }
 
-        // 流式结束后统一将 tool_calls 转换为 OpenAI 标准格式
-        if (messageOutput.tool_calls && messageOutput.tool_calls.length > 0) {
-            messageOutput.tool_calls = adapter.formatToolCalls(messageOutput.tool_calls);
-        }
-
         return true;
     }
 
@@ -227,7 +222,7 @@ export class LLMService {
         messageOutput.content = content;
         if (reasoning_content) messageOutput.reasoning_content = reasoning_content;
         if (tool_calls) {
-            messageOutput.tool_calls = adapter.formatToolCalls(tool_calls);
+            messageOutput.tool_calls = tool_calls;
         }
 
         if (tokens) this.chatManager.chat.tokens = tokens;

@@ -29,13 +29,12 @@
     "model": "deepseek",
     "version": "deepseek-chat",
     "plugin": "baidu_translate",
-    "api_type": "openai",
     "tool_format": "toolcalls",
     "compress_context": false
   },
   "models": {
     "ollama": {
-      "api_url": "http://localhost:11434/api/chat",
+      "api_url": "http://localhost:11434",
       "api_type": "ollama",
       "versions": [
         "gpt-oss:20b",
@@ -48,24 +47,20 @@
         }
       ]
     },
-    "vllm": {
-      "api_url": "http://127.0.0.1:8060/v1/chat/completions",
-      "api_key": "token-tostring-qwen3-coder-lora",
+    "deepseek[openai]": {
+      "api_url": "https://api.deepseek.com/",
+      "api_key": "",
+      "api_type": "openai",
       "versions": [
         {
-          "version": "/root/private_data/transagent/model/qwen-coder-lora-s2-30b",
-          "llm_params": {
-            "stream": true,
-            "chat_template_kwargs": {
-              "enable_thinking": false
-            }
-          }
+          "version": "deepseek-chat"
         }
       ]
     },
-    "deepseek": {
-      "api_url": "https://api.deepseek.com/chat/completions",
+    "deepseek[anthropic]": {
+      "api_url": "https://api.deepseek.com/anthropic",
       "api_key": "",
+      "api_type": "anthropic",
       "versions": [
         {
           "version": "deepseek-chat"

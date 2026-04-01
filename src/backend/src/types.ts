@@ -1,17 +1,17 @@
 // 文本内容
 export interface TextContent {
-  type: "text";
-  text: string;
+    type: "text";
+    text: string;
 }
 
 // 图片内容
 export interface ImageContent {
-  type: "image_url";
-  image_url: {
-    url: string;
-    // 可选的其他图片参数
-    detail?: "low" | "high" | "auto";
-  };
+    type: "image_url";
+    image_url: {
+        url: string;
+        // 可选的其他图片参数
+        detail?: "low" | "high" | "auto";
+    };
 }
 
 // 联合类型
@@ -54,12 +54,22 @@ export interface Skill {
 
 // Tool Call 类型
 export interface ToolCall {
-    id?: string;
-    type?: string;
-    function?: {
+    id: string;
+    type: string;
+    function: {
         name: string;
         arguments: string | object;
     };
+}
+
+// Tool
+export interface OpenAITool {
+    type: 'function',
+    function: {
+        name: string,
+        description: string,
+        parameters: object,
+    }
 }
 
 // ToolInfo
@@ -120,7 +130,7 @@ export interface ChatRequestData {
     api_key?: string;
     params?: any;
     llm_params?: Record<string, any>;
-    tools?: ToolCall[];
+    tools?: OpenAITool[];
     push_message?: boolean;
     react?: boolean;
     return_response?: boolean;

@@ -132,7 +132,6 @@ export class SubAgentWindow extends BaseWindow {
                         this.agentTool.tool_call.llm_service.chatManager.init();
                     }
                     const mainChat = this.windowManager.mainWindow.llm_service.chatManager.chat;
-                    this.agentTool.tool_call.llm_service.chatManager.chat.api_type = mainChat.api_type;
                     this.agentTool.tool_call.llm_service.chatManager.chat.tool_format = mainChat.tool_format;
                     this.agentTool.tool_call.llm_service.startMessage();
                     let data = this.agentTool.tool_call.getDataDefault({ query, model: mainChat.model, version: mainChat.version });

@@ -191,7 +191,6 @@ export class ToolCall extends ReActAgent {
             isSubagent: !!this.agentConfigs?.subagent,
             currentMode: this.environment_details?.mode
         };
-        const format = this.llm_service.chatManager.chat.tool_format;
         // 3. 流水线处理：过滤 -> 提取Schema -> 格式化
         this.tool_schemas = Object.entries(this.tools)
             .filter(([key, tool]) => {
@@ -223,7 +222,7 @@ export class ToolCall extends ReActAgent {
                 }
             })
             .filter(Boolean);
-        const adapter: IToolCallAdapter = ToolCallAdapterFactory.getAdapter(format);
+        const adapter: IToolCallAdapter = ToolCallAdapterFactory.getAdapter(this.llm_service.chatManager.chat.tool_format);
         return adapter.formatTools(this.tool_schemas);
     }
 
@@ -581,12 +580,12 @@ export class ToolCall extends ReActAgent {
         const content = toolInfos[0]?.content || "";
         const reasoning_content = toolInfos[0]?.reasoning_content || "";
         if (content || reasoning_content) {
-            this.window?.webContents.send('streamData', { 
-                group_id: this.llm_service.chatManager.chat.group_id, 
-                context_id: this.llm_service.chatManager.chat.context_id, 
-                content: `\n\n${content}`, 
-                reasoning_content: reasoning_content, 
-                chat: this.llm_service.chatManager.chat 
+            this.window?.webContents.send('streamData', {
+                group_id: this.llm_service.chatManager.chat.group_id,
+                context_id: this.llm_service.chatManager.chat.context_id,
+                content: `\n\n${content}`,
+                reasoning_content: reasoning_content,
+                chat: this.llm_service.chatManager.chat
             });
         }
 

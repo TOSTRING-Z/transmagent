@@ -64,10 +64,10 @@ export class ModelWindow extends BaseWindow {
                         name,
                         api_url: config_models[name].api_url,
                         api_key: config_models[name]?.api_key,
+                        api_type: config_models[name]?.api_type,
                         params: llm_params,
                         version: version.version,
                         vision: !!version?.vision,
-                        api_type: config_models[name]?.api_type || 'openai'
                     });
                 });
             }
@@ -105,13 +105,13 @@ export class ModelWindow extends BaseWindow {
                 config_models[modelData.name] = { 
                     api_url: modelData.api_url, 
                     api_key: modelData.api_key, 
-                    api_type: modelData.api_type || 'openai',
+                    api_type: modelData.api_type,
                     versions: [] 
                 };
             } else {
                 config_models[modelData.name].api_url = modelData.api_url;
                 config_models[modelData.name].api_key = modelData.api_key;
-                config_models[modelData.name].api_type = modelData.api_type || config_models[modelData.name].api_type || 'openai';
+                config_models[modelData.name].api_type = modelData.api_type;
             }
 
             const existingIdx = config_models[modelData.name].versions.findIndex((v: any) => v.version === modelData.version);

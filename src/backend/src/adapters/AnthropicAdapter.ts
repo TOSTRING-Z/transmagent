@@ -1,5 +1,5 @@
 import { ILLMAdapter, IToolCallAdapter } from './IAdapter';
-import { ChatRequestData, Message, StreamChunkResult, ToolCall, ToolInfo } from '../types';
+import { ChatRequestData, Message, StreamChunkResult, OpenAITool, ToolInfo } from '../types';
 import JSON5 from 'json5';
 import { parse } from 'partial-json';
 
@@ -80,39 +80,15 @@ export class AnthropicAdapter implements ILLMAdapter {
             });
 
         // 5. 添加环境变量消息
+        const lastMessage = formattedMessages[formattedMessages.length - 1];
         if (data.env_message) {
-            formattedMessages.push({
-                content: { type: 'text', text: data.env_message }
-            });
+            lastMessage.content.push({ type: 'text', text: data.env_message });
         }
         if (data.todolist_message) {
-            formattedMessages.push({
-                content: { type: 'text', text: data.todolist_message }
-            });
+            lastMessage.content.push({ type: 'text', text: data.todolist_message });
         }
 
-        // 6. 核心修复：合并相邻的同角色消息 (解决连续 user 或连续 assistant 的问题)
-        const mergedMessages: any[] = [];
-        for (const msg of formattedMessages) {
-            const lastMsg = mergedMessages[mergedMessages.length - 1];
-
-            if (lastMsg && lastMsg.role === msg.role) {
-                // 角色相同，合并 content (前提是我们前面已经把内容全部统一规范成了数组)
-                const lastContent = Array.isArray(lastMsg.content) ? lastMsg.content : [{ type: 'text', text: lastMsg.content || "" }];
-                const currentContent = Array.isArray(msg.content) ? msg.content : [{ type: 'text', text: msg.content || "" }];
-
-                // 合并数组
-                lastMsg.content = [...lastContent, ...currentContent];
-            } else {
-                // 角色不同，直接放入
-                mergedMessages.push(msg);
-            }
-        }
-
-        // 7. 兜底策略：如果处理完后为了兼容纯文本框架，把纯文本的 content 还原为字符串（可选）
-        // Anthropic API 完全支持 content 为对象数组，通常保留数组结构是最安全的。
-
-        return mergedMessages;
+        return formattedMessages;
     }
 
     public buildPayload(data: ChatRequestData, formattedMessages: any[]): Record<string, any> {
@@ -140,8 +116,17 @@ export class AnthropicAdapter implements ILLMAdapter {
             body.system = systemMessages; // Anthropic 顶级 system 参数
         }
 
+        // 将 OpenAI 格式转换为 Anthropic 格式
         if (data.tools && data.tools.length > 0) {
-            body.tools = data.tools;
+            body.tools = data.tools.map(tool => {
+                const func = tool.function || tool;
+
+                return {
+                    name: func.name,
+                    description: func.description,
+                    input_schema: func.parameters // OpenAI 的 parameters 即为 Anthropic 的 input_schema
+                };
+            });
         }
 
         if (body.stream) {
@@ -328,24 +313,8 @@ export class AnthropicAdapter implements ILLMAdapter {
         }
     }
 
-    /**
-     * 将 Anthropic tool_use 转换为 OpenAI 标准格式 ToolCall
-     * Anthropic 格式: { id, name, input }
-     * OpenAI 格式: { id, type: "function", function: { name, arguments } }
-     */
-    public formatToolCalls(tool_calls?: any[]): ToolCall[] {
-        if (!tool_calls || tool_calls.length === 0) return [];
-
-        return tool_calls.map(tc => ({
-            id: tc.id || tc.index?.toString(),
-            type: "function",
-            function: {
-                name: tc.name || tc.function?.name || "",
-                arguments: typeof tc.input === 'string' 
-                    ? tc.input 
-                    : JSON.stringify(tc.input || tc.function?.arguments || {})
-            }
-        }));
+    public getConversationalURL(baseUrl: string): string {
+        return `${baseUrl}/v1/messages`;
     }
 }
 

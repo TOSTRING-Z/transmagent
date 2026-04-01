@@ -204,23 +204,8 @@ export class OllamaAdapter implements ILLMAdapter {
         }
     }
 
-    /**
-     * 将 Ollama tool_calls 转换为 OpenAI 标准格式 ToolCall
-     * Ollama API 兼容 OpenAI 格式，但需确保 arguments 为字符串
-     */
-    public formatToolCalls(tool_calls?: any[]): ToolCall[] {
-        if (!tool_calls || tool_calls.length === 0) return [];
-
-        return tool_calls.map(tc => ({
-            id: tc.id || tc.index?.toString(),
-            type: "function",
-            function: {
-                name: tc.function?.name || tc.name || "",
-                arguments: typeof tc.function?.arguments === 'string' 
-                    ? tc.function.arguments 
-                    : JSON.stringify(tc.function?.arguments || tc.input || {})
-            }
-        }));
+    public getConversationalURL(baseUrl: string): string {
+        return `${baseUrl}/api/chat`;
     }
 }
 

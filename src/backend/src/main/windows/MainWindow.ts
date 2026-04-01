@@ -211,8 +211,7 @@ export class MainWindow extends BaseWindow {
             skill: skill,
             subagent: false,
             agent_mode: agent_mode,
-            agent_name: "TransMAgent",
-            tool_format: this.llm_service.chatManager.chat.tool_format
+            agent_name: "TransMAgent"
         });
 
         this.chain_call = new ChainCall(this.plugins, this.llm_service, this.window);
@@ -587,7 +586,6 @@ export class MainWindow extends BaseWindow {
             last_clipboard_content: this.last_clipboard_content,
             model: this.llm_service.chatManager.chat.model,
             version: this.llm_service.chatManager.chat.version,
-            tool_format: this.llm_service.chatManager.chat.tool_format,
             is_plugin: this.llm_service.chatManager.chat.is_plugin,
             chat: this.llm_service.chatManager.chat,
             chats: history_data.data
@@ -606,12 +604,8 @@ export class MainWindow extends BaseWindow {
             click: () => {
                 this.llm_service.chatManager.chat.model = _model;
                 this.llm_service.chatManager.chat.is_plugin = _model === "plugins";
-                this.llm_service.chatManager.chat.version = utils.getConfig("models")[_model]["versions"][0].version;
-                
-                // 根据模型配置设置 api_type 和 tool_format
                 const modelConfig = utils.getConfig("models")[_model];
-                this.llm_service.chatManager.chat.api_type = modelConfig?.api_type || 'openai';
-                // tool_format 由用户手动选择，或使用默认值
+                this.llm_service.chatManager.chat.version = modelConfig?.versions[0].version;
                 
                 this.updateVersionsSubmenu();
                 this.window?.webContents.send("handleSetChat", this.llm_service.chatManager.chat);
@@ -652,53 +646,6 @@ export class MainWindow extends BaseWindow {
         return [
             { label: "Model Selection", submenu: this.getModelsSubmenu() },
             { label: "Version Selection", submenu: this.getVersionsSubmenu() },
-            {
-                label: "API Type",
-                submenu: [
-                    {
-                        type: 'radio',
-                        checked: this.llm_service.chatManager.chat.api_type === 'openai',
-                        label: 'OpenAI',
-                        click: () => {
-                            this.llm_service.chatManager.chat.api_type = 'openai';
-                            let config = utils.getConfig();
-                            config.default.api_type = 'openai';
-                            utils.setConfig(config);
-                            this.updateVersionsSubmenu();
-                            this.window?.webContents.send('handleSetChat', this.llm_service.chatManager.chat);
-                            if (this.tool_call.setHistory) this.tool_call.setHistory();
-                        }
-                    },
-                    {
-                        type: 'radio',
-                        checked: this.llm_service.chatManager.chat.api_type === 'anthropic',
-                        label: 'Anthropic',
-                        click: () => {
-                            this.llm_service.chatManager.chat.api_type = 'anthropic';
-                            let config = utils.getConfig();
-                            config.default.api_type = 'anthropic';
-                            utils.setConfig(config);
-                            this.updateVersionsSubmenu();
-                            this.window?.webContents.send('handleSetChat', this.llm_service.chatManager.chat);
-                            if (this.tool_call.setHistory) this.tool_call.setHistory();
-                        }
-                    },
-                    {
-                        type: 'radio',
-                        checked: this.llm_service.chatManager.chat.api_type === 'ollama',
-                        label: 'Ollama (Local)',
-                        click: () => {
-                            this.llm_service.chatManager.chat.api_type = 'ollama';
-                            let config = utils.getConfig();
-                            config.default.api_type = 'ollama';
-                            utils.setConfig(config);
-                            this.updateVersionsSubmenu();
-                            this.window?.webContents.send('handleSetChat', this.llm_service.chatManager.chat);
-                            if (this.tool_call.setHistory) this.tool_call.setHistory();
-                        }
-                    }
-                ]
-            },
             {
                 label: "Tool Format",
                 submenu: [

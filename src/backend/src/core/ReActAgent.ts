@@ -4,7 +4,7 @@ import { LLMService } from './LLMService';
 import { utils, CONSTANTS } from '../utils/globals';
 import { Message, ChatState } from '../types';
 import { LLMAssistant } from './LLMAssistant';
-import { ToolCallAdapterFactory } from '../factories/AdapterFactory';
+import { LLMAdapterFactory, ToolCallAdapterFactory } from '../factories/AdapterFactory';
 
 export enum State {
     IDLE = 'idle',
@@ -139,8 +139,10 @@ export class ReActAgent {
 
     public async llmCall(data: Record<string, any>): Promise<Message | null> {
         const configModels = utils.getConfig("models");
-        data.api_url = data.api_url || configModels[data.model]?.api_url;
         data.api_key = data.api_key || configModels[data.model]?.api_key;
+        data.api_type = data.api_type || configModels[data.model]?.api_type;
+        const adapter = LLMAdapterFactory.getAdapter(data.api_type);
+        data.api_url = data.api_url || adapter.getConversationalURL(configModels[data.model]?.api_url);
 
         data.params = data.params || configModels[data.model]?.versions?.find((v: any) => {
             return typeof v !== "string" && v.version === data.version;
@@ -197,6 +199,7 @@ export class ReActAgent {
             file_path: null,
             api_url: null,
             api_key: null,
+            api_type: null,
             model: this.llm_service.chatManager.chat.model,
             version: this.llm_service.chatManager.chat.version,
             is_plugin: this.llm_service.chatManager.chat.model === "plugins",
