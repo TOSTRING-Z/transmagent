@@ -1,5 +1,5 @@
 import { ILLMAdapter, IToolCallAdapter } from './IAdapter';
-import { ChatRequestData, Message, OpenAIContent, StreamChunkResult, ToolInfo } from '../types';
+import { ChatRequestData, Message, OpenAIContent, StreamChunkResult, ToolCall, ToolInfo } from '../types';
 import JSON5 from 'json5';
 import { parse } from 'partial-json';
 
@@ -229,6 +229,28 @@ export class OpenAIAdapter implements ILLMAdapter {
             } catch (error) { }
         }
         messageOutput.tool_calls[0].function.arguments = partialContent;
+    }
+
+    /**
+     * 将 tool_calls 统一转换为 OpenAI 标准格式
+     * OpenAI 格式: { id, type: "function", function: { name, arguments } }
+     */
+    public formatToolCalls(tool_calls?: any[]): ToolCall[] {
+        if (!tool_calls || tool_calls.length === 0) return [];
+
+        return tool_calls.map(tc => {
+            // OpenAI 格式已经是标准格式，做标准化处理
+            return {
+                id: tc.id || tc.index?.toString(),
+                type: "function",
+                function: {
+                    name: tc.function?.name || tc.name || "",
+                    arguments: typeof tc.function?.arguments === 'string' 
+                        ? tc.function.arguments 
+                        : JSON.stringify(tc.function?.arguments || tc.input || {})
+                }
+            };
+        });
     }
 }
 

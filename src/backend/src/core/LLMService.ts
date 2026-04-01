@@ -200,6 +200,11 @@ export class LLMService {
             }
         }
 
+        // 流式结束后统一将 tool_calls 转换为 OpenAI 标准格式
+        if (messageOutput.tool_calls && messageOutput.tool_calls.length > 0) {
+            messageOutput.tool_calls = adapter.formatToolCalls(messageOutput.tool_calls);
+        }
+
         return true;
     }
 
@@ -221,7 +226,9 @@ export class LLMService {
         data.output = content;
         messageOutput.content = content;
         if (reasoning_content) messageOutput.reasoning_content = reasoning_content;
-        if (tool_calls) messageOutput.tool_calls = tool_calls;
+        if (tool_calls) {
+            messageOutput.tool_calls = adapter.formatToolCalls(tool_calls);
+        }
 
         if (tokens) this.chatManager.chat.tokens = tokens;
 

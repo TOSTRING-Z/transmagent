@@ -1,5 +1,5 @@
 import { ILLMAdapter, IToolCallAdapter } from './IAdapter';
-import { ChatRequestData, Message, StreamChunkResult, ToolInfo } from '../types';
+import { ChatRequestData, Message, StreamChunkResult, ToolCall, ToolInfo } from '../types';
 import JSON5 from 'json5';
 import { parse } from 'partial-json';
 
@@ -326,6 +326,26 @@ export class AnthropicAdapter implements ILLMAdapter {
                 break;
             }
         }
+    }
+
+    /**
+     * 将 Anthropic tool_use 转换为 OpenAI 标准格式 ToolCall
+     * Anthropic 格式: { id, name, input }
+     * OpenAI 格式: { id, type: "function", function: { name, arguments } }
+     */
+    public formatToolCalls(tool_calls?: any[]): ToolCall[] {
+        if (!tool_calls || tool_calls.length === 0) return [];
+
+        return tool_calls.map(tc => ({
+            id: tc.id || tc.index?.toString(),
+            type: "function",
+            function: {
+                name: tc.name || tc.function?.name || "",
+                arguments: typeof tc.input === 'string' 
+                    ? tc.input 
+                    : JSON.stringify(tc.input || tc.function?.arguments || {})
+            }
+        }));
     }
 }
 
