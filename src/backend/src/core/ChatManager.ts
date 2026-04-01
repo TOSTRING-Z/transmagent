@@ -123,33 +123,46 @@ export class ChatManager {
 
         const lastMessage: Message = this.messages[this.messages.length - 1];
 
-        // 1. 如果最后一条是 user 消息（大模型还没开始回复就被打断），直接弹出
+        // 1. 如果最后一条是 user 消息，直接弹出
         if (lastMessage?.role === "user") {
             this.popMessage(lastMessage.group_id);
             return;
         }
 
-        // 2. 如果最后一条是 assistant 且有 tool_calls（工具调用被中断）
-        if (lastMessage?.role === "assistant" && lastMessage.tool_calls && lastMessage.tool_calls.length > 0) {
-            // 收集已有的 tool 结果 ID
+        // 2. 往前找最近的一条 assistant 消息
+        let lastAssistantIdx = -1;
+        for (let i = this.messages.length - 1; i >= 0; i--) {
+            if (this.messages[i].role === "assistant") {
+                lastAssistantIdx = i;
+                break;
+            }
+        }
+
+        if (lastAssistantIdx === -1) return;
+
+        const assistantMsg = this.messages[lastAssistantIdx];
+
+        // 3. 如果 assistant 有 tool_calls，需要检查 tool 结果是否完整
+        if (assistantMsg.tool_calls && assistantMsg.tool_calls.length > 0) {
+            // 收集从 assistant 之后的所有 tool 结果 ID
             const existingToolIds = new Set<string>();
-            for (let i = this.messages.length - 2; i >= 0; i--) {
+            for (let i = lastAssistantIdx + 1; i < this.messages.length; i++) {
                 const msg = this.messages[i];
-                if (msg.role === 'tool' && msg.tool_call_id) {
+                if (msg.role === "tool" && msg.tool_call_id) {
                     existingToolIds.add(msg.tool_call_id);
                 }
             }
 
-            // 为缺失的工具调用补充"被中断"的结果
-            for (const call of lastMessage.tool_calls) {
+            // 为缺失的 tool 调用补充"被中断"的结果
+            for (const call of assistantMsg.tool_calls) {
                 if (!existingToolIds.has(call.id as string)) {
                     this.pushMessage({
-                        role: 'tool',
+                        role: "tool",
                         content: "The user interrupted the task.",
                         tool_call_id: call.id,
                         tool_call_name: call.function?.name,
-                        group_id: lastMessage.group_id,
-                        context_id: lastMessage.context_id,
+                        group_id: assistantMsg.group_id,
+                        context_id: assistantMsg.context_id,
                         show: false,
                         react: false
                     });
