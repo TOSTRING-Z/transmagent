@@ -1,7 +1,7 @@
 import { AnthropicAdapter } from './AnthropicAdapter';
 import { ChatRequestData, Message } from '../types';
 
-describe('AnthropicAdapter Unit Tests', () => {
+describe('AnthropicAdapter Unit Tests (API Communication)', () => {
     let adapter: AnthropicAdapter;
     let data: ChatRequestData;
 
@@ -10,12 +10,14 @@ describe('AnthropicAdapter Unit Tests', () => {
         data = {
             id: "string",
             input: "string",
-            tool_format: "string",
-            api_url: "string",
-            version: "string",
-            params: { ollama: true, vision: ['image'] },
+            api_type: "anthropic",
+            tool_format: "toolcalls",
+            api_url: "https://api.anthropic.com/v1/messages",
+            version: "claude-3-5-sonnet",
+            params: { vision: ['image'] },
             todolist_message: "string",
-            env_message: 'Current time is 10 AM'
+            env_message: 'Current time is 10 AM',
+            api_key: 'sk-ant-api-key'
         }
         global.fetch = jest.fn();
     });

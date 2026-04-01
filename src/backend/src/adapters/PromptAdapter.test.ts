@@ -1,130 +1,185 @@
-import { PromptAdapter } from './PromptAdapter';
-import { ChatRequestData, Message } from '../types';
+// 注意：PromptAdapter 已移除，统一使用 OpenAIAdapter 作为 OpenAI 兼容格式的适配器
+// 此文件保留用于 ToolCallsAdapter 和 PromptToolCallAdapter 的测试参考
 
-describe('PromptAdapter Unit Tests', () => {
-    let adapter: PromptAdapter;
-    let data: ChatRequestData;
+import { ToolCallsAdapter } from './ToolCallsAdapter';
+import { PromptToolCallAdapter } from './PromptAdapter';
+import { Message } from '../types';
+
+describe('ToolCallsAdapter Unit Tests', () => {
+    let adapter: ToolCallsAdapter;
 
     beforeEach(() => {
-        adapter = new PromptAdapter();
-        data = {
-            id: "string",
-            input: "string",
-            tool_format: "string",
-            api_url: "string",
-            version: "string",
-            params: { ollama: true, vision: ['image'] },
-            todolist_message: "string",
-            env_message: 'Current time is 10 AM'
-        }
-        // 彻底重置 fetch Mock
-        global.fetch = jest.fn();
+        adapter = new ToolCallsAdapter();
     });
 
-    afterEach(() => {
-        jest.restoreAllMocks();
-    });
-
-    describe('formatMessages', () => {
-        it('应该将 tool 角色转换为 user', () => {
-            const messages: Message[] = [{ role: 'tool', content: 'result' }];
-            const result = adapter.formatMessages(messages, data);
-
-            expect(result[0].role).toBe('user');
-            expect(result[0].content).toBe('result');
-        });
-
-        it('针对 Ollama 且存在图文混合时，应该正确提取 base64 并组合 OllamaContent', () => {
-            const messages: Message[] = [{
-                role: 'user',
-                content: [
-                    { type: 'text', text: 'Describe this' },
-                    { type: 'image_url', image_url: { url: 'data:image/png;base64,iVBORw0KGgo...' } }
-                ]
+    describe('formatTools', () => {
+        it('应该将工具格式化为 OpenAI function 格式', () => {
+            const schemas = [{
+                name: 'search',
+                description: 'Search the web',
+                parameters: {
+                    type: 'object',
+                    properties: {
+                        query: { type: 'string', description: 'Search query' }
+                    }
+                }
             }];
 
-            // 关键：必须传入 vision 参数，否则会被逻辑第一步过滤掉图片
-            const result = adapter.formatMessages(messages, data);
+            const result = adapter.formatTools(schemas);
 
-            expect(result[0].role).toBe('user');
-            expect(result[0].content).toBe('Describe this');
-            // 验证生成的 Ollama 特有字段
-            expect(result[0]).toHaveProperty('images');
-            expect(result[0].images).toEqual(['iVBORw0KGgo...']);
-        });
-
-        it('如果传入 env_message，应该追加到最后一条消息的末尾', () => {
-            const messages: Message[] = [{ role: 'user', content: 'What time is it?' }];
-
-            const result = adapter.formatMessages(messages, data);
-
-            expect(result[0].content).toBe('What time is it?\nCurrent time is 10 AM');
-        });
-    });
-
-    describe('buildPayload', () => {
-        it('应该构建 Payload 且故意不传入 tools 参数', () => {
-            const data: Partial<ChatRequestData> = {
-                version: 'llama3',
-                llm_params: { temperature: 0.5 },
-                tools: [{ type: 'function', function: { name: 'test' } }] as any
-            };
-            const messages: Message[] = [{ role: 'user', content: 'Hi' }];
-
-            const result = adapter.buildPayload(data as ChatRequestData, messages);
-
-            expect(result.model).toBe('llama3');
-            expect(result.tools).toBeUndefined(); // 确保被丢弃
-        });
-    });
-
-    describe('truncatedResponse (Async Continuation)', () => {
-        it('应该通过纯文本续写完成被截断的回答', async () => {
-            // 准备 Mock 响应
-            const mockJsonResponse = {
-                choices: [{ message: { content: 'there was a hero.' }, finish_reason: 'stop' }],
-                usage: { total_tokens: 25 }
-            };
-
-            (global.fetch as jest.Mock).mockResolvedValue({
-                ok: true,
-                json: async () => mockJsonResponse
+            expect(result).toHaveLength(1);
+            expect(result[0]).toEqual({
+                type: 'function',
+                function: schemas[0]
             });
+        });
 
-            const mockBody = { messages: [{ role: 'user', content: 'Tell me a story.' }] };
-            const mockHeaders = { 'Content-Type': 'application/json' };
-            const mockWindow = { webContents: { send: jest.fn() } };
-            const mockChatManager = { chat: { group_id: '1', tokens: 10 } };
+        it('应该过滤掉 raw_string 类型', () => {
+            const schemas = [
+                { type: 'raw_string', name: 'raw_tool', content: 'raw content' },
+                { name: 'normal_tool', description: 'A normal tool' }
+            ];
 
-            // 核心修复：api_url 必须是合法完整的 URL 字符串
-            const mockData: Partial<ChatRequestData> = {
-                api_url: 'http://localhost:11434/v1/chat',
-                output: 'Once upon a time, '
+            const result = adapter.formatTools(schemas);
+
+            expect(result).toHaveLength(1);
+            expect(result[0].function.name).toBe('normal_tool');
+        });
+    });
+
+    describe('getToolInfos', () => {
+        it('应该从 tool_calls 中提取工具调用信息', () => {
+            const message: Message = {
+                role: 'assistant',
+                content: 'I will search for that.',
+                tool_calls: [{
+                    id: 'call_123',
+                    type: 'function',
+                    function: {
+                        name: 'search',
+                        arguments: '{"query": "test"}'
+                    }
+                }]
             };
-            const mockMessageOutput = { content: 'Once upon a time, ' };
 
-            await adapter.truncatedResponse(
-                mockBody,
-                mockHeaders,
-                mockWindow,
-                mockChatManager,
-                mockMessageOutput,
-                mockData as ChatRequestData
-            );
+            const result = adapter.getToolInfos(message);
 
-            // 验证 fetch 是否被调用
-            expect(global.fetch).toHaveBeenCalled();
+            expect(result.length).toBe(1);
+            expect(result[0].tool).toBe('search');
+            expect(result[0].params).toEqual({ query: 'test' });
+            expect(result[0].id).toBe('call_123');
+        });
 
-            // 安全地获取调用参数并验证
-            const calls = (global.fetch as jest.Mock).mock.calls;
-            expect(calls.length).toBeGreaterThan(0);
+        it('应该处理纯文本消息（无工具调用）', () => {
+            const message: Message = {
+                role: 'assistant',
+                content: 'This is a regular response.'
+            };
 
-            const fetchOptions = calls[0][1];
-            const sentBody = JSON.parse(fetchOptions.body);
+            const result = adapter.getToolInfos(message);
 
-            expect(sentBody.messages[1].role).toBe('assistant');
-            expect(sentBody.messages[1].content).toBe('Once upon a time, ');
-            expect(mockMessageOutput.content).toBe('Once upon a time, there was a hero.');
+            expect(result.length).toBe(1);
+            expect(result[0].tool).toBeNull();
+            expect(result[0].content).toBe('This is a regular response.');
+        });
+
+        it('应该提取 reasoning_content', () => {
+            const message: Message = {
+                role: 'assistant',
+                content: 'Let me think about this.',
+                reasoning_content: 'I should search for information.',
+                tool_calls: [{
+                    id: 'call_456',
+                    type: 'function',
+                    function: {
+                        name: 'search',
+                        arguments: '{}'
+                    }
+                }]
+            };
+
+            const result = adapter.getToolInfos(message);
+
+            expect(result[0].reasoning_content).toBe('I should search for information.');
+        });
+    });
+
+    describe('extractText', () => {
+        it('应该提取字符串内容', () => {
+            const message = { content: 'Hello world' };
+            expect(adapter.extractText(message)).toBe('Hello world');
+        });
+
+        it('应该从数组内容中提取文本', () => {
+            const message = {
+                content: [
+                    { type: 'text', text: 'First part' },
+                    { type: 'text', text: 'Second part' }
+                ]
+            };
+            expect(adapter.extractText(message)).toBe('First part\nSecond part');
+        });
+    });
+});
+
+describe('PromptToolCallAdapter Unit Tests', () => {
+    let adapter: PromptToolCallAdapter;
+
+    beforeEach(() => {
+        adapter = new PromptToolCallAdapter();
+    });
+
+    describe('formatTools', () => {
+        it('应该将工具格式化为 prompt 格式', () => {
+            const schemas = [{
+                name: 'search',
+                description: 'Search the web',
+                parameters: {
+                    type: 'object',
+                    properties: {
+                        query: { type: 'string', description: 'Search query' }
+                    },
+                    required: ['query']
+                }
+            }];
+
+            const result = adapter.formatTools(schemas);
+
+            expect(result).toHaveProperty('search');
+            expect(result['search']).toContain('### search');
+            expect(result['search']).toContain('Search the web');
+        });
+    });
+
+    describe('getToolInfos', () => {
+        it('应该从 JSON 字符串中解析工具调用', () => {
+            const message: Message = {
+                role: 'assistant',
+                content: JSON.stringify({ 
+                    tool: 'search', 
+                    params: { query: 'test' },
+                    id: 'call_1'
+                })
+            };
+
+            const result = adapter.getToolInfos(message);
+
+            expect(result.length).toBe(1);
+            expect(result[0].tool).toBe('search');
+            expect(result[0].params).toEqual({ query: 'test' });
+        });
+
+        it('应该处理纯文本（无工具调用）', () => {
+            const message: Message = {
+                role: 'assistant',
+                content: 'This is just text without tool calls.'
+            };
+
+            const result = adapter.getToolInfos(message);
+
+            expect(result.length).toBe(1);
+            expect(result[0].tool).toBeNull();
+            expect(result[0].content).toBe('This is just text without tool calls.');
         });
     });
 });

@@ -12,10 +12,11 @@ describe('OpenAI Adapters Unit Tests', () => {
             data = {
                 id: "string",
                 input: "string",
-                tool_format: "string",
+                tool_format: "toolcalls",
                 api_url: "string",
                 version: "string",
-                params: { ollama: true, vision: ['image'] },
+                api_type: "openai",
+                params: { vision: ['image'] },
                 todolist_message: "string",
                 env_message: 'Current time is 10 AM'
             }

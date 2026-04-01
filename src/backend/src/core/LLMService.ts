@@ -17,7 +17,7 @@ export class LLMService {
     constructor(messages: Message[] = [], window: BrowserWindow | null = null) {
         this.window = window;
         this.chatManager = new ChatManager(messages);
-        this.adapter = LLMAdapterFactory.getAdapter("prompt"); // 默认适配器
+        this.adapter = LLMAdapterFactory.getAdapter("openai"); // 默认 API 适配器
     }
 
     public stopMessage() {
@@ -30,8 +30,8 @@ export class LLMService {
 
     public async chatBase(data: ChatRequestData): Promise<Message | null> {
         try {
-            // 1. 获取对应数据结构适配器
-            this.adapter = LLMAdapterFactory.getAdapter(this.chatManager.chat.tool_format);
+            // 1. 根据 api_type 获取 API 通信适配器
+            this.adapter = LLMAdapterFactory.getAdapter(this.chatManager.chat.api_type);
 
             // 2. 输入数据清洗与格式化
             let content: string | MessageContent[];
@@ -158,11 +158,12 @@ export class LLMService {
                 messageOutput.reasoning_content = (messageOutput.reasoning_content || "") + reasoning_content;
             }
 
-            // 组装并拼凑碎片的 Tool Calls
-            if (this.chatManager.chat.tool_format === "openai" && tool_calls) {
+            // 组装并拼凑碎片的 Tool Calls (统一处理 OpenAI 和 Anthropic 格式)
+            if (tool_calls) {
                 if (!messageOutput.tool_calls) messageOutput.tool_calls = [];
                 for (const tc of tool_calls) {
                     if (tc.index !== undefined) {
+                        // OpenAI 格式
                         if (!messageOutput.tool_calls[tc.index]) {
                             messageOutput.tool_calls[tc.index] = {
                                 id: tc.id,
@@ -177,6 +178,9 @@ export class LLMService {
                         if (tc.function?.arguments && currentToolCall?.function) {
                             currentToolCall.function.arguments += tc.function.arguments;
                         }
+                    } else {
+                        // Anthropic 格式或其他直接返回的格式
+                        messageOutput.tool_calls.push(tc);
                     }
                 }
             }

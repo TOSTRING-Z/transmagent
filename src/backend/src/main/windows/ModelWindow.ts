@@ -67,7 +67,7 @@ export class ModelWindow extends BaseWindow {
                         params: llm_params,
                         version: version.version,
                         vision: !!version?.vision,
-                        ollama: version?.ollama
+                        api_type: config_models[name]?.api_type || 'openai'
                     });
                 });
             }
@@ -98,15 +98,20 @@ export class ModelWindow extends BaseWindow {
             const newVersionEntry = {
                 version: modelData.version,
                 llm_params: modelData.params,
-                ...(modelData.vision ? { vision: ["image"] } : {}),
-                ...(modelData.ollama ? { ollama: true } : {})
+                ...(modelData.vision ? { vision: ["image"] } : {})
             };
 
             if (!config_models[modelData.name]) {
-                config_models[modelData.name] = { api_url: modelData.api_url, api_key: modelData.api_key, versions: [] };
+                config_models[modelData.name] = { 
+                    api_url: modelData.api_url, 
+                    api_key: modelData.api_key, 
+                    api_type: modelData.api_type || 'openai',
+                    versions: [] 
+                };
             } else {
                 config_models[modelData.name].api_url = modelData.api_url;
                 config_models[modelData.name].api_key = modelData.api_key;
+                config_models[modelData.name].api_type = modelData.api_type || config_models[modelData.name].api_type || 'openai';
             }
 
             const existingIdx = config_models[modelData.name].versions.findIndex((v: any) => v.version === modelData.version);

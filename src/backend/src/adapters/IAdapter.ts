@@ -1,4 +1,4 @@
-import { ChatRequestData, Message, StreamChunkResult } from '../types';
+import { ChatRequestData, Message, StreamChunkResult, ToolCall } from '../types';
 
 export interface ILLMAdapter {
     // 过滤和格式化发送给 API 的消息（去除内部字段、处理视觉格式）
@@ -18,6 +18,9 @@ export interface ILLMAdapter {
 
     // 输出截断与续传
     truncatedResponse(body, headers, window, chatManager, messageOutput, data: ChatRequestData): any;
+
+    // 输出ToolCalls统一OpenAI格式
+    formatToolCalls(tool_calls?: any[]): ToolCall[];
 }
 
 export interface IToolCallAdapter {

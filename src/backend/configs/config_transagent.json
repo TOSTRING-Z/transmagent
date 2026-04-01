@@ -29,12 +29,14 @@
     "model": "deepseek",
     "version": "deepseek-chat",
     "plugin": "baidu_translate",
-    "tool_format": "prompt",
+    "api_type": "openai",
+    "tool_format": "toolcalls",
     "compress_context": false
   },
   "models": {
     "ollama": {
       "api_url": "http://localhost:11434/api/chat",
+      "api_type": "ollama",
       "versions": [
         "gpt-oss:20b",
         "qwen3-coder:30b",
@@ -42,8 +44,7 @@
           "version": "gemma3:12b",
           "vision": [
             "image"
-          ],
-          "ollama": true
+          ]
         }
       ]
     },

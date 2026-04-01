@@ -75,7 +75,6 @@ export interface ToolInfo {
 export interface Message {
     group_id?: string;
     context_id?: string | null;
-    tool_format?: "openai" | "prompt" | "anthropic" | string;
     role: "system" | "user" | "assistant" | "tool";
     tool_call_name?: string | null;
     tool_call_id?: string | null;
@@ -104,14 +103,16 @@ export interface ChatState {
     vars: Record<string, any>;
     model: string;
     version: string;
-    tool_format: "openai" | "prompt" | "anthropic";
+    api_type: "openai" | "anthropic" | "ollama";
+    tool_format: "toolcalls" | "prompt";
     is_plugin: boolean;
 }
 
 export interface ChatRequestData {
     id: string;
     input: string;
-    tool_format: string;
+    api_type: "openai" | "anthropic" | "ollama";
+    tool_format: "toolcalls" | "prompt";
     api_url: string;
     version: string;
     img_url?: string;

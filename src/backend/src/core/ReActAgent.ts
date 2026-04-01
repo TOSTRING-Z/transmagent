@@ -4,6 +4,7 @@ import { LLMService } from './LLMService';
 import { utils, CONSTANTS } from '../utils/globals';
 import { Message, ChatState } from '../types';
 import { LLMAssistant } from './LLMAssistant';
+import { ToolCallAdapterFactory } from '../factories/AdapterFactory';
 
 export enum State {
     IDLE = 'idle',
@@ -276,22 +277,10 @@ export class ReActAgent {
                 if (role === "assistant") {
                     if (react) {
                         try {
-                            let toolInfo;
-                            if (message?.tool_format && message.tool_format !== "prompt") {
-                                if (message?.tool_calls) {
-                                    let call = message.tool_calls[0];
-                                    toolInfo = {
-                                        content: content,
-                                        reasoning_content: reasoning_content || null,
-                                        tool: call?.function?.name,
-                                        params: call?.function?.arguments ? JSON5.parse(String(call.function.arguments)) : {}
-                                    };
-                                } else {
-                                    toolInfo = { content: content, reasoning_content: reasoning_content || null, tool: null, params: null };
-                                }
-                            } else {
-                                toolInfo = utils.parseJsonContent(content as string);
-                            }
+                            // 使用 ToolCallAdapter 统一解析工具调用
+                            const adapter = ToolCallAdapterFactory.getAdapter(this.llm_service.chatManager.chat.tool_format);
+                            const toolInfos = adapter.getToolInfos(message);
+                            const toolInfo = toolInfos[0] || { content: content, reasoning_content: reasoning_content || null, tool: null, params: {} };
 
                             content = `\n\n${toolInfo?.content || `Tool call: ${toolInfo.tool || "error"}`}`;
                             let toolInfoStr = JSON.stringify(toolInfo, null, 2).replaceAll("`", "\\`");

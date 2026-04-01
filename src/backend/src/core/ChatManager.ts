@@ -86,7 +86,8 @@ export class ChatManager {
         return {
             model: defaultConfig["model"] || "deepseek",
             version: defaultConfig["version"] || "deepseek-chat",
-            tool_format: defaultConfig["tool_format"] || "prompt",
+            api_type: defaultConfig["api_type"] || "openai",
+            tool_format: defaultConfig["tool_format"] || "toolcalls",
             is_plugin: defaultConfig["model"] === "plugins",
             compress_context: defaultConfig["compress_context"] || false,
         };
@@ -111,6 +112,7 @@ export class ChatManager {
             },
             model: defaultConfig.model,
             version: defaultConfig.version,
+            api_type: defaultConfig.api_type,
             tool_format: defaultConfig.tool_format,
             is_plugin: defaultConfig.is_plugin,
             compress_context: defaultConfig.compress_context,

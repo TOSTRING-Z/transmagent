@@ -607,6 +607,12 @@ export class MainWindow extends BaseWindow {
                 this.llm_service.chatManager.chat.model = _model;
                 this.llm_service.chatManager.chat.is_plugin = _model === "plugins";
                 this.llm_service.chatManager.chat.version = utils.getConfig("models")[_model]["versions"][0].version;
+                
+                // 根据模型配置设置 api_type 和 tool_format
+                const modelConfig = utils.getConfig("models")[_model];
+                this.llm_service.chatManager.chat.api_type = modelConfig?.api_type || 'openai';
+                // tool_format 由用户手动选择，或使用默认值
+                
                 this.updateVersionsSubmenu();
                 this.window?.webContents.send("handleSetChat", this.llm_service.chatManager.chat);
                 if (this.tool_call.setHistory) this.tool_call.setHistory();
@@ -647,44 +653,77 @@ export class MainWindow extends BaseWindow {
             { label: "Model Selection", submenu: this.getModelsSubmenu() },
             { label: "Version Selection", submenu: this.getVersionsSubmenu() },
             {
+                label: "API Type",
+                submenu: [
+                    {
+                        type: 'radio',
+                        checked: this.llm_service.chatManager.chat.api_type === 'openai',
+                        label: 'OpenAI',
+                        click: () => {
+                            this.llm_service.chatManager.chat.api_type = 'openai';
+                            let config = utils.getConfig();
+                            config.default.api_type = 'openai';
+                            utils.setConfig(config);
+                            this.updateVersionsSubmenu();
+                            this.window?.webContents.send('handleSetChat', this.llm_service.chatManager.chat);
+                            if (this.tool_call.setHistory) this.tool_call.setHistory();
+                        }
+                    },
+                    {
+                        type: 'radio',
+                        checked: this.llm_service.chatManager.chat.api_type === 'anthropic',
+                        label: 'Anthropic',
+                        click: () => {
+                            this.llm_service.chatManager.chat.api_type = 'anthropic';
+                            let config = utils.getConfig();
+                            config.default.api_type = 'anthropic';
+                            utils.setConfig(config);
+                            this.updateVersionsSubmenu();
+                            this.window?.webContents.send('handleSetChat', this.llm_service.chatManager.chat);
+                            if (this.tool_call.setHistory) this.tool_call.setHistory();
+                        }
+                    },
+                    {
+                        type: 'radio',
+                        checked: this.llm_service.chatManager.chat.api_type === 'ollama',
+                        label: 'Ollama (Local)',
+                        click: () => {
+                            this.llm_service.chatManager.chat.api_type = 'ollama';
+                            let config = utils.getConfig();
+                            config.default.api_type = 'ollama';
+                            utils.setConfig(config);
+                            this.updateVersionsSubmenu();
+                            this.window?.webContents.send('handleSetChat', this.llm_service.chatManager.chat);
+                            if (this.tool_call.setHistory) this.tool_call.setHistory();
+                        }
+                    }
+                ]
+            },
+            {
                 label: "Tool Format",
                 submenu: [
                     {
                         type: 'radio',
+                        checked: this.llm_service.chatManager.chat.tool_format === 'toolcalls',
+                        label: 'ToolCalls (Native API)',
+                        click: () => {
+                            this.llm_service.chatManager.chat.tool_format = 'toolcalls';
+                            let config = utils.getConfig();
+                            config.default.tool_format = 'toolcalls';
+                            utils.setConfig(config);
+                            this.updateVersionsSubmenu();
+                            this.window?.webContents.send('handleSetChat', this.llm_service.chatManager.chat);
+                            if (this.tool_call.setHistory) this.tool_call.setHistory();
+                        }
+                    },
+                    {
+                        type: 'radio',
                         checked: this.llm_service.chatManager.chat.tool_format === 'prompt',
-                        label: 'Prompt (Default)',
+                        label: 'Prompt (Parse JSON)',
                         click: () => {
                             this.llm_service.chatManager.chat.tool_format = 'prompt';
                             let config = utils.getConfig();
                             config.default.tool_format = 'prompt';
-                            utils.setConfig(config);
-                            this.updateVersionsSubmenu();
-                            this.window?.webContents.send('handleSetChat', this.llm_service.chatManager.chat);
-                            if (this.tool_call.setHistory) this.tool_call.setHistory();
-                        }
-                    },
-                    {
-                        type: 'radio',
-                        checked: this.llm_service.chatManager.chat.tool_format === 'openai',
-                        label: 'OpenAI (Native API)',
-                        click: () => {
-                            this.llm_service.chatManager.chat.tool_format = 'openai';
-                            let config = utils.getConfig();
-                            config.default.tool_format = 'openai';
-                            utils.setConfig(config);
-                            this.updateVersionsSubmenu();
-                            this.window?.webContents.send('handleSetChat', this.llm_service.chatManager.chat);
-                            if (this.tool_call.setHistory) this.tool_call.setHistory();
-                        }
-                    },
-                    {
-                        type: 'radio',
-                        checked: this.llm_service.chatManager.chat.tool_format === 'anthropic',
-                        label: 'Anthropic (Claude API)',
-                        click: () => {
-                            this.llm_service.chatManager.chat.tool_format = 'anthropic';
-                            let config = utils.getConfig();
-                            config.default.tool_format = 'anthropic';
                             utils.setConfig(config);
                             this.updateVersionsSubmenu();
                             this.window?.webContents.send('handleSetChat', this.llm_service.chatManager.chat);
