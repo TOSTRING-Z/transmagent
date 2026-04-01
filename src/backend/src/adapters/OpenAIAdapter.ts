@@ -1,5 +1,5 @@
 import { ILLMAdapter, IToolCallAdapter } from './IAdapter';
-import { ChatRequestData, Message, OpenAIContent, StreamChunkResult, ToolCall, ToolInfo } from '../types';
+import { AssistantMessage, ChatRequestData, Message, OpenAIContent, StreamChunkResult, ToolCall, ToolInfo } from '../types';
 import JSON5 from 'json5';
 import { parse } from 'partial-json';
 
@@ -243,7 +243,7 @@ export class OpenAIToolCallAdapter implements IToolCallAdapter {
             return { type: "function", function: schema };
         }).filter(Boolean);
     }
-    public getToolInfos(message: Message): ToolInfo[] {
+    public getToolInfos(message: AssistantMessage): ToolInfo[] {
         let toolInfos: ToolInfo[] = [];
         const reasoningContent = message.reasoning_content || "";
         const textContent = message.content as string || "";
@@ -254,8 +254,8 @@ export class OpenAIToolCallAdapter implements IToolCallAdapter {
                     toolInfos.push({
                         reasoning_content: reasoningContent || null,
                         content: textContent,
-                        tool: call?.function?.name ?? null,
-                        id: call?.id ?? null,
+                        tool_call_name: call?.function?.name ?? null,
+                        tool_call_id: call?.id ?? null,
                         params: call?.function?.arguments ? JSON5.parse(call.function.arguments as string) : {},
                         error: null
                     });
@@ -263,15 +263,15 @@ export class OpenAIToolCallAdapter implements IToolCallAdapter {
                     toolInfos.push({
                         reasoning_content: reasoningContent || null,
                         content: textContent,
-                        tool: call?.function?.name ?? null,
-                        id: call?.id ?? null,
+                        tool_call_name: call?.function?.name ?? null,
+                        tool_call_id: call?.id ?? null,
                         params: call?.function?.arguments,
                         error: `Arguments are not a pure JSON text, or there is a problem with the JSON format: ${error.message}`
                     });
                 }
             }
         } else {
-            toolInfos.push({ reasoning_content: reasoningContent || null, content: textContent, tool: null, id: null, params: {}, error: null });
+            toolInfos.push({ reasoning_content: reasoningContent || null, content: textContent, tool_call_name: null, tool_call_id: null, params: {}, error: null });
         }
         return toolInfos;
     }

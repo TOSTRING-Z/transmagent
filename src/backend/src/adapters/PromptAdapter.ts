@@ -1,5 +1,5 @@
 import { IToolCallAdapter } from './IAdapter';
-import { Message,ToolInfo } from '../types';
+import { AssistantMessage, Message,ToolInfo } from '../types';
 import JSON5 from 'json5';
 import { utils } from '../utils/globals';
 
@@ -33,7 +33,7 @@ export class PromptToolCallAdapter implements IToolCallAdapter {
         return tool_prompt;
     }
 
-    public getToolInfos(message: Message): ToolInfo[] {
+    public getToolInfos(message: AssistantMessage): ToolInfo[] {
         let toolInfos: ToolInfo[] = [];
         const contentStr = message.content as string;
         let reasoningContent = message.reasoning_content || "";
@@ -75,9 +75,9 @@ export class PromptToolCallAdapter implements IToolCallAdapter {
                     toolInfos.push({
                         reasoning_content: null,
                         content: `\`\`\`text\n${contentStr}\n\`\`\`\n\n**Function calling is not a pure JSON text, or there is a problem with the JSON format.**`,
-                        tool: null,
+                        tool_call_name: null,
                         // 生成一个伪id，便于追踪
-                        id: `prompt_call_${Date.now()}_${i}`,
+                        tool_call_id: `prompt_call_${Date.now()}_${i}`,
                         params: {},
                         error: `Error Message: Tool parsing failed at index ${i}`
                     });
@@ -88,9 +88,9 @@ export class PromptToolCallAdapter implements IToolCallAdapter {
                 toolInfos.push({
                     reasoning_content: reasoningContent || null,
                     content: call.content || "",
-                    tool: call?.tool || null,
+                    tool_call_name: call?.tool || null,
                     // 原生Prompt没有ID，这里为并行调用生成一个伪唯一ID，或者使用模型自己生成的ID
-                    id: call?.id || `prompt_call_${Date.now()}_${i}`,
+                    tool_call_id: call?.id || `prompt_call_${Date.now()}_${i}`,
                     params: call?.params || {},
                     error: null
                 });
@@ -104,8 +104,8 @@ export class PromptToolCallAdapter implements IToolCallAdapter {
                 toolInfos.push({
                     reasoning_content: reasoningContent || null,
                     content: `\`\`\`text\n${contentStr}\n\`\`\`\n\n**Function calling is not a pure JSON text, or there is a problem with the JSON format.**`,
-                    tool: null,
-                    id: null,
+                    tool_call_name: null,
+                    tool_call_id: null,
                     params: {},
                     error: `Error Message: ${error.message}`
                 });
@@ -114,8 +114,8 @@ export class PromptToolCallAdapter implements IToolCallAdapter {
                 toolInfos.push({
                     reasoning_content: reasoningContent || null,
                     content: contentStr,
-                    tool: null,
-                    id: null,
+                    tool_call_name: null,
+                    tool_call_id: null,
                     params: {},
                     error: null
                 });
@@ -124,7 +124,7 @@ export class PromptToolCallAdapter implements IToolCallAdapter {
 
         // 兜底：如果数组无论何种原因变为空，塞入一条纯文本记录
         if (toolInfos.length === 0) {
-            toolInfos.push({ reasoning_content: reasoningContent || null, content: contentStr, tool: null, id: null, params: {}, error: null });
+            toolInfos.push({ reasoning_content: reasoningContent || null, content: contentStr, tool_call_name: null, tool_call_id: null, params: {}, error: null });
         }
 
         return toolInfos;

@@ -434,7 +434,7 @@ export class MainWindow extends BaseWindow {
 
         ipcMain.on('open-external', (_event, href) => shell.openExternal(href));
 
-        ipcMain.handle('new-chat', () => {
+        ipcMain.handle('newChat', () => {
             this.windowManager.subAgentWindow?.destroy();
             const chat = this.tool_call.newChat();
             this.updateVersionsSubmenu();

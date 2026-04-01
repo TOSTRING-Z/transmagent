@@ -23,11 +23,7 @@ export function addChatItem(chat: any) {
   (item.getElementsByClassName("history-text")[0] as HTMLElement).title = chat.name || "New Chat";
   item.id = chat.id;
   DOM.history_list.insertBefore(item, DOM.history_list.firstChild);
-  
-  // Re-bind events because inline onclicks in string templates might not work as expected in modules scope
-  // But wait, inline onclicks rely on global functions. 
-  // In a module system, we should attach event listeners manually or expose functions to window.
-  // Here we will use manual attachment for cleaner code.
+
   item.onclick = () => selectChat(chat.id);
   const menu = item.querySelector('.history-menu') as HTMLElement;
   menu.onclick = (e) => showHistoryMenu(e, chat.id);
@@ -37,8 +33,20 @@ export function addChatItem(chat: any) {
   deleteBtn.onclick = (e) => { e.stopPropagation(); deleteChat(chat.id); };
 }
 
-export function newChat(chat: any) {
+export function handleNewChat(chat: any) {
   addChatItem(chat);
+  initChat(chat);
+}
+
+export function initChat(chat: any) {
+  State.chat = chat;
+  toggleMode(State.chat.mode);
+  DOM.system_prompt.value = State.chat.system_prompt;
+  DOM.tokens.innerText = State.chat.tokens.toString();
+  DOM.msg_count.innerText = State.chat.msg_count?.toString() || "0";
+  DOM.seconds.innerText = State.chat.seconds.toFixed(1);
+  DOM.model_select.value = State.chat.model;
+  DOM.compress_box.checked = State.chat.compress_context || false;
   const items = DOM.history_list.getElementsByClassName("history-item");
   Array.from(items).forEach((item: any) => {
     if (item.id == chat.id) item.classList.add("active");
@@ -48,20 +56,7 @@ export function newChat(chat: any) {
 
 export async function selectChat(chatId: string) {
   const chat = await window.electronAPI.loadChat(chatId);
-  State.chat = chat;
-  toggleMode(State.chat.mode);
-  DOM.system_prompt.value = State.chat.system_prompt;
-  DOM.tokens.innerText = State.chat.tokens.toString();
-  DOM.msg_count.innerText = State.chat.msg_count?.toString() || "0";
-  DOM.seconds.innerText = State.chat.seconds.toFixed(1);
-  DOM.model_select.value = State.chat.model;
-  DOM.compress_box.checked = State.chat.compress_context || false;
-
-  const items = DOM.history_list.getElementsByClassName("history-item");
-  Array.from(items).forEach((item: any) => {
-    if (item.id == chatId) item.classList.add("active");
-    else item.classList.remove("active");
-  });
+  initChat(chat);
 }
 
 export async function deleteChat(chatId: string) {

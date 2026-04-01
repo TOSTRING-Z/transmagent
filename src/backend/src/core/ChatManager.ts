@@ -3,7 +3,7 @@ import { logger } from '../utils/logger';
 
 import * as path from 'path';
 import JSON5 from 'json5';
-import { Message, ChatState } from '../types';
+import { Message, ChatState, UserMessage, AssistantMessage, ToolMessage, LongTermMemory } from '../types';
 import { utils, CHAT_CONST } from '../utils/globals';
 
 export class ChatManager {
@@ -58,6 +58,29 @@ export class ChatManager {
     public pushMessage(msg: Message) {
         this.messages.push(msg);
         this.updateChat();
+    }
+
+    public pushSystemMessage(content: string) {
+        const systemMsg: Message = { role: "system", content };
+        this.pushMessage(systemMsg);
+    }
+
+    public pushUserMessage(msg: any) {
+        const userMsg: UserMessage = { role: "user", content: msg.content, group_id: msg.group_id, context_id: msg.context_id, show: true, react: false };
+        this.pushMessage(userMsg);
+    }
+    public pushAssistantMessageWithToolCalls(msg: any) {
+        const assistantMsg: AssistantMessage = { role: "assistant", content: msg.content, reasoning_content: msg.reasoning_content, tool_calls: msg.tool_calls, group_id: msg.group_id, context_id: msg.context_id, show: true, react: true };
+        this.pushMessage(assistantMsg);
+    }
+    public pushAssistantMessage(msg: any) {
+        const assistantMsg: AssistantMessage = { role: "assistant", content: msg.content, group_id: msg.group_id, context_id: msg.context_id, show: true, react: false };
+        this.pushMessage(assistantMsg);
+    }
+
+    public pushToolMessage(msg: any) {
+        const toolMsg: ToolMessage = { role: "tool", content: msg.content, tool_call_id: msg.tool_call_id, tool_call_name: msg.tool_call_name, group_id: msg.group_id, context_id: msg.context_id, show: true, react: true };
+        this.pushMessage(toolMsg);
     }
 
     public popMessage(group_id?: string, context_id?: string): Message | null {
@@ -140,7 +163,7 @@ export class ChatManager {
 
         if (lastAssistantIdx === -1) return;
 
-        const assistantMsg = this.messages[lastAssistantIdx];
+        const assistantMsg = this.messages[lastAssistantIdx] as AssistantMessage;
 
         // 3. 如果 assistant 有 tool_calls，需要检查 tool 结果是否完整
         if (assistantMsg.tool_calls && assistantMsg.tool_calls.length > 0) {
@@ -178,7 +201,7 @@ export class ChatManager {
             }
             const data = {
                 messages: this.messages.map(message => {
-                    if (!message?.context_id && message.role == "assistant") {
+                    if (message.role == "assistant" && !message?.context_id) {
                         message.context_id = message.group_id;
                     }
                     return message;
@@ -336,7 +359,7 @@ export class ChatManager {
         }
         // 截取最近记忆
         if (messages.length > data.memory_length) {
-            let messages_list: Message[] = [];
+            let messages_list: LongTermMemory[] = [];
             let startIdx = this.getStartIdx(data);
             let longStartIdx = Math.max(startIdx - data.long_memory_length, 0);
             messages_list = messages.slice(longStartIdx, startIdx).filter(message => message.role !== "tool").map(message => {
@@ -346,9 +369,9 @@ export class ChatManager {
                     content: message_copy.content,
                     context_id: message_copy.context_id,
                 };
-            });
+            }) as LongTermMemory[];
             let longMessages = JSON.stringify(messages_list, null, 2);
-            let userMessage: Message = {
+            let userMessage: UserMessage = {
                 role: "user",
                 content: "# 🗃️ Session Memory (Context IDs)\n" + longMessages,
             }

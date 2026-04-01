@@ -76,26 +76,54 @@ export interface OpenAITool {
 export interface ToolInfo {
     reasoning_content?: string | null;
     content: string | null;
-    tool: string | null;
-    id: string | null;
+    tool_call_name: string | null;
+    tool_call_id: string | null;
     params: Record<string, any> | any;
     error: string | null;
 }
 
-export interface Message {
+export interface LongTermMemory {
+    role: "system" | "assistant" | "user" | "tool";
+    content: string;
+    context_id: string;
+}
+// 1. 定义公共基础接口
+
+export interface BaseMessage {
     group_id?: string;
-    context_id?: string | null;
-    role: "system" | "user" | "assistant" | "tool";
-    tool_call_name?: string | null;
-    tool_call_id?: string | null;
-    tool_calls?: ToolCall[];
-    content: string | MessageContent[];
-    reasoning_content?: string;
+    context_id?: string;
     show?: boolean;
     react?: boolean;
     del?: boolean;
     thumb?: number; // 1:up, 0:null, -1:down
 }
+
+// 2. 继承基础接口
+export interface SystemMessage extends BaseMessage {
+    role: "system";
+    content: string;
+}
+
+export interface AssistantMessage extends BaseMessage {
+    role: "assistant";
+    content: string;
+    reasoning_content?: string;
+    tool_calls?: ToolCall[];
+}
+
+export interface UserMessage extends BaseMessage {
+    role: "user";
+    content: string | MessageContent[];
+}
+
+export interface ToolMessage extends BaseMessage {
+    role: "tool";
+    content: string;
+    tool_call_id: string;
+    tool_call_name: string;
+}
+
+export type Message = SystemMessage | AssistantMessage | UserMessage | ToolMessage;
 
 export interface ChatState {
     id: string;

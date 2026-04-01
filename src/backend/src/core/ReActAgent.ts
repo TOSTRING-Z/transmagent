@@ -2,7 +2,7 @@ import JSON5 from 'json5';
 import { logger } from '../utils/logger';
 import { LLMService } from './LLMService';
 import { utils, CONSTANTS } from '../utils/globals';
-import { Message, ChatState } from '../types';
+import { Message, ChatState, AssistantMessage } from '../types';
 import { LLMAssistant } from './LLMAssistant';
 import { LLMAdapterFactory, ToolCallAdapterFactory } from '../factories/AdapterFactory';
 
@@ -137,7 +137,7 @@ export class ReActAgent {
         return null;
     }
 
-    public async llmCall(data: Record<string, any>): Promise<Message | null> {
+    public async llmCall(data: Record<string, any>): Promise<AssistantMessage | null> {
         const configModels = utils.getConfig("models");
         data.api_key = data.api_key || configModels[data.model]?.api_key;
         data.api_type = data.api_type || configModels[data.model]?.api_type;
@@ -249,12 +249,13 @@ export class ReActAgent {
 
         if (messages.length > 0) {
             messages.forEach((message, i) => {
-                let { role, content, reasoning_content, group_id, context_id, react, del } = message;
 
-                if (role === "user") {
+                if (message.role === "user") {
+                    const { group_id, context_id, content, del } = message;
                     this.window.webContents.send('userData', { group_id, context_id, content, del });
                 }
-                if (role === "tool") {
+                if (message.role === "tool") {
+                    const { group_id, context_id, content, del } = message;
                     const tool_call_name = message.tool_call_name || "unknown_tool";
 
                     switch (tool_call_name) {
@@ -277,20 +278,17 @@ export class ReActAgent {
                     let content_format = (content as string).replaceAll("`", "\\`");
                     this.window.webContents.send('infoData', { group_id, context_id, content: `Step ${i}, group_id: ${group_id}, context_id: ${context_id}, Output:\n\n\`\`\`json\n${content_format}\n\`\`\`\n\n`, del });
                 }
-                if (role === "assistant") {
+                if (message.role === "assistant") {
+                    const { group_id, context_id, content, reasoning_content, react, del } = message;
                     if (react) {
                         try {
                             // 使用 ToolCallAdapter 统一解析工具调用
                             const adapter = ToolCallAdapterFactory.getAdapter(this.llm_service.chatManager.chat.tool_format);
                             const toolInfos = adapter.getToolInfos(message);
                             const toolInfo = toolInfos[0] || { content: content, reasoning_content: reasoning_content || null, tool: null, params: {} };
-
-                            content = `\n\n${toolInfo?.content || `Tool call: ${toolInfo.tool || "error"}`}`;
                             let toolInfoStr = JSON.stringify(toolInfo, null, 2).replaceAll("`", "\\`");
-
                             this.window.webContents.send('infoData', { group_id, context_id, content: `Step ${i}, group_id: ${group_id}, context_id: ${context_id}, Output:\n\n\`\`\`json\n${toolInfoStr}\n\`\`\``, del });
                             this.window.webContents.send('streamData', { group_id, context_id, content: content, reasoning_content: toolInfo.reasoning_content, end: true, del });
-
                         } catch (e: any) {
                             this.window?.webContents.send('streamData', { group_id, context_id, content: null, reasoning_content: null, end: true, del });
                         }

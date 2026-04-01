@@ -1,6 +1,6 @@
 import { DOM, State } from './globals';
 import { init_size, autoResizeTextarea, loadOptions, showLog, toggleMode, toggleSidebar, updateProgress, hideRenameDialog } from './ui';
-import { addChatItem, newChat, selectChat, deleteChat, renameChat, confirmRename, showHistoryMenu } from './history';
+import { addChatItem, handleNewChat, selectChat, deleteChat, renameChat, confirmRename, showHistoryMenu } from './history';
 import { initConfigEvents, showConfig, saveConfig, hideConfig } from './config';
 import { userData, infoData, streamData, startAgentLoop, addRunning, toolData, enterEnd } from './chat';
 import { initMermaid } from './markdown';
@@ -103,7 +103,7 @@ document.addEventListener("DOMContentLoaded", () => {
 
   DOM.btn_new_chat.addEventListener("click", async () => {
     const chat = await window.electronAPI.newChat();
-    newChat(chat);
+    handleNewChat(chat);
   });
 
   // Rename Dialog
@@ -153,17 +153,17 @@ window.electronAPI.handleDeleteMemory(({ context_ids, ids }) => {
   });
 });
 
-window.electronAPI.initInfo((info) => {
-  toggleMode(info.chat.mode);
-  DOM.system_prompt.value = info.chat.system_prompt;
-  DOM.version.innerText = info.version;
+window.electronAPI.initInfo((data) => {
+  toggleMode(data.mode);
+  DOM.system_prompt.value = data.system_prompt;
+  DOM.version.innerText = data.version;
   DOM.history_list.innerHTML = ""; // Clear list before adding
-  info.chats.forEach((chat: any) => addChatItem(chat));
+  data.chats.forEach((chat: any) => addChatItem(chat));
 
   if (State.seconds_timer) clearInterval(State.seconds_timer);
   State.seconds_timer = null;
 
-  State.chat = info.chat;
+  State.chat = data;
   DOM.tokens.innerText = State.chat.tokens.toString();
   DOM.seconds.innerText = State.chat.seconds.toString();
 });
@@ -172,35 +172,46 @@ window.electronAPI.handleMarkDownFormat((status) => State.markdown_statu = statu
 
 window.electronAPI.handleReactStatu((status) => State.react_statu = status);
 
-window.electronAPI.streamData((chunk) => {
-  if (chunk.chat?.msg_count) {
-    DOM.msg_count.innerText = chunk.chat.msg_count;
+window.electronAPI.streamData((data) => {
+  if (data?.id !== State.chat.id) {
+    return;
+  }
+  if (data?.msg_count) {
+    DOM.msg_count.innerText = data.msg_count;
   }
 
-  if (chunk.chat && chunk.chat.tokens !== undefined && DOM.tokens) {
-    DOM.tokens.innerText = chunk.chat.tokens.toString();
+  if (data && data.tokens !== undefined && DOM.tokens) {
+    DOM.tokens.innerText = data.tokens.toString();
   }
 
   const optionDom = document.querySelector('.base-container');
   if (optionDom) optionDom.remove();
-  streamData(chunk).then(messageSystems => {
+  streamData(data).then(messageSystems => {
     if (State.scroll_top.data)
       DOM.top_div.scrollTop = DOM.top_div.scrollHeight;
-    if (chunk.end) {
+    if (data.end) {
       enterEnd(messageSystems);
     }
   });
 
 });
 
-window.electronAPI.toolData((chunk) => toolData(chunk));
+window.electronAPI.toolData((data) => {
+  if (data?.id !== State.chat.id) {
+    return;
+  }
+  toolData(data)
+});
 
-window.electronAPI.infoData((info) => {
-  if (info.content) {
-    if (info.chat && info.chat.tokens !== undefined && DOM.tokens) {
-      DOM.tokens.innerText = info.chat.tokens.toString();
+window.electronAPI.infoData((data) => {
+  if (data?.id !== State.chat.id) {
+    return;
+  }
+  if (data.content) {
+    if (data && data.tokens !== undefined && DOM.tokens) {
+      DOM.tokens.innerText = data.tokens.toString();
     }
-    infoData(info).then(info_content => {
+    infoData(data).then(info_content => {
       if (State.scroll_top.info && info_content)
         info_content.scrollTop = info_content?.scrollHeight;
     });
@@ -208,6 +219,9 @@ window.electronAPI.infoData((info) => {
 });
 
 window.electronAPI.userData((data) => {
+  if (data?.id !== State.chat.id) {
+    return;
+  }
   userData(DOM.messages, data).then(messageSystem => {
     addRunning(messageSystem);
     if (State.scroll_top.data)
@@ -280,7 +294,7 @@ window.electronAPI.handleClear(() => loadOptions());
 
 window.electronAPI.uploadProgress((info) => updateProgress(info));
 
-window.electronAPI.handleNewChat((chat) => newChat(chat));
+window.electronAPI.handleNewChat((chat) => handleNewChat(chat));
 
 window.electronAPI.handleSelectChat((chat) => selectChat(chat.id));
 

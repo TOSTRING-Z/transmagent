@@ -3,7 +3,7 @@ import { logger } from '../utils/logger';
 
 import { LLMAdapterFactory } from '../factories/AdapterFactory';
 import { ILLMAdapter } from '../adapters/IAdapter';
-import { ChatRequestData, Message, MessageContent } from '../types';
+import { AssistantMessage, ChatRequestData, Message, MessageContent, UserMessage } from '../types';
 import { streamJSON, streamSse } from '../utils/stream';
 import { formatString } from '../utils/format'; // 原型扩展 format 的替代品
 import { BrowserWindow } from 'electron';
@@ -52,12 +52,12 @@ export class LLMService {
 
             messagesList = messagesList.concat(this.chatManager.getMemory(data));
 
-            const messageInput: Message = { role: "user", content: content, group_id: this.chatManager.chat.group_id, show: true, react: false };
+            const messageInput: UserMessage = { role: "user", content: content, group_id: this.chatManager.chat.group_id, show: true, react: false };
             if (data?.push_message) {
                 messagesList.push(messageInput);
             }
 
-            let messageOutput: Message = { role: 'assistant', content: '', group_id: this.chatManager.chat.group_id, show: true, react: false };
+            let messageOutput: AssistantMessage = { role: 'assistant', content: '', group_id: this.chatManager.chat.group_id, show: true, react: false };
 
             // 4. 构建 HTTP 发送载荷
             const formattedMessages = this.adapter.formatMessages(messagesList, data);
@@ -133,7 +133,7 @@ export class LLMService {
         }
     }
 
-    private async handleStream(resp: Response, adapter: any, data: ChatRequestData, messageOutput: Message): Promise<boolean> {
+    private async handleStream(resp: Response, adapter: any, data: ChatRequestData, messageOutput: AssistantMessage): Promise<boolean> {
         const contentType = resp.headers.get('content-type');
         let streamRes;
 
@@ -203,7 +203,7 @@ export class LLMService {
         return true;
     }
 
-    private async handleNormal(resp: Response, adapter: ILLMAdapter, headers: any, body: any, data: ChatRequestData, messageOutput: Message): Promise<boolean> {
+    private async handleNormal(resp: Response, adapter: ILLMAdapter, headers: any, body: any, data: ChatRequestData, messageOutput: AssistantMessage): Promise<boolean> {
         let respJson: any;
         try {
             respJson = await resp.json()

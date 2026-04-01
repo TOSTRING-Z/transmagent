@@ -107,7 +107,7 @@ export class MainServer {
                 }
 
                 this.mainWindow.window?.webContents.send(
-                    'new-chat',
+                    'newChat',
                     chatManager.chat
                 );
                 this.mainWindow.tool_call.setHistory();
