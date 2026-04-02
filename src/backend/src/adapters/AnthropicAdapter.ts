@@ -362,7 +362,7 @@ export class AnthropicToolCallAdapter implements IToolCallAdapter {
                 }
             }
         } else {
-            toolInfos.push({ reasoning_content: reasoningContent || null, content: textContent, tool_call_name: null, tool_call_id: null, params: {}, error: null });
+            toolInfos.push({ reasoning_content: reasoningContent, content: textContent, tool_call_name: null, tool_call_id: null, params: {}, error: null });
         }
         return toolInfos;
     }

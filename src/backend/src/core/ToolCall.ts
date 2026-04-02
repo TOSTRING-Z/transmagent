@@ -529,7 +529,7 @@ export class ToolCall extends ReActAgent {
         const toolInfos = adapter.getToolInfos(assistantMessage);
 
         // 网络或内容容错处理
-        if (toolInfos.length === 1 && !toolInfos[0].content && !toolInfos[0].tool_call_name) return [];
+        if (toolInfos.length === 1 && !toolInfos[0].content && !toolInfos[0].reasoning_content && !toolInfos[0].tool_call_name) return [];
 
         let toolInfoStr = JSON.stringify(toolInfos, null, 2);
         data.output_format = toolInfoStr;

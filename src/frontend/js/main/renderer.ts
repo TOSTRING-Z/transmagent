@@ -1,6 +1,6 @@
 import { DOM, State } from './globals';
 import { init_size, autoResizeTextarea, loadOptions, showLog, toggleMode, toggleSidebar, updateProgress, hideRenameDialog } from './ui';
-import { addChatItem, handleNewChat, selectChat, deleteChat, renameChat, confirmRename, showHistoryMenu } from './history';
+import { addChatItem, handleNewChat, selectChat, deleteChat, renameChat, confirmRename, showHistoryMenu, initChat } from './history';
 import { initConfigEvents, showConfig, saveConfig, hideConfig } from './config';
 import { userData, infoData, streamData, startAgentLoop, addRunning, toolData, enterEnd } from './chat';
 import { initMermaid } from './markdown';
@@ -298,20 +298,7 @@ window.electronAPI.handleNewChat((chat) => handleNewChat(chat));
 
 window.electronAPI.handleSelectChat((chat) => selectChat(chat.id));
 
-window.electronAPI.handleSetChat(async (chat) => {
-  const items = DOM.history_list.getElementsByClassName("history-item");
-  Array.from(items).forEach((item: any) => {
-    if (item.id == State.chat.id)
-      (item.getElementsByClassName("history-text")[0] as HTMLElement).innerText = chat.name;
-  });
-  State.chat = chat;
-  toggleMode(State.chat.mode);
-  DOM.system_prompt.value = State.chat.system_prompt;
-  DOM.tokens.innerText = State.chat.tokens.toString();
-  DOM.msg_count.innerText = State.chat.msg_count?.toString() || "0";
-  DOM.seconds.innerText = State.chat.seconds.toFixed(1);
-  if (State.chat.version && DOM.version) DOM.version.innerText = State.chat.version;
-});
+window.electronAPI.handleSetChat(async (chat) => initChat(chat));
 
 window.electronAPI.handleAutoRenameChat(async (chat) => {
   State.chat.id = chat.id;

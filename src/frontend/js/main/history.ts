@@ -55,6 +55,7 @@ export function initChat(chat: any) {
 }
 
 export async function selectChat(chatId: string) {
+  State.chat.id = chatId;
   const chat = await window.electronAPI.loadChat(chatId);
   initChat(chat);
 }

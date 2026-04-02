@@ -246,61 +246,55 @@ export class ReActAgent {
     public loadMessage(filePath: string) {
         this.window.webContents.send('clear');
         let messages = this.llm_service.chatManager.loadMessages(filePath);
+        const chat = this.llm_service.chatManager.chat;
 
         if (messages.length > 0) {
             messages.forEach((message, i) => {
-
                 if (message.role === "user") {
-                    const { group_id, context_id, content, del } = message;
-                    this.window.webContents.send('userData', { group_id, context_id, content, del });
+                    this.window.webContents.send('userData', { ...message, ...chat, end: true });
                 }
                 if (message.role === "tool") {
-                    const { group_id, context_id, content, del } = message;
                     const tool_call_name = message.tool_call_name || "unknown_tool";
 
                     switch (tool_call_name) {
                         case "display_file":
-                            this.window.webContents.send('streamData', { group_id, context_id, content: `\n\n${content}`, end: true, del });
+                            this.window.webContents.send('streamData', { ...message, ...chat, content: `\n\n${message.content}`, end: true });
                             break;
                         case "add_subtasks":
                         case "complete_subtasks":
-                            this.window.webContents.send('streamData', { group_id, context_id, content: `\n\n\`\`\`json\n${content}\n\`\`\``, end: true, del });
+                            this.window.webContents.send('streamData', { ...message, ...chat, content: `\n\n\`\`\`json\n${message.content}\n\`\`\``, end: true });
                             break;
                     }
 
                     if (["deep_researcher", "workflow_planner", "tool_manager", "web_searcher", "chart_plotter", "task_executor", "tool_documentation_collector", "url_summarizer"].includes(tool_call_name)) {
-                        this.window.webContents.send('streamData', { group_id, context_id, content: `\n\n${content}`, end: true, del });
+                        this.window.webContents.send('streamData', { ...message, ...chat, content: `\n\n${message.content}`, end: true });
                     }
                     if (["ask_user"].includes(tool_call_name)) {
-                        this.window.webContents.send('streamData', { group_id, context_id, content: `\n\n${content}`, end: true, del });
+                        this.window.webContents.send('streamData', { ...message, ...chat, content: `\n\n${message.content}`, end: true });
                     }
 
-                    let content_format = (content as string).replaceAll("`", "\\`");
-                    this.window.webContents.send('infoData', { group_id, context_id, content: `Step ${i}, group_id: ${group_id}, context_id: ${context_id}, Output:\n\n\`\`\`json\n${content_format}\n\`\`\`\n\n`, del });
+                    let content_format = (message.content as string).replaceAll("`", "\\`");
+                    this.window.webContents.send('infoData', { ...message, ...chat, content: `Step ${i}, group_id: ${message.group_id}, context_id: ${message.context_id}, Output:\n\n\`\`\`json\n${content_format}\n\`\`\`\n\n` });
                 }
                 if (message.role === "assistant") {
-                    const { group_id, context_id, content, reasoning_content, react, del } = message;
-                    if (react) {
+                    if (message.react) {
                         try {
-                            // 使用 ToolCallAdapter 统一解析工具调用
                             const adapter = ToolCallAdapterFactory.getAdapter(this.llm_service.chatManager.chat.tool_format);
                             const toolInfos = adapter.getToolInfos(message);
-                            const toolInfo = toolInfos[0] || { content: content, reasoning_content: reasoning_content || null, tool: null, params: {} };
+                            const toolInfo = toolInfos[0] || { content: message.content, reasoning_content: message.reasoning_content || null, tool: null, params: {} };
                             let toolInfoStr = JSON.stringify(toolInfo, null, 2).replaceAll("`", "\\`");
-                            this.window.webContents.send('infoData', { group_id, context_id, content: `Step ${i}, group_id: ${group_id}, context_id: ${context_id}, Output:\n\n\`\`\`json\n${toolInfoStr}\n\`\`\``, del });
-                            this.window.webContents.send('streamData', { group_id, context_id, content: content, reasoning_content: toolInfo.reasoning_content, end: true, del });
+                            this.window.webContents.send('infoData', { ...message, ...chat, content: `Step ${i}, group_id: ${message.group_id}, context_id: ${message.context_id}, Output:\n\n\`\`\`json\n${toolInfoStr}\n\`\`\`` });
+                            this.window.webContents.send('streamData', { ...message, ...chat, content: `\n\n${message.content}`, end: true });
                         } catch (e: any) {
-                            this.window?.webContents.send('streamData', { group_id, context_id, content: null, reasoning_content: null, end: true, del });
+                            this.window?.webContents.send('streamData', { ...message, ...chat, content: null, end: true });
                         }
                     } else {
-                        this.window.webContents.send('streamData', { group_id: group_id, content: content, reasoning_content: reasoning_content || null, end: true, del: del });
+                        this.window.webContents.send('streamData', { ...message, ...chat, content: `\n\n${message.content}`, end: true });
                     }
                 }
             });
+            this.window.webContents.send('streamData', { end: true });
             logger.log(`Load success: ${filePath}`);
-
-            let { group_id: group_id, context_id, del } = messages[messages.length - 1];
-            this.window.webContents.send('streamData', { group_id, context_id, content: null, end: true, del });
         }
     }
 
