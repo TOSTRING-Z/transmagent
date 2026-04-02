@@ -13,6 +13,8 @@
     }
   },
   "tool_call": {
+    "system_platform": null,
+    "system_arch": null,
     "ssh_config": {
       "enabled": false
     }

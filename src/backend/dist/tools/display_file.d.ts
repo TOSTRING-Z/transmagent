@@ -36,7 +36,6 @@ export declare function getPrompt(): {
             start_line: {
                 type: string;
                 default: number;
-                description: string;
             };
             end_line: {
                 type: string;
@@ -51,12 +50,10 @@ export declare function getPrompt(): {
             max_line_length: {
                 type: string;
                 default: number;
-                description: string;
             };
             max_cols: {
                 type: string;
                 default: number;
-                description: string;
             };
         };
         required: string[];

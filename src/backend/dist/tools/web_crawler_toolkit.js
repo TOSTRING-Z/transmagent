@@ -32,6 +32,9 @@ var __importStar = (this && this.__importStar) || (function () {
         return result;
     };
 })();
+var __importDefault = (this && this.__importDefault) || function (mod) {
+    return (mod && mod.__esModule) ? mod : { "default": mod };
+};
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.WebCrawlerToolkit = exports.ContentFetcher = exports.BaiduSearch = exports.DuckDuckGoSearch = exports.BaseSearch = exports.TTLCache = void 0;
 exports.main = main;
@@ -40,7 +43,41 @@ const https = __importStar(require("https"));
 const url_1 = require("url");
 const node_html_parser_1 = require("node-html-parser");
 const cheerio = __importStar(require("cheerio"));
+const https_proxy_agent_1 = require("https-proxy-agent");
 const logger_1 = require("../utils/logger");
+const global_agent_1 = __importDefault(require("global-agent"));
+// --- 初始化全局代理 (必须在所有HTTP请求之前) ---
+function bootstrapGlobalProxy() {
+    // 从环境变量获取代理地址
+    const proxyUrl = process.env.https_proxy || process.env.HTTPS_PROXY ||
+        process.env.http_proxy || process.env.HTTP_PROXY ||
+        process.env.ALL_PROXY || process.env.all_proxy;
+    if (proxyUrl) {
+        // 设置全局代理环境变量
+        process.env.GLOBAL_AGENT_HTTP_PROXY = proxyUrl;
+        logger_1.logger.log(`Global proxy bootstrapped: ${proxyUrl}`);
+    }
+    // 初始化 global-agent (自动让所有 HTTP/HTTPS 请求使用代理)
+    global_agent_1.default.bootstrap();
+}
+// 立即执行 bootstrap (模块加载时)
+try {
+    bootstrapGlobalProxy();
+}
+catch (e) {
+    logger_1.logger.warn('Global proxy bootstrap failed, falling back to per-request agent');
+}
+// --- 代理配置工具函数 ---
+function getProxyAgent() {
+    const proxyUrl = process.env.https_proxy || process.env.HTTPS_PROXY ||
+        process.env.http_proxy || process.env.HTTP_PROXY ||
+        process.env.ALL_PROXY;
+    if (proxyUrl) {
+        logger_1.logger.log(`Using proxy agent: ${proxyUrl}`);
+        return new https_proxy_agent_1.HttpsProxyAgent(proxyUrl);
+    }
+    return undefined;
+}
 // --- 缓存实现 ---
 class TTLCache {
     maxsize;
@@ -153,8 +190,9 @@ class DuckDuckGoSearch extends BaseSearch {
     async _callDuckDuckGoAPI(query) {
         const endpoint = 'https://api.duckduckgo.com/';
         const params = new URLSearchParams({ q: query, format: 'json', no_html: '1', skip_disambig: '1' });
+        const agent = getProxyAgent();
         return new Promise((resolve, reject) => {
-            const req = https.get(`${endpoint}?${params}`, (res) => {
+            const req = https.get(`${endpoint}?${params}`, { agent }, (res) => {
                 let data = '';
                 res.on('data', chunk => data += chunk);
                 res.on('end', () => {
@@ -184,13 +222,15 @@ class DuckDuckGoSearch extends BaseSearch {
     async _callDuckDuckGoHTML(query) {
         const endpoint = 'https://html.duckduckgo.com/html/';
         const postData = new URLSearchParams({ q: query, kl: 'us-en', df: 'y' });
+        const agent = getProxyAgent();
         const options = {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/x-www-form-urlencoded',
                 'Content-Length': Buffer.byteLength(postData.toString()),
                 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64)'
-            }
+            },
+            agent
         };
         return new Promise((resolve, reject) => {
             const req = https.request(endpoint, options, (res) => {
@@ -263,33 +303,45 @@ class BaiduSearch extends BaseSearch {
     }
     async _scrapeBaidu(query) {
         const url = `https://www.baidu.com/s?wd=${encodeURIComponent(query)}&rn=${this.topk + 10}`;
-        const response = await fetch(url, {
-            headers: {
-                'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
-                'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8',
-                'Accept-Language': 'zh-CN,zh;q=0.9',
-                'Cookie': 'BAIDUID=8DFE41315570D0E79793132B401314B9:FG=1;'
-            }
+        const agent = getProxyAgent();
+        return new Promise((resolve, reject) => {
+            const options = {
+                headers: {
+                    'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+                    'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8',
+                    'Accept-Language': 'zh-CN,zh;q=0.9',
+                    'Cookie': 'BAIDUID=8DFE41315570D0E79793132B401314B9:FG=1;'
+                },
+                agent
+            };
+            https.get(url, options, (res) => {
+                let html = '';
+                res.on('data', chunk => html += chunk);
+                res.on('end', () => {
+                    try {
+                        const $ = cheerio.load(html);
+                        const results = [];
+                        $('#content_left > div.c-container').each((_, el) => {
+                            const titleElement = $(el).find('h3.t a');
+                            const title = titleElement.text().trim();
+                            const href = titleElement.attr('href') || '';
+                            let snippet = $(el).find('.c-abstract').first().text().trim();
+                            if (!snippet)
+                                snippet = $(el).find('div[class*="content-right_"]').text().trim();
+                            if (!snippet)
+                                snippet = $(el).find('.c-span18').text().trim();
+                            if (title && href && href.startsWith('http')) {
+                                results.push({ href, title, description: snippet });
+                            }
+                        });
+                        resolve(results);
+                    }
+                    catch (e) {
+                        reject(e);
+                    }
+                });
+            }).on('error', reject);
         });
-        if (!response.ok)
-            throw new Error(`HTTP ${response.status}`);
-        const html = await response.text();
-        const $ = cheerio.load(html);
-        const results = [];
-        $('#content_left > div.c-container').each((_, el) => {
-            const titleElement = $(el).find('h3.t a');
-            const title = titleElement.text().trim();
-            const href = titleElement.attr('href') || '';
-            let snippet = $(el).find('.c-abstract').first().text().trim();
-            if (!snippet)
-                snippet = $(el).find('div[class*="content-right_"]').text().trim();
-            if (!snippet)
-                snippet = $(el).find('.c-span18').text().trim();
-            if (title && href && href.startsWith('http')) {
-                results.push({ href, title, description: snippet });
-            }
-        });
-        return results;
     }
     _parseResponse(response) {
         const rawResults = response.map(item => [item.href, item.description || '', item.title || '']);
@@ -308,32 +360,36 @@ class ContentFetcher {
         const cached = this.cache.get(cacheKey);
         if (cached)
             return cached;
-        try {
-            const response = await fetch(url, {
-                headers: {
-                    'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
-                    'Accept-Language': 'zh-CN,zh;q=0.9'
-                }
+        return new Promise((resolve) => {
+            const agent = getProxyAgent();
+            https.get(url, { agent }, (res) => {
+                let html = '';
+                res.on('data', chunk => html += chunk);
+                res.on('end', () => {
+                    try {
+                        const $ = cheerio.load(html);
+                        $('script, style, noscript, iframe, nav, header, footer').remove();
+                        const text = $('body').text().trim();
+                        const cleanText = text.replace(/\s+/g, ' ').trim();
+                        const truncatedText = cleanText.length > maxLength
+                            ? cleanText.substring(0, maxLength) + '\n\n[Content truncated]'
+                            : cleanText;
+                        const result = [true, truncatedText];
+                        this.cache.set(cacheKey, result);
+                        resolve(result);
+                    }
+                    catch (error) {
+                        const result = [false, error.message];
+                        this.cache.set(cacheKey, result);
+                        resolve(result);
+                    }
+                });
+            }).on('error', (error) => {
+                const result = [false, error.message];
+                this.cache.set(cacheKey, result);
+                resolve(result);
             });
-            if (!response.ok)
-                throw new Error(`HTTP ${response.status}`);
-            const html = await response.text();
-            const $ = cheerio.load(html);
-            $('script, style, noscript, iframe, nav, header, footer').remove();
-            const text = $('body').text().trim();
-            const cleanText = text.replace(/\s+/g, ' ').trim();
-            const truncatedText = cleanText.length > maxLength
-                ? cleanText.substring(0, maxLength) + '\n\n[Content truncated]'
-                : cleanText;
-            const result = [true, truncatedText];
-            this.cache.set(cacheKey, result);
-            return result;
-        }
-        catch (error) {
-            const result = [false, error.message];
-            this.cache.set(cacheKey, result);
-            return result;
-        }
+        });
     }
 }
 exports.ContentFetcher = ContentFetcher;
@@ -420,7 +476,13 @@ class WebCrawlerToolkit {
             new url_1.URL(url);
             const controller = new AbortController();
             const timeoutId = setTimeout(() => controller.abort(), timeout);
-            const response = await fetch(url, { method: 'HEAD', signal: controller.signal });
+            const proxyUrl = process.env.https_proxy || process.env.HTTPS_PROXY ||
+                process.env.http_proxy || process.env.HTTP_PROXY;
+            const fetchOptions = { method: 'HEAD', signal: controller.signal };
+            if (proxyUrl) {
+                fetchOptions['agent'] = new https_proxy_agent_1.HttpsProxyAgent(proxyUrl);
+            }
+            const response = await fetch(url, fetchOptions);
             clearTimeout(timeoutId);
             return { accessible: response.ok, status: response.status, url: response.url };
         }

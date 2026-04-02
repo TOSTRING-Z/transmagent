@@ -6,8 +6,60 @@ Object.defineProperty(exports, "__esModule", { value: true });
 exports.ContentExtractor = void 0;
 exports.getPrompt = getPrompt;
 exports.main = main;
+const https_proxy_agent_1 = require("https-proxy-agent");
 const logger_1 = require("../utils/logger");
 const puppeteer_1 = __importDefault(require("puppeteer"));
+const global_agent_1 = __importDefault(require("global-agent"));
+// --- 初始化全局代理 (必须在所有HTTP请求之前) ---
+function bootstrapGlobalProxy() {
+    // 从环境变量获取代理地址
+    const proxyUrl = process.env.https_proxy || process.env.HTTPS_PROXY ||
+        process.env.http_proxy || process.env.HTTP_PROXY ||
+        process.env.ALL_PROXY || process.env.all_proxy;
+    if (proxyUrl) {
+        // 设置全局代理环境变量
+        process.env.GLOBAL_AGENT_HTTP_PROXY = proxyUrl;
+        logger_1.logger.log(`Global proxy bootstrapped: ${proxyUrl}`);
+    }
+    // 初始化 global-agent (自动让所有 HTTP/HTTPS 请求使用代理)
+    global_agent_1.default.bootstrap();
+}
+// 立即执行 bootstrap (模块加载时)
+try {
+    bootstrapGlobalProxy();
+}
+catch (e) {
+    logger_1.logger.warn('Global proxy bootstrap failed, falling back to per-request agent');
+}
+// --- 代理配置工具函数 ---
+function getProxyUrl() {
+    return process.env.https_proxy || process.env.HTTPS_PROXY ||
+        process.env.http_proxy || process.env.HTTP_PROXY ||
+        process.env.ALL_PROXY || process.env.all_proxy;
+}
+function getProxyAgent() {
+    const proxyUrl = getProxyUrl();
+    if (proxyUrl) {
+        try {
+            return new https_proxy_agent_1.HttpsProxyAgent(proxyUrl);
+        }
+        catch (e) {
+            logger_1.logger.warn('Failed to create proxy agent:', e);
+            return undefined;
+        }
+    }
+    return undefined;
+}
+function getChromeProxyArgs() {
+    const proxyUrl = getProxyUrl();
+    if (proxyUrl) {
+        // 转换 http://... 格式为 Chrome 支持的格式
+        // Chrome 支持: protocol://host:port
+        const cleanProxy = proxyUrl.replace(/^https?:\/\//i, '');
+        return [`--proxy-server=${cleanProxy}`];
+    }
+    return [];
+}
 // ==========================================
 // BrowserController 核心控制类
 // ==========================================
@@ -21,13 +73,19 @@ class BrowserController {
         }
         try {
             logger_1.logger.log('正在启动浏览器...');
+            // 获取代理参数
+            const proxyArgs = getChromeProxyArgs();
+            if (proxyArgs.length > 0) {
+                logger_1.logger.log(`使用浏览器代理: ${proxyArgs.join(', ')}`);
+            }
             this.browser = await puppeteer_1.default.launch({
                 headless: false,
                 devtools: false,
                 args: [
                     '--no-sandbox',
                     '--disable-setuid-sandbox',
-                    `--window-size=${options.width || 1200},${options.height || 800}`
+                    `--window-size=${options.width || 1200},${options.height || 800}`,
+                    ...proxyArgs
                 ],
                 defaultViewport: {
                     width: options.width || 1200,
