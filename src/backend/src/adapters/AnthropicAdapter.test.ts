@@ -28,7 +28,7 @@ describe('AnthropicAdapter Unit Tests (API Communication)', () => {
 
     describe('formatMessages', () => {
         it('应该过滤掉 system 消息并将 tool 角色转换为 user', () => {
-            const messages: Message[] = [
+            const messages: any[] = [
                 { role: 'system', content: 'You are an AI' },
                 { role: 'tool', tool_call_id: 't_1', content: 'Tool Result Data' }
             ];

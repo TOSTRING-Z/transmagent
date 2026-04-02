@@ -192,7 +192,7 @@ export class LLMAssistant {
      */
     public async auditToolCall(toolInfo: ToolInfo, data: Record<string, any>): Promise<string | null> {
         // 1. 基础检查
-        if (!toolInfo.tool || !this.isToolRequireAudit(toolInfo.tool)) {
+        if (!toolInfo.tool_call_name || !this.isToolRequireAudit(toolInfo.tool_call_name)) {
             return null;
         }
 
@@ -200,7 +200,7 @@ export class LLMAssistant {
             return null;
         }
 
-        logger.log(`[Critic] 正在审查敏感工具调用: ${toolInfo.tool} (ID: ${toolInfo.id})...`);
+        logger.log(`[Critic] 正在审查敏感工具调用: ${toolInfo.tool_call_name} (ID: ${toolInfo.tool_call_id})...`);
 
         const temp_llm_service = new LLMService();
         temp_llm_service.chatManager.chat = { ...this.llm_service.chatManager.chat };
@@ -218,7 +218,7 @@ export class LLMAssistant {
         const originalContent = targetMessage.content;
 
         targetMessage.content = `[LOGGED ASSISTANT THOUGHT]: ${toolInfo.content || originalContent}\nSYSTEM: Execution paused for data integrity audit.`;
-        delete targetMessage.tool_calls;
+        if(targetMessage.role === "assistant") delete targetMessage.tool_calls;
 
         temp_llm_service.chatManager.messages = slicedMessages;
 
@@ -231,7 +231,7 @@ export class LLMAssistant {
 You are a strict Data Integrity Critic. Review the following proposed tool call:
 
 # TARGET TOOL
-Tool: ${toolInfo.tool}
+Tool: ${toolInfo.tool_call_name}
 
 # PROPOSED PAYLOAD
 \`\`\`json
@@ -319,10 +319,10 @@ Determine if the payload contains "Hallucinated/Fake Data" (Blocked) or "Functio
             const originalContent = targetMessage.content;
 
             targetMessage.content = `[LOGGED ASSISTANT CONTENT]: ${originalContent}
-            ${targetMessage.tool_calls ? `[LOGGED ASSISTANT TOOL_CALLS]: ${JSON.stringify(targetMessage.tool_calls)}` : ''}
+            ${targetMessage.role === "assistant" && targetMessage.tool_calls ? `[LOGGED ASSISTANT TOOL_CALLS]: ${JSON.stringify(targetMessage.tool_calls)}` : ''}
             ${toolMessages.map((toolMessage, i) => `[LOGGED TOOL_RESULT ${i}: ${toolMessage.content}`).join("\n")}
             SYSTEM: Execution paused for data integrity audit.`;
-            delete targetMessage.tool_calls;
+            if (targetMessage.role === "assistant") delete targetMessage.tool_calls;
 
             temp_llm_service.chatManager.messages = slicedMessages;
 

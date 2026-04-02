@@ -39,7 +39,7 @@ export class ChainCall extends ReActAgent {
 
         data.output_formats.push(utils.copy(data.output_format));
 
-        this.window?.webContents.send('streamData', { group_id: this.llm_service.chatManager.chat.group_id, content: data.output_format, end: true, is_plugin: data.is_plugin });
+        this.window?.webContents.send('streamData', { ...this.llm_service.chatManager.chat, content: data.output_format, end: true, is_plugin: data.is_plugin });
     }
 
     public async step(data: Record<string, any>): Promise<void> {
@@ -51,8 +51,8 @@ export class ChainCall extends ReActAgent {
         } else {
             stateResult = await this.llmCall(data);
             // 存入本地记忆与结束反馈
-            this.llm_service.chatManager.pushMessage({ role: "user", content: data.query, group_id: this.llm_service.chatManager.chat.group_id, context_id: this.llm_service.chatManager.chat.context_id, show: true, react: false });
-            this.llm_service.chatManager.pushMessage({ role: "assistant", content: data.output, group_id: this.llm_service.chatManager.chat.group_id, context_id: this.llm_service.chatManager.chat.context_id, show: true, react: false });
+            this.llm_service.chatManager.pushUserMessage({ ...this.llm_service.chatManager.chat, content: data.query });
+            this.llm_service.chatManager.pushAssistantMessage({ ...this.llm_service.chatManager.chat, content: data.output });
         }
 
         if (!stateResult) {
@@ -71,13 +71,13 @@ export class ChainCall extends ReActAgent {
         this.llm_service.chatManager.chat.step = 1;
         this.llm_service.chatManager.chat.group_id = String((new Date()).getTime());
         this.llm_service.chatManager.chat.context_id = `${this.llm_service.chatManager.chat.group_id}${this.llm_service.chatManager.chat.step}`
-        this.window.webContents.send('userData', { group_id: this.llm_service.chatManager.chat.group_id, context_id: this.llm_service.chatManager.chat.context_id, content: data.query, del: false });
+        this.window.webContents.send('userData', { ...this.llm_service.chatManager.chat, content: data.query, del: false });
 
         let chain_calls = utils.getConfig("chain_call");
 
         for (const step in chain_calls) {
             if (this.llm_service.stopFlag) {
-                this.window?.webContents.send('streamData', { group_id: this.llm_service.chatManager.chat.group_id, content: "The user interrupted the task.", end: true });
+                this.window?.webContents.send('streamData', { ...this.llm_service.chatManager.chat, content: "The user interrupted the task.", end: true });
                 break;
             }
 

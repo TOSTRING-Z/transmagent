@@ -1,5 +1,5 @@
 import { ILLMAdapter, IToolCallAdapter } from './IAdapter';
-import { ChatRequestData, Message, StreamChunkResult, OpenAITool, ToolInfo } from '../types';
+import { ChatRequestData, Message, StreamChunkResult, OpenAITool, ToolInfo, AssistantMessage } from '../types';
 import JSON5 from 'json5';
 import { parse } from 'partial-json';
 
@@ -67,7 +67,7 @@ export class AnthropicAdapter implements ILLMAdapter {
                     }).filter(c => ['text', 'image', 'tool_use', 'tool_result'].includes(c.type));
                 } else {
                     // 非视觉模型：如果是数组且不是工具调用相关，提取纯文本并保持数组格式包裹
-                    if (message.role !== 'tool' && !message.tool_calls) {
+                    if (message.role !== 'tool' && !(message as AssistantMessage).tool_calls) {
                         const textContent = contentArray
                             .filter((c: any) => c.type === 'text')
                             .map((c: any) => c.text)
@@ -333,7 +333,7 @@ export class AnthropicToolCallAdapter implements IToolCallAdapter {
             };
         }).filter(Boolean);
     }
-    public getToolInfos(message: Message): ToolInfo[] {
+    public getToolInfos(message: AssistantMessage): ToolInfo[] {
         let toolInfos: ToolInfo[] = [];
         const reasoningContent = message.reasoning_content || "";
         const textContent = message.content as string || "";
@@ -344,8 +344,8 @@ export class AnthropicToolCallAdapter implements IToolCallAdapter {
                     toolInfos.push({
                         reasoning_content: reasoningContent || null,
                         content: textContent,
-                        tool: call?.function?.name ?? null,
-                        id: call?.id ?? null,
+                        tool_call_name: call?.function?.name ?? null,
+                        tool_call_id: call?.id ?? null,
                         params: call?.function?.arguments ? JSON5.parse(call.function.arguments as string) : {},
                         error: null
                     });
@@ -354,15 +354,15 @@ export class AnthropicToolCallAdapter implements IToolCallAdapter {
                     toolInfos.push({
                         reasoning_content: reasoningContent || null,
                         content: textContent,
-                        tool: call?.function?.name ?? null,
-                        id: call?.id ?? null,
+                        tool_call_name: call?.function?.name ?? null,
+                        tool_call_id: call?.id ?? null,
                         params: call?.function?.arguments,
                         error: observation
                     });
                 }
             }
         } else {
-            toolInfos.push({ reasoning_content: reasoningContent || null, content: textContent, tool: null, id: null, params: {}, error: null });
+            toolInfos.push({ reasoning_content: reasoningContent || null, content: textContent, tool_call_name: null, tool_call_id: null, params: {}, error: null });
         }
         return toolInfos;
     }

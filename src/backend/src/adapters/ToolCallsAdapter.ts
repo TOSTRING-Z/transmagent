@@ -1,5 +1,5 @@
 import { IToolCallAdapter } from './IAdapter';
-import { Message, ToolInfo } from '../types';
+import { AssistantMessage, Message, ToolInfo } from '../types';
 
 /**
  * ToolCallsAdapter - 直接从 message.tool_calls 提取工具调用信息
@@ -30,7 +30,7 @@ export class ToolCallsAdapter implements IToolCallAdapter {
      * 
      * - OpenAI: message.tool_calls = [{ id, type, function: { name, arguments } }]
      */
-    getToolInfos(message: Message): ToolInfo[] {
+    getToolInfos(message: AssistantMessage): ToolInfo[] {
         let toolInfos: ToolInfo[] = [];
         const reasoningContent = message.reasoning_content || "";
         const textContent = typeof message.content === 'string' ? message.content : "";
@@ -61,8 +61,8 @@ export class ToolCallsAdapter implements IToolCallAdapter {
                     toolInfos.push({
                         reasoning_content: reasoningContent || null,
                         content: textContent,
-                        tool: name || null,
-                        id: call.id || null,
+                        tool_call_name: name || null,
+                        tool_call_id: call.id || null,
                         params: params,
                         error: parseError
                     });
@@ -70,8 +70,8 @@ export class ToolCallsAdapter implements IToolCallAdapter {
                     toolInfos.push({
                         reasoning_content: reasoningContent || null,
                         content: textContent,
-                        tool: call.function?.name || null,
-                        id: call.id || null,
+                        tool_call_name: call.function?.name || null,
+                        tool_call_id: call.id || null,
                         params: call.function?.arguments || {},
                         error: `Error parsing tool call: ${error.message}`
                     });
@@ -82,8 +82,8 @@ export class ToolCallsAdapter implements IToolCallAdapter {
             toolInfos.push({ 
                 reasoning_content: reasoningContent || null, 
                 content: textContent, 
-                tool: null, 
-                id: null, 
+                tool_call_name: null, 
+                tool_call_id: null, 
                 params: {}, 
                 error: null 
             });

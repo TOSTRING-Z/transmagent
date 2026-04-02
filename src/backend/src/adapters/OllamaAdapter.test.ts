@@ -27,7 +27,7 @@ describe('OllamaAdapter Unit Tests (API Communication)', () => {
 
     describe('formatMessages', () => {
         it('应该将 tool 角色转换为 user', () => {
-            const messages: Message[] = [{ role: 'tool', content: 'result' }];
+            const messages: any[] = [{ role: 'tool', content: 'result' }];
             const result = adapter.formatMessages(messages, data);
 
             expect(result[0].role).toBe('user');
@@ -203,9 +203,9 @@ describe('OllamaToolCallAdapter Unit Tests', () => {
             const result = adapter.getToolInfos(message);
 
             expect(result.length).toBe(1);
-            expect(result[0].tool).toBe('search');
+            expect(result[0].tool_call_name).toBe('search');
             expect(result[0].params).toEqual({ query: 'test' });
-            expect(result[0].id).toBe('call_1');
+            expect(result[0].tool_call_id).toBe('call_1');
         });
 
         it('应该处理纯文本（无工具调用）', () => {
@@ -217,7 +217,7 @@ describe('OllamaToolCallAdapter Unit Tests', () => {
             const result = adapter.getToolInfos(message);
 
             expect(result.length).toBe(1);
-            expect(result[0].tool).toBeNull();
+            expect(result[0].tool_call_name).toBeNull();
             expect(result[0].content).toBe('This is just a regular response without any tool calls.');
         });
 

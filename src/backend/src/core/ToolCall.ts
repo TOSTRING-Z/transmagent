@@ -3,7 +3,7 @@ import { ReActAgent, State, Mode } from './ReActAgent';
 import { utils, CHAT_CONST } from '../utils/globals';
 import { formatString } from '../utils/format';
 import { LLMService } from './LLMService';
-import { Message, ToolInfo } from '../types';
+import { AssistantMessage, Message, ToolInfo } from '../types';
 import { MCPClient } from './McpClient';
 import Prompts, { MODE_CONSTRAINTS } from './Prompts';
 import MemoryManager from '../data/MemoryManager';
@@ -191,6 +191,7 @@ export class ToolCall extends ReActAgent {
             isSubagent: !!this.agentConfigs?.subagent,
             currentMode: this.environment_details?.mode
         };
+        const format = this.llm_service.chatManager.chat.tool_format;
         // 3. 流水线处理：过滤 -> 提取Schema -> 格式化
         this.tool_schemas = Object.entries(this.tools)
             .filter(([key, tool]) => {
@@ -222,7 +223,7 @@ export class ToolCall extends ReActAgent {
                 }
             })
             .filter(Boolean);
-        const adapter: IToolCallAdapter = ToolCallAdapterFactory.getAdapter(this.llm_service.chatManager.chat.tool_format);
+        const adapter: IToolCallAdapter = ToolCallAdapterFactory.getAdapter(format);
         return adapter.formatTools(this.tool_schemas);
     }
 
@@ -326,11 +327,9 @@ export class ToolCall extends ReActAgent {
 
         data.prompt = await this.system_prompt();
         const messageOutput = await this.llmCall(data);
-        let assistantMessage!: Message;
 
         if (messageOutput) {
-            assistantMessage = { ...messageOutput, ...{ group_id: this.llm_service.chatManager.chat.group_id, context_id: this.llm_service.chatManager.chat.context_id, tool_format: this.llm_service.chatManager.chat.tool_format, show: true, react: true } }
-            this.toolInfos = await this.getToolInfos(data, assistantMessage);
+            this.toolInfos = await this.getToolInfos(data, messageOutput);
         } else {
             return;
         }
@@ -338,7 +337,7 @@ export class ToolCall extends ReActAgent {
         if (!this.toolInfos || this.toolInfos.length === 0) {
             logger.error(`Tool Info Error`);
             this.window?.webContents.send('infoData', {
-                group_id: this.llm_service.chatManager.chat.group_id,
+                ...this.llm_service.chatManager.chat,
                 content: `Tool Info Error\n`
             });
             return
@@ -361,64 +360,49 @@ export class ToolCall extends ReActAgent {
         if (this.response_repetitions.length > (utils.getConfig("tool_call")?.max_response_repetitions || 5)) {
             const error_message = `Detected repetitive response: "${currentResponse}". Repetition count: ${this.response_repetitions.length}`;
             logger.warn(error_message);
-            this.llm_service.chatManager.pushMessage({
-                role: "assistant",
-                content: error_message,
-                group_id: this.llm_service.chatManager.chat.group_id,
-                context_id: this.llm_service.chatManager.chat.context_id,
-                show: true,
-                react: false
+            this.llm_service.chatManager.pushAssistantMessage({
+                ...this.llm_service.chatManager.chat,
+                content: error_message
             });
             this.window?.webContents.send('streamData', {
-                group_id: this.llm_service.chatManager.chat.group_id,
-                context_id: this.llm_service.chatManager.chat.context_id,
+                ...this.llm_service.chatManager.chat,
                 content: error_message,
-                end: true,
-                chat: this.llm_service.chatManager.chat,
+                end: true
             });
             this.state = State.ERROR;
             return;
         }
 
         // 2. 先把包含所有 tool_calls 的助手消息压入历史记录 (只压一次！)
-        const hasTool = this.toolInfos.some(t => t.tool);
-        const isThinkingOnly = this.toolInfos.length === 1 && !this.toolInfos[0].tool;
+        const hasTool = this.toolInfos.some(t => t.tool_call_name);
+        const isThinkingOnly = this.toolInfos.length === 1 && !this.toolInfos[0].tool_call_name;
 
         if (hasTool || isThinkingOnly) {
-            this.llm_service.chatManager.pushMessage(assistantMessage);
+            this.llm_service.chatManager.pushAssistantMessageWithToolCalls({...this.llm_service.chatManager.chat, ...messageOutput});
         }
 
         // 纯思考结束流程
         if (isThinkingOnly) {
-            assistantMessage.react = false;
-            this.window?.webContents.send('streamData', { group_id: this.llm_service.chatManager.chat.group_id, context_id: this.llm_service.chatManager.chat.context_id, content: null, end: true, chat: this.llm_service.chatManager.chat });
+            this.llm_service.chatManager.pushAssistantMessage({...this.llm_service.chatManager.chat, ...messageOutput});
+            this.window?.webContents.send('streamData', { ...this.llm_service.chatManager.chat, end: true });
             this.state = State.FINAL;
             return;
         }
 
         // 3. 循环并发遍历所有工具 (依次执行，确保上下文有序)
         for (const toolInfo of this.toolInfos) {
-            if (!toolInfo.tool) continue;
+            if (!toolInfo.tool_call_name) continue;
 
             this.currentToolInfo = toolInfo; // 更新当前状态引用，供 callReAct 等外部断点恢复使用
 
             // [1. 解析错误处理]
             if (toolInfo.error) {
-                this.llm_service.chatManager.pushMessage({
-                    role: "tool",
-                    content: toolInfo.error,
-                    tool_call_id: toolInfo.id,
-                    tool_call_name: toolInfo.tool,
-                    group_id: this.llm_service.chatManager.chat.group_id,
-                    context_id: this.llm_service.chatManager.chat.context_id,
-                    show: true,
-                    react: true
+                this.llm_service.chatManager.pushToolMessage({
+                    ...toolInfo, ...this.llm_service.chatManager.chat
                 });
                 this.window?.webContents.send('streamData', {
-                    group_id: this.llm_service.chatManager.chat.group_id,
-                    context_id: this.llm_service.chatManager.chat.context_id,
-                    content: toolInfo.error,
-                    chat: this.llm_service.chatManager.chat
+                    ...this.llm_service.chatManager.chat,
+                    content: toolInfo.error
                 });
                 continue; // 当前工具执行失败，继续尝试数组中的下一个工具
             }
@@ -427,35 +411,26 @@ export class ToolCall extends ReActAgent {
             let auditError = await this.auditToolCall(toolInfo, data);
             if (auditError) {
                 // 如果被拦截，将 Critic 的报错喂回给原 Agent
-                this.llm_service.chatManager.pushMessage({
-                    role: "tool",
-                    content: auditError,
-                    tool_call_id: toolInfo.id,
-                    tool_call_name: toolInfo.tool,
-                    group_id: this.llm_service.chatManager.chat.group_id,
-                    context_id: this.llm_service.chatManager.chat.context_id,
-                    show: true,
-                    react: true
+                this.llm_service.chatManager.pushToolMessage({
+                    ...toolInfo, ...this.llm_service.chatManager.chat, content: auditError
                 });
 
                 this.window?.webContents.send('streamData', {
-                    group_id: this.llm_service.chatManager.chat.group_id,
-                    context_id: this.llm_service.chatManager.chat.context_id,
-                    content: `\n\n---\n\n⚠️ **Security Intercept**: ${auditError}`,
-                    chat: this.llm_service.chatManager.chat,
+                    ...this.llm_service.chatManager.chat,
+                    content: `\n\n---\n\n⚠️ **Security Intercept**: ${auditError}`
                 });
 
                 continue; // 终止当前风险工具，继续执行数组中下一个工具
             }
 
             // [3. 高风险工具确认逻辑]
-            const toolConfig = this.getToolConfig(toolInfo.tool);
+            const toolConfig = this.getToolConfig(toolInfo.tool_call_name);
             const requireConfirmation = !!toolConfig?.require_confirmation;
 
             if (requireConfirmation && WindowManager.instance?.confirmationWindow && this.environment_details.mode === Mode.ACT) {
 
                 let toolDescription = '';
-                const toolName = toolInfo.tool;
+                const toolName = toolInfo.tool_call_name;
 
                 // 检查是否有已记住的选择
                 const rememberedChoice = this.getRememberedChoice(toolName);
@@ -464,22 +439,13 @@ export class ToolCall extends ReActAgent {
                         let observation = await this.act(toolInfo);
                         this.handleToolObservation(observation, toolInfo);
                     } else {
-                        const cancelMessage = `用户取消了高风险工具 ${toolInfo.tool} 的执行（已记住的选择）`;
-                        this.llm_service.chatManager.pushMessage({
-                            role: "tool",
-                            content: cancelMessage,
-                            tool_call_id: toolInfo.id,
-                            tool_call_name: toolInfo.tool,
-                            group_id: this.llm_service.chatManager.chat.group_id,
-                            context_id: this.llm_service.chatManager.chat.context_id,
-                            show: true,
-                            react: true
+                        const cancelMessage = `用户取消了高风险工具 ${toolInfo.tool_call_name} 的执行（已记住的选择）`;
+                        this.llm_service.chatManager.pushToolMessage({
+                            ...toolInfo, ...this.llm_service.chatManager.chat, content: cancelMessage
                         });
                         this.window?.webContents.send('streamData', {
-                            group_id: this.llm_service.chatManager.chat.group_id,
-                            context_id: this.llm_service.chatManager.chat.context_id,
-                            content: `\n\n---\n\n❌ **执行取消**: ${cancelMessage}`,
-                            chat: this.llm_service.chatManager.chat
+                            ...this.llm_service.chatManager.chat,
+                            content: `\n\n---\n\n❌ **执行取消**: ${cancelMessage}`
                         });
                     }
 
@@ -504,7 +470,7 @@ export class ToolCall extends ReActAgent {
 
                 // 创建确认请求
                 const confirmationRequest = {
-                    toolId: toolInfo.id || '',
+                    toolId: toolInfo.tool_call_id || '',
                     toolName: toolName,
                     toolDescription: toolDescription,
                     confirmationMessage: finalConfirmationMessage,
@@ -523,16 +489,9 @@ export class ToolCall extends ReActAgent {
                         let observation = await this.act(toolInfo);
                         this.handleToolObservation(observation, toolInfo);
                     } else {
-                        const cancelMessage = `用户取消了高风险工具 ${toolInfo.tool} 的执行`;
-                        this.llm_service.chatManager.pushMessage({
-                            role: "tool",
-                            content: cancelMessage,
-                            tool_call_id: toolInfo.id,
-                            tool_call_name: toolInfo.tool,
-                            group_id: this.llm_service.chatManager.chat.group_id,
-                            context_id: this.llm_service.chatManager.chat.context_id,
-                            show: true,
-                            react: true
+                        const cancelMessage = `用户取消了高风险工具 ${toolInfo.tool_call_name} 的执行`;
+                        this.llm_service.chatManager.pushToolMessage({
+                            ...toolInfo, ...this.llm_service.chatManager.chat, content: cancelMessage
                         });
 
                         this.window?.webContents.send('streamData', {
@@ -565,27 +524,25 @@ export class ToolCall extends ReActAgent {
         }
     }
 
-    public async getToolInfos(data: Record<string, any>, assistantMessage: any): Promise<ToolInfo[]> {
+    public async getToolInfos(data: Record<string, any>, assistantMessage: AssistantMessage): Promise<ToolInfo[]> {
         const adapter: IToolCallAdapter = ToolCallAdapterFactory.getAdapter(this.llm_service.chatManager.chat.tool_format);
         const toolInfos = adapter.getToolInfos(assistantMessage);
 
         // 网络或内容容错处理
-        if (toolInfos.length === 1 && !toolInfos[0].content && !toolInfos[0].tool) return [];
+        if (toolInfos.length === 1 && !toolInfos[0].content && !toolInfos[0].tool_call_name) return [];
 
         let toolInfoStr = JSON.stringify(toolInfos, null, 2);
         data.output_format = toolInfoStr;
 
-        this.window?.webContents.send('infoData', { group_id: this.llm_service.chatManager.chat.group_id, context_id: this.llm_service.chatManager.chat.context_id, content: this.getInfo(data) });
+        this.window?.webContents.send('infoData', { ...this.llm_service.chatManager.chat, content: this.getInfo(data) });
 
         const content = toolInfos[0]?.content || "";
         const reasoning_content = toolInfos[0]?.reasoning_content || "";
         if (content || reasoning_content) {
             this.window?.webContents.send('streamData', {
-                group_id: this.llm_service.chatManager.chat.group_id,
-                context_id: this.llm_service.chatManager.chat.context_id,
+                ...this.llm_service.chatManager.chat,
                 content: `\n\n${content}`,
                 reasoning_content: reasoning_content,
-                chat: this.llm_service.chatManager.chat
             });
         }
 
@@ -595,12 +552,12 @@ export class ToolCall extends ReActAgent {
     public async act(toolInfo: ToolInfo): Promise<Observation> {
         let observation: Observation;
         try {
-            if (!this.tool_schemas || !this.tool_schemas.map(tool => tool.name).includes(toolInfo.tool)) {
+            if (!this.tool_schemas || !this.tool_schemas.map(tool => tool.name).includes(toolInfo.tool_call_name)) {
                 observation = {
                     result: "Tool does not exist."
                 };
             } else {
-                const will_tool = this.tools[toolInfo.tool as string].func;
+                const will_tool = this.tools[toolInfo.tool_call_name as string].func;
                 const response = await will_tool(toolInfo?.params);
                 let result: string;
                 if (response?.subagent_tool) {
@@ -631,33 +588,30 @@ export class ToolCall extends ReActAgent {
             return;
         }
 
-        switch (toolInfo?.tool) {
+        switch (toolInfo?.tool_call_name) {
             case "display_file":
-                this.window?.webContents.send('streamData', { group_id: this.llm_service.chatManager.chat.group_id, context_id: this.llm_service.chatManager.chat.context_id, content: `\n\n${observation.result}`, chat: this.llm_service.chatManager.chat });
+                this.window?.webContents.send('streamData', { ...this.llm_service.chatManager.chat, content: `\n\n${observation.result}` });
                 break;
             case "add_subtasks":
             case "record_subtasks":
-                this.window?.webContents.send('streamData', { group_id: this.llm_service.chatManager.chat.group_id, context_id: this.llm_service.chatManager.chat.context_id, content: `\n\n\`\`\`json\n${observation.result}\n\`\`\``, chat: this.llm_service.chatManager.chat });
+                this.window?.webContents.send('streamData', { ...this.llm_service.chatManager.chat, content: `\n\n\`\`\`json\n${observation.result}\n\`\`\`` });
                 break;
         }
 
         if (observation.subagent_tool) {
-            this.window?.webContents.send('streamData', { group_id: this.llm_service.chatManager.chat.group_id, context_id: this.llm_service.chatManager.chat.context_id, content: `\n\n${observation.result}`, end: false, chat: this.llm_service.chatManager.chat });
+            this.window?.webContents.send('streamData', { ...this.llm_service.chatManager.chat, content: `\n\n${observation.result}`, end: false });
         }
 
         if (this.state === (State.PAUSE as State)) {
             const { ask, options } = observation;
-            this.window?.webContents.send('streamData', { group_id: this.llm_service.chatManager.chat.group_id, context_id: this.llm_service.chatManager.chat.context_id, content: `\n\n${ask}`, end: true, chat: this.llm_service.chatManager.chat });
-            this.window?.webContents.send("options", { options: options, group_id: this.llm_service.chatManager.chat.group_id, tool_call_id: toolInfo?.id, tool_call_name: toolInfo?.tool });
+            this.window?.webContents.send('streamData', { ...this.llm_service.chatManager.chat, content: `\n\n${ask}`, end: true });
+            this.window?.webContents.send("options", { ...this.llm_service.chatManager.chat, ...toolInfo, options: options });
         } else if (this.state === (State.FINAL as State)) {
-            this.llm_service.chatManager.pushMessage({ role: "tool", content: observation.result, tool_call_id: toolInfo?.id, tool_call_name: toolInfo?.tool, group_id: this.llm_service.chatManager.chat.group_id, context_id: this.llm_service.chatManager.chat.context_id, show: true, react: true });
-            this.window?.webContents.send('streamData', { group_id: this.llm_service.chatManager.chat.group_id, context_id: this.llm_service.chatManager.chat.context_id, content: `\n\n${observation.result}`, end: true, chat: this.llm_service.chatManager.chat });
+            this.llm_service.chatManager.pushToolMessage({ ...this.llm_service.chatManager.chat, ...toolInfo, content: observation.result });
+            this.window?.webContents.send('streamData', { ...this.llm_service.chatManager.chat, content: `\n\n${observation.result}`, end: true });
         } else {
-            this.llm_service.chatManager.pushMessage({ role: "tool", content: observation.result, tool_call_id: toolInfo?.id, tool_call_name: toolInfo?.tool, group_id: this.llm_service.chatManager.chat.group_id, context_id: this.llm_service.chatManager.chat.context_id, show: true, react: true });
-            // 这里需要获取当前的data，但data不在这个方法的上下文中
-            // 我们可以创建一个默认的data对象或者从其他地方获取
-            const defaultData = { output_format: observation.result };
-            this.window?.webContents.send('infoData', { group_id: this.llm_service.chatManager.chat.group_id, context_id: this.llm_service.chatManager.chat.context_id, content: this.getInfo(defaultData) });
+            this.llm_service.chatManager.pushToolMessage({ ...this.llm_service.chatManager.chat, ...toolInfo, content: observation.result });
+            this.window?.webContents.send('infoData', { ...this.llm_service.chatManager.chat, content: this.getInfo({ output_format: observation.result }) });
         }
     }
 
@@ -665,25 +619,21 @@ export class ToolCall extends ReActAgent {
         if (this.state === State.PAUSE) {
             data.role = "tool";
             let context_id = `${this.llm_service.chatManager.chat.group_id}${this.llm_service.chatManager.chat.step - 1}`
-            this.llm_service.chatManager.pushMessage({
-                role: "tool",
-                content: data.query,
-                tool_call_id: this.currentToolInfo?.id,
-                tool_call_name: this.currentToolInfo?.tool,
-                group_id: this.llm_service.chatManager.chat.group_id,
+            this.llm_service.chatManager.pushToolMessage({
+                ...this.currentToolInfo,
+                ...this.llm_service.chatManager.chat,
                 context_id: context_id,
-                show: true,
-                react: true
+                content: data.query,
             });
-            this.window.webContents.send('toolData', { group_id: this.llm_service.chatManager.chat.group_id, context_id: context_id, content: `\n\n---\n\n${data.query}`, del: false });
+            this.window.webContents.send('toolData', { ...this.llm_service.chatManager.chat, content: `\n\n---\n\n${data.query}` });
         } else {
             this.llm_service.chatManager.chat.step = 1;
             this.llm_service.chatManager.chat.group_id = String((new Date()).getTime());
             this.llm_service.chatManager.chat.context_id = `${this.llm_service.chatManager.chat.group_id}${this.llm_service.chatManager.chat.step}`
             data.role = "user";
             this.llm_service.chatManager.fixMessages();
-            this.llm_service.chatManager.pushMessage({ role: "user", content: data.query, group_id: this.llm_service.chatManager.chat.group_id, context_id: this.llm_service.chatManager.chat.context_id, show: true, react: false });
-            this.window.webContents.send('userData', { group_id: this.llm_service.chatManager.chat.group_id, context_id: this.llm_service.chatManager.chat.context_id, content: data.query, del: false });
+            this.llm_service.chatManager.pushUserMessage({ ...this.llm_service.chatManager.chat,content: data.query });
+            this.window.webContents.send('userData', { ...this.llm_service.chatManager.chat, content: data.query });
         }
 
         this.state = State.IDLE;
@@ -694,7 +644,7 @@ export class ToolCall extends ReActAgent {
             await new Promise(resolve => setTimeout(resolve, 1000));
             if (this.llm_service.stopFlag) {
                 this.state = State.FINAL;
-                this.window?.webContents.send('streamData', { group_id: this.llm_service.chatManager.chat.group_id, content: "\n\nThe user interrupted the task.", end: true, chat: this.llm_service.chatManager.chat });
+                this.window?.webContents.send('streamData', { group_id: this.llm_service.chatManager.chat.group_id, content: "\n\nThe user interrupted the task.", end: true });
                 break;
             }
             if (data?.max_step && this.llm_service.chatManager.chat.step > data.max_step) break;

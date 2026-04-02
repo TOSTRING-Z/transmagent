@@ -1,5 +1,5 @@
 import { OpenAIAdapter, OpenAIToolCallAdapter } from './OpenAIAdapter';
-import { ChatRequestData, Message } from '../types';
+import { ChatRequestData, Message, ToolMessage } from '../types';
 
 describe('OpenAI Adapters Unit Tests', () => {
 
@@ -40,7 +40,7 @@ describe('OpenAI Adapters Unit Tests', () => {
         });
 
         it('应该正确转换 tool 角色的对象 content 为字符串', () => {
-            const messages: Message[] = [{
+            const messages: any[] = [{
                 role: 'tool',
                 tool_call_id: 'call_789',
                 // 模拟工具返回的 JSON 对象

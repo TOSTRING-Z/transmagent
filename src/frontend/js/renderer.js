@@ -987,18 +987,11 @@ ${DOM.input.value}`;
       deleteChat(chat.id);
     };
   }
-  function newChat(chat) {
+  function handleNewChat(chat) {
     addChatItem(chat);
-    const items = DOM.history_list.getElementsByClassName("history-item");
-    Array.from(items).forEach((item) => {
-      if (item.id == chat.id)
-        item.classList.add("active");
-      else
-        item.classList.remove("active");
-    });
+    initChat(chat);
   }
-  async function selectChat(chatId) {
-    const chat = await window.electronAPI.loadChat(chatId);
+  function initChat(chat) {
     State.chat = chat;
     toggleMode(State.chat.mode);
     DOM.system_prompt.value = State.chat.system_prompt;
@@ -1009,11 +1002,15 @@ ${DOM.input.value}`;
     DOM.compress_box.checked = State.chat.compress_context || false;
     const items = DOM.history_list.getElementsByClassName("history-item");
     Array.from(items).forEach((item) => {
-      if (item.id == chatId)
+      if (item.id == chat.id)
         item.classList.add("active");
       else
         item.classList.remove("active");
     });
+  }
+  async function selectChat(chatId) {
+    const chat = await window.electronAPI.loadChat(chatId);
+    initChat(chat);
   }
   async function deleteChat(chatId) {
     if (confirm("Are you sure you want to delete this conversation?")) {
@@ -1271,7 +1268,7 @@ ${DOM.input.value}`;
       configBtn.addEventListener("click", showConfig);
     DOM.btn_new_chat.addEventListener("click", async () => {
       const chat = await window.electronAPI.newChat();
-      newChat(chat);
+      handleNewChat(chat);
     });
     const confirmRenameBtn = document.getElementById("confirmRename");
     if (confirmRenameBtn)
@@ -1320,52 +1317,66 @@ ${DOM.input.value}`;
       }
     });
   });
-  window.electronAPI.initInfo((info) => {
-    toggleMode(info.chat.mode);
-    DOM.system_prompt.value = info.chat.system_prompt;
-    DOM.version.innerText = info.version;
+  window.electronAPI.initInfo((data) => {
+    toggleMode(data.mode);
+    DOM.system_prompt.value = data.system_prompt;
+    DOM.version.innerText = data.version;
     DOM.history_list.innerHTML = "";
-    info.chats.forEach((chat) => addChatItem(chat));
+    data.chats.forEach((chat) => addChatItem(chat));
     if (State.seconds_timer)
       clearInterval(State.seconds_timer);
     State.seconds_timer = null;
-    State.chat = info.chat;
+    State.chat = data;
     DOM.tokens.innerText = State.chat.tokens.toString();
     DOM.seconds.innerText = State.chat.seconds.toString();
   });
   window.electronAPI.handleMarkDownFormat((status) => State.markdown_statu = status);
   window.electronAPI.handleReactStatu((status) => State.react_statu = status);
-  window.electronAPI.streamData((chunk) => {
-    if (chunk.chat?.msg_count) {
-      DOM.msg_count.innerText = chunk.chat.msg_count;
+  window.electronAPI.streamData((data) => {
+    if (data?.id !== State.chat.id) {
+      return;
     }
-    if (chunk.chat && chunk.chat.tokens !== void 0 && DOM.tokens) {
-      DOM.tokens.innerText = chunk.chat.tokens.toString();
+    if (data?.msg_count) {
+      DOM.msg_count.innerText = data.msg_count;
+    }
+    if (data && data.tokens !== void 0 && DOM.tokens) {
+      DOM.tokens.innerText = data.tokens.toString();
     }
     const optionDom = document.querySelector(".base-container");
     if (optionDom)
       optionDom.remove();
-    streamData(chunk).then((messageSystems) => {
+    streamData(data).then((messageSystems) => {
       if (State.scroll_top.data)
         DOM.top_div.scrollTop = DOM.top_div.scrollHeight;
-      if (chunk.end) {
+      if (data.end) {
         enterEnd(messageSystems);
       }
     });
   });
-  window.electronAPI.toolData((chunk) => toolData(chunk));
-  window.electronAPI.infoData((info) => {
-    if (info.content) {
-      if (info.chat && info.chat.tokens !== void 0 && DOM.tokens) {
-        DOM.tokens.innerText = info.chat.tokens.toString();
+  window.electronAPI.toolData((data) => {
+    if (data?.id !== State.chat.id) {
+      return;
+    }
+    toolData(data);
+  });
+  window.electronAPI.infoData((data) => {
+    if (data?.id !== State.chat.id) {
+      return;
+    }
+    if (data.content) {
+      if (data && data.tokens !== void 0 && DOM.tokens) {
+        DOM.tokens.innerText = data.tokens.toString();
       }
-      infoData(info).then((info_content) => {
+      infoData(data).then((info_content) => {
         if (State.scroll_top.info && info_content)
           info_content.scrollTop = info_content?.scrollHeight;
       });
     }
   });
   window.electronAPI.userData((data) => {
+    if (data?.id !== State.chat.id) {
+      return;
+    }
     userData(DOM.messages, data).then((messageSystem) => {
       addRunning(messageSystem);
       if (State.scroll_top.data)
@@ -1429,7 +1440,7 @@ ${DOM.input.value}`;
   window.electronAPI.setPrompt((prompt) => DOM.system_prompt.value = prompt);
   window.electronAPI.handleClear(() => loadOptions());
   window.electronAPI.uploadProgress((info) => updateProgress(info));
-  window.electronAPI.handleNewChat((chat) => newChat(chat));
+  window.electronAPI.handleNewChat((chat) => handleNewChat(chat));
   window.electronAPI.handleSelectChat((chat) => selectChat(chat.id));
   window.electronAPI.handleSetChat(async (chat) => {
     const items = DOM.history_list.getElementsByClassName("history-item");

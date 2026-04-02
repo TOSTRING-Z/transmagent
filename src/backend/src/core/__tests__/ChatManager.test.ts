@@ -12,7 +12,7 @@ describe('ChatManager.fixMessages', () => {
     });
 
     const createMessage = (partial: Partial<Message>): Message => {
-        const msg: Message = {
+        const msg: any = {
             group_id: 'default',
             context_id: 'ctx-1',
             role: 'user',

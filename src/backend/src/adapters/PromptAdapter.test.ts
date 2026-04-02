@@ -65,9 +65,9 @@ describe('ToolCallsAdapter Unit Tests', () => {
             const result = adapter.getToolInfos(message);
 
             expect(result.length).toBe(1);
-            expect(result[0].tool).toBe('search');
+            expect(result[0].tool_call_name).toBe('search');
             expect(result[0].params).toEqual({ query: 'test' });
-            expect(result[0].id).toBe('call_123');
+            expect(result[0].tool_call_id).toBe('call_123');
         });
 
         it('应该处理纯文本消息（无工具调用）', () => {
@@ -79,7 +79,7 @@ describe('ToolCallsAdapter Unit Tests', () => {
             const result = adapter.getToolInfos(message);
 
             expect(result.length).toBe(1);
-            expect(result[0].tool).toBeNull();
+            expect(result[0].tool_call_name).toBeNull();
             expect(result[0].content).toBe('This is a regular response.');
         });
 
@@ -165,7 +165,7 @@ describe('PromptToolCallAdapter Unit Tests', () => {
             const result = adapter.getToolInfos(message);
 
             expect(result.length).toBe(1);
-            expect(result[0].tool).toBe('search');
+            expect(result[0].tool_call_name).toBe('search');
             expect(result[0].params).toEqual({ query: 'test' });
         });
 
@@ -178,7 +178,7 @@ describe('PromptToolCallAdapter Unit Tests', () => {
             const result = adapter.getToolInfos(message);
 
             expect(result.length).toBe(1);
-            expect(result[0].tool).toBeNull();
+            expect(result[0].tool_call_name).toBeNull();
             expect(result[0].content).toBe('This is just text without tool calls.');
         });
     });

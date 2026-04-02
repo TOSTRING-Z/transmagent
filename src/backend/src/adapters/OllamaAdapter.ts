@@ -1,5 +1,5 @@
 import { ILLMAdapter, IToolCallAdapter } from './IAdapter';
-import { ChatRequestData, Message, MessageContent, OllamaContent, StreamChunkResult, ImageContent, TextContent, ToolInfo, ToolCall } from '../types';
+import { ChatRequestData, Message, MessageContent, OllamaContent, StreamChunkResult, ImageContent, TextContent, ToolInfo, ToolCall, AssistantMessage } from '../types';
 import JSON5 from 'json5';
 import { utils } from '../utils/globals';
 import { logger } from '../utils/logger';
@@ -33,7 +33,7 @@ export class OllamaAdapter implements ILLMAdapter {
                     const imgObj = message.content.find(
                         (c: MessageContent): c is ImageContent => c.type === "image_url"
                     );
-                    
+
                     if (textObj && imgObj) {
                         // 提取 base64 编码的图片
                         const base64Image = imgObj.image_url.url.split(",")[1];
@@ -75,7 +75,10 @@ export class OllamaAdapter implements ILLMAdapter {
             model: data.version,
             messages: messages.map(msg => {
                 if (msg.role === "tool") {
-                    msg.role = "user";
+                    return {
+                        role: "user",
+                        content: msg.content
+                    }
                 }
                 return msg;
             }),
@@ -91,7 +94,7 @@ export class OllamaAdapter implements ILLMAdapter {
                     payload[param] = data.llm_params[param];
                 }
             }
-            
+
             // 处理 chat_template_kwargs (如 enable_thinking)
             if (data.llm_params.chat_template_kwargs) {
                 payload.options = { ...payload.options, ...data.llm_params.chat_template_kwargs };
@@ -152,7 +155,7 @@ export class OllamaAdapter implements ILLMAdapter {
             content,
             reasoning_content,
             finish_reason,
-            tokens: respJson.prompt_eval_count !== undefined 
+            tokens: respJson.prompt_eval_count !== undefined
                 ? respJson.prompt_eval_count + (respJson.eval_count || 0)
                 : respJson.usage?.total_tokens
         };
@@ -243,7 +246,7 @@ export class OllamaToolCallAdapter implements IToolCallAdapter {
         return tool_prompt;
     }
 
-    public getToolInfos(message: Message): ToolInfo[] {
+    public getToolInfos(message: AssistantMessage): ToolInfo[] {
         let toolInfos: ToolInfo[] = [];
         const contentStr = message.content as string;
         let reasoningContent = message.reasoning_content || "";
@@ -282,8 +285,8 @@ export class OllamaToolCallAdapter implements IToolCallAdapter {
                     toolInfos.push({
                         reasoning_content: null,
                         content: `\`\`\`text\n${contentStr}\n\`\`\`\n\n**Function calling is not a pure JSON text, or there is a problem with the JSON format.**`,
-                        tool: null,
-                        id: `ollama_call_${Date.now()}_${i}`,
+                        tool_call_name: null,
+                        tool_call_id: `ollama_call_${Date.now()}_${i}`,
                         params: {},
                         error: `Error Message: Tool parsing failed at index ${i}`
                     });
@@ -293,8 +296,8 @@ export class OllamaToolCallAdapter implements IToolCallAdapter {
                 toolInfos.push({
                     reasoning_content: reasoningContent || null,
                     content: call.content || "",
-                    tool: call?.tool || null,
-                    id: call?.id || `ollama_call_${Date.now()}_${i}`,
+                    tool_call_name: call?.tool || null,
+                    tool_call_id: call?.id || `ollama_call_${Date.now()}_${i}`,
                     params: call?.params || {},
                     error: null
                 });
@@ -306,8 +309,8 @@ export class OllamaToolCallAdapter implements IToolCallAdapter {
                 toolInfos.push({
                     reasoning_content: reasoningContent || null,
                     content: `\`\`\`text\n${contentStr}\n\`\`\`\n\n**Function calling is not a pure JSON text, or there is a problem with the JSON format.**`,
-                    tool: null,
-                    id: null,
+                    tool_call_name: null,
+                    tool_call_id: null,
                     params: {},
                     error: `Error Message: ${error.message}`
                 });
@@ -315,8 +318,8 @@ export class OllamaToolCallAdapter implements IToolCallAdapter {
                 toolInfos.push({
                     reasoning_content: reasoningContent || null,
                     content: contentStr,
-                    tool: null,
-                    id: null,
+                    tool_call_name: null,
+                    tool_call_id: null,
                     params: {},
                     error: null
                 });
@@ -324,7 +327,7 @@ export class OllamaToolCallAdapter implements IToolCallAdapter {
         }
 
         if (toolInfos.length === 0) {
-            toolInfos.push({ reasoning_content: reasoningContent || null, content: contentStr, tool: null, id: null, params: {}, error: null });
+            toolInfos.push({ reasoning_content: reasoningContent || null, content: contentStr, tool_call_name: null, tool_call_id: null, params: {}, error: null });
         }
 
         return toolInfos;
