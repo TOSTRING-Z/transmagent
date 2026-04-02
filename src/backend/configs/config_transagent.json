@@ -26,7 +26,7 @@
     "del": false
   },
   "default": {
-    "model": "deepseek",
+    "model": "deepseek[openai]",
     "version": "deepseek-chat",
     "plugin": "baidu_translate",
     "tool_format": "toolcalls",
