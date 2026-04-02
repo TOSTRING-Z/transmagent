@@ -354,8 +354,8 @@ export class ChatManager {
         let messages = this.getMessages(false);
         messages = this.compressContext(messages);
         if (this.chat.tokens >= data.max_tokens || 1e5) {
-            data.long_memory_length = Math.floor(data.long_memory_length);
-            data.memory_length = Math.floor(data.memory_length);
+            data.long_memory_length = Math.floor(data.long_memory_length / 2);
+            data.memory_length = Math.floor(data.memory_length / 2);
         }
         // 截取最近记忆
         if (messages.length > data.memory_length) {

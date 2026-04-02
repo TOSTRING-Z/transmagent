@@ -1,211 +1,362 @@
+# TransMAgent 配置指南
 
-# config.json
+本文档详细介绍 TransMAgent 的配置文件格式与各项参数。
+
+---
+
+## 📁 配置文件
+
+### 两级配置机制
+
+| 类型 | 路径 | 说明 |
+|------|------|------|
+| 系统默认配置 | `src/backend/configs/config_*.json` | 出厂默认配置 |
+| 用户配置 | `~/.transmagent/story.json` | 用户自定义配置 |
+
+**加载机制**：用户配置会覆盖系统默认配置，系统自动合并增强。
+
+### 代理模式配置
+
+| 模式 | 系统配置文件 |
+|------|-------------|
+| TransAgent（默认） | `configs/config_transagent.json` |
+| BaseAgent | `configs/config_baseagent.json` |
+| MultiAgent | `configs/config_multagent.json` |
+
+---
+
+## 🤖 模型配置
+
+### Ollama 本地模型
 
 ```json
 "models": {
   "ollama": {
-    "api_url": "http://localhost:11434/api/chat",
+    "api_url": "http://localhost:11434",
+    "api_type": "ollama",
     "versions": [
-      "llama3.2",
+      "gpt-oss:20b",
+      "qwen3-coder:30b",
       {
         "version": "gemma3:12b",
-        "vision": [
-          "image"
-        ],
-        "ollama": true
+        "vision": ["image"]
       }
     ]
-  },
-  "deepseek": {
-    "api_url": "https://api.deepseek.com/chat/completions",
-    "api_key": "your_key",
+  }
+}
+```
+
+### DeepSeek API（OpenAI 格式）
+
+```json
+"models": {
+  "deepseek[openai]": {
+    "api_url": "https://api.deepseek.com/",
+    "api_key": "your-api-key",
+    "api_type": "openai",
     "versions": [
-      "deepseek-coder",
-      "deepseek-chat",
-      "deepseek-reasoner"
+      {
+        "version": "deepseek-chat"
+      }
     ]
-  },
+  }
+}
+```
+
+### DeepSeek API（Anthropic 格式）
+
+```json
+"models": {
+  "deepseek[anthropic]": {
+    "api_url": "https://api.deepseek.com/anthropic",
+    "api_key": "your-api-key",
+    "api_type": "anthropic",
+    "versions": [
+      {
+        "version": "deepseek-chat"
+      }
+    ]
+  }
+}
+```
+
+### GLM 模型
+
+```json
+"models": {
   "chatglm": {
     "api_url": "https://open.bigmodel.cn/api/paas/v4/chat/completions",
-    "api_key": "your_key",
+    "api_key": "your-api-key",
+    "api_type": "openai",
     "versions": [
       "glm-4-flash",
       "glm-4-long",
       {
         "version": "glm-4v-flash",
-        "vision": [
-          "image"
-        ]
+        "vision": ["image"]
       }
     ]
-  },
+  }
 }
 ```
 
-> Example of configuring large model request parameters
+---
 
-config.json
+## ⚙️ 核心配置
+
+### LLM 请求参数
 
 ```json
-"llm_parmas": {
+"llm_params": {
   "max_tokens": 4000,
   "temperature": 1.5,
   "stream": true
 }
 ```
 
-> Example of configuring info box template
-
-config.json
-
-````json
-"info_template": "Stage: {step}, Called: {model}, Version: {version}, Output: \n\n```\n{output_format}\n```\n\n",
-````
-
-_- The available configuration fields are as follows: -_
-
-- step: Current stage number
-- model: Currently used model (model/plugins)
-- version: Currently used model version
-- query: Initial input
-- input: Current stage formatted input
-- img_url: Initial image base64 input
-- output: Current stage raw output
-- outputs: Historical raw outputs
-- output_format: Current stage formatted output
-- output_formats: Historical formatted outputs
-- prompt: Initial system prompt
-- prompt_format: Current stage formatted system prompt
-- llm_parmas: Large model request parameters
-- api_url: Large model request URL
-- api_key: Large model request KEY
-
-_- Formatting: See Chain Calls for details -_
-
-> Example of configuring memory length
-
-config.json
-
-```json
-"memory_length": 10
-```
-
-> Example of configuring retry attempts
-
-config.json
+### 重试次数
 
 ```json
 "retry_time": 10
 ```
 
-> Example of configuring shortcut display duration
-
-config.json
-
-```json
-"icon_time": 5
-```
-
-> Example of configuring shortcuts
-
-config.json
+### 快捷键
 
 ```json
 "short_cut": "CommandOrControl+Shift+Space"
 ```
 
-> Example of configuring default function states
-
-config.json
+### 快捷键显示时间
 
 ```json
-"func_status": {
-  "clip": true,
-  "react": true,
-  "markdown": true,
-  "math": true,
-  "text": false
+"icon_time": 5
+```
+
+### 历史记录路径
+
+```json
+"history_path": null
+```
+
+---
+
+## 📋 信息模板
+
+```json
+"info_template": "Stage: {step}, Called: {model}, Version: {version}, Output:\n\n```json\n{output_format}\n```\n\n"
+```
+
+### 可用字段
+
+| 字段 | 说明 |
+|------|------|
+| `{step}` | 当前阶段编号 |
+| `{model}` | 当前使用的模型 |
+| `{version}` | 当前模型版本 |
+| `{query}` | 初始输入 |
+| `{input}` | 当前阶段格式化输入 |
+| `{output}` | 当前阶段原始输出 |
+| `{outputs}` | 历史原始输出 |
+| `{output_format}` | 当前阶段格式化输出 |
+| `{output_formats}` | 历史格式化输出 |
+| `{prompt}` | 初始系统提示词 |
+| `{prompt_format}` | 当前阶段格式化系统提示词 |
+| `{api_url}` | API 请求地址 |
+| `{api_key}` | API 密钥 |
+
+---
+
+## 🧠 记忆配置
+
+### 记忆长度
+
+```json
+"memory_length": 10
+```
+
+### 向量嵌入
+
+```json
+"embedding": {
+  "base_url": "https://open.bigmodel.cn/api/paas/v4",
+  "api_key": "",
+  "model": "embedding-3",
+  "dimension": 1024,
+  "enabled": false
 }
 ```
 
-> Example of default configurations
+---
 
-config.json
+## ❤️ 心跳机制
+
+```json
+"heartbeat": {
+  "enabled": false,
+  "interval": 300
+}
+```
+
+| 字段 | 类型 | 说明 |
+|------|------|------|
+| `enabled` | boolean | 是否启用心跳机制 |
+| `interval` | number | 心跳间隔（秒） |
+
+---
+
+## 🎛️ 功能状态
+
+```json
+"func_status": {
+  "react": true,
+  "clip": false,
+  "text": false,
+  "del": false
+}
+```
+
+| 字段 | 说明 |
+|------|------|
+| `react` | 是否启用 ReAct 模式 |
+| `clip` | 剪贴板功能 |
+| `text` | 文本处理功能 |
+| `del` | 删除功能 |
+
+---
+
+## 🔧 默认配置
 
 ```json
 "default": {
   "model": "deepseek",
   "version": "deepseek-chat",
-  "plugin": "baidu_translate"
+  "plugin": "baidu_translate",
+  "tool_format": "toolcalls",
+  "compress_context": false
 }
 ```
 
-> Example of chain call configurations
+| 字段 | 说明 |
+|------|------|
+| `model` | 默认模型提供商 |
+| `version` | 默认模型版本 |
+| `plugin` | 默认插件 |
+| `tool_format` | 工具调用格式 |
+| `compress_context` | 是否压缩上下文 |
 
-Parameter cycle:
+---
 
-* input_*: Format using `configurable field values` before calling the model
-* output_*: Format using `configurable field values` after calling the model
-
-config.json
-
-- Basic conversation
+## 🔗 SSH 配置
 
 ```json
-"chain_call": [
-  {
-    "end": true
+"tool_call": {
+  "ssh_config": {
+    "enabled": false,
+    "host": "127.0.0.1",
+    "port": 22,
+    "username": "root",
+    "password": ""
   }
-]
+}
 ```
 
-- Basic conversation + image recognition
+---
+
+## 🧩 插件配置
+
+### Python 执行
 
 ```json
-"chain_call": [
-  {
-    "input_template": "{img_url?'Please identify the image content before answering.':''}{input}",
-    "end": true
-  }
-]
-```
-
-- Forced thought chain
-
-```json
-"chain_call": [
-  {
-    "prompt_template": "{prompt}\nA conversation between User and Assistant.\nThe user asks a question, and the Assistant solves it.\nThe assistant first thinks about the reasoning process in the mind and then provides the user with the answer.\nThe assistant should engage in a lengthy period of contemplation before answering a question, while also reflecting on whether there are any errors in their thought process. \nDuring the thinking process, the assistant should propose multiple solutions and provide an extended chain of thought for each one.\nThe thought process for each solution should be very detailed, including the specific steps for implementation.\nThe reasoning process is enclosed within <think> </think> and <answer> </answer> tags, respectively, i.e:\n<think>\n reasoning process here \n</think>\n<answer>\n answer here \n</answer>",
-    "input_template": "{input}",
-    "end": true
-  }
-]
-```
-
-- Thought chain concatenation
-
-```json
-"chain_call": [
-  {
-    "model": "together",
-    "version": "deepseek-ai/DeepSeek-R1-Distill-Llama-70B-free",
-    "prompt": "Please think before answering"
-  },
-  {
-    "model": "plugins",
-    "version": "Extract thought chain",
-    "input_data": {
-      "input": "{input}"
+"plugins": {
+  "python_execute": {
+    "params": {
+      "python_bin": "python",
+      "timeout": 3600,
+      "delay_time": 5,
+      "show": true,
+      "threshold": 40000
     },
-    "output_template": "<think>{output}</think>\n- query:{query}\n- answer:"
+    "enabled": false,
+    "require_confirmation": true
+  }
+}
+```
+
+### CLI 执行
+
+```json
+"plugins": {
+  "cli_execute": {
+    "params": {
+      "bashrc": "/root/.bashrc",
+      "timeout": 3600
+    },
+    "enabled": true,
+    "require_confirmation": true
+  }
+}
+```
+
+### 浏览器客户端
+
+```json
+"plugins": {
+  "browser_client": {
+    "enabled": true
+  }
+}
+```
+
+### 网页抓取
+
+```json
+"plugins": {
+  "web_crawler_toolkit": {
+    "params": {
+      "topk": 15
+    },
+    "enabled": true
+  }
+}
+```
+
+### MCP 服务
+
+```json
+"plugins": {
+  "mcp_server": {
+    "enabled": true
+  }
+}
+```
+
+---
+
+## 🔗 链式调用配置
+
+### 参数说明
+
+- `input_*`: 调用模型前使用配置字段值格式化
+- `output_*`: 调用模型后使用配置字段值格式化
+
+### 基础对话
+
+```json
+"chain_call": [
+  {
+    "model": "deepseek",
+    "input_template": "Current time: {time}\nSystem: {system}\nHistory:\n{history}\nUser: {query}",
+    "output_template": "Step: {step}, Model: {model}, Output:\n{output}",
+    "end": false
   },
   {
+    "input_template": "Based on previous context:\n- query: {query}\n- answer:",
     "end": true
   }
 ]
 ```
 
-- File conversation
+### PDF 文件对话
 
 ```json
 "chain_call": [
@@ -217,32 +368,46 @@ config.json
     }
   },
   {
-    "input_template": "The following is the text content from the PDF:\n\n<pdf>{output_formats[0]}</pdf>\n\nThe following is the user input:\n\n<user>{query}</user>\n\nPlease respond to the user input based on the PDF content. Response requirements:\n- Filter out redundant text such as line numbers, page numbers and watermarks\n- Think about as many details, potentially relevant and possibly relevant content as possible\n- For content not in the original text, no guessing is needed, and opinions and outputs that may be inconsistent with the original content should be proposed\n- Output in standard format.",
+    "input_template": "The following is the text content from the PDF:\n\n<pdf>{output_formats[0]}</pdf>\n\nThe following is the user input:\n\n<user>{query}</user>\n\nPlease respond to the user input based on the PDF content.",
     "end": true
   }
 ]
 ```
 
-_- Configurable Fields -_
+### 可用模板字段
 
-This configuration parameter defaults to the original field attribute value (see the configuration information box template).
+| 字段 | 说明 |
+|------|------|
+| `input_template` | 当前阶段输入格式化模板 |
+| `output_template` | 当前阶段输出格式化模板 |
+| `prompt_template` | 系统提示词格式化模板 |
+| `end` | 链式调用结束标志 |
 
-Unique fields:
+### 可用显示组件
 
-- input_template: Current stage input formatting template
-- output_template: Current stage output formatting template
-- prompt_template: System prompt formatting template
-- end: Chain call end flag
+- `system-prompt`: 系统提示词输入框
+- `file-upload`: 文件上传按钮
 
-_- Configurable Display Components -_
+---
 
-- system-prompt: System prompt input box
-  - Corresponding available fields are:
-    - prompt: Initial system prompt
-- file-upload: File upload button
-  - Corresponding available fields are:
-    - file-upload: Path to read the file
+## 🌐 Web 服务器
 
-_- For more examples, see: -_
+```json
+"webserver": {
+  "port": 3005
+}
+```
 
-[chain_calls](resources/chain_calls)
+---
+
+## 📌 配置示例
+
+完整的配置示例请参考：
+
+- `src/backend/configs/config_transagent.json` - TransAgent 模式配置
+- `src/backend/configs/config_baseagent.json` - BaseAgent 模式配置
+- `src/backend/configs/config_multagent.json` - MultiAgent 模式配置
+
+更多链式调用示例请参考：
+
+- `resources/chain_calls/`

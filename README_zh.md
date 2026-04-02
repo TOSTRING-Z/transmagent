@@ -249,10 +249,29 @@ pnpm run dist
 
 ## ⚙️ 安装配置
 
-如安装失败，请手动将配置文件 (`src/backend/config.json`) 复制到以下路径：
+TransMAgent 使用两级配置文件机制：
 
-- **Linux**: `/home/[user]/.transmagent/config.json`
-- **Windows**: `C:\Users\[user]\.transmagent\config.json`
+| 类型 | 路径 | 说明 |
+|------|------|------|
+| 系统默认配置 | `src/backend/configs/config_*.json` | 出厂默认配置 |
+| 用户配置 | `~/.transmagent/story.json` | 用户自定义配置（自动创建） |
+
+### 配置文件加载机制
+
+```
+系统默认配置 + 用户配置 → 合并增强配置
+```
+
+- 用户配置会覆盖系统默认配置
+- 如果用户配置文件不存在，系统会自动创建
+
+### 代理模式配置文件
+
+| 模式 | 系统配置文件 |
+|------|-------------|
+| TransAgent（默认） | `configs/config_transagent.json` |
+| BaseAgent | `configs/config_baseagent.json` |
+| MultiAgent | `configs/config_multagent.json` |
 
 安装完成后，需要进行以下配置：
 

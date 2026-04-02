@@ -251,30 +251,30 @@ export class ReActAgent {
         if (messages.length > 0) {
             messages.forEach((message, i) => {
                 if (message.role === "user") {
-                    this.window.webContents.send('userData', { ...message, ...chat, end: true });
+                    this.window.webContents.send('userData', { ...chat, ...message, end: true });
                 }
                 if (message.role === "tool") {
                     const tool_call_name = message.tool_call_name || "unknown_tool";
 
                     switch (tool_call_name) {
                         case "display_file":
-                            this.window.webContents.send('streamData', { ...message, ...chat, content: `\n\n${message.content}`, end: true });
+                            this.window.webContents.send('streamData', { ...chat, ...message, content: `\n\n${message.content}`, end: true });
                             break;
                         case "add_subtasks":
                         case "complete_subtasks":
-                            this.window.webContents.send('streamData', { ...message, ...chat, content: `\n\n\`\`\`json\n${message.content}\n\`\`\``, end: true });
+                            this.window.webContents.send('streamData', { ...chat, ...message, content: `\n\n\`\`\`json\n${message.content}\n\`\`\``, end: true });
                             break;
                     }
 
                     if (["deep_researcher", "workflow_planner", "tool_manager", "web_searcher", "chart_plotter", "task_executor", "tool_documentation_collector", "url_summarizer"].includes(tool_call_name)) {
-                        this.window.webContents.send('streamData', { ...message, ...chat, content: `\n\n${message.content}`, end: true });
+                        this.window.webContents.send('streamData', { ...chat, ...message, content: `\n\n${message.content}`, end: true });
                     }
                     if (["ask_user"].includes(tool_call_name)) {
-                        this.window.webContents.send('streamData', { ...message, ...chat, content: `\n\n${message.content}`, end: true });
+                        this.window.webContents.send('streamData', { ...chat, ...message, content: `\n\n${message.content}`, end: true });
                     }
 
                     let content_format = (message.content as string).replaceAll("`", "\\`");
-                    this.window.webContents.send('infoData', { ...message, ...chat, content: `Step ${i}, group_id: ${message.group_id}, context_id: ${message.context_id}, Output:\n\n\`\`\`json\n${content_format}\n\`\`\`\n\n` });
+                    this.window.webContents.send('infoData', { ...chat, ...message, content: `Step ${i}, group_id: ${message.group_id}, context_id: ${message.context_id}, Output:\n\n\`\`\`json\n${content_format}\n\`\`\`\n\n` });
                 }
                 if (message.role === "assistant") {
                     if (message.react) {
@@ -283,13 +283,13 @@ export class ReActAgent {
                             const toolInfos = adapter.getToolInfos(message);
                             const toolInfo = toolInfos[0] || { content: message.content, reasoning_content: message.reasoning_content || null, tool: null, params: {} };
                             let toolInfoStr = JSON.stringify(toolInfo, null, 2).replaceAll("`", "\\`");
-                            this.window.webContents.send('infoData', { ...message, ...chat, content: `Step ${i}, group_id: ${message.group_id}, context_id: ${message.context_id}, Output:\n\n\`\`\`json\n${toolInfoStr}\n\`\`\`` });
-                            this.window.webContents.send('streamData', { ...message, ...chat, content: `\n\n${message.content}`, end: true });
+                            this.window.webContents.send('infoData', { ...chat, ...message, content: `Step ${i}, group_id: ${message.group_id}, context_id: ${message.context_id}, Output:\n\n\`\`\`json\n${toolInfoStr}\n\`\`\`` });
+                            this.window.webContents.send('streamData', { ...chat, ...message, content: `\n\n${message.content}`, end: true });
                         } catch (e: any) {
-                            this.window?.webContents.send('streamData', { ...message, ...chat, content: null, end: true });
+                            this.window?.webContents.send('streamData', { ...chat, ...message, content: null, end: true });
                         }
                     } else {
-                        this.window.webContents.send('streamData', { ...message, ...chat, content: `\n\n${message.content}`, end: true });
+                        this.window.webContents.send('streamData', { ...chat, ...message, content: `\n\n${message.content}`, end: true });
                     }
                 }
             });

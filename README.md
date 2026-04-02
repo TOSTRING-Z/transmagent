@@ -245,6 +245,31 @@ pnpm run dist
 
 > 💡 Due to rapid version iterations, we recommend compiling yourself to experience the latest features.
 
+## ⚙️ Installation Configuration
+
+TransMAgent uses a two-level configuration file mechanism:
+
+| Type | Path | Description |
+|------|------|-------------|
+| System Default Config | `src/backend/configs/config_*.json` | Factory default configuration |
+| User Config | `~/.transmagent/story.json` | User custom configuration (auto-created) |
+
+### Configuration Loading Mechanism
+
+```
+System Default Config + User Config → Merged Enhanced Config
+```
+
+- User config overrides system default config
+- If user config doesn't exist, system will auto-create it
+
+### Agent Mode Configuration Files
+
+| Mode | System Config File |
+|------|-------------------|
+| TransAgent (default) | `configs/config_transagent.json` |
+| BaseAgent | `configs/config_baseagent.json` |
+| MultiAgent | `configs/config_multagent.json` |
 
 ### 🔧 Agent Parameter Configuration
 See [mcp_server](biotools/mcp_server)
