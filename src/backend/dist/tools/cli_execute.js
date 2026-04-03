@@ -135,28 +135,9 @@ function main(initialParams = {}) {
         }
         const timestamp = Date.now();
         const randomStr = Math.floor(Math.random() * 1000);
-        // 1. 创建脚本临时文件
-        const tempFile = path.join(os.tmpdir(), `temp_${timestamp}_${randomStr}.sh`);
-        try {
-            let finalCode = code;
-            if (params.bashrc) {
-                finalCode = `source ${params.bashrc};\n${code}`;
-            }
-            fs.writeFileSync(tempFile, finalCode);
-            logger_1.logger.log(`Temporary file created: ${tempFile}`);
-        }
-        catch (error) {
-            return { success: false, output: '', error: `Failed to create temporary file: ${error.message}` };
-        }
-        // 2. 创建流式输出日志文件
-        const outputFile = path.join(os.tmpdir(), `output_${timestamp}_${randomStr}.txt`);
-        let outStream = null;
-        try {
-            outStream = fs.createWriteStream(outputFile, { encoding: 'utf8', flags: 'a' });
-            logger_1.logger.log(`Temporary output file created: ${outputFile}`);
-        }
-        catch (error) {
-            logger_1.logger.warn(`Failed to create output file stream: ${error.message}`);
+        let finalCode = code;
+        if (params.bashrc) {
+            finalCode = `source ${params.bashrc};\n${code}`;
         }
         let terminalWindow = null;
         try {
@@ -183,9 +164,6 @@ function main(initialParams = {}) {
             });
         }
         catch (error) {
-            if (outStream)
-                outStream.end();
-            cleanupResources(tempFile, null);
             return { success: false, output: '', error: `Failed to create terminal window: ${error.message}` };
         }
         return new Promise((resolve) => {
@@ -193,6 +171,10 @@ function main(initialParams = {}) {
             let isResolved = false;
             let conn = null;
             let isInterrupted = false;
+            // 依据执行环境动态分配：输出流及路径
+            let outStream = null; // 可以是 fs.WriteStream 也可以是 SFTP WriteStream
+            let finalOutputFilePath = "";
+            let localTempScriptFile = ""; // 仅用于本地模式清理用
             // 用于保存最后的输出内容（防止内存泄漏）
             let tailBuffer = "";
             let errorBuffer = "";
@@ -200,8 +182,14 @@ function main(initialParams = {}) {
             // 用于 ConsoleMonitor 增量检查的缓冲区
             let monitorBuffer = "";
             const appendData = (data, isError = false) => {
-                if (outStream)
-                    outStream.write(data);
+                if (outStream) {
+                    try {
+                        outStream.write(data);
+                    }
+                    catch (e) {
+                        logger_1.logger.warn(`Failed to write to stream: ${e.message}`);
+                    }
+                }
                 tailBuffer += data;
                 if (tailBuffer.length > MAX_TAIL_CHARS) {
                     tailBuffer = tailBuffer.slice(-MAX_TAIL_CHARS);
@@ -224,8 +212,12 @@ function main(initialParams = {}) {
                 }
                 if (timeoutId)
                     clearTimeout(timeoutId);
-                if (outStream)
-                    outStream.end();
+                if (outStream) {
+                    try {
+                        outStream.end();
+                    }
+                    catch (e) { }
+                }
                 // 清理所有主进程事件监听器
                 electron_1.ipcMain.off('minimize-window', handleMinimize);
                 electron_1.ipcMain.removeListener('close-window', handleCloseWindow);
@@ -233,7 +225,7 @@ function main(initialParams = {}) {
                     electron_1.ipcMain.off('terminal-input', inputHandler);
                 if (signalHandler)
                     electron_1.ipcMain.off('terminal-signal', signalHandler);
-                cleanupResources(tempFile, terminalWindow, conn);
+                cleanupResources(localTempScriptFile, terminalWindow, conn);
                 // 组装最终结果
                 let finalOutput = threshold(tailBuffer, params.max_lines, params.max_chars_per_line);
                 if (isInterrupted) {
@@ -242,7 +234,9 @@ function main(initialParams = {}) {
                 else if (result.timeout) {
                     finalOutput += "\n\n[Process Timed Out / 执行超时]";
                 }
-                finalOutput += `\n\n[Complete output saved to / 完整输出已保存至: ${outputFile}]`;
+                if (finalOutputFilePath) {
+                    finalOutput += `\n\n[Complete output saved to / 完整输出已保存至: ${finalOutputFilePath}]`;
+                }
                 resolve({
                     success: result.success ?? false,
                     output: finalOutput,
@@ -331,20 +325,28 @@ function main(initialParams = {}) {
             let inputHandler = null;
             let signalHandler = null;
             if (sshConfig?.enabled) {
+                // ================= 远程 SSH 执行模式 =================
                 conn = new ssh2_1.Client();
                 conn.on('ready', () => {
                     logger_1.logger.log('SSH Connection Ready');
-                    const remoteScriptPath = `/tmp/bash_script_${Date.now()}.sh`;
                     conn.sftp((sftpErr, sftp) => {
                         if (sftpErr) {
                             return finish({ success: false, error: `SFTP error: ${sftpErr.message}` });
                         }
+                        // 1. 设置远程输出日志文件流
+                        finalOutputFilePath = `/tmp/output_${timestamp}_${randomStr}.txt`;
+                        outStream = sftp.createWriteStream(finalOutputFilePath, { encoding: 'utf8', flags: 'a' });
+                        outStream.on('error', (err) => logger_1.logger.warn(`Remote output stream error: ${err.message}`));
+                        logger_1.logger.log(`Remote output file created: ${finalOutputFilePath}`);
+                        // 2. 写入并上传执行脚本到远程
+                        const remoteScriptPath = `/tmp/bash_script_${timestamp}_${randomStr}.sh`;
                         const writeStream = sftp.createWriteStream(remoteScriptPath);
                         writeStream.on('error', (writeErr) => {
                             finish({ success: false, error: `File upload error: ${writeErr.message}` });
                         });
-                        writeStream.write(`#!/bin/bash\n${code}`);
+                        writeStream.write(`#!/bin/bash\n${finalCode}`);
                         writeStream.end();
+                        // 3. 执行远程脚本
                         writeStream.on('close', () => {
                             conn.exec(`chmod +x ${remoteScriptPath} && ${remoteScriptPath}; rm -f ${remoteScriptPath}`, (execErr, stream) => {
                                 if (execErr) {
@@ -394,8 +396,23 @@ function main(initialParams = {}) {
                 }
             }
             else {
-                // 本地执行
-                const child = (0, child_process_1.exec)(`${params.bash} ${tempFile}`);
+                // ================= 本地执行模式 =================
+                finalOutputFilePath = path.join(os.tmpdir(), `output_${timestamp}_${randomStr}.txt`);
+                localTempScriptFile = path.join(os.tmpdir(), `temp_${timestamp}_${randomStr}.sh`);
+                try {
+                    // 1. 设置本地输出日志文件流
+                    outStream = fs.createWriteStream(finalOutputFilePath, { encoding: 'utf8', flags: 'a' });
+                    outStream.on('error', (err) => logger_1.logger.warn(`Local output stream error: ${err.message}`));
+                    logger_1.logger.log(`Local output file created: ${finalOutputFilePath}`);
+                    // 2. 写入本地执行脚本
+                    fs.writeFileSync(localTempScriptFile, finalCode);
+                    logger_1.logger.log(`Temporary script file created: ${localTempScriptFile}`);
+                }
+                catch (error) {
+                    return finish({ success: false, error: `Failed to create local files: ${error.message}` });
+                }
+                // 3. 运行本地脚本
+                const child = (0, child_process_1.exec)(`${params.bash} ${localTempScriptFile}`);
                 child.on('error', (childErr) => {
                     finish({ success: false, error: `Process execution failed: ${childErr.message}` });
                 });
