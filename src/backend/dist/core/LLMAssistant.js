@@ -49,7 +49,7 @@ class LLMAssistant {
                     prompt, query, params: { ...globals_1.utils.getConfig("llm_params"), temperature: 0.3 }
                 });
                 let messageOutput = await react_agent.llmCall(data);
-                if (messageOutput) {
+                if (messageOutput && !this.llm_service.stopFlag) {
                     let content = "The user compressed the execution process of the current task. The compressed document is as follows:\n\n---\n\n" + messageOutput.content.trim();
                     const firstMsg = will_compress_messages[0];
                     const preservedUser = will_compress_messages.find(m => m.role === 'user');
@@ -121,7 +121,7 @@ class LLMAssistant {
             version: _data.version,
         });
         const messageOutput = await react_agent.llmCall(callData);
-        if (messageOutput) {
+        if (messageOutput && !this.llm_service.stopFlag) {
             // 3. 使用适配器处理响应
             const format = this.llm_service.chatManager.chat.tool_format;
             const adapter = AdapterFactory_1.ToolCallAdapterFactory.getAdapter(format);
@@ -229,7 +229,7 @@ Determine if the payload contains "Hallucinated/Fake Data" (Blocked) or "Functio
                 temperature: 0.3, // 审计需要极高的确定性
             };
             const messageOutput = await critic_agent.llmCall(callData);
-            if (messageOutput?.content) {
+            if (messageOutput?.content && !this.llm_service.stopFlag) {
                 const resultStr = messageOutput.content;
                 const jsonMatch = resultStr.match(/\{[\s\S]*\}/);
                 if (jsonMatch) {
@@ -339,7 +339,7 @@ You MUST respond ONLY with a valid JSON object. DO NOT call any tools.
                 response_format: { type: "json_object" }
             };
             const messageOutput = await react_agent.llmCall(callData);
-            if (messageOutput && messageOutput.content) {
+            if (messageOutput && messageOutput.content && !this.llm_service.stopFlag) {
                 const resultStr = messageOutput.content;
                 const jsonMatch = resultStr.match(/\{[\s\S]*\}/);
                 if (jsonMatch) {
@@ -391,7 +391,7 @@ You MUST respond ONLY with a valid JSON object. DO NOT call any tools.
                 tool_choice: "none"
             };
             const messageOutput = await react_agent.llmCall(callData);
-            if (messageOutput && messageOutput.content) {
+            if (messageOutput && messageOutput.content && !this.llm_service.stopFlag) {
                 const summaryContent = messageOutput.content.trim();
                 logger_1.logger.log(`[KVCacheSummary] Summary generated successfully, length=${summaryContent.length}`);
                 if (summaryContent) {

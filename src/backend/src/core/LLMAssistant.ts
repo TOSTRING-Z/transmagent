@@ -61,7 +61,7 @@ export class LLMAssistant {
                 });
 
                 let messageOutput = await react_agent.llmCall(data);
-                if (messageOutput) {
+                if (messageOutput && !this.llm_service.stopFlag) {
                     let content = "The user compressed the execution process of the current task. The compressed document is as follows:\n\n---\n\n" + (messageOutput.content as string).trim();
 
                     const firstMsg = will_compress_messages[0];
@@ -145,7 +145,7 @@ export class LLMAssistant {
 
         const messageOutput = await react_agent.llmCall(callData);
 
-        if (messageOutput) {
+        if (messageOutput && !this.llm_service.stopFlag) {
             // 3. 使用适配器处理响应
             const format = this.llm_service.chatManager.chat.tool_format;
             const adapter = ToolCallAdapterFactory.getAdapter(format);
@@ -271,7 +271,7 @@ Determine if the payload contains "Hallucinated/Fake Data" (Blocked) or "Functio
 
             const messageOutput = await critic_agent.llmCall(callData);
 
-            if (messageOutput?.content) {
+            if (messageOutput?.content && !this.llm_service.stopFlag) {
                 const resultStr = messageOutput.content as string;
                 const jsonMatch = resultStr.match(/\{[\s\S]*\}/);
 
@@ -396,7 +396,7 @@ You MUST respond ONLY with a valid JSON object. DO NOT call any tools.
 
             const messageOutput = await react_agent.llmCall(callData);
 
-            if (messageOutput && messageOutput.content) {
+            if (messageOutput && messageOutput.content && !this.llm_service.stopFlag) {
                 const resultStr = messageOutput.content as string;
                 const jsonMatch = resultStr.match(/\{[\s\S]*\}/);
 
@@ -456,7 +456,7 @@ You MUST respond ONLY with a valid JSON object. DO NOT call any tools.
 
             const messageOutput = await react_agent.llmCall(callData);
 
-            if (messageOutput && messageOutput.content) {
+            if (messageOutput && messageOutput.content && !this.llm_service.stopFlag) {
                 const summaryContent = (messageOutput.content as string).trim();
                 logger.log(`[KVCacheSummary] Summary generated successfully, length=${summaryContent.length}`);
                 if (summaryContent) {
