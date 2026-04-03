@@ -3,7 +3,7 @@ import { ReActAgent, State, Mode } from './ReActAgent';
 import { utils, CHAT_CONST } from '../utils/globals';
 import { formatString } from '../utils/format';
 import { LLMService } from './LLMService';
-import { AssistantMessage, Message, ToolInfo } from '../types';
+import { AssistantMessage, ChatState, Message, ToolInfo } from '../types';
 import { MCPClient } from './McpClient';
 import Prompts, { MODE_CONSTRAINTS } from './Prompts';
 import MemoryManager from '../data/MemoryManager';
@@ -95,6 +95,7 @@ export class ToolCall extends ReActAgent {
         },
     ) {
         super(llm_service, window);
+        this.llm_service.chatManager.chat = llm_service.chatManager.chat;
         this.plugins = plugins;
         this.assistant = new LLMAssistant(llm_service, plugins);
         this.mcp_client = new MCPClient(this);
@@ -378,12 +379,12 @@ export class ToolCall extends ReActAgent {
         const isThinkingOnly = this.toolInfos.length === 1 && !this.toolInfos[0].tool_call_name;
 
         if (hasTool || isThinkingOnly) {
-            this.llm_service.chatManager.pushAssistantMessageWithToolCalls({...this.llm_service.chatManager.chat, ...messageOutput});
+            this.llm_service.chatManager.pushAssistantMessageWithToolCalls({ ...this.llm_service.chatManager.chat, ...messageOutput });
         }
 
         // 纯思考结束流程
         if (isThinkingOnly) {
-            this.llm_service.chatManager.pushAssistantMessage({...this.llm_service.chatManager.chat, ...messageOutput});
+            this.llm_service.chatManager.pushAssistantMessage({ ...this.llm_service.chatManager.chat, ...messageOutput });
             this.window?.webContents.send('streamData', { ...this.llm_service.chatManager.chat, end: true });
             this.state = State.FINAL;
             return;
@@ -522,6 +523,12 @@ export class ToolCall extends ReActAgent {
                 break;
             }
         }
+
+        if (this.llm_service.chatManager.chat.tokens >= this.llm_service.chatManager.chat.max_tokens || 1e5) {
+            this.assistant.kvCacheSummary();
+            this.llm_service.chatManager.chat.long_memory_length = Math.floor(this.llm_service.chatManager.chat.long_memory_length / 2);
+            this.llm_service.chatManager.chat.memory_length = Math.floor(this.llm_service.chatManager.chat.memory_length / 2);
+        }
     }
 
     public async getToolInfos(data: Record<string, any>, assistantMessage: AssistantMessage): Promise<ToolInfo[]> {
@@ -632,7 +639,7 @@ export class ToolCall extends ReActAgent {
             this.llm_service.chatManager.chat.context_id = `${this.llm_service.chatManager.chat.group_id}${this.llm_service.chatManager.chat.step}`
             data.role = "user";
             this.llm_service.chatManager.fixMessages();
-            this.llm_service.chatManager.pushUserMessage({ ...this.llm_service.chatManager.chat,content: data.query });
+            this.llm_service.chatManager.pushUserMessage({ ...this.llm_service.chatManager.chat, content: data.query });
             this.window.webContents.send('userData', { ...this.llm_service.chatManager.chat, content: data.query });
         }
 

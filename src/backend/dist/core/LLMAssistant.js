@@ -6,6 +6,7 @@ const ReActAgent_1 = require("./ReActAgent");
 const AdapterFactory_1 = require("../factories/AdapterFactory");
 const globals_1 = require("../utils/globals");
 const logger_1 = require("../utils/logger");
+const KV_CACHE_SUMMARY_PROMPT = `You are an intelligent assistant skilled at summarizing conversation history. Your task is to create a concise summary of the key points, decisions, and important information from the conversation history provided below.`;
 /**
  * LLMAssistant - LLM对话辅助功能类
  * 统一管理压缩对话、设置聊天名称、工具审计等LLM交互功能
@@ -355,6 +356,58 @@ You MUST respond ONLY with a valid JSON object. DO NOT call any tools.
             logger_1.logger.warn(`[ConsoleMonitor] Check failed, allowing execution to continue: ${error}`);
         }
         return { shouldInterrupt: false, reason: null };
+    }
+    // ==================== KV Cache 总结助手功能 ====================
+    /**
+     * 检查并执行 KV Cache 总结
+     * @param data 包含 memory_length 的参数对象
+     * @returns 总结内容，如果无需总结或失败返回 null
+     */
+    async kvCacheSummary() {
+        try {
+            const messages = this.llm_service.chatManager.getMessages(true);
+            // 提取消息内容进行总结
+            const combined_content = messages.map(msg => {
+                const role = msg.role.toUpperCase();
+                const content = typeof msg.content === 'string' ? msg.content : JSON.stringify(msg.content);
+                return `[${role}]\n${content}`;
+            }).join("\n\n---\n\n");
+            // 创建临时 LLMService 和 ReActAgent
+            const temp_llm_service = new LLMService_1.LLMService();
+            temp_llm_service.chatManager.chat = { ...this.llm_service.chatManager.chat };
+            const react_agent = new ReActAgent_1.ReActAgent(temp_llm_service);
+            const query = `# Conversation History to Summarize\n\`\`\`text\n${combined_content}\n\`\`\`\n\nPlease create a concise summary of the key points, important decisions, and valuable information from the above conversation history. Focus on information that would be useful to retain for future context.`;
+            const callData = react_agent.getDataDefault({
+                prompt: KV_CACHE_SUMMARY_PROMPT,
+                query,
+                params: { ...globals_1.utils.getConfig("llm_params"), temperature: 0.3 },
+                push_message: false,
+                output_format: null
+            });
+            if (!callData.params)
+                callData.params = {};
+            callData.params.llm_params = {
+                ...callData.params.llm_params,
+                tool_choice: "none"
+            };
+            const messageOutput = await react_agent.llmCall(callData);
+            if (messageOutput && messageOutput.content) {
+                const summaryContent = messageOutput.content.trim();
+                logger_1.logger.log(`[KVCacheSummary] Summary generated successfully, length=${summaryContent.length}`);
+                if (summaryContent) {
+                    // 将总结内容追加到最后一条 message.content 末尾
+                    const messages = this.llm_service.chatManager.messages;
+                    if (messages.length > 0) {
+                        const lastMsg = messages[messages.length - 1];
+                        lastMsg.content = lastMsg.content + `\n\n[SESSION SUMMARY]\n${summaryContent}`;
+                        logger_1.logger.log(`[KVCacheSummary] Appended summary to last message`);
+                    }
+                }
+            }
+        }
+        catch (error) {
+            logger_1.logger.warn(`[KVCacheSummary] Failed: ${error.message}`);
+        }
     }
 }
 exports.LLMAssistant = LLMAssistant;

@@ -136,7 +136,6 @@ export interface ChatState {
     tokens: number;
     seconds: number;
     msg_count: number;
-    compress_context: boolean;
     envs: Record<string, any>;
     vars: Record<string, any>;
     model: string;
@@ -144,6 +143,11 @@ export interface ChatState {
     api_type: "openai" | "anthropic" | "ollama";
     tool_format: "toolcalls" | "prompt";
     is_plugin: boolean;
+    compress_context: boolean;
+    memory_length: number,
+    long_memory_length: number,
+    max_tokens: number,
+    
 }
 
 export interface ChatRequestData {
@@ -163,7 +167,6 @@ export interface ChatRequestData {
     react?: boolean;
     return_response?: boolean;
     end?: boolean;
-    memory_length?: number;
     env_message?: string;
     todolist_message?: string;
     output?: string | any[] | undefined;

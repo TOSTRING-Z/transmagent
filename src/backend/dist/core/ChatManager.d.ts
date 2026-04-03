@@ -16,13 +16,7 @@ export declare class ChatManager {
     pushToolMessage(msg: any): void;
     popMessage(group_id?: string, context_id?: string): Message | null;
     getChatId(): string;
-    getDefaultConfig(): {
-        model: any;
-        version: any;
-        tool_format: any;
-        is_plugin: boolean;
-        compress_context: any;
-    };
+    getDefaultConfig(): Partial<ChatState>;
     getChatInit(params?: Partial<ChatState>): ChatState;
     fixMessages(): void;
     saveMessages(filePath: string): void;
@@ -42,6 +36,6 @@ export declare class ChatManager {
         del_mode?: boolean;
     }): number;
     delMessage(message: Message, truncateThinking?: boolean): Message;
-    getStartIdx(data: Record<string, any>): number;
-    getMemory(data: Record<string, any>): Message[];
+    getStartIdx(): number;
+    getMemory(): Message[];
 }

@@ -59,5 +59,11 @@ export declare class LLMAssistant {
         shouldInterrupt: boolean;
         reason: string | null;
     }>;
+    /**
+     * 检查并执行 KV Cache 总结
+     * @param data 包含 memory_length 的参数对象
+     * @returns 总结内容，如果无需总结或失败返回 null
+     */
+    kvCacheSummary(): Promise<void>;
 }
 export default LLMAssistant;

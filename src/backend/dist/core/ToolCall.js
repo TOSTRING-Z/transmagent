@@ -89,6 +89,7 @@ class ToolCall extends ReActAgent_1.ReActAgent {
         agent_name: "TransMAgent",
     }) {
         super(llm_service, window);
+        this.llm_service.chatManager.chat = llm_service.chatManager.chat;
         this.plugins = plugins;
         this.assistant = new LLMAssistant_1.LLMAssistant(llm_service, plugins);
         this.mcp_client = new McpClient_1.MCPClient(this);
@@ -477,6 +478,11 @@ class ToolCall extends ReActAgent_1.ReActAgent {
             if (this.state === ReActAgent_1.State.PAUSE) {
                 break;
             }
+        }
+        if (this.llm_service.chatManager.chat.tokens >= this.llm_service.chatManager.chat.max_tokens || 1e5) {
+            this.assistant.kvCacheSummary();
+            this.llm_service.chatManager.chat.long_memory_length = Math.floor(this.llm_service.chatManager.chat.long_memory_length / 2);
+            this.llm_service.chatManager.chat.memory_length = Math.floor(this.llm_service.chatManager.chat.memory_length / 2);
         }
     }
     async getToolInfos(data, assistantMessage) {

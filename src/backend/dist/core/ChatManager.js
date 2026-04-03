@@ -127,13 +127,15 @@ class ChatManager {
         return `chat-${crypto.randomUUID()}`;
     }
     getDefaultConfig() {
-        const defaultConfig = globals_1.utils.getConfig("default") || {};
         return {
-            model: defaultConfig["model"] || "deepseek",
-            version: defaultConfig["version"] || "deepseek-chat",
-            tool_format: defaultConfig["tool_format"] || "toolcalls",
-            is_plugin: defaultConfig["model"] === "plugins",
-            compress_context: defaultConfig["compress_context"] || false,
+            model: globals_1.utils.getConfig("default")["model"] || "deepseek",
+            version: globals_1.utils.getConfig("default")["version"] || "deepseek-chat",
+            tool_format: globals_1.utils.getConfig("default")["tool_format"] || "toolcalls",
+            is_plugin: globals_1.utils.getConfig("default")["model"] === "plugins",
+            compress_context: globals_1.utils.getConfig("default")["compress_context"] || false,
+            memory_length: globals_1.utils.getConfig('tool_call')["memory_length"] || 100,
+            long_memory_length: globals_1.utils.getConfig('tool_call')["long_memory_length"] || 200,
+            max_tokens: globals_1.utils.getConfig('tool_call')["max_tokens"] || 1e5,
         };
     }
     getChatInit(params = {}) {
@@ -153,11 +155,7 @@ class ChatManager {
                 tasks: {},
                 subtask_id: 0,
             },
-            model: defaultConfig.model,
-            version: defaultConfig.version,
-            tool_format: defaultConfig.tool_format,
-            is_plugin: defaultConfig.is_plugin,
-            compress_context: defaultConfig.compress_context,
+            ...defaultConfig,
             ...params
         };
     }
@@ -351,13 +349,13 @@ class ChatManager {
         }
         return message_copy;
     }
-    getStartIdx(data) {
+    getStartIdx() {
         let messages = this.getMessages(false);
         messages = this.compressContext(messages);
-        let startIdx = Math.floor(messages.length / data.memory_length) * data.memory_length;
+        let startIdx = Math.floor(messages.length / this.chat.memory_length) * this.chat.memory_length;
         if (startIdx > 0) {
             // 保留最近的一半上下文
-            startIdx -= Math.floor(data.memory_length / 2);
+            startIdx -= Math.floor(this.chat.memory_length / 2);
         }
         let startMessage = messages[startIdx];
         // 如果最后一条消息是 tool 的话，startIdx - 1 表示上一条为 assistant 的消息
@@ -366,18 +364,14 @@ class ChatManager {
         }
         return startIdx;
     }
-    getMemory(data) {
+    getMemory() {
         let messages = this.getMessages(false);
         messages = this.compressContext(messages);
-        if (this.chat.tokens >= data.max_tokens || 1e5) {
-            data.long_memory_length = Math.floor(data.long_memory_length / 2);
-            data.memory_length = Math.floor(data.memory_length / 2);
-        }
         // 截取最近记忆
-        if (messages.length > data.memory_length) {
+        if (messages.length > this.chat.memory_length) {
             let messages_list = [];
-            let startIdx = this.getStartIdx(data);
-            let longStartIdx = Math.max(startIdx - data.long_memory_length, 0);
+            let startIdx = this.getStartIdx();
+            let longStartIdx = Math.max(startIdx - this.chat.long_memory_length, 0);
             messages_list = messages.slice(longStartIdx, startIdx).filter(message => message.role !== "tool").map(message => {
                 const message_copy = this.delMessage(message, message?.del);
                 return {
