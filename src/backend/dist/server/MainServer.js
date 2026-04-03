@@ -15,7 +15,7 @@ class MainServer {
                 max_step: data?.max_step
             };
             this.mainWindow.startAgentLoop(cdata);
-            this.mainWindow.llm_service.startMessage();
+            this.mainWindow.llm_service.startLoop();
             const _data = this.mainWindow.tool_call.getDataDefault(cdata);
             this.mainWindow.tool_call.callReAct(_data)
                 .then((result) => {

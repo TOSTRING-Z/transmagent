@@ -108,7 +108,7 @@ export class SubAgentWindow extends BaseWindow {
             win.on('closed', () => {
                 if (this.agentTool) {
                     this.agentTool.tool_call.changeWindow();
-                    this.agentTool.tool_call.llm_service.stopMessage();
+                    this.agentTool.tool_call.llm_service.stopLoop();
                     resolve("The user interrupted the task.");
                 }
             });
@@ -133,7 +133,7 @@ export class SubAgentWindow extends BaseWindow {
                     }
                     const mainChat = this.windowManager.mainWindow.llm_service.chatManager.chat;
                     this.agentTool.tool_call.llm_service.chatManager.chat.tool_format = mainChat.tool_format;
-                    this.agentTool.tool_call.llm_service.startMessage();
+                    this.agentTool.tool_call.llm_service.startLoop();
                     let data = this.agentTool.tool_call.getDataDefault({ query, model: mainChat.model, version: mainChat.version });
                     data = await this.agentTool.tool_call.callReAct(data);
                     const res_json = utils.parseJsonContent(data.output_format);
@@ -157,7 +157,7 @@ export class SubAgentWindow extends BaseWindow {
                 if (Object.prototype.hasOwnProperty.call(this.agentTools, name)) {
                     const agentTool = this.agentTools[name];
                     if (init) agentTool.tool_call.llm_service.chatManager.init();
-                    agentTool.tool_call.llm_service.stopMessage();
+                    agentTool.tool_call.llm_service.stopLoop();
                 }
             }
 

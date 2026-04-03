@@ -180,7 +180,7 @@ Since all agents in this system are stateless, the \`update_env\` tool serves as
 
 ${!isSubagent ? `
 # 💓 Heartbeat & Cron Protocol
-**Trigger**: Input containing \`[Heartbeat timestamp]\`.
+**Trigger**: Input containing \`[Heartbeat prompt]\`.
 **Status**: System Event (NOT user conversation).
 **Logic Flow**:
 1. **Sync**: Update internal time awareness.

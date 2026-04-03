@@ -644,7 +644,7 @@ export class ToolCall extends ReActAgent {
             await new Promise(resolve => setTimeout(resolve, 1000));
             if (this.llm_service.stopFlag) {
                 this.state = State.FINAL;
-                this.window?.webContents.send('streamData', { group_id: this.llm_service.chatManager.chat.group_id, content: "\n\nThe user interrupted the task.", end: true });
+                this.window?.webContents.send('streamData', { group_id: this.llm_service.chatManager.chat.group_id, content: "", end: true });
                 break;
             }
             if (data?.max_step && this.llm_service.chatManager.chat.step > data.max_step) break;

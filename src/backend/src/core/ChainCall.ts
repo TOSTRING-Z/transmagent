@@ -77,7 +77,7 @@ export class ChainCall extends ReActAgent {
 
         for (const step in chain_calls) {
             if (this.llm_service.stopFlag) {
-                this.window?.webContents.send('streamData', { ...this.llm_service.chatManager.chat, content: "The user interrupted the task.", end: true });
+                this.window?.webContents.send('streamData', { ...this.llm_service.chatManager.chat, content: "", end: true });
                 break;
             }
 

@@ -37,7 +37,7 @@ export class MainServer {
             };
 
             this.mainWindow.startAgentLoop(cdata);
-            this.mainWindow.llm_service.startMessage();
+            this.mainWindow.llm_service.startLoop();
 
             const _data = this.mainWindow.tool_call.getDataDefault(cdata);
 

@@ -8,8 +8,8 @@ export declare class LLMService {
     stopFlag: boolean;
     adapter: ILLMAdapter;
     constructor(messages?: Message[], window?: BrowserWindow | null);
-    stopMessage(): void;
-    startMessage(): void;
+    stopLoop(): void;
+    startLoop(): void;
     chatBase(data: ChatRequestData): Promise<Message | null>;
     private handleStream;
     private handleNormal;

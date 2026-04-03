@@ -127,12 +127,12 @@ export class CodeWindow extends BaseWindow {
             }
         });
 
-        ipcMain.on('clear-completion', () => this.llm_service_completion?.stopMessage());
-        ipcMain.on('clear-refactor', () => this.llm_service_refactor?.stopMessage());
+        ipcMain.on('clear-completion', () => this.llm_service_completion?.stopLoop());
+        ipcMain.on('clear-refactor', () => this.llm_service_refactor?.stopLoop());
 
         ipcMain.handle('code-completion', async (_, { prefix, suffix, isMidWord }: { prefix: string; suffix: string; isMidWord: boolean }) => {
             try {
-                this.llm_service_completion?.stopMessage();
+                this.llm_service_completion?.stopLoop();
                 this.llm_service_completion = new LLMService();
                 this.react_agent_completion = new ReActAgent(this.llm_service_completion);
 
@@ -151,7 +151,7 @@ export class CodeWindow extends BaseWindow {
 
         ipcMain.handle('code-refactor', async (_, code: string) => {
             try {
-                this.llm_service_refactor?.stopMessage();
+                this.llm_service_refactor?.stopLoop();
                 this.llm_service_refactor = new LLMService();
                 this.react_agent_refactor = new ReActAgent(this.llm_service_refactor);
 

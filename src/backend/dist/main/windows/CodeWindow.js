@@ -151,11 +151,11 @@ class CodeWindow extends BaseWindow_1.BaseWindow {
                 return { success: false, message: `Load failed: ${error.message}` };
             }
         });
-        electron_1.ipcMain.on('clear-completion', () => this.llm_service_completion?.stopMessage());
-        electron_1.ipcMain.on('clear-refactor', () => this.llm_service_refactor?.stopMessage());
+        electron_1.ipcMain.on('clear-completion', () => this.llm_service_completion?.stopLoop());
+        electron_1.ipcMain.on('clear-refactor', () => this.llm_service_refactor?.stopLoop());
         electron_1.ipcMain.handle('code-completion', async (_, { prefix, suffix, isMidWord }) => {
             try {
-                this.llm_service_completion?.stopMessage();
+                this.llm_service_completion?.stopLoop();
                 this.llm_service_completion = new LLMService_1.LLMService();
                 this.react_agent_completion = new ReActAgent_1.ReActAgent(this.llm_service_completion);
                 const prompt = globals_1.utils.getConfig("code")?.completion?.prompt || "You are a code/text completion engine. Output code directly, no Markdown. If no completion is needed, return an empty string.";
@@ -173,7 +173,7 @@ class CodeWindow extends BaseWindow_1.BaseWindow {
         });
         electron_1.ipcMain.handle('code-refactor', async (_, code) => {
             try {
-                this.llm_service_refactor?.stopMessage();
+                this.llm_service_refactor?.stopLoop();
                 this.llm_service_refactor = new LLMService_1.LLMService();
                 this.react_agent_refactor = new ReActAgent_1.ReActAgent(this.llm_service_refactor);
                 const prompt = globals_1.utils.getConfig("code")?.refactor?.prompt || `You are a strict code linter. Return JSON: {"errors": [{"text": "erroneous_code", "fix": "fixed_code"}]}.`;

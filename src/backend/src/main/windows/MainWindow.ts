@@ -310,7 +310,7 @@ export class MainWindow extends BaseWindow {
             ...data
         });
         data.query = this.funcItems.text.event(data.query);
-        this.llm_service.startMessage();
+        this.llm_service.startLoop();
 
         if (data?.is_plugin) {
             await this.chain_call.pluginCall(data);
@@ -423,7 +423,7 @@ export class MainWindow extends BaseWindow {
         });
 
         ipcMain.on("stopMessage", () => {
-            this.llm_service.stopMessage();
+            this.llm_service.stopLoop();
             this.windowManager.subAgentWindow?.destroy();
         });
 

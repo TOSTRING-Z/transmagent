@@ -320,7 +320,7 @@ class MainWindow extends BaseWindow_1.BaseWindow {
             ...data
         });
         data.query = this.funcItems.text.event(data.query);
-        this.llm_service.startMessage();
+        this.llm_service.startLoop();
         if (data?.is_plugin) {
             await this.chain_call.pluginCall(data);
         }
@@ -430,7 +430,7 @@ class MainWindow extends BaseWindow_1.BaseWindow {
             return { del_mode: !!this.funcItems.del.statu };
         });
         electron_1.ipcMain.on("stopMessage", () => {
-            this.llm_service.stopMessage();
+            this.llm_service.stopLoop();
             this.windowManager.subAgentWindow?.destroy();
         });
         electron_1.ipcMain.on('changeMode', (_event, mode) => {

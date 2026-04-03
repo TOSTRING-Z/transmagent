@@ -20,11 +20,11 @@ export class LLMService {
         this.adapter = LLMAdapterFactory.getAdapter("openai"); // 默认 API 适配器
     }
 
-    public stopMessage() {
+    public stopLoop() {
         this.stopFlag = true;
     }
 
-    public startMessage() {
+    public startLoop() {
         this.stopFlag = false;
     }
 
@@ -65,9 +65,7 @@ export class LLMService {
             const headers = this.adapter.buildHeaders(data);
 
             if (this.stopFlag) {
-                this.stopFlag = false;
-                messageOutput = { role: 'assistant', content: "The user interrupted the task.", group_id: this.chatManager.chat.group_id, show: true, react: false };
-                return messageOutput;
+                return null;
             }
 
             // 5. 发起请求
@@ -100,8 +98,7 @@ export class LLMService {
 
 
             if (this.stopFlag) {
-                messageOutput = { role: 'assistant', content: "The user interrupted the task.", group_id: this.chatManager.chat.group_id, show: true, react: false };
-                return messageOutput;
+                return null;
             }
 
             // 7. 处理并序列化 Tool Calls

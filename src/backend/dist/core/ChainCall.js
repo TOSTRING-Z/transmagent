@@ -64,7 +64,7 @@ class ChainCall extends ReActAgent_1.ReActAgent {
         let chain_calls = globals_1.utils.getConfig("chain_call");
         for (const step in chain_calls) {
             if (this.llm_service.stopFlag) {
-                this.window?.webContents.send('streamData', { ...this.llm_service.chatManager.chat, content: "The user interrupted the task.", end: true });
+                this.window?.webContents.send('streamData', { ...this.llm_service.chatManager.chat, content: "", end: true });
                 break;
             }
             data = { ...data, ...chain_calls[step], step: step };

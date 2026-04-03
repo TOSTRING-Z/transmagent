@@ -16,10 +16,10 @@ class LLMService {
         this.chatManager = new ChatManager_1.ChatManager(messages);
         this.adapter = AdapterFactory_1.LLMAdapterFactory.getAdapter("openai"); // 默认 API 适配器
     }
-    stopMessage() {
+    stopLoop() {
         this.stopFlag = true;
     }
-    startMessage() {
+    startLoop() {
         this.stopFlag = false;
     }
     async chatBase(data) {
@@ -53,9 +53,7 @@ class LLMService {
             const body = this.adapter.buildPayload(data, formattedMessages);
             const headers = this.adapter.buildHeaders(data);
             if (this.stopFlag) {
-                this.stopFlag = false;
-                messageOutput = { role: 'assistant', content: "The user interrupted the task.", group_id: this.chatManager.chat.group_id, show: true, react: false };
-                return messageOutput;
+                return null;
             }
             // 5. 发起请求
             const resp = await fetch(new URL(data.api_url), {
@@ -86,8 +84,7 @@ class LLMService {
                 return null;
             }
             if (this.stopFlag) {
-                messageOutput = { role: 'assistant', content: "The user interrupted the task.", group_id: this.chatManager.chat.group_id, show: true, react: false };
-                return messageOutput;
+                return null;
             }
             // 7. 处理并序列化 Tool Calls
             data.output = messageOutput.content;
