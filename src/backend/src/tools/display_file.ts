@@ -516,39 +516,29 @@ export function main(params?: { local_path?: string }) {
 export function getPrompt() {
     return {
         "name": "display_file",
-        "description": "Reads and formats file content for display. Automatically handles source code, structured data (as Markdown tables), images, and PDFs. CRITICAL & PROACTIVE USAGE REQUIRED: You must actively and frequently use this tool to display images and PDFs to the user whenever they are mentioned, available, or relevant to the context. NOTE ON PDFs: This tool does not extract text content from PDFs; instead, it returns specific Markdown content used to visually render and display the PDF to the user. WARNING: For text-based files, output is strictly limited to 10 lines per call by default to prevent token overflow. You MUST explicitly use start_line and end_line for pagination to read more text content.",
+        "description": "Reads and formats file content for display. \n\n" +
+                       "CRITICAL LIMITATIONS:\n" +
+                       "1. **Text Extraction**: Supported for source code, logs, CSV, and Excel ONLY.\n" +
+                       "2. **Visual Rendering**: Images and PDFs return a placeholder for the UI to render; you will NOT see the text inside a PDF.\n" +
+                       "3. **Unsupported Formats**: DO NOT use this for .docx, .doc, or .pptx files. It will fail or return garbage data.\n" +
+                       "4. **Line Limit**: Default is 10 lines. Use pagination (start_line/end_line) for longer files.",
         "parameters": {
             "type": "object",
             "properties": {
                 "file_path": {
                     "type": "string",
-                    "description": "Absolute path to the target file."
+                    "description": "Absolute path to the file."
                 },
-                "start_line": {
-                    "type": "integer",
-                    "default": 1,
-                    "description": "Line number to start reading from (1-indexed)."
-                },
-                "end_line": {
-                    "type": "integer",
-                    "description": "Line number to stop reading (inclusive). Omit to strictly read 10 lines automatically."
-                },
+                "start_line": { "type": "integer", "default": 1 },
+                "end_line": { "type": "integer", "description": "Omit to read only 10 lines." },
                 "format": {
                     "type": "string",
-                    "enum": ["auto", "text", "table", "image", "pdf", "hex"],
+                    "enum": ["auto", "text", "table", "image", "pdf"],
                     "default": "auto",
-                    "description": "Force a specific display format. 'auto' detects by file extension. Use 'pdf' or 'image' for visual rendering."
+                    "description": "Set 'table' for spreadsheet analysis, 'text' for code/logs, 'pdf'/'image' for visual display."
                 },
-                "max_line_length": {
-                    "type": "integer",
-                    "default": 500,
-                    "description": "Truncates single lines exceeding this character length."
-                },
-                "max_cols": {
-                    "type": "integer",
-                    "default": 20,
-                    "description": "Limits the number of columns displayed for CSV/Excel files."
-                }
+                "max_line_length": { "type": "integer", "default": 500 },
+                "max_cols": { "type": "integer", "default": 20 }
             },
             "required": ["file_path"]
         }
