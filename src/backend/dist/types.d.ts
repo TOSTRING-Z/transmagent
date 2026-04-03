@@ -120,7 +120,6 @@ export interface ChatRequestData {
     id: string;
     input: string;
     api_type: "openai" | "anthropic" | "ollama";
-    tool_format: "toolcalls" | "prompt";
     api_url: string;
     version: string;
     img_url?: string;
@@ -129,9 +128,8 @@ export interface ChatRequestData {
     params?: any;
     llm_params?: Record<string, any>;
     tools?: OpenAITool[];
-    push_message?: boolean;
+    llm_conversation_mode?: boolean;
     react?: boolean;
-    return_response?: boolean;
     end?: boolean;
     env_message?: string;
     todolist_message?: string;

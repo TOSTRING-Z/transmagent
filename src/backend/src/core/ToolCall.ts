@@ -3,7 +3,7 @@ import { ReActAgent, State, Mode } from './ReActAgent';
 import { utils, CHAT_CONST } from '../utils/globals';
 import { formatString } from '../utils/format';
 import { LLMService } from './LLMService';
-import { AssistantMessage, ChatState, Message, ToolInfo } from '../types';
+import { AssistantMessage, Message, ToolInfo } from '../types';
 import { MCPClient } from './McpClient';
 import Prompts, { MODE_CONSTRAINTS } from './Prompts';
 import MemoryManager from '../data/MemoryManager';
@@ -15,7 +15,6 @@ import { ToolDSL, Primitives } from "../utils/ToolDSL";
 import { logger } from '../utils/logger';
 import { WindowManager } from '../main/windows/WindowManager';
 import { LLMAssistant } from './LLMAssistant';
-import { json } from 'stream/consumers';
 const { all, any, not, always } = ToolDSL;
 const { isSubagent, isMode, hasArg } = Primitives;
 
@@ -157,6 +156,17 @@ export class ToolCall extends ReActAgent {
 
     public loadMessage(filePath: string) {
         super.loadMessage(filePath);
+        // 判断是否任务结束
+        const messages = this.llm_service.chatManager.getMessages();
+        const lastMessage = messages[messages.length - 1];
+        const options = ['continue'];
+        if (lastMessage.role === "tool") {
+            this.window?.webContents.send('options', { ...this.llm_service.chatManager.chat, options: options });
+        } 
+        if (lastMessage.role === "assistant" && lastMessage.tool_calls) {
+            this.state = State.PAUSE;
+            this.window?.webContents.send('options', { ...this.llm_service.chatManager.chat, options: options });
+        }
         this.changeMode(this.llm_service.chatManager.chat.mode);
     }
 
@@ -321,7 +331,7 @@ export class ToolCall extends ReActAgent {
             this.mcp_prompt = this.mcp_client.mcpPrompt;
         }
 
-        data.push_message = false;
+        data.llm_conversation_mode = false;
 
         this.environmentUpdate(data);
         this.memoryUpdate(data);
@@ -384,7 +394,6 @@ export class ToolCall extends ReActAgent {
 
         // 纯思考结束流程
         if (isThinkingOnly) {
-            this.llm_service.chatManager.pushAssistantMessage({ ...this.llm_service.chatManager.chat, ...messageOutput });
             this.window?.webContents.send('streamData', { ...this.llm_service.chatManager.chat, end: true });
             this.state = State.FINAL;
             return;
@@ -524,7 +533,7 @@ export class ToolCall extends ReActAgent {
             }
         }
 
-        if (this.llm_service.chatManager.chat.tokens >= this.llm_service.chatManager.chat.max_tokens || 1e5) {
+        if (this.llm_service.chatManager.chat.tokens >= this.llm_service.chatManager.chat.max_tokens) {
             this.assistant.kvCacheSummary();
             this.llm_service.chatManager.chat.long_memory_length = Math.floor(this.llm_service.chatManager.chat.long_memory_length / 2);
             this.llm_service.chatManager.chat.memory_length = Math.floor(this.llm_service.chatManager.chat.memory_length / 2);
@@ -612,7 +621,7 @@ export class ToolCall extends ReActAgent {
         if (this.state === (State.PAUSE as State)) {
             const { ask, options } = observation;
             this.window?.webContents.send('streamData', { ...this.llm_service.chatManager.chat, content: `\n\n${ask}`, end: true });
-            this.window?.webContents.send("options", { ...this.llm_service.chatManager.chat, ...toolInfo, options: options });
+            this.window?.webContents.send('options', { ...this.llm_service.chatManager.chat, ...toolInfo, options: options });
         } else if (this.state === (State.FINAL as State)) {
             this.llm_service.chatManager.pushToolMessage({ ...this.llm_service.chatManager.chat, ...toolInfo, content: observation.result });
             this.window?.webContents.send('streamData', { ...this.llm_service.chatManager.chat, content: `\n\n${observation.result}`, end: true });

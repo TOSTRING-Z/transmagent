@@ -53,7 +53,7 @@ export class LLMService {
             messagesList = messagesList.concat(this.chatManager.getMemory());
 
             const messageInput: UserMessage = { role: "user", content: content, group_id: this.chatManager.chat.group_id, show: true, react: false };
-            if (data?.push_message) {
+            if (data?.llm_conversation_mode) {
                 messagesList.push(messageInput);
             }
 
@@ -90,7 +90,7 @@ export class LLMService {
                 const errorText = await resp.text();
                 logger.error(`HTTP Error ${resp.status}: ${errorText}`);
                 this.window?.webContents.send('infoData', {
-                    group_id: this.chatManager.chat.group_id,
+                    ...this.chatManager.chat,
                     content: `Response error: ${errorText}\n`
                 });
                 return null;
@@ -105,16 +105,15 @@ export class LLMService {
             data.output = messageOutput.content;
 
             if (data.end) {
-                if (data?.return_response) return messageOutput; // 只需返回
+                if (!data?.llm_conversation_mode) return messageOutput; // 只需返回
 
                 const finalResponseText = data.output_template ? formatString(data.output_template, { ...data }) : data.output;
 
                 this.window?.webContents.send('streamData', {
-                    group_id: this.chatManager.chat.group_id,
+                    ...this.chatManager.chat,
                     content_reasoning: messageOutput.reasoning_content,
                     content: data.react ? `\n\n${finalResponseText}` : "",
-                    end: true,
-                    chat: this.chatManager.chat
+                    end: true
                 });
             }
 
@@ -123,7 +122,7 @@ export class LLMService {
         } catch (error: any) {
             logger.error(error);
             this.window?.webContents.send('infoData', {
-                group_id: this.chatManager.chat.group_id,
+                ...this.chatManager.chat,
                 content: `Response error: ${error.message}\n`
             });
             return null;
@@ -186,13 +185,11 @@ export class LLMService {
             if (tokens) { if (is_incremental_tokens) { this.chatManager.chat.tokens = (this.chatManager.chat.tokens || 0) + tokens; } else { this.chatManager.chat.tokens = tokens; } }
 
             // IPC 向前台推流
-            if (!data?.react && !data?.return_response) {
+            if (!data?.react && data?.llm_conversation_mode) {
                 this.window?.webContents.send('streamData', {
-                    group_id: this.chatManager.chat.group_id,
+                    ...this.chatManager.chat,
                     content: content,
-                    reasoning_content: reasoning_content,
-                    end: false,
-                    chat: this.chatManager.chat
+                    reasoning_content: reasoning_content
                 });
             }
         }
@@ -207,7 +204,7 @@ export class LLMService {
         } catch (error: any) {
             console.error(error);
             this.window?.webContents.send('infoData', {
-                group_id: this.chatManager.chat.group_id,
+                ...this.chatManager.chat,
                 content: `Response error: ${error.message}\n`
             });
             return false;
@@ -224,8 +221,8 @@ export class LLMService {
 
         if (tokens) this.chatManager.chat.tokens = tokens;
 
-        if (!data?.react && !data?.return_response) {
-            this.window?.webContents.send('streamData', { group_id: this.chatManager.chat.group_id, content: `\n\n${data.output}`, reasoning_content: reasoning_content || undefined, end: false, chat: this.chatManager.chat });
+        if (!data?.react && data?.llm_conversation_mode) {
+            this.window?.webContents.send('streamData', { ...this.chatManager.chat, content: `\n\n${data.output}`, reasoning_content: reasoning_content });
         }
 
         // ========== 截断检测与自动续传机制 (Max: 3) ==========

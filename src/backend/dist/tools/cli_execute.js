@@ -159,9 +159,7 @@ function main(initialParams = {}) {
                     terminalWindow.show();
                 }
             });
-            terminalWindow.on('closed', () => {
-                terminalWindow = null;
-            });
+            // 注意：这里移除了原本在外层的 closed 监听，统一放入 Promise 内部处理，方便回收进程
         }
         catch (error) {
             return { success: false, output: '', error: `Failed to create terminal window: ${error.message}` };
@@ -171,6 +169,8 @@ function main(initialParams = {}) {
             let isResolved = false;
             let conn = null;
             let isInterrupted = false;
+            // 用于保存底层的强杀方法，屏蔽本地和远程差异
+            let killProcess = null;
             // 依据执行环境动态分配：输出流及路径
             let outStream = null; // 可以是 fs.WriteStream 也可以是 SFTP WriteStream
             let finalOutputFilePath = "";
@@ -248,6 +248,8 @@ function main(initialParams = {}) {
             const handleMinimize = () => { terminalWindow?.minimize(); };
             const handleCloseWindow = () => {
                 isInterrupted = true;
+                if (killProcess)
+                    killProcess(true); // 强杀底层进程
                 finish({
                     success: false,
                     error: 'Execution cancelled by user'
@@ -255,6 +257,16 @@ function main(initialParams = {}) {
             };
             electron_1.ipcMain.on('minimize-window', handleMinimize);
             electron_1.ipcMain.once('close-window', handleCloseWindow);
+            // 监听窗口被原生 X 按钮关闭的情况
+            terminalWindow?.on('closed', () => {
+                terminalWindow = null;
+                if (!isResolved) {
+                    isInterrupted = true;
+                    if (killProcess)
+                        killProcess(true);
+                    finish({ success: false, error: 'Terminal window closed by user' });
+                }
+            });
             // ================= 控制台输出循环监测逻辑 =================
             let llmAssistant = null;
             let monitorIntervalId = null;
@@ -290,8 +302,8 @@ function main(initialParams = {}) {
                     if (checkResult.shouldInterrupt) {
                         logger_1.logger.warn(`[ConsoleMonitor] INTERRUPT: ${checkResult.reason}`);
                         isInterrupted = true;
-                        if (conn)
-                            conn.end();
+                        if (killProcess)
+                            killProcess(true);
                         finish({
                             success: false,
                             error: `[INTERRUPTED BY CONSOLE MONITOR]\nReason: ${checkResult.reason}`,
@@ -315,6 +327,8 @@ function main(initialParams = {}) {
             // ================= END 监测逻辑 =================
             timeoutId = setTimeout(() => {
                 logger_1.logger.log(`Command execution timed out after ${params.timeout} seconds`);
+                if (killProcess)
+                    killProcess(true);
                 finish({
                     success: false,
                     timeout: true,
@@ -352,6 +366,21 @@ function main(initialParams = {}) {
                                 if (execErr) {
                                     return finish({ success: false, error: `Execution error: ${execErr.message}` });
                                 }
+                                // 初始化 SSH 的强杀逻辑
+                                killProcess = (force) => {
+                                    if (stream) {
+                                        try {
+                                            stream.close();
+                                        }
+                                        catch (e) { }
+                                    }
+                                    if (force && conn) {
+                                        try {
+                                            conn.end();
+                                        }
+                                        catch (e) { }
+                                    }
+                                };
                                 terminalWindow?.webContents.send('terminal-data', `${code}\n`);
                                 stream.on('close', (exitCode, signalName) => {
                                     logger_1.logger.log(`Command completed: exit code ${exitCode}, signal ${signalName}`);
@@ -376,7 +405,16 @@ function main(initialParams = {}) {
                                 signalHandler = (event, signal) => {
                                     if (signal === "ctrl_c") {
                                         isInterrupted = true;
-                                        stream.close();
+                                        if (killProcess)
+                                            killProcess(false);
+                                        // 500ms兜底，如果进程忽略了终端中断，直接断开连接强杀
+                                        setTimeout(() => {
+                                            if (!isResolved) {
+                                                if (killProcess)
+                                                    killProcess(true);
+                                                finish({ success: false });
+                                            }
+                                        }, 500);
                                     }
                                 };
                                 electron_1.ipcMain.on('terminal-input', inputHandler);
@@ -413,6 +451,12 @@ function main(initialParams = {}) {
                 }
                 // 3. 运行本地脚本
                 const child = (0, child_process_1.exec)(`${params.bash} ${localTempScriptFile}`);
+                // 初始化本地环境强杀逻辑
+                killProcess = (force) => {
+                    if (child && child.exitCode === null) {
+                        child.kill(force ? 'SIGKILL' : 'SIGINT');
+                    }
+                };
                 child.on('error', (childErr) => {
                     finish({ success: false, error: `Process execution failed: ${childErr.message}` });
                 });
@@ -438,7 +482,16 @@ function main(initialParams = {}) {
                 signalHandler = (event, signal) => {
                     if (signal === "ctrl_c") {
                         isInterrupted = true;
-                        child.kill('SIGINT');
+                        if (killProcess)
+                            killProcess(false); // 发送 SIGINT
+                        // 500ms兜底，如果进程未死亡则强杀
+                        setTimeout(() => {
+                            if (!isResolved) {
+                                if (killProcess)
+                                    killProcess(true); // 发送 SIGKILL
+                                finish({ success: false });
+                            }
+                        }, 500);
                     }
                 };
                 electron_1.ipcMain.on('terminal-input', inputHandler);

@@ -238,15 +238,8 @@ class ChatManager {
                 return [];
             }
             const data = globals_1.utils.parseJsonContent(fs.readFileSync(filePath, "utf-8"));
-            // 旧版数据格式兼容
-            if (Array.isArray(data)) {
-                this.messages = data || [];
-                this.chat = this.getChatInit();
-            }
-            else if (data?.messages && data?.chat) {
-                this.messages = data.messages;
-                this.chat = data.chat;
-            }
+            this.messages = data.messages;
+            this.chat = this.getChatInit(data.chat);
             this.fixMessages();
             this.updateChat();
             return this.messages.filter(message => message.show);

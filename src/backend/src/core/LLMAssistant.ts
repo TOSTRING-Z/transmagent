@@ -258,7 +258,7 @@ Determine if the payload contains "Hallucinated/Fake Data" (Blocked) or "Functio
         const callData = critic_agent.getDataDefault({
             ...data,
             query: criticQuery,
-            push_message: true,
+            llm_conversation_mode: true,
             output_format: null
         });
 
@@ -383,7 +383,7 @@ You MUST respond ONLY with a valid JSON object. DO NOT call any tools.
             const callData = react_agent.getDataDefault({
                 query,
                 params: { ...utils.getConfig("llm_params"), temperature: 0.1 },
-                push_message: true,
+                llm_conversation_mode: true,
                 output_format: null
             });
 
@@ -444,7 +444,7 @@ You MUST respond ONLY with a valid JSON object. DO NOT call any tools.
                 prompt: KV_CACHE_SUMMARY_PROMPT,
                 query,
                 params: { ...utils.getConfig("llm_params"), temperature: 0.3 },
-                push_message: false,
+                llm_conversation_mode: false,
                 output_format: null
             });
 

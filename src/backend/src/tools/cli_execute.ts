@@ -163,10 +163,7 @@ export function main(initialParams: CliExecuteParams = {}) {
                     terminalWindow.show();
                 }
             });
-
-            terminalWindow.on('closed', () => {
-                terminalWindow = null;
-            });
+            // 注意：这里移除了原本在外层的 closed 监听，统一放入 Promise 内部处理，方便回收进程
         } catch (error: any) {
             return { success: false, output: '', error: `Failed to create terminal window: ${error.message}` };
         }
@@ -176,6 +173,9 @@ export function main(initialParams: CliExecuteParams = {}) {
             let isResolved = false;
             let conn: Client | null = null;
             let isInterrupted = false;
+
+            // 用于保存底层的强杀方法，屏蔽本地和远程差异
+            let killProcess: ((force?: boolean) => void) | null = null;
 
             // 依据执行环境动态分配：输出流及路径
             let outStream: any = null; // 可以是 fs.WriteStream 也可以是 SFTP WriteStream
@@ -263,6 +263,7 @@ export function main(initialParams: CliExecuteParams = {}) {
             const handleMinimize = () => { terminalWindow?.minimize(); };
             const handleCloseWindow = () => {
                 isInterrupted = true;
+                if (killProcess) killProcess(true); // 强杀底层进程
                 finish({
                     success: false,
                     error: 'Execution cancelled by user'
@@ -271,6 +272,16 @@ export function main(initialParams: CliExecuteParams = {}) {
 
             ipcMain.on('minimize-window', handleMinimize);
             ipcMain.once('close-window', handleCloseWindow);
+
+            // 监听窗口被原生 X 按钮关闭的情况
+            terminalWindow?.on('closed', () => {
+                terminalWindow = null;
+                if (!isResolved) {
+                    isInterrupted = true;
+                    if (killProcess) killProcess(true);
+                    finish({ success: false, error: 'Terminal window closed by user' });
+                }
+            });
 
             // ================= 控制台输出循环监测逻辑 =================
             let llmAssistant: LLMAssistant | null = null;
@@ -310,7 +321,7 @@ export function main(initialParams: CliExecuteParams = {}) {
                     if (checkResult.shouldInterrupt) {
                         logger.warn(`[ConsoleMonitor] INTERRUPT: ${checkResult.reason}`);
                         isInterrupted = true;
-                        if (conn) conn.end();
+                        if (killProcess) killProcess(true);
                         finish({
                             success: false,
                             error: `[INTERRUPTED BY CONSOLE MONITOR]\nReason: ${checkResult.reason}`,
@@ -335,6 +346,7 @@ export function main(initialParams: CliExecuteParams = {}) {
 
             timeoutId = setTimeout(() => {
                 logger.log(`Command execution timed out after ${params.timeout} seconds`);
+                if (killProcess) killProcess(true);
                 finish({
                     success: false,
                     timeout: true,
@@ -381,6 +393,16 @@ export function main(initialParams: CliExecuteParams = {}) {
                                     return finish({ success: false, error: `Execution error: ${execErr.message}` });
                                 }
 
+                                // 初始化 SSH 的强杀逻辑
+                                killProcess = (force?: boolean) => {
+                                    if (stream) {
+                                        try { stream.close(); } catch(e) {}
+                                    }
+                                    if (force && conn) {
+                                        try { conn.end(); } catch(e) {}
+                                    }
+                                };
+
                                 terminalWindow?.webContents.send('terminal-data', `${code}\n`);
 
                                 stream.on('close', (exitCode: number, signalName: string) => {
@@ -408,7 +430,15 @@ export function main(initialParams: CliExecuteParams = {}) {
                                 signalHandler = (event, signal) => {
                                     if (signal === "ctrl_c") {
                                         isInterrupted = true;
-                                        stream.close();
+                                        if (killProcess) killProcess(false);
+                                        
+                                        // 500ms兜底，如果进程忽略了终端中断，直接断开连接强杀
+                                        setTimeout(() => {
+                                            if (!isResolved) {
+                                                if (killProcess) killProcess(true);
+                                                finish({ success: false });
+                                            }
+                                        }, 500);
                                     }
                                 };
 
@@ -450,6 +480,13 @@ export function main(initialParams: CliExecuteParams = {}) {
                 // 3. 运行本地脚本
                 const child: ChildProcess = exec(`${params.bash} ${localTempScriptFile}`);
 
+                // 初始化本地环境强杀逻辑
+                killProcess = (force?: boolean) => {
+                    if (child && child.exitCode === null) {
+                        child.kill(force ? 'SIGKILL' : 'SIGINT');
+                    }
+                };
+
                 child.on('error', (childErr: Error) => {
                     finish({ success: false, error: `Process execution failed: ${childErr.message}` });
                 });
@@ -478,7 +515,15 @@ export function main(initialParams: CliExecuteParams = {}) {
                 signalHandler = (event, signal) => {
                     if (signal === "ctrl_c") {
                         isInterrupted = true;
-                        child.kill('SIGINT');
+                        if (killProcess) killProcess(false); // 发送 SIGINT
+                        
+                        // 500ms兜底，如果进程未死亡则强杀
+                        setTimeout(() => {
+                            if (!isResolved) {
+                                if (killProcess) killProcess(true); // 发送 SIGKILL
+                                finish({ success: false });
+                            }
+                        }, 500);
                     }
                 };
 

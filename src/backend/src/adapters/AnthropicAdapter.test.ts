@@ -11,7 +11,6 @@ describe('AnthropicAdapter Unit Tests (API Communication)', () => {
             id: "string",
             input: "string",
             api_type: "anthropic",
-            tool_format: "toolcalls",
             api_url: "https://api.anthropic.com/v1/messages",
             version: "claude-3-5-sonnet",
             params: { vision: ['image'] },

@@ -10,7 +10,6 @@ describe('OllamaAdapter Unit Tests (API Communication)', () => {
             id: "string",
             input: "string",
             api_type: "ollama",
-            tool_format: "toolcalls",
             api_url: "http://localhost:11434/api/chat",
             version: "llama3.2-vision",
             params: { vision: ['image'] },

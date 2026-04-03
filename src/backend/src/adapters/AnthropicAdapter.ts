@@ -286,7 +286,7 @@ export class AnthropicAdapter implements ILLMAdapter {
                 data.output = partialContent;
                 messageOutput.content = data.output;
 
-                if (!data?.react && !data?.return_response) {
+                if (!data?.react && data?.llm_conversation_mode) {
                     window?.webContents.send('streamData', {
                         group_id: chatManager.chat.group_id,
                         content: newContent,

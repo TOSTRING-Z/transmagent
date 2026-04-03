@@ -92,6 +92,7 @@ export class ChainCall extends ReActAgent {
                     tool_params[key] = typeof item === 'string' ? formatString(item, data) : item;
                 }
             }
+            
             data = { ...data, ...tool_params };
 
             await this.step(data);

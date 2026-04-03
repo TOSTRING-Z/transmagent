@@ -10,7 +10,6 @@ describe('OpenAI Adapters Unit Tests', () => {
             data = {
                 id: "string",
                 input: "string",
-                tool_format: "toolcalls",
                 api_url: "string",
                 version: "string",
                 api_type: "openai",

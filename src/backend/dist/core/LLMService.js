@@ -44,7 +44,7 @@ class LLMService {
             }
             messagesList = messagesList.concat(this.chatManager.getMemory());
             const messageInput = { role: "user", content: content, group_id: this.chatManager.chat.group_id, show: true, react: false };
-            if (data?.push_message) {
+            if (data?.llm_conversation_mode) {
                 messagesList.push(messageInput);
             }
             let messageOutput = { role: 'assistant', content: '', group_id: this.chatManager.chat.group_id, show: true, react: false };
@@ -78,7 +78,7 @@ class LLMService {
                 const errorText = await resp.text();
                 logger_1.logger.error(`HTTP Error ${resp.status}: ${errorText}`);
                 this.window?.webContents.send('infoData', {
-                    group_id: this.chatManager.chat.group_id,
+                    ...this.chatManager.chat,
                     content: `Response error: ${errorText}\n`
                 });
                 return null;
@@ -89,15 +89,14 @@ class LLMService {
             // 7. 处理并序列化 Tool Calls
             data.output = messageOutput.content;
             if (data.end) {
-                if (data?.return_response)
+                if (!data?.llm_conversation_mode)
                     return messageOutput; // 只需返回
                 const finalResponseText = data.output_template ? (0, format_1.formatString)(data.output_template, { ...data }) : data.output;
                 this.window?.webContents.send('streamData', {
-                    group_id: this.chatManager.chat.group_id,
+                    ...this.chatManager.chat,
                     content_reasoning: messageOutput.reasoning_content,
                     content: data.react ? `\n\n${finalResponseText}` : "",
-                    end: true,
-                    chat: this.chatManager.chat
+                    end: true
                 });
             }
             return messageOutput;
@@ -105,7 +104,7 @@ class LLMService {
         catch (error) {
             logger_1.logger.error(error);
             this.window?.webContents.send('infoData', {
-                group_id: this.chatManager.chat.group_id,
+                ...this.chatManager.chat,
                 content: `Response error: ${error.message}\n`
             });
             return null;
@@ -170,13 +169,11 @@ class LLMService {
                 }
             }
             // IPC 向前台推流
-            if (!data?.react && !data?.return_response) {
+            if (!data?.react && data?.llm_conversation_mode) {
                 this.window?.webContents.send('streamData', {
-                    group_id: this.chatManager.chat.group_id,
+                    ...this.chatManager.chat,
                     content: content,
-                    reasoning_content: reasoning_content,
-                    end: false,
-                    chat: this.chatManager.chat
+                    reasoning_content: reasoning_content
                 });
             }
         }
@@ -190,7 +187,7 @@ class LLMService {
         catch (error) {
             console.error(error);
             this.window?.webContents.send('infoData', {
-                group_id: this.chatManager.chat.group_id,
+                ...this.chatManager.chat,
                 content: `Response error: ${error.message}\n`
             });
             return false;
@@ -205,8 +202,8 @@ class LLMService {
         }
         if (tokens)
             this.chatManager.chat.tokens = tokens;
-        if (!data?.react && !data?.return_response) {
-            this.window?.webContents.send('streamData', { group_id: this.chatManager.chat.group_id, content: `\n\n${data.output}`, reasoning_content: reasoning_content || undefined, end: false, chat: this.chatManager.chat });
+        if (!data?.react && data?.llm_conversation_mode) {
+            this.window?.webContents.send('streamData', { ...this.chatManager.chat, content: `\n\n${data.output}`, reasoning_content: reasoning_content });
         }
         // ========== 截断检测与自动续传机制 (Max: 3) ==========
         if (finish_reason === "length" && data.output) {

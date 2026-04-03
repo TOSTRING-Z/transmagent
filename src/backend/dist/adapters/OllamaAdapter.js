@@ -163,7 +163,7 @@ class OllamaAdapter {
                 const parsedCont = this.parseResponse(contRespJson);
                 data.output += parsedCont.content;
                 messageOutput.content = data.output;
-                if (!data?.react && !data?.return_response) {
+                if (!data?.react && data?.llm_conversation_mode) {
                     window?.webContents.send('streamData', {
                         group_id: chatManager.chat.group_id, content: parsedCont.content, end: false, chat: chatManager.chat
                     });

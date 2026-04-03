@@ -65,13 +65,65 @@ export function main(params: PythonExecuteParams) {
         });
 
         return new Promise((resolve) => {
-            // 定义具体的 IPC 处理函数，以便后续可以移除它们防止内存泄漏
+            let isResolved = false;
+            let errorMsg = "";
+            let tailBuffer = ""; 
+            const MAX_TAIL_CHARS = 50000; 
+
+            // 集中处理结束逻辑，防止由于子进程未响应导致的主进程假死
+            const finish = (exitCode: number | null) => {
+                if (isResolved) return;
+                isResolved = true;
+
+                cleanupListeners(); // 清理 IPC 监听器
+                outStream.end(); // 关闭文件写入流
+
+                if (existsSync(tempFile)) {
+                    try {
+                        unlinkSync(tempFile);
+                    } catch (e) {
+                        logger.warn(`Failed to delete temp file: ${e}`);
+                    }
+                }
+
+                // 提取最后 N 行 (设定为提取最后 100 行作为摘要)
+                const MAX_LINES = 100;
+                const lines = tailBuffer.split(/\r?\n/);
+                let finalOutput = lines.length > MAX_LINES 
+                    ? lines.slice(-MAX_LINES).join('\n') 
+                    : tailBuffer;
+
+                if (isInterrupted) {
+                    finalOutput += "\n\n[Process Interrupted by User]";
+                }
+
+                finalOutput += `\n\n[Complete output saved to: ${outputFile}]`;
+
+                const delayMs = (params.delay_time || 0) * 1000;
+
+                setTimeout(() => {
+                    if (terminalWindow && !terminalWindow.isDestroyed()) {
+                        terminalWindow.close();
+                    }
+                    resolve(JSON.stringify({
+                        success: exitCode === 0 && !isInterrupted,
+                        output: finalOutput,
+                        error: errorMsg
+                    }));
+                }, delayMs);
+            };
+
+            // 定义具体的 IPC 处理函数
             const handleMinimize = () => { terminalWindow?.minimize(); };
+            
             const handleClose = () => {
                 isInterrupted = true;
-                if (child && !child.killed) child.kill();
-                terminalWindow?.close();
+                if (child && !child.killed) {
+                    child.kill('SIGKILL'); // 强杀，无视进程内部捕获
+                }
+                finish(null); // 立刻执行结束逻辑，不等 close 事件
             };
+
             const handleInput = (event: IpcMainEvent, input: string) => {
                 if (!input) {
                     child?.stdin.end();
@@ -79,10 +131,21 @@ export function main(params: PythonExecuteParams) {
                     child?.stdin.write(`${input}`);
                 }
             };
+
             const handleSignal = (event: IpcMainEvent, input: string) => {
                 if (input === "ctrl_c") {
                     isInterrupted = true;
-                    if (child && !child.killed) child.kill();
+                    if (child && !child.killed) {
+                        child.kill('SIGINT'); // 给进程发送键盘中断信号
+                    }
+                    
+                    // 兜底机制：如果 500ms 后进程还没死 (例如死循环/吞掉了SIGINT)，强杀并结算
+                    setTimeout(() => {
+                        if (!isResolved) {
+                            if (child && !child.killed) child.kill('SIGKILL');
+                            finish(null);
+                        }
+                    }, 500);
                 }
             };
 
@@ -112,10 +175,6 @@ export function main(params: PythonExecuteParams) {
 
             terminalWindow?.webContents.send('terminal-data', `${code}\n`);
 
-            let errorMsg = "";
-            let tailBuffer = ""; // 仅保留末尾输出以防止内存溢出(OOM)
-            const MAX_TAIL_CHARS = 50000; 
-
             // 提取公共追加逻辑
             const appendToTail = (data: string) => {
                 tailBuffer += data;
@@ -137,49 +196,21 @@ export function main(params: PythonExecuteParams) {
                 terminalWindow?.webContents.send('terminal-data', data);
             });
 
+            // 正常的进程结束周期
             child.on('close', (exitCode) => {
-                cleanupListeners(); // 进程结束时清理 IPC 监听器
-                outStream.end(); // 关闭文件写入流
-
-                if (existsSync(tempFile)) {
-                    unlinkSync(tempFile);
-                }
-
-                // 提取最后 N 行 (设定为提取最后 100 行作为摘要)
-                const MAX_LINES = 100;
-                const lines = tailBuffer.split(/\r?\n/);
-                let finalOutput = lines.length > MAX_LINES 
-                    ? lines.slice(-MAX_LINES).join('\n') 
-                    : tailBuffer;
-
-                if (isInterrupted) {
-                    finalOutput += "\n\n[Process Interrupted by User / 用户主动中断]";
-                }
-
-                finalOutput += `\n\n[Complete output saved to / 完整输出已保存至: ${outputFile}]`;
-
-                const delayMs = (params.delay_time || 0) * 1000;
-
-                setTimeout(() => {
-                    if (terminalWindow && !terminalWindow.isDestroyed()) {
-                        terminalWindow.close();
-                    }
-                    resolve(JSON.stringify({
-                        success: exitCode === 0 && !isInterrupted,
-                        output: finalOutput,
-                        error: errorMsg
-                    }));
-                }, delayMs);
+                finish(exitCode); 
             });
 
             terminalWindow?.on('closed', () => {
-                // 如果窗口被用户直接通过UI关闭(如点击X)，且进程还在运行，标记中断并杀进程
-                if (child && child.exitCode === null && !child.killed) {
-                    isInterrupted = true;
-                    child.kill();
-                }
                 terminalWindow = null;
-                cleanupListeners(); // 确保窗口意外关闭时也能清理
+                // 如果窗口被用户直接通过UI关闭(如点击原生 X 按钮)，强制中断
+                if (!isResolved) {
+                    isInterrupted = true;
+                    if (child && !child.killed) {
+                        child.kill('SIGKILL');
+                    }
+                    finish(null);
+                }
             });
         });
     };

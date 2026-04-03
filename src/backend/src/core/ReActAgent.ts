@@ -208,7 +208,7 @@ export class ReActAgent {
             prompt_template: null,
             params: null,
             llm_params: utils.getConfig('tool_call')["llm_params"],
-            push_message: true,
+            llm_conversation_mode: true,
             end: null,
             event: this.window?.webContents,
             input: null,
