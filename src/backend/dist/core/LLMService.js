@@ -146,9 +146,6 @@ class LLMService {
                             };
                         }
                         const currentToolCall = messageOutput.tool_calls[tc.index];
-                        if (tc.function?.name && currentToolCall?.function) {
-                            currentToolCall.function.name += tc.function.name;
-                        }
                         if (tc.function?.arguments && currentToolCall?.function) {
                             currentToolCall.function.arguments += tc.function.arguments;
                         }

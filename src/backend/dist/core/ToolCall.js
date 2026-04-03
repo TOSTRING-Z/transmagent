@@ -143,14 +143,16 @@ class ToolCall extends ReActAgent_1.ReActAgent {
         super.loadMessage(filePath);
         // 判断是否任务结束
         const messages = this.llm_service.chatManager.getMessages();
-        const lastMessage = messages[messages.length - 1];
-        const options = ['continue'];
-        if (lastMessage.role === "tool") {
-            this.window?.webContents.send('options', { ...this.llm_service.chatManager.chat, options: options });
-        }
-        if (lastMessage.role === "assistant" && lastMessage.tool_calls) {
-            this.state = ReActAgent_1.State.PAUSE;
-            this.window?.webContents.send('options', { ...this.llm_service.chatManager.chat, options: options });
+        if (messages.length > 0) {
+            const lastMessage = messages[messages.length - 1];
+            const options = ['continue'];
+            if (lastMessage.role === "tool") {
+                this.window?.webContents.send('options', { ...this.llm_service.chatManager.chat, options: options });
+            }
+            if (lastMessage.role === "assistant" && lastMessage.tool_calls) {
+                this.state = ReActAgent_1.State.PAUSE;
+                this.window?.webContents.send('options', { ...this.llm_service.chatManager.chat, options: options });
+            }
         }
         this.changeMode(this.llm_service.chatManager.chat.mode);
     }
