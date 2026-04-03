@@ -26,7 +26,6 @@ export interface CliExecuteParams {
 export interface ExecuteArgs {
     code: string;
     timeout?: number;
-    // 删除了 mode 和 mode_reason
 }
 export interface ExecuteResult {
     success: boolean;
@@ -115,8 +114,7 @@ export function main(initialParams: CliExecuteParams = {}) {
             return { success: false, output: '', error: 'Valid code parameter is required' };
         }
 
-        // ================= 重构后的拦截逻辑 START =================
-        // 1. 绝对长度拦截（强制推行 Script-Then-Execute 管道）
+        // ================= 拦截逻辑 START =================
         const MAX_DIRECT_CODE_LENGTH = 500;
         if (code.length > MAX_DIRECT_CODE_LENGTH) {
             const errorMsg = `Execution blocked: Command is too long (${code.length} chars). ` +
@@ -127,17 +125,20 @@ export function main(initialParams: CliExecuteParams = {}) {
             return { success: false, output: '', error: errorMsg };
         }
 
-        // 2. 危险或复杂逻辑的启发式警告 (可选，不阻断，仅记录)
         if (code.split('\n').length > 5 || (/[|>]/.test(code) && code.length > 200)) {
             logger.warn(`[CliExecute] Warning: Executing potentially complex multi-line command directly.`);
         }
-        // ================= 重构后的拦截逻辑 END =================
+        // ================= 拦截逻辑 END =================
 
         if (typeof timeout === 'number' && timeout > params.timeout) {
             params.timeout = timeout;
         }
 
-        const tempFile = path.join(os.tmpdir(), `temp_${Date.now()}_${Math.floor(Math.random() * 1000)}.sh`);
+        const timestamp = Date.now();
+        const randomStr = Math.floor(Math.random() * 1000);
+
+        // 1. 创建脚本临时文件
+        const tempFile = path.join(os.tmpdir(), `temp_${timestamp}_${randomStr}.sh`);
         try {
             let finalCode = code;
             if (params.bashrc) {
@@ -147,6 +148,16 @@ export function main(initialParams: CliExecuteParams = {}) {
             logger.log(`Temporary file created: ${tempFile}`);
         } catch (error: any) {
             return { success: false, output: '', error: `Failed to create temporary file: ${error.message}` };
+        }
+
+        // 2. 创建流式输出日志文件
+        const outputFile = path.join(os.tmpdir(), `output_${timestamp}_${randomStr}.txt`);
+        let outStream: fs.WriteStream | null = null;
+        try {
+            outStream = fs.createWriteStream(outputFile, { encoding: 'utf8', flags: 'a' });
+            logger.log(`Temporary output file created: ${outputFile}`);
+        } catch (error: any) {
+            logger.warn(`Failed to create output file stream: ${error.message}`);
         }
 
         let terminalWindow: BrowserWindow | null = null;
@@ -176,23 +187,88 @@ export function main(initialParams: CliExecuteParams = {}) {
                 terminalWindow = null;
             });
         } catch (error: any) {
+            if (outStream) outStream.end();
             cleanupResources(tempFile, null);
             return { success: false, output: '', error: `Failed to create terminal window: ${error.message}` };
         }
 
         return new Promise((resolve) => {
-            let output = "";
-            let errorMsg = "";
             let timeoutId: NodeJS.Timeout | null = null;
             let isResolved = false;
             let conn: Client | null = null;
+            let isInterrupted = false;
 
-            // 集中管理需要注销的 IPC 监听器
+            // 用于保存最后的输出内容（防止内存泄漏）
+            let tailBuffer = "";
+            let errorBuffer = "";
+            const MAX_TAIL_CHARS = 50000;
+            
+            // 用于 ConsoleMonitor 增量检查的缓冲区
+            let monitorBuffer = ""; 
+
+            const appendData = (data: string, isError: boolean = false) => {
+                if (outStream) outStream.write(data);
+                
+                tailBuffer += data;
+                if (tailBuffer.length > MAX_TAIL_CHARS) {
+                    tailBuffer = tailBuffer.slice(-MAX_TAIL_CHARS);
+                }
+
+                monitorBuffer += data;
+
+                if (isError) {
+                    errorBuffer += data;
+                    if (errorBuffer.length > MAX_TAIL_CHARS) {
+                        errorBuffer = errorBuffer.slice(-MAX_TAIL_CHARS);
+                    }
+                }
+            };
+
+            const finish = (result: Partial<ExecuteResult>) => {
+                if (isResolved) return;
+                isResolved = true;
+
+                if (monitorIntervalId) {
+                    clearInterval(monitorIntervalId);
+                    monitorIntervalId = null;
+                }
+
+                if (timeoutId) clearTimeout(timeoutId);
+                if (outStream) outStream.end();
+
+                // 清理所有主进程事件监听器
+                ipcMain.off('minimize-window', handleMinimize);
+                ipcMain.removeListener('close-window', handleCloseWindow);
+                if (inputHandler) ipcMain.off('terminal-input', inputHandler);
+                if (signalHandler) ipcMain.off('terminal-signal', signalHandler);
+
+                cleanupResources(tempFile, terminalWindow, conn);
+
+                // 组装最终结果
+                let finalOutput = threshold(tailBuffer, params.max_lines, params.max_chars_per_line);
+                
+                if (isInterrupted) {
+                    finalOutput += "\n\n[Process Interrupted by User / 用户主动中断]";
+                } else if (result.timeout) {
+                    finalOutput += "\n\n[Process Timed Out / 执行超时]";
+                }
+
+                finalOutput += `\n\n[Complete output saved to / 完整输出已保存至: ${outputFile}]`;
+
+                resolve({
+                    success: result.success ?? false,
+                    output: finalOutput,
+                    error: threshold(errorBuffer, params.max_lines, params.max_chars_per_line),
+                    timeout: result.timeout,
+                    message: result.message
+                });
+            };
+
             const handleMinimize = () => { terminalWindow?.minimize(); };
             const handleCloseWindow = () => {
+                isInterrupted = true;
                 finish({
                     success: false,
-                    output: threshold(output, params.max_lines, params.max_chars_per_line),
                     error: 'Execution cancelled by user'
                 });
             };
@@ -203,21 +279,17 @@ export function main(initialParams: CliExecuteParams = {}) {
             // ================= 控制台输出循环监测逻辑 =================
             let llmAssistant: LLMAssistant | null = null;
             let monitorIntervalId: NodeJS.Timeout | null = null;
-            let lastCheckedLength = 0;
-            const executionStartTime = Date.now(); // 记录执行开始时间
+            const executionStartTime = Date.now();
 
-            // 从 initialParams 读取监测间隔（默认10分钟）
             const monitorIntervalMinutes = initialParams?.monitor_interval ?? 10;
             const MONITOR_INTERVAL_MS = monitorIntervalMinutes * 60 * 1000;
 
             try {
-                // 判断当前是否为正在运行的子代理
                 const tool_call = WindowManager.instance.subAgentWindow.agentTool?.tool_call;
                 let llmService: LLMService;
                 if (tool_call && tool_call.state === State.RUNNING) {
                     llmService = tool_call.llm_service;
-                }
-                else {
+                } else {
                     llmService = WindowManager.instance.mainWindow.llm_service;
                 }
                 llmAssistant = new LLMAssistant(llmService, null);
@@ -228,26 +300,23 @@ export function main(initialParams: CliExecuteParams = {}) {
             const startConsoleMonitor = async (): Promise<boolean> => {
                 if (!llmAssistant) return false;
                 try {
-                    const currentOutput = output + errorMsg;
-                    if (currentOutput.length <= lastCheckedLength) return false;
-                    const newOutput = currentOutput.substring(lastCheckedLength);
-                    lastCheckedLength = currentOutput.length;
+                    // 消费并清空增量缓冲区，防止内存膨胀
+                    const newOutput = monitorBuffer;
+                    monitorBuffer = ""; 
+
                     if (newOutput.trim().length === 0) return false;
 
-                    // 计算当前执行时间
                     const executionTimeMs = Date.now() - executionStartTime;
-
                     logger.log(`[ConsoleMonitor] Checking output (${newOutput.length} chars, elapsed: ${Math.round(executionTimeMs / 1000)}s)...`);
 
-                    // 传入控制台输出和执行时间
                     const checkResult = await llmAssistant.checkConsoleOutput(newOutput, executionTimeMs);
 
                     if (checkResult.shouldInterrupt) {
                         logger.warn(`[ConsoleMonitor] INTERRUPT: ${checkResult.reason}`);
+                        isInterrupted = true;
                         if (conn) conn.end();
                         finish({
                             success: false,
-                            output: threshold(output, params.max_lines, params.max_chars_per_line),
                             error: `[INTERRUPTED BY CONSOLE MONITOR]\nReason: ${checkResult.reason}`,
                             message: 'Execution interrupted due to detected risky operations'
                         });
@@ -268,41 +337,16 @@ export function main(initialParams: CliExecuteParams = {}) {
             }, MONITOR_INTERVAL_MS);
             // ================= END 监测逻辑 =================
 
-            const finish = (result: ExecuteResult) => {
-                if (isResolved) return;
-                isResolved = true;
-
-                if (monitorIntervalId) {
-                    clearInterval(monitorIntervalId);
-                    monitorIntervalId = null;
-                }
-
-                if (timeoutId) clearTimeout(timeoutId);
-
-                // 彻底清理所有主进程事件监听器
-                ipcMain.off('minimize-window', handleMinimize);
-                ipcMain.removeListener('close-window', handleCloseWindow);
-                if (inputHandler) ipcMain.off('terminal-input', inputHandler);
-                if (signalHandler) ipcMain.off('terminal-signal', signalHandler);
-
-                cleanupResources(tempFile, terminalWindow, conn);
-                resolve(result);
-            };
-
             timeoutId = setTimeout(() => {
                 logger.log(`Command execution timed out after ${params.timeout} seconds`);
                 finish({
                     success: false,
-                    output: threshold(output, params.max_lines, params.max_chars_per_line),
-                    error: threshold(errorMsg, params.max_lines, params.max_chars_per_line),
                     timeout: true,
                     message: `Command execution timed out after ${params.timeout} seconds, but returning current console output`
                 });
             }, params.timeout * 1000);
 
             const sshConfig = utils.getSshConfig();
-
-            // 提取共享的输入输出处理句柄
             let inputHandler: ((event: IpcMainEvent, input: string) => void) | null = null;
             let signalHandler: ((event: IpcMainEvent, signal: string) => void) | null = null;
 
@@ -315,20 +359,12 @@ export function main(initialParams: CliExecuteParams = {}) {
 
                     conn!.sftp((sftpErr, sftp) => {
                         if (sftpErr) {
-                            return finish({
-                                success: false,
-                                output: threshold(output, params.max_lines, params.max_chars_per_line),
-                                error: `SFTP error: ${sftpErr.message}`
-                            });
+                            return finish({ success: false, error: `SFTP error: ${sftpErr.message}` });
                         }
 
                         const writeStream = sftp.createWriteStream(remoteScriptPath);
                         writeStream.on('error', (writeErr: Error) => {
-                            finish({
-                                success: false,
-                                output: threshold(output, params.max_lines, params.max_chars_per_line),
-                                error: `File upload error: ${writeErr.message}`
-                            });
+                            finish({ success: false, error: `File upload error: ${writeErr.message}` });
                         });
 
                         writeStream.write(`#!/bin/bash\n${code}`);
@@ -337,33 +373,25 @@ export function main(initialParams: CliExecuteParams = {}) {
                         writeStream.on('close', () => {
                             conn!.exec(`chmod +x ${remoteScriptPath} && ${remoteScriptPath}; rm -f ${remoteScriptPath}`, (execErr, stream: ClientChannel) => {
                                 if (execErr) {
-                                    return finish({
-                                        success: false,
-                                        output: threshold(output, params.max_lines, params.max_chars_per_line),
-                                        error: `Execution error: ${execErr.message}`
-                                    });
+                                    return finish({ success: false, error: `Execution error: ${execErr.message}` });
                                 }
 
                                 terminalWindow?.webContents.send('terminal-data', `${code}\n`);
 
                                 stream.on('close', (exitCode: number, signalName: string) => {
                                     logger.log(`Command completed: exit code ${exitCode}, signal ${signalName}`);
-                                    finish({
-                                        success: exitCode === 0,
-                                        output: threshold(output, params.max_lines, params.max_chars_per_line),
-                                        error: threshold(errorMsg, params.max_lines, params.max_chars_per_line)
-                                    });
+                                    finish({ success: exitCode === 0 && !isInterrupted });
                                 });
 
                                 stream.on('data', (data: Buffer) => {
                                     const str = data.toString();
-                                    output += str;
+                                    appendData(str, false);
                                     terminalWindow?.webContents.send('terminal-data', str);
                                 });
 
                                 stream.stderr.on('data', (data: Buffer) => {
                                     const str = data.toString();
-                                    errorMsg += str;
+                                    appendData(str, true);
                                     terminalWindow?.webContents.send('terminal-data', str);
                                 });
 
@@ -373,7 +401,10 @@ export function main(initialParams: CliExecuteParams = {}) {
                                 };
 
                                 signalHandler = (event, signal) => {
-                                    if (signal === "ctrl_c") stream.close();
+                                    if (signal === "ctrl_c") {
+                                        isInterrupted = true;
+                                        stream.close();
+                                    }
                                 };
 
                                 ipcMain.on('terminal-input', inputHandler);
@@ -384,21 +415,13 @@ export function main(initialParams: CliExecuteParams = {}) {
                 });
 
                 conn.on('error', (err: Error) => {
-                    finish({
-                        success: false,
-                        output: threshold(output, params.max_lines, params.max_chars_per_line),
-                        error: `SSH connection failed: ${err.message}`
-                    });
+                    finish({ success: false, error: `SSH connection failed: ${err.message}` });
                 });
 
                 try {
                     conn.connect(sshConfig);
                 } catch (connectErr: any) {
-                    finish({
-                        success: false,
-                        output: threshold(output, params.max_lines, params.max_chars_per_line),
-                        error: `SSH connection failed: ${connectErr.message}`
-                    });
+                    finish({ success: false, error: `SSH connection failed: ${connectErr.message}` });
                 }
 
             } else {
@@ -406,31 +429,23 @@ export function main(initialParams: CliExecuteParams = {}) {
                 const child: ChildProcess = exec(`${params.bash} ${tempFile}`);
 
                 child.on('error', (childErr: Error) => {
-                    finish({
-                        success: false,
-                        output: threshold(output, params.max_lines, params.max_chars_per_line),
-                        error: `Process execution failed: ${childErr.message}`
-                    });
+                    finish({ success: false, error: `Process execution failed: ${childErr.message}` });
                 });
 
                 child.stdout?.on('data', (data: Buffer | string) => {
                     const str = data.toString();
-                    output += str;
+                    appendData(str, false);
                     terminalWindow?.webContents.send('terminal-data', str);
                 });
 
                 child.stderr?.on('data', (data: Buffer | string) => {
                     const str = data.toString();
-                    errorMsg += str;
+                    appendData(str, true);
                     terminalWindow?.webContents.send('terminal-data', str);
                 });
 
                 child.on('close', (exitCode: number | null) => {
-                    finish({
-                        success: exitCode === 0,
-                        output: threshold(output, params.max_lines, params.max_chars_per_line),
-                        error: threshold(errorMsg, params.max_lines, params.max_chars_per_line)
-                    });
+                    finish({ success: exitCode === 0 && !isInterrupted });
                 });
 
                 inputHandler = (event, input) => {
@@ -439,7 +454,10 @@ export function main(initialParams: CliExecuteParams = {}) {
                 };
 
                 signalHandler = (event, signal) => {
-                    if (signal === "ctrl_c") child.kill('SIGINT');
+                    if (signal === "ctrl_c") {
+                        isInterrupted = true;
+                        child.kill('SIGINT');
+                    }
                 };
 
                 ipcMain.on('terminal-input', inputHandler);
