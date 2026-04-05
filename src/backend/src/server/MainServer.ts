@@ -1,4 +1,3 @@
-import { utils } from '../utils/globals';
 import type { MainWindow } from '../main/windows/MainWindow';
 
 interface CompletionsRequest {
@@ -29,7 +28,7 @@ export class MainServer {
 
     async completions(data: CompletionsRequest): Promise<ServerResult> {
         return new Promise((resolve, reject) => {
-            const chatManager = this.mainWindow.llm_service.chatManager;
+            const chatManager = this.mainWindow.session().llm_service.chatManager;
 
             const cdata: any = {
                 query: data.messages[data.messages.length - 1].content,
@@ -37,18 +36,18 @@ export class MainServer {
             };
 
             this.mainWindow.startAgentLoop(cdata);
-            this.mainWindow.llm_service.startLoop();
+            this.mainWindow.session().llm_service.startLoop();
 
-            const _data = this.mainWindow.tool_call.getDataDefault(cdata);
+            const _data = this.mainWindow.session().tool_call.getDataDefault(cdata);
 
-            this.mainWindow.tool_call.callReAct(_data)
+            this.mainWindow.session().tool_call.callReAct(_data)
                 .then((result: any) => {
-                    this.mainWindow.tool_call.setHistory();
+                    this.mainWindow.session().tool_call.setHistory();
 
                     let message_list = chatManager.getMessages(true)
                         .filter((message: any) => message.group_id === chatManager.chat.group_id);
 
-                    message_list = this.mainWindow.llm_service.adapter.formatMessages(
+                    message_list = this.mainWindow.session().llm_service.adapter.formatMessages(
                         message_list,
                         result
                     );
@@ -65,10 +64,10 @@ export class MainServer {
     async mode(data: ModeRequest): Promise<ServerResult> {
         try {
             if (data.mode) {
-                this.mainWindow.tool_call.changeMode(data.mode);
-                this.mainWindow.window?.webContents.send('handleSetChat', this.mainWindow.llm_service.chatManager.chat);
+                this.mainWindow.session().tool_call.changeMode(data.mode);
+                this.mainWindow.window?.webContents.send('handleSetChat', this.mainWindow.session().llm_service.chatManager.chat);
             }
-            return { chat_mode: this.mainWindow.llm_service.chatManager.chat.mode };
+            return { chat_mode: this.mainWindow.session().llm_service.chatManager.chat.mode };
         } catch (error: any) {
             return { error: error.message };
         }
@@ -76,7 +75,7 @@ export class MainServer {
 
     async list(): Promise<ServerResult> {
         try {
-            const history_data = utils.getHistoryData();
+            const history_data = this.mainWindow.session().utils.getHistoryData();
             return { history_data };
         } catch (error: any) {
             return { error: error.message };
@@ -85,11 +84,11 @@ export class MainServer {
 
     async checkout(data: CheckoutRequest): Promise<ServerResult> {
         try {
-            const chatManager = this.mainWindow.llm_service.chatManager;
+            const chatManager = this.mainWindow.session().llm_service.chatManager;
 
             if (data?.chat_id) {
                 // 加载已有会话
-                const chat = await this.mainWindow.tool_call.loadChat(data.chat_id);
+                const chat = await this.mainWindow.session().tool_call.loadChat(data.chat_id);
                 if (chat) {
                     chatManager.loadFromChat(chat);
                     this.mainWindow.window?.webContents.send(
@@ -110,7 +109,7 @@ export class MainServer {
                     'newChat',
                     chatManager.chat
                 );
-                this.mainWindow.tool_call.setHistory();
+                this.mainWindow.session().tool_call.setHistory();
             }
 
             return { chat: chatManager.chat };

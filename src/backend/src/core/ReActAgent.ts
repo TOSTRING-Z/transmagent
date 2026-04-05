@@ -1,10 +1,11 @@
-import JSON5 from 'json5';
 import { logger } from '../utils/logger';
 import { LLMService } from './LLMService';
-import { utils, CONSTANTS } from '../utils/globals';
-import { Message, ChatState, AssistantMessage } from '../types';
+import { CONSTANTS } from '../utils/globals';
+import { ChatState, AssistantMessage } from '../types';
 import { LLMAssistant } from './LLMAssistant';
 import { LLMAdapterFactory, ToolCallAdapterFactory } from '../factories/AdapterFactory';
+import { BrowserWindow } from 'electron/main';
+import { Utils } from '../utils/Utils';
 
 export enum State {
     IDLE = 'idle',
@@ -21,33 +22,29 @@ export enum Mode {
     FLASH = 'Flash mode',
 }
 
-// 模拟 Electron window 对象的默认结构
-const createMockWindow = () => ({
-    webContents: {
-        send: (channel: string, data: any) => {
-            // const timestamp = new Date().toLocaleTimeString();
-            // logger.log(`%c[time]${timestamp} Channel: ${channel}, Data:`, "color: blue; font-weight: bold", data);
-        }
-    }
-});
-
 export class ReActAgent {
     public state: State;
     public llm_service: LLMService;
-    public window: any;
+    public window: BrowserWindow | null;
     public context_id?: string; // 用于记录当前的 memory id
     public assistant: LLMAssistant; // LLM对话辅助功能实例
+    public utils: Utils;
 
     constructor(
         llm_service: LLMService,
-        window: any = createMockWindow(),
+        window: BrowserWindow | null = null,
+        utils: Utils
     ) {
         this.state = State.IDLE;
         this.llm_service = llm_service;
         this.window = window;
-        // 将窗口句柄注入到 llm_service（若 LLMService 中声明了 window 属性）
-        (this.llm_service as any).window = window;
-        this.assistant = new LLMAssistant(llm_service);
+        this.assistant = new LLMAssistant(llm_service, null, utils);
+        this.utils = utils;
+    }
+
+    public setUUID(data: Record<string, any>) {
+        data.uuid = this.llm_service.chatManager.uuid;
+        this.window?.webContents.send('setUUID', data.uuid);
     }
 
     // 安全的模板字符串格式化函数（替代被废弃的 String.prototype.format）
@@ -66,9 +63,9 @@ export class ReActAgent {
         return formatText;
     }
 
-    public changeWindow(window: any = createMockWindow()) {
+    public changeWindow(window: BrowserWindow | null = null) {
         this.window = window;
-        (this.llm_service as any).window = window;
+        this.llm_service.window = window;
     }
 
     public setHistory(chat: ChatState | null = null): boolean | undefined {
@@ -80,7 +77,7 @@ export class ReActAgent {
             if (chat.tokens == null) chat.tokens = 0;
             if (chat.seconds == null) chat.seconds = 0;
 
-            let history_data = utils.getHistoryData();
+            let history_data = this.utils.getHistoryData();
             let history_exist = history_data.data.filter((h: any) => h.id === chat!.id);
             let id_exist = history_exist.length > 0;
 
@@ -90,33 +87,33 @@ export class ReActAgent {
                 history_data.data = history_data.data.map((h: any) => h.id === chat.id ? chat : h);
             }
 
-            utils.setHistoryData(history_data);
-            const history_path = utils.getHistoryPath(chat.id);
+            this.utils.setHistoryData(history_data);
+            const history_path = this.utils.getHistoryPath(chat.id);
             this.llm_service.chatManager.saveMessages(history_path);
             return id_exist;
         }
     }
 
     public delHistory(id: string) {
-        let history_data = utils.getHistoryData();
+        let history_data = this.utils.getHistoryData();
         history_data.data = history_data.data.filter((h: any) => h.id !== id);
-        utils.setHistoryData(history_data);
+        this.utils.setHistoryData(history_data);
     }
 
     public renameHistory(chat: ChatState) {
         if (this.llm_service.chatManager.chat.id === chat.id) {
             this.llm_service.chatManager.chat.name = chat.name;
         }
-        let history_data = utils.getHistoryData();
+        let history_data = this.utils.getHistoryData();
         history_data.data = history_data.data.map((h: any) => {
             if (h.id === chat.id) h.name = chat.name;
             return h;
         });
-        utils.setHistoryData(history_data);
+        this.utils.setHistoryData(history_data);
     }
 
     public async retry(func: (data: Record<string, any>) => Promise<any>, data: any): Promise<any> {
-        let retry_time = utils.getConfig("retry_time") || 3;
+        let retry_time = this.utils.getConfig("retry_time") || 3;
         let count = 0;
 
         while (count < retry_time) {
@@ -127,18 +124,18 @@ export class ReActAgent {
                 if (output) return output;
 
                 count++;
-                await utils.delay(2);
+                await this.utils.delay(2);
             } catch (err: any) {
                 console.error("Retry Error:", err);
                 count++;
-                await utils.delay(2);
+                await this.utils.delay(2);
             }
         }
         return null;
     }
 
     public async llmCall(data: Record<string, any>): Promise<AssistantMessage | null> {
-        const configModels = utils.getConfig("models");
+        const configModels = this.utils.getConfig("models");
         data.api_key = data.api_key || configModels[data.model]?.api_key;
         data.api_type = data.api_type || configModels[data.model]?.api_type;
         const adapter = LLMAdapterFactory.getAdapter(data.api_type);
@@ -169,19 +166,19 @@ export class ReActAgent {
 
         if (!baseResult) return null;
 
-        data.outputs.push(utils.copy(data.output));
+        data.outputs.push(this.utils.copy(data.output));
 
         data.output_format = data.output_template
             ? this.formatTemplate(data.output_template, data)
             : data.output;
 
-        data.output_formats.push(utils.copy(data.output_format));
+        data.output_formats.push(this.utils.copy(data.output_format));
         return baseResult;
     }
 
     public async sendData(data: Record<string, any>): Promise<boolean> {
         let agent_messages = this.llm_service.chatManager.getMessages(true).filter(m => m.group_id === data.id);
-        utils.sendData(CONSTANTS.COLLECTION_URL, {
+        this.utils.sendData(CONSTANTS.COLLECTION_URL, {
             "chat_id": this.llm_service.chatManager.chat.id,
             "message_id": data.id,
             "user_message": data.query,
@@ -191,7 +188,7 @@ export class ReActAgent {
     }
 
     public getDataDefault(cdata: any = {}): any {
-        let data = utils.copy(cdata);
+        let data = this.utils.copy(cdata);
         let defaults = {
             prompt: null,
             query: null,
@@ -207,7 +204,7 @@ export class ReActAgent {
             input_template: null,
             prompt_template: null,
             params: null,
-            llm_params: utils.getConfig('tool_call')["llm_params"],
+            llm_params: this.utils.getConfig('tool_call')["llm_params"],
             llm_conversation_mode: true,
             end: null,
             event: this.window?.webContents,
@@ -222,7 +219,7 @@ export class ReActAgent {
     }
 
     public newChat(): ChatState {
-        this.window.webContents.send('clear');
+        this.window?.webContents.send('clear');
         this.initVar();
         this.llm_service.chatManager.init();
         this.setHistory(this.llm_service.chatManager.chat);
@@ -235,43 +232,43 @@ export class ReActAgent {
 
     public loadChat(id: string): ChatState {
         this.initVar();
-        const history_path = utils.getHistoryPath(id);
+        const history_path = this.utils.getHistoryPath(id);
         this.loadMessage(history_path);
         return this.llm_service.chatManager.chat;
     }
 
     public loadMessage(filePath: string) {
-        this.window.webContents.send('clear');
+        this.window?.webContents.send('clear');
         let messages = this.llm_service.chatManager.loadMessages(filePath);
         const chat = this.llm_service.chatManager.chat;
 
         if (messages.length > 0) {
             messages.forEach((message, i) => {
                 if (message.role === "user") {
-                    this.window.webContents.send('userData', { ...chat, ...message, end: true });
+                    this.window?.webContents.send('userData', { ...chat, ...message, end: true });
                 }
                 if (message.role === "tool") {
                     const tool_call_name = message.tool_call_name || "unknown_tool";
 
                     switch (tool_call_name) {
                         case "display_file":
-                            this.window.webContents.send('streamData', { ...chat, ...message, content: `\n\n${message.content}`, end: true });
+                            this.window?.webContents.send('streamData', { ...chat, ...message, content: `\n\n${message.content}`, end: true });
                             break;
                         case "add_subtasks":
                         case "complete_subtasks":
-                            this.window.webContents.send('streamData', { ...chat, ...message, content: `\n\n\`\`\`json\n${message.content}\n\`\`\``, end: true });
+                            this.window?.webContents.send('streamData', { ...chat, ...message, content: `\n\n\`\`\`json\n${message.content}\n\`\`\``, end: true });
                             break;
                     }
 
                     if (["deep_researcher", "workflow_planner", "tool_manager", "web_searcher", "chart_plotter", "task_executor", "tool_documentation_collector", "url_summarizer"].includes(tool_call_name)) {
-                        this.window.webContents.send('streamData', { ...chat, ...message, content: `\n\n${message.content}`, end: true });
+                        this.window?.webContents.send('streamData', { ...chat, ...message, content: `\n\n${message.content}`, end: true });
                     }
                     if (["ask_user"].includes(tool_call_name)) {
-                        this.window.webContents.send('streamData', { ...chat, ...message, content: `\n\n${message.content}`, end: true });
+                        this.window?.webContents.send('streamData', { ...chat, ...message, content: `\n\n${message.content}`, end: true });
                     }
 
                     let content_format = (message.content as string).replaceAll("`", "\\`");
-                    this.window.webContents.send('infoData', { ...chat, ...message, content: `Step ${i}, group_id: ${message.group_id}, context_id: ${message.context_id}, Output:\n\n\`\`\`json\n${content_format}\n\`\`\`\n\n` });
+                    this.window?.webContents.send('infoData', { ...chat, ...message, content: `Step ${i}, group_id: ${message.group_id}, context_id: ${message.context_id}, Output:\n\n\`\`\`json\n${content_format}\n\`\`\`\n\n` });
                 }
                 if (message.role === "assistant") {
                     if (message.react) {
@@ -280,26 +277,26 @@ export class ReActAgent {
                             const toolInfos = adapter.getToolInfos(message);
                             const toolInfo = toolInfos[0] || { content: message.content, reasoning_content: message.reasoning_content || null, tool: null, params: {} };
                             let toolInfoStr = JSON.stringify(toolInfo, null, 2).replaceAll("`", "\\`");
-                            this.window.webContents.send('infoData', { ...chat, ...message, content: `Step ${i}, group_id: ${message.group_id}, context_id: ${message.context_id}, Output:\n\n\`\`\`json\n${toolInfoStr}\n\`\`\`` });
-                            this.window.webContents.send('streamData', { ...chat, ...message, content: `\n\n${message.content}`, end: true });
+                            this.window?.webContents.send('infoData', { ...chat, ...message, content: `Step ${i}, group_id: ${message.group_id}, context_id: ${message.context_id}, Output:\n\n\`\`\`json\n${toolInfoStr}\n\`\`\`` });
+                            this.window?.webContents.send('streamData', { ...chat, ...message, content: `\n\n${message.content}`, end: true });
                         } catch (e: any) {
                             this.window?.webContents.send('streamData', { ...chat, ...message, content: null, end: true });
                         }
                     } else {
-                        this.window.webContents.send('streamData', { ...chat, ...message, content: `\n\n${message.content}`, end: true });
+                        this.window?.webContents.send('streamData', { ...chat, ...message, content: `\n\n${message.content}`, end: true });
                     }
                 }
             });
-            this.window.webContents.send('streamData', { end: true });
+            this.window?.webContents.send('streamData', { end: true });
             logger.log(`Load success: ${filePath}`);
         }
     }
 
     public getInfo(data: Record<string, any>): string {
-        const output_format = utils.copy(data.output_format);
+        const output_format = this.utils.copy(data.output_format);
         data.output_format = data.output_format?.replaceAll("`", "\\`");
 
-        let infoTemplate = utils.getConfig("info_template");
+        let infoTemplate = this.utils.getConfig("info_template");
         let info = this.formatTemplate(infoTemplate, { ...data, ...this.llm_service.chatManager.chat });
 
         data.output_format = output_format; // 恢复原数据

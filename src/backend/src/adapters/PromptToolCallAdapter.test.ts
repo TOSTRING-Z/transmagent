@@ -1,6 +1,6 @@
 import { PromptToolCallAdapter } from './PromptAdapter';
 import { Message } from '../types';
-import { utils } from '../utils/globals';
+import * as utils from '../utils/public';
 
 // Mock 外部依赖
 jest.mock('../utils/globals', () => ({

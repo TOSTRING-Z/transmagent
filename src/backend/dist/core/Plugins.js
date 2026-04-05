@@ -36,13 +36,13 @@ Object.defineProperty(exports, "__esModule", { value: true });
 exports.Plugins = void 0;
 const fs = __importStar(require("fs"));
 const path = __importStar(require("path"));
-const globals_1 = require("../utils/globals");
 const logger_1 = require("../utils/logger");
 class Plugins {
     static instance = null;
     tools;
-    constructor() {
-        Plugins.instance = this;
+    utils;
+    constructor(utils) {
+        this.utils = utils;
         this.tools = {};
     }
     getTool(name) {
@@ -97,7 +97,7 @@ class Plugins {
         }
     }
     loadInit(config_name = null, forceLoad = false) {
-        const plugins = globals_1.utils.getConfig("plugins", config_name);
+        const plugins = this.utils.getConfig("plugins", config_name);
         if (!plugins) {
             console.warn("[Plugins] No plugins configuration found.");
             return;

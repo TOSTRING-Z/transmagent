@@ -1,6 +1,6 @@
 import * as fs from 'fs';
 import { logger } from '../utils/logger';
-import { getCliPromptPath, utils } from '../utils/globals';
+import { WindowManager } from '../main/windows/WindowManager';
 
 // --- 类型定义 ---
 export interface UpdateToolParams {
@@ -26,7 +26,7 @@ export function main() {
             }
 
             // 安全获取 prompt 配置文件路径
-            const prompt_file = getCliPromptPath();
+            const prompt_file = WindowManager.instance.mainWindow.session().utils.getConfig("tool_call").cli_prompt || WindowManager.instance.mainWindow.session().utils.getDefault("prompts/cli_prompt.md");
 
             if (!fs.existsSync(prompt_file)) {
                 // 如果文件不存在，初始化一个空文件

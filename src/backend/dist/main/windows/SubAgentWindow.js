@@ -54,7 +54,7 @@ class SubAgentWindow extends BaseWindow_1.BaseWindow {
         this.agentTools = {};
         this.windows = []; // 覆盖基类的 BrowserWindow | null
         this.windowListeners = new Map();
-        this.plugins = new Plugins_1.Plugins();
+        this.plugins = new Plugins_1.Plugins(this.utils());
         this.toolInit();
     }
     // 将工具统一为当前插件格式：{ func, getPrompt, extra? }
@@ -126,22 +126,22 @@ class SubAgentWindow extends BaseWindow_1.BaseWindow {
                 if (this.agentTool) {
                     this.agentTool.tool_call.changeWindow(win);
                     // 子代理模式同主代理模式一样（计划模式例外）
-                    if (this.windowManager.mainWindow.tool_call.environment_details.mode !== ReActAgent_1.Mode.PLAN) {
-                        this.agentTool.tool_call.changeMode(this.windowManager.mainWindow.llm_service.chatManager.chat.mode);
+                    if (this.windowManager.mainWindow.session().tool_call.environment_details.mode !== ReActAgent_1.Mode.PLAN) {
+                        this.agentTool.tool_call.changeMode(this.windowManager.mainWindow.session().llm_service.chatManager.chat.mode);
                     }
                     else {
                         // 计划模式下，子代理默认为自动模式
                         this.agentTool.tool_call.changeMode("auto");
                     }
-                    if (globals_1.utils.getConfig("tool_call")?.subagent_llm_init || this.windows.length > 1) {
+                    if (this.utils().getConfig("tool_call")?.subagent_llm_init || this.windows.length > 1) {
                         this.agentTool.tool_call.llm_service.chatManager.init();
                     }
-                    const mainChat = this.windowManager.mainWindow.llm_service.chatManager.chat;
+                    const mainChat = this.windowManager.mainWindow.session().llm_service.chatManager.chat;
                     this.agentTool.tool_call.llm_service.chatManager.chat.tool_format = mainChat.tool_format;
                     this.agentTool.tool_call.llm_service.startLoop();
                     let data = this.agentTool.tool_call.getDataDefault({ query, model: mainChat.model, version: mainChat.version });
                     data = await this.agentTool.tool_call.callReAct(data);
-                    const res_json = globals_1.utils.parseJsonContent(data.output_format);
+                    const res_json = this.utils().parseJsonContent(data.output_format);
                     resolve(res_json[0]?.content || data.output_format);
                 }
             });
@@ -174,11 +174,11 @@ class SubAgentWindow extends BaseWindow_1.BaseWindow {
     }
     addAgentTool(tool_name, query_prompt, agent_description, agent_prompt, tools, options = {}, mainSubAgent = false) {
         const { todolist = true, env = true, skill = true, mcp_server = false } = options;
-        const llm_service = new LLMService_1.LLMService();
+        const llm_service = new LLMService_1.LLMService(undefined, null, this.utils());
         llm_service.chatManager.chat.id = null;
         llm_service.chatManager.chat.name = tool_name;
         const normalizedTools = this.normalizeTools(tools);
-        const tool_call = new ToolCall_1.ToolCall(this.plugins, normalizedTools, llm_service, null, { agent_prompt, subagent: true, todolist, env, skill, mcp_server, agent_name: tool_name });
+        const tool_call = new ToolCall_1.ToolCall(this.plugins, normalizedTools, llm_service, null, this.utils(), { agent_prompt, subagent: true, todolist, env, skill, mcp_server, agent_name: tool_name, agent_mode: globals_1.store.get('agentMode', 'transagent') });
         this.agentTools[tool_name] = {
             tool_call,
             func: async ({ query }) => await this.query(query, tool_name),
@@ -203,9 +203,9 @@ class SubAgentWindow extends BaseWindow_1.BaseWindow {
         return Object.fromEntries(Object.entries(this.agentTools).filter(([, subagent]) => subagent.mainSubAgent));
     }
     toolInit() {
-        if (!globals_1.utils.getConfig()?.plugins?.cli_execute)
+        if (!this.utils().getConfig()?.plugins?.cli_execute)
             return;
-        this.plugins = new Plugins_1.Plugins();
+        this.plugins = new Plugins_1.Plugins(this.utils());
         this.plugins.loadInit(globals_1.sysConfig.baseagent, true);
         this.plugins.loadInit(globals_1.sysConfig.transagent, true);
         const agentDefs = [

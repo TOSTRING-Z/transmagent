@@ -37,7 +37,7 @@ const fs = __importStar(require("fs"));
 const path = __importStar(require("path"));
 const os = __importStar(require("os"));
 const update_tool_1 = require("./update_tool");
-const globals_1 = require("../utils/globals");
+const utils = __importStar(require("../utils/public"));
 // 模拟 logger
 jest.mock('../utils/logger', () => ({
     logger: {
@@ -88,7 +88,7 @@ All new tools must be installed under the \`/data/auto_installed_tools/\` root d
 `;
         fs.writeFileSync(tempPromptFile, initialContent.trim(), 'utf8');
         // 让工具读取我们创建的临时文件
-        globals_1.utils.getConfig.mockReturnValue({ cli_prompt: tempPromptFile });
+        utils.getConfig.mockReturnValue({ cli_prompt: tempPromptFile });
     });
     afterEach(() => {
         // 清理临时文件

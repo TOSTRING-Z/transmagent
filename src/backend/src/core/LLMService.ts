@@ -7,25 +7,30 @@ import { AssistantMessage, ChatRequestData, Message, MessageContent, UserMessage
 import { streamJSON, streamSse } from '../utils/stream';
 import { formatString } from '../utils/format'; // 原型扩展 format 的替代品
 import { BrowserWindow } from 'electron';
+import { Utils } from '../utils/Utils';
 
 export class LLMService {
-    private window: BrowserWindow | null;
+    public window: BrowserWindow | null;
     public chatManager: ChatManager;
     public stopFlag: boolean = false;
     public adapter: ILLMAdapter;
+    public utils: Utils;
 
-    constructor(messages: Message[] = [], window: BrowserWindow | null = null) {
+    constructor(messages: Message[] = [], window: BrowserWindow | null = null, utils: Utils) {
         this.window = window;
-        this.chatManager = new ChatManager(messages);
+        this.utils = utils;
+        this.chatManager = new ChatManager(messages, {}, utils);
         this.adapter = LLMAdapterFactory.getAdapter("openai"); // 默认 API 适配器
     }
 
     public stopLoop() {
         this.stopFlag = true;
+        this.chatManager.uuid = this.chatManager.getUUID();
     }
 
     public startLoop() {
         this.stopFlag = false;
+        this.chatManager.uuid = this.chatManager.getUUID();
     }
 
     public async chatBase(data: ChatRequestData): Promise<Message | null> {
@@ -89,7 +94,8 @@ export class LLMService {
                 logger.error(`HTTP Error ${resp.status}: ${errorText}`);
                 this.window?.webContents.send('infoData', {
                     ...this.chatManager.chat,
-                    content: `Response error: ${errorText}\n`
+                    content: `Response error: ${errorText}\n`,
+                    uuid: data.uuid
                 });
                 return null;
             }
@@ -108,6 +114,7 @@ export class LLMService {
                     ...this.chatManager.chat,
                     content_reasoning: messageOutput.reasoning_content,
                     content: data.react ? `\n\n${finalResponseText}` : "",
+                    uuid: data.uuid,
                     end: true
                 });
             }
@@ -118,7 +125,8 @@ export class LLMService {
             logger.error(error);
             this.window?.webContents.send('infoData', {
                 ...this.chatManager.chat,
-                content: `Response error: ${error.message}\n`
+                content: `Response error: ${error.message}\n`,
+                uuid: data.uuid
             });
             return null;
         }
@@ -190,7 +198,8 @@ export class LLMService {
                 this.window?.webContents.send('streamData', {
                     ...this.chatManager.chat,
                     content: content,
-                    reasoning_content: reasoning_content
+                    reasoning_content: reasoning_content,
+                    uuid: data.uuid
                 });
             }
         }
@@ -212,7 +221,8 @@ export class LLMService {
             console.error(error);
             this.window?.webContents.send('infoData', {
                 ...this.chatManager.chat,
-                content: `Response error: ${error.message}\n`
+                content: `Response error: ${error.message}\n`,
+                uuid: data.uuid
             });
             return false;
         }
@@ -232,7 +242,8 @@ export class LLMService {
             this.window?.webContents.send('streamData', {
                 ...this.chatManager.chat,
                 content: `\n\n${data.output}`,
-                reasoning_content: reasoning_content
+                reasoning_content: reasoning_content,
+                uuid: data.uuid
             });
         }
 

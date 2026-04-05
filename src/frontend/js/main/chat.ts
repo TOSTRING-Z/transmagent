@@ -1,5 +1,6 @@
-import { DOM, State } from './globals';
-import { createElement, getIcon, formatString } from './utils';
+import { DOM } from './globals';
+import { State } from './state';
+import { createElement, getIcon } from './utils';
 import { marked } from './markdown';
 import { showLog } from './ui';
 
@@ -463,3 +464,5 @@ export async function startAgentLoop(data: any) {
   data.prompt = DOM.system_prompt.value;
   DOM.top_div.scrollTop = DOM.top_div.scrollHeight;
 }
+
+window.electronAPI.setUUID((uuid: string) => State.uuid = uuid);

@@ -1,10 +1,9 @@
 import { BrowserWindow, ipcMain } from 'electron';
-import * as fs from 'fs';
 import * as path from 'path';
 
 import { BaseWindow } from "./BaseWindow";
 import { WindowManager } from "./WindowManager";
-import { utils, sysConfig } from '../../utils/globals';
+import { sysConfig, store } from '../../utils/globals';
 import { LLMService } from '../../core/LLMService';
 import { ToolCall } from '../../core/ToolCall';
 import { Plugins } from '../../core/Plugins';
@@ -38,7 +37,7 @@ export class SubAgentWindow extends BaseWindow {
         this.agentTools = {};
         this.windows = [] as any; // 覆盖基类的 BrowserWindow | null
         this.windowListeners = new Map();
-        this.plugins = new Plugins();
+        this.plugins = new Plugins(this.utils());
         this.toolInit();
     }
 
@@ -121,22 +120,22 @@ export class SubAgentWindow extends BaseWindow {
                 if (this.agentTool) {
                     this.agentTool.tool_call.changeWindow(win);
                     // 子代理模式同主代理模式一样（计划模式例外）
-                    if (this.windowManager.mainWindow.tool_call.environment_details.mode !== Mode.PLAN) {
-                        this.agentTool.tool_call.changeMode(this.windowManager.mainWindow.llm_service.chatManager.chat.mode);
+                    if (this.windowManager.mainWindow.session().tool_call.environment_details.mode !== Mode.PLAN) {
+                        this.agentTool.tool_call.changeMode(this.windowManager.mainWindow.session().llm_service.chatManager.chat.mode);
                     } else {
                         // 计划模式下，子代理默认为自动模式
                         this.agentTool.tool_call.changeMode("auto");
                     }
 
-                    if (utils.getConfig("tool_call")?.subagent_llm_init || this.windows.length > 1) {
+                    if (this.utils().getConfig("tool_call")?.subagent_llm_init || this.windows.length > 1) {
                         this.agentTool.tool_call.llm_service.chatManager.init();
                     }
-                    const mainChat = this.windowManager.mainWindow.llm_service.chatManager.chat;
+                    const mainChat = this.windowManager.mainWindow.session().llm_service.chatManager.chat;
                     this.agentTool.tool_call.llm_service.chatManager.chat.tool_format = mainChat.tool_format;
                     this.agentTool.tool_call.llm_service.startLoop();
                     let data = this.agentTool.tool_call.getDataDefault({ query, model: mainChat.model, version: mainChat.version });
                     data = await this.agentTool.tool_call.callReAct(data);
-                    const res_json = utils.parseJsonContent(data.output_format);
+                    const res_json = this.utils().parseJsonContent(data.output_format);
                     resolve(res_json[0]?.content || data.output_format);
                 }
             });
@@ -183,15 +182,15 @@ export class SubAgentWindow extends BaseWindow {
     ): void {
         const { todolist = true, env = true, skill = true, mcp_server = false } = options;
 
-        const llm_service = new LLMService();
+        const llm_service = new LLMService(undefined, null, this.utils());
         llm_service.chatManager.chat.id = null as any;
         llm_service.chatManager.chat.name = tool_name;
 
         const normalizedTools = this.normalizeTools(tools);
 
         const tool_call = new ToolCall(
-            this.plugins, normalizedTools, llm_service, null,
-            { agent_prompt, subagent: true, todolist, env, skill, mcp_server, agent_name: tool_name },
+            this.plugins, normalizedTools, llm_service, null, this.utils(),
+            { agent_prompt, subagent: true, todolist, env, skill, mcp_server, agent_name: tool_name, agent_mode: store.get('agentMode', 'transagent') },
         );
 
         this.agentTools[tool_name] = {
@@ -222,9 +221,9 @@ export class SubAgentWindow extends BaseWindow {
     }
 
     private toolInit(): void {
-        if (!utils.getConfig()?.plugins?.cli_execute) return;
+        if (!this.utils().getConfig()?.plugins?.cli_execute) return;
 
-        this.plugins = new Plugins();
+        this.plugins = new Plugins(this.utils());
         this.plugins.loadInit(sysConfig.baseagent, true);
         this.plugins.loadInit(sysConfig.transagent, true);
 

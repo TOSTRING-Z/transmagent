@@ -2,7 +2,7 @@ import { BrowserWindow, ipcMain, dialog } from 'electron';
 import * as path from 'path';
 import { BaseWindow } from './BaseWindow';
 import { WindowManager } from './WindowManager';
-import { store, utils } from '../../utils/globals';
+import { store } from '../../utils/globals';
 import { LLMService } from '../../core/LLMService';
 import { ReActAgent } from '../../core/ReActAgent';
 
@@ -78,15 +78,15 @@ export class CodeWindow extends BaseWindow {
     }
 
     public setup() {
-        ipcMain.handle('get-file', (_, file_path) => utils.getFile(file_path));
+        ipcMain.handle('get-file', (_, file_path) => this.utils().getFile(file_path));
 
         ipcMain.handle('set-file', (_, content, file_path) => {
-            utils.setFile(content, file_path);
+            this.utils().setFile(content, file_path);
             this.windowManager.alertWindow?.show("success", "File saved, restart to apply");
             this.windowManager.mainWindow.restart(this.windowManager.mainWindow.window);
         });
 
-        ipcMain.handle('get-code-config', () => utils.getConfig("code") || {});
+        ipcMain.handle('get-code-config', () => this.utils().getConfig("code") || {});
 
         ipcMain.handle('open-file-dialog', async () => {
             if (!this.window) return null;
@@ -133,14 +133,14 @@ export class CodeWindow extends BaseWindow {
         ipcMain.handle('code-completion', async (_, { prefix, suffix, isMidWord }: { prefix: string; suffix: string; isMidWord: boolean }) => {
             try {
                 this.llm_service_completion?.stopLoop();
-                this.llm_service_completion = new LLMService();
-                this.react_agent_completion = new ReActAgent(this.llm_service_completion);
+                this.llm_service_completion = new LLMService(undefined, null, this.utils());
+                this.react_agent_completion = new ReActAgent(this.llm_service_completion, null, this.utils());
 
-                const prompt = utils.getConfig("code")?.completion?.prompt || "You are a code/text completion engine. Output code directly, no Markdown. If no completion is needed, return an empty string.";
+                const prompt = this.utils().getConfig("code")?.completion?.prompt || "You are a code/text completion engine. Output code directly, no Markdown. If no completion is needed, return an empty string.";
                 const query = `${prefix}<CURSOR>${suffix}`;
                 const data = this.react_agent_completion.getDataDefault({
                     prompt, query,
-                    params: { max_tokens: 200, stop: isMidWord ? ["\n", " "] : ["\n\n"], ...(utils.getConfig("code")?.completion?.params || {}) }
+                    params: { max_tokens: 200, stop: isMidWord ? ["\n", " "] : ["\n\n"], ...(this.utils().getConfig("code")?.completion?.params || {}) }
                 });
                 return await this.react_agent_completion.llmCall(data);
             } catch (e: any) {
@@ -152,13 +152,13 @@ export class CodeWindow extends BaseWindow {
         ipcMain.handle('code-refactor', async (_, code: string) => {
             try {
                 this.llm_service_refactor?.stopLoop();
-                this.llm_service_refactor = new LLMService();
-                this.react_agent_refactor = new ReActAgent(this.llm_service_refactor);
+                this.llm_service_refactor = new LLMService(undefined, null, this.utils());
+                this.react_agent_refactor = new ReActAgent(this.llm_service_refactor, null, this.utils());
 
-                const prompt = utils.getConfig("code")?.refactor?.prompt || `You are a strict code linter. Return JSON: {"errors": [{"text": "erroneous_code", "fix": "fixed_code"}]}.`;
+                const prompt = this.utils().getConfig("code")?.refactor?.prompt || `You are a strict code linter. Return JSON: {"errors": [{"text": "erroneous_code", "fix": "fixed_code"}]}.`;
                 const data = this.react_agent_refactor.getDataDefault({
                     prompt, query: code,
-                    params: { response_format: { type: "json_object" }, ...(utils.getConfig("code")?.refactor?.params || {}) }
+                    params: { response_format: { type: "json_object" }, ...(this.utils().getConfig("code")?.refactor?.params || {}) }
                 });
                 return await this.react_agent_refactor.llmCall(data);
             } catch (e: any) {
@@ -169,13 +169,13 @@ export class CodeWindow extends BaseWindow {
 
         ipcMain.handle('code-modify', async (_, { selectedText, instruction }: { selectedText: string; instruction: string }) => {
             try {
-                const llm_service = new LLMService();
-                const react_agent = new ReActAgent(llm_service);
-                const prompt = utils.getConfig("code")?.modify?.prompt || "You are an intelligent code assistant. Return only the modified code, no Markdown markers.";
+                const llm_service = new LLMService(undefined, null, this.utils());
+                const react_agent = new ReActAgent(llm_service, null, this.utils());
+                const prompt = this.utils().getConfig("code")?.modify?.prompt || "You are an intelligent code assistant. Return only the modified code, no Markdown markers.";
                 const query = `[CODE START]\n${selectedText}\n[CODE END]\n\nUser instruction: ${instruction}\n\nPlease modify the code above:`;
                 const data = react_agent.getDataDefault({
                     prompt, query,
-                    params: { ...(utils.getConfig("code")?.modify?.params || {}) }
+                    params: { ...(this.utils().getConfig("code")?.modify?.params || {}) }
                 });
                 return await react_agent.llmCall(data);
             } catch (e: any) {
@@ -206,13 +206,13 @@ export class CodeWindow extends BaseWindow {
 
         ipcMain.handle('detect-language', async (_, code: string) => {
             try {
-                const llm_service = new LLMService();
-                const react_agent = new ReActAgent(llm_service);
+                const llm_service = new LLMService(undefined, null, this.utils());
+                const react_agent = new ReActAgent(llm_service, null, this.utils());
                 const prompt = "You are a programming language detector. Output ONLY the lowercase language name.";
                 const snippet = code?.length > 1000 ? code.slice(0, 1000) : code;
                 const data = react_agent.getDataDefault({
                     prompt, query: snippet,
-                    params: { temperature: 0.1, max_tokens: 20, ...(utils.getConfig("code")?.detect?.params || {}) }
+                    params: { temperature: 0.1, max_tokens: 20, ...(this.utils().getConfig("code")?.detect?.params || {}) }
                 });
                 const messageOutput = await react_agent.llmCall(data);
                 if (messageOutput) {

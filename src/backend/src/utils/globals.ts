@@ -36,7 +36,6 @@ function createStore() {
 }
 
 export const store = createStore();
-export let utils = new Utils(store.get('agentMode', 'transagent'));
 
 export const CONSTANTS = {
     COLLECTION_URL: '/collection',
@@ -55,8 +54,6 @@ export const extraPrompt = {
     baseagent: "prompts/baseagent.md",
     multagent: "prompts/multagent.md",
 };
-
-export const getCliPromptPath = () => utils.getConfig("tool_call").cli_prompt || utils.getDefault("prompts/cli_prompt.md")
 
 export const CHAT_CONST = {
     DEFAULT_NAME: "New Chat"

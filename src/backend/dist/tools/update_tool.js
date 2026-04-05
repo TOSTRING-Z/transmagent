@@ -37,7 +37,7 @@ exports.main = main;
 exports.getPrompt = getPrompt;
 const fs = __importStar(require("fs"));
 const logger_1 = require("../utils/logger");
-const globals_1 = require("../utils/globals");
+const WindowManager_1 = require("../main/windows/WindowManager");
 function main() {
     return async (params) => {
         try {
@@ -46,7 +46,7 @@ function main() {
                 throw new Error("Both tool_name and tool_documentation parameters are required");
             }
             // 安全获取 prompt 配置文件路径
-            const prompt_file = (0, globals_1.getCliPromptPath)();
+            const prompt_file = WindowManager_1.WindowManager.instance.mainWindow.session().utils.getConfig("tool_call").cli_prompt || WindowManager_1.WindowManager.instance.mainWindow.session().utils.getDefault("prompts/cli_prompt.md");
             if (!fs.existsSync(prompt_file)) {
                 // 如果文件不存在，初始化一个空文件
                 fs.writeFileSync(prompt_file, '', 'utf8');

@@ -41,7 +41,7 @@ const fs = __importStar(require("fs"));
 const os = __importStar(require("os"));
 const electron_1 = require("electron");
 const ssh2_1 = require("ssh2");
-const globals_1 = require("../utils/globals");
+const utils = __importStar(require("../utils/public"));
 const logger_1 = require("../utils/logger");
 const LLMAssistant_1 = require("../core/LLMAssistant");
 const WindowManager_1 = require("../main/windows/WindowManager");
@@ -280,7 +280,7 @@ function main(initialParams = {}) {
                     llmService = tool_call.llm_service;
                 }
                 else {
-                    llmService = WindowManager_1.WindowManager.instance.mainWindow.llm_service;
+                    llmService = WindowManager_1.WindowManager.instance.mainWindow.session().llm_service;
                 }
                 llmAssistant = new LLMAssistant_1.LLMAssistant(llmService, null);
             }
@@ -335,7 +335,7 @@ function main(initialParams = {}) {
                     message: `Command execution timed out after ${params.timeout} seconds, but returning current console output`
                 });
             }, params.timeout * 1000);
-            const sshConfig = globals_1.utils.getSshConfig();
+            const sshConfig = utils.getSshConfig();
             let inputHandler = null;
             let signalHandler = null;
             if (sshConfig?.enabled) {

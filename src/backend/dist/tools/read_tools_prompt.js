@@ -43,7 +43,7 @@ function main() {
             ? skillManager.getSkillPrompt(relevantSkills)
             : `No matching skills found for: ${skill_names.join(', ') || 'all'}.`;
         // --- 2. 处理 Tool 逻辑 ---
-        const mcp_client = WindowManager_1.WindowManager.instance.mainWindow.tool_call.mcp_client;
+        const mcp_client = WindowManager_1.WindowManager.instance.mainWindow.session().tool_call.mcp_client;
         await mcp_client.initMcp();
         const mcp_prompt = mcp_client.mcpPrompt;
         const mcp_tool_prompts = mcp_client.toolPrompts;

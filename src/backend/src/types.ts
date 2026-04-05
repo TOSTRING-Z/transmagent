@@ -150,8 +150,9 @@ export interface ChatState {
 }
 
 export interface ChatRequestData {
-    id: string;
+    uuid: string;
     input: string;
+    id: string;
     api_type: "openai" | "anthropic" | "ollama";
     api_url: string;
     version: string;

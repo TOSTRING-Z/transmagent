@@ -1,7 +1,6 @@
 import { BrowserWindow, ipcMain, dialog } from 'electron';
 import { BaseWindow } from './BaseWindow';
 import { WindowManager } from './WindowManager';
-import { utils } from '../../utils/globals';
 
 export class ToolWindow extends BaseWindow {
     constructor(windowManager: WindowManager) {
@@ -48,28 +47,28 @@ export class ToolWindow extends BaseWindow {
     }
 
     public setup() {
-        ipcMain.handle('get-tools', async () => utils.getConfig("plugins") || {});
+        ipcMain.handle('get-tools', async () => this.utils().getConfig("plugins") || {});
 
         ipcMain.handle('save-tool', async (_, toolData) => {
             if (!toolData?.id) {
                 this.windowManager.alertWindow?.show("error", "Tool ID is required.");
                 return;
             }
-            const config = utils.getConfig();
+            const config = this.utils().getConfig();
             const plugins = config.plugins || {};
             plugins[toolData.id] = toolData;
             config.plugins = plugins;
-            utils.setConfig(config);
+            this.utils().setConfig(config);
             this.windowManager.alertWindow?.show("success", "Tool saved successfully!");
         });
 
         ipcMain.handle('delete-tool', async (_, id) => {
-            const config = utils.getConfig();
+            const config = this.utils().getConfig();
             const plugins = config.plugins || {};
             if (plugins[id]) {
                 delete plugins[id];
                 config.plugins = plugins;
-                utils.setConfig(config);
+                this.utils().setConfig(config);
                 this.windowManager.alertWindow?.show("success", "Tool deleted successfully!");
             }
         });

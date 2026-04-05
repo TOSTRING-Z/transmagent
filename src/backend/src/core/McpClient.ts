@@ -2,7 +2,7 @@ import { Client } from "@modelcontextprotocol/sdk/client/index.js";
 import { StdioClientTransport } from "@modelcontextprotocol/sdk/client/stdio.js";
 import { StreamableHTTPClientTransport } from "@modelcontextprotocol/sdk/client/streamableHttp.js";
 import { CallToolResultSchema } from "@modelcontextprotocol/sdk/types.js";
-import { utils } from '../utils/globals';
+import * as utils from '../utils/public';
 
 /**
  * MCP 服务端配置接口
@@ -84,7 +84,7 @@ class MCPClient {
 
         if (!client) throw new Error(`MCP tool "${params.name}" not found.`);
 
-        const timeout = (utils.getConfig("tool_call")?.mcp_timeout || 600) * 1000;
+        const timeout = (this.toolcall?.utils.getConfig("tool_call")?.mcp_timeout || 600) * 1000;
         
         return await client.callTool(
             params, 
@@ -99,7 +99,7 @@ class MCPClient {
     async initMcp() {
         if (this.isInitialized) return;
 
-        const configs: Record<string, McpConfig> = utils.getConfig("mcp_server") || {};
+        const configs: Record<string, McpConfig> = this.toolcall?.utils.getConfig("mcp_server") || {};
         
         // 并发初始化所有 client 提升速度
         await Promise.all(

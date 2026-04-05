@@ -1,7 +1,6 @@
 import { BrowserWindow, ipcMain } from 'electron';
 import { BaseWindow } from './BaseWindow';
 import { WindowManager } from './WindowManager';
-import { utils } from '../../utils/globals';
 
 export class ModelWindow extends BaseWindow {
     constructor(windowManager: WindowManager) {
@@ -50,7 +49,7 @@ export class ModelWindow extends BaseWindow {
     public setup() {
         ipcMain.handle('get-models', async () => {
             const models: any[] = [];
-            const config_models = utils.getConfig("models") || {};
+            const config_models = this.utils().getConfig("models") || {};
 
             for (const name in config_models) {
                 const versions = config_models[name]["versions"] || [];
@@ -60,7 +59,7 @@ export class ModelWindow extends BaseWindow {
                         llm_params = version.llm_params;
                     }
                     models.push({
-                        id: utils.hashCode(`${name}-${version.version}`),
+                        id: this.utils().hashCode(`${name}-${version.version}`),
                         name,
                         api_url: config_models[name].api_url,
                         api_key: config_models[name]?.api_key,
@@ -84,13 +83,13 @@ export class ModelWindow extends BaseWindow {
                 return;
             }
 
-            const config = utils.getConfig();
+            const config = this.utils().getConfig();
             const config_models: Record<string, any> = config.models || {};
 
             // 先从旧位置移除（处理改名场景）
             for (const model_name in config_models) {
                 config_models[model_name].versions = config_models[model_name].versions.filter((v: any) => {
-                    return utils.hashCode(`${model_name}-${v.version}`) !== modelData.id;
+                    return this.utils().hashCode(`${model_name}-${v.version}`) !== modelData.id;
                 });
                 if (config_models[model_name].versions.length === 0) delete config_models[model_name];
             }
@@ -122,24 +121,24 @@ export class ModelWindow extends BaseWindow {
             }
 
             config.models = config_models;
-            utils.setConfig(config);
+            this.utils().setConfig(config);
             this.windowManager.alertWindow?.show("success", "Model saved successfully!");
             this.windowManager.mainWindow.updateVersionsSubmenu();
         });
 
         ipcMain.handle('delete-model', async (_, id) => {
-            const config = utils.getConfig();
+            const config = this.utils().getConfig();
             const config_models: Record<string, any> = config.models || {};
 
             for (const name in config_models) {
                 config_models[name].versions = config_models[name].versions.filter((v: any) => {
-                    return utils.hashCode(`${name}-${v.version}`) !== id;
+                    return this.utils().hashCode(`${name}-${v.version}`) !== id;
                 });
                 if (config_models[name].versions.length === 0) delete config_models[name];
             }
 
             config.models = config_models;
-            utils.setConfig(config);
+            this.utils().setConfig(config);
             this.windowManager.alertWindow?.show("success", "Model deleted successfully!");
             this.windowManager.mainWindow.updateVersionsSubmenu();
         });

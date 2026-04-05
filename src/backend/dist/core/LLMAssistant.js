@@ -4,7 +4,6 @@ exports.LLMAssistant = void 0;
 const LLMService_1 = require("./LLMService");
 const ReActAgent_1 = require("./ReActAgent");
 const AdapterFactory_1 = require("../factories/AdapterFactory");
-const globals_1 = require("../utils/globals");
 const logger_1 = require("../utils/logger");
 /**
  * LLMAssistant - LLM对话辅助功能类
@@ -13,9 +12,11 @@ const logger_1 = require("../utils/logger");
 class LLMAssistant {
     llm_service;
     plugins;
-    constructor(llm_service, plugins = null) {
+    utils;
+    constructor(llm_service, plugins = null, utils) {
         this.llm_service = llm_service;
         this.plugins = plugins;
+        this.utils = utils;
     }
     setLLMService(llm_service) {
         this.llm_service = llm_service;
@@ -30,7 +31,7 @@ class LLMAssistant {
      * @param modifyMessages 可选回调，用于对拷贝的消息列表进行修改
      */
     createTempAgent(modifyMessages) {
-        const temp_llm_service = new LLMService_1.LLMService();
+        const temp_llm_service = new LLMService_1.LLMService(undefined, null, this.utils);
         // 复制聊天配置
         temp_llm_service.chatManager.chat = { ...this.llm_service.chatManager.chat };
         // 深拷贝消息，规避原代码中修改引用带来的越权污染隐患
@@ -39,7 +40,7 @@ class LLMAssistant {
             modifyMessages(clonedMessages);
         }
         temp_llm_service.chatManager.messages = clonedMessages;
-        return new ReActAgent_1.ReActAgent(temp_llm_service);
+        return new ReActAgent_1.ReActAgent(temp_llm_service, null, this.llm_service.utils);
     }
     // ==================== 对话压缩功能 ====================
     async compressionGroupMessage({ group_id }) {
@@ -53,7 +54,7 @@ class LLMAssistant {
             const data = react_agent.getDataDefault({
                 prompt,
                 query,
-                params: { ...globals_1.utils.getConfig("llm_params"), temperature: 0.3 },
+                params: { ...this.utils.getConfig("llm_params"), temperature: 0.3 },
                 llm_conversation_mode: true
             });
             let messageOutput = await react_agent.llmCall(data);
@@ -98,12 +99,12 @@ class LLMAssistant {
     // ==================== 聊天命名功能 ====================
     async setChatName(_data = {}) {
         if (_data?.is_plugin) {
-            this.llm_service.chatManager.chat.name = globals_1.utils.formatDate();
+            this.llm_service.chatManager.chat.name = this.utils.formatDate();
             return;
         }
         const react_agent = this.createTempAgent();
         const prompt = `You are an intelligent assistant skilled at generating short chat names based on contextual content.`;
-        const query = `Generate a short ${_data?.language || globals_1.utils.getLanguage()} chat name based on context...`;
+        const query = `Generate a short ${_data?.language || this.utils.getLanguage()} chat name based on context...`;
         const callData = react_agent.getDataDefault({
             prompt,
             query,
@@ -117,7 +118,7 @@ class LLMAssistant {
             const adapter = AdapterFactory_1.ToolCallAdapterFactory.getAdapter(format);
             const rawContent = adapter.extractText(messageOutput);
             const chatName = rawContent.split("\n")[0].trim();
-            this.llm_service.chatManager.chat.name = chatName || globals_1.utils.formatDate();
+            this.llm_service.chatManager.chat.name = chatName || this.utils.formatDate();
         }
     }
     // ==================== 工具审计功能 ====================
@@ -131,7 +132,7 @@ class LLMAssistant {
         return (tool && typeof tool === 'object') ? tool : null;
     }
     async auditToolCall(toolInfo, data) {
-        if (!toolInfo.tool_call_name || !this.isToolRequireAudit(toolInfo.tool_call_name) || !globals_1.utils.getConfig("tool_call")?.llm_judge) {
+        if (!toolInfo.tool_call_name || !this.isToolRequireAudit(toolInfo.tool_call_name) || !this.utils.getConfig("tool_call")?.llm_judge) {
             return null;
         }
         logger_1.logger.log(`[Critic] 正在审查敏感工具调用: ${toolInfo.tool_call_name} (ID: ${toolInfo.tool_call_id})...`);
@@ -175,7 +176,7 @@ ${payloadString}
         const callData = critic_agent.getDataDefault({
             ...data,
             query: criticQuery,
-            params: { ...globals_1.utils.getConfig("llm_params"), temperature: 0.3 },
+            params: { ...this.utils.getConfig("llm_params"), temperature: 0.3 },
             llm_conversation_mode: true,
             output_format: null
         });
@@ -249,7 +250,7 @@ ${consoleOutput}
             const callData = react_agent.getDataDefault({
                 query,
                 params: {
-                    ...globals_1.utils.getConfig("llm_params"),
+                    ...this.utils.getConfig("llm_params"),
                     temperature: 0.1,
                     tool_choice: "none",
                     response_format: { type: "json_object" }
@@ -286,7 +287,7 @@ Please create a concise summary of the key points, important decisions, and valu
             const callData = react_agent.getDataDefault({
                 query,
                 params: {
-                    ...globals_1.utils.getConfig("llm_params"),
+                    ...this.utils.getConfig("llm_params"),
                     temperature: 0.3,
                     tool_choice: "none"
                 },

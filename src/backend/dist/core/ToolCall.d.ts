@@ -6,6 +6,8 @@ import Prompts from './Prompts';
 import MemoryManager from '../data/MemoryManager';
 import { Plugins } from './Plugins';
 import { LLMAssistant } from './LLMAssistant';
+import { Utils } from '../utils/Utils';
+import { BrowserWindow } from 'electron/main';
 export interface Observation {
     result: string;
     options?: string[];
@@ -19,7 +21,7 @@ export interface AgentConfigs {
     env?: boolean;
     skill?: boolean;
     subagent?: boolean;
-    agent_mode?: "transagent" | "multagent" | "baseagent";
+    agent_mode: "transagent" | "multagent" | "baseagent";
     agent_name?: string;
     tool_format?: string;
 }
@@ -61,7 +63,7 @@ export declare class ToolCall extends ReActAgent {
     private rememberedChoices;
     assistant: LLMAssistant;
     tool_schemas?: any[];
-    constructor(plugins: Plugins, agentTools: Record<string, any> | undefined, llm_service: LLMService, window: any, agentConfigs?: AgentConfigs);
+    constructor(plugins: Plugins, agentTools: Record<string, any> | undefined, llm_service: LLMService, window: BrowserWindow | null, utils: Utils, agentConfigs?: AgentConfigs);
     initVar(): void;
     /**
      * 获取工具配置（委托给 LLMAssistant）

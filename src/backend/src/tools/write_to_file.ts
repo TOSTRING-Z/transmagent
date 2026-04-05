@@ -2,7 +2,8 @@ import * as fs from 'fs';
 import * as path from 'path';
 import { Client, ConnectConfig } from 'ssh2';
 import { logger } from '../utils/logger';
-import { utils } from '../utils/globals';
+import * as utils from '../utils/public';
+import { WindowManager } from '../main/windows/WindowManager';
 
 /**
  * 工业级文件写入工具 (精简版)
@@ -85,7 +86,7 @@ export function main() {
                 throw new Error("file_path is required");
             }
 
-            const sshConfig = utils?.getSshConfig ? utils.getSshConfig() : null;
+            const sshConfig = WindowManager.instance.mainWindow.session().utils.getSshConfig ? WindowManager.instance.mainWindow.session().utils.getSshConfig() : null;
             const isRemote = !!(sshConfig?.enabled && sshConfig?.host);
 
             if (isRemote) {

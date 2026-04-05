@@ -1,6 +1,7 @@
 import { LLMService } from './LLMService';
 import { Plugins } from './Plugins';
 import { ToolInfo } from '../types';
+import { Utils } from '../utils/Utils';
 /**
  * LLMAssistant - LLM对话辅助功能类
  * 统一管理压缩对话、设置聊天名称、工具审计等LLM交互功能
@@ -8,7 +9,8 @@ import { ToolInfo } from '../types';
 export declare class LLMAssistant {
     private llm_service;
     private plugins;
-    constructor(llm_service: LLMService, plugins?: Plugins | null);
+    private utils;
+    constructor(llm_service: LLMService, plugins: (Plugins | null) | undefined, utils: Utils);
     setLLMService(llm_service: LLMService): void;
     setPlugins(plugins: Plugins): void;
     /**

@@ -1,6 +1,5 @@
 import { globalShortcut } from 'electron'
 import { logger } from '../utils/logger';
-import { utils } from '../utils/globals';
 import { WindowManager } from './windows/WindowManager';
 import { captureMouse } from '../mouse/CaptureMouse';
 
@@ -12,7 +11,7 @@ export class Shortcut {
     }
 
     public init(): void {
-        const shortcutKey: string = utils.getConfig("short_cut");
+        const shortcutKey: string = WindowManager.instance.mainWindow.session().utils.getConfig("short_cut");
 
         if (!shortcutKey) {
             console.warn("[Shortcut] No shortcut key configured.");

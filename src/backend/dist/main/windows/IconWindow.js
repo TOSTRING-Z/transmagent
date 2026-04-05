@@ -4,7 +4,6 @@ exports.IconWindow = void 0;
 const electron_1 = require("electron");
 const BaseWindow_1 = require("./BaseWindow");
 const WindowManager_1 = require("./WindowManager");
-const globals_1 = require("../../utils/globals");
 class IconWindow extends BaseWindow_1.BaseWindow {
     width = 200;
     height = 40;
@@ -17,7 +16,7 @@ class IconWindow extends BaseWindow_1.BaseWindow {
             return;
         const x = position.x;
         const y = position.y > 50 ? position.y - 50 : position.y;
-        const autoCloseMs = (globals_1.utils.getConfig("icon_time") || 5) * 1000;
+        const autoCloseMs = (this.utils().getConfig("icon_time") || 5) * 1000;
         if (this.window) {
             this.window.setPosition(x, y);
             this.resetAutoClose(autoCloseMs);

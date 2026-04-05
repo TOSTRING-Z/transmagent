@@ -34,7 +34,10 @@
       innerText: "0"
     }
   };
+
+  // main/state.ts
   var State = {
+    uuid: null,
     markdown_statu: true,
     chat: {},
     scroll_top: {
@@ -784,6 +787,7 @@ $$
     data.prompt = DOM.system_prompt.value;
     DOM.top_div.scrollTop = DOM.top_div.scrollHeight;
   }
+  window.electronAPI.setUUID((uuid) => State.uuid = uuid);
 
   // main/history.ts
   var new_item_template = `<div class="history-item" onclick="selectChat('@id')">
@@ -1320,6 +1324,9 @@ ${DOM.input.value}`;
   window.electronAPI.handleMarkDownFormat((status) => State.markdown_statu = status);
   window.electronAPI.handleReactStatu((status) => State.react_statu = status);
   window.electronAPI.streamData((data) => {
+    if (data.uuid && data.uuid !== State.uuid) {
+      return;
+    }
     updateChat(data);
     if (data?.id !== State.chat.id) {
       return;
@@ -1342,6 +1349,9 @@ ${DOM.input.value}`;
     });
   });
   window.electronAPI.toolData((data) => {
+    if (data.uuid && data.uuid !== State.uuid) {
+      return;
+    }
     updateChat(data);
     if (data?.id !== State.chat.id) {
       return;
@@ -1349,6 +1359,9 @@ ${DOM.input.value}`;
     toolData(data);
   });
   window.electronAPI.infoData((data) => {
+    if (data.uuid && data.uuid !== State.uuid) {
+      return;
+    }
     updateChat(data);
     if (data?.id !== State.chat.id) {
       return;
@@ -1364,6 +1377,9 @@ ${DOM.input.value}`;
     }
   });
   window.electronAPI.userData((data) => {
+    if (data.uuid && data.uuid !== State.uuid) {
+      return;
+    }
     updateChat(data);
     if (data?.id !== State.chat.id) {
       return;
@@ -1434,13 +1450,16 @@ ${DOM.input.value}`;
   window.electronAPI.handleNewChat((chat) => handleNewChat(chat));
   window.electronAPI.handleSelectChat((chat) => selectChat(chat.id));
   window.electronAPI.handleSetChat(async (chat) => initChat(chat));
-  window.electronAPI.handleAutoRenameChat(async (chat) => {
-    State.chat.id = chat.id;
-    await window.electronAPI.renameChat({ id: State.chat.id, name: chat.name });
+  window.electronAPI.handleAutoRenameChat(async (data) => {
+    if (data.uuid && data.uuid !== State.uuid) {
+      return;
+    }
+    State.chat.id = data.id;
+    await window.electronAPI.renameChat({ id: State.chat.id, name: data.name });
     const items = DOM.history_list.getElementsByClassName("history-item");
     Array.from(items).forEach((item) => {
       if (item.id == State.chat.id)
-        item.getElementsByClassName("history-text")[0].innerText = chat.name;
+        item.getElementsByClassName("history-text")[0].innerText = data.name;
     });
   });
   window.hideConfig = hideConfig;

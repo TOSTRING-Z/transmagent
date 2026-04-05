@@ -1,8 +1,6 @@
 import { BrowserWindow, ipcMain, clipboard } from 'electron';
 import { BaseWindow } from './BaseWindow';
 import { WindowManager } from './WindowManager';
-import { utils } from '../../utils/globals';
-
 export class IconWindow extends BaseWindow {
     public width = 200;
     public height = 40;
@@ -17,7 +15,7 @@ export class IconWindow extends BaseWindow {
 
         const x = position.x;
         const y = position.y > 50 ? position.y - 50 : position.y;
-        const autoCloseMs = (utils.getConfig("icon_time") || 5) * 1000;
+        const autoCloseMs = (this.utils().getConfig("icon_time") || 5) * 1000;
 
         if (this.window) {
             this.window.setPosition(x, y);

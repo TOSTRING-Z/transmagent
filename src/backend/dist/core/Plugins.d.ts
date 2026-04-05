@@ -1,3 +1,4 @@
+import { Utils } from '../utils/Utils';
 export interface PluginItem {
     func: (...args: any[]) => any;
     extra?: any;
@@ -13,7 +14,8 @@ export interface PluginItem {
 export declare class Plugins {
     static instance: Plugins | null;
     private tools;
-    constructor();
+    private utils;
+    constructor(utils: Utils);
     getTool(name?: string | null): PluginItem | Record<string, PluginItem>;
     private loadPlugin;
     loadInit(config_name?: string | null, forceLoad?: boolean): void;

@@ -33,11 +33,10 @@ var __importStar = (this && this.__importStar) || (function () {
     };
 })();
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.CHAT_CONST = exports.getCliPromptPath = exports.extraPrompt = exports.sysConfig = exports.CONSTANTS = exports.utils = exports.store = void 0;
+exports.CHAT_CONST = exports.extraPrompt = exports.sysConfig = exports.CONSTANTS = exports.store = void 0;
 const fs = __importStar(require("fs"));
 const path = __importStar(require("path"));
 const os = __importStar(require("os"));
-const Utils_1 = require("./Utils");
 function createStore() {
     const configPath = path.join(os.homedir(), '.transmagent', 'story.json');
     const ensureConfigFile = () => {
@@ -67,7 +66,6 @@ function createStore() {
     };
 }
 exports.store = createStore();
-exports.utils = new Utils_1.Utils(exports.store.get('agentMode', 'transagent'));
 exports.CONSTANTS = {
     COLLECTION_URL: '/collection',
     PLUGIN_MODEL_NAME: 'plugins'
@@ -82,8 +80,6 @@ exports.extraPrompt = {
     baseagent: "prompts/baseagent.md",
     multagent: "prompts/multagent.md",
 };
-const getCliPromptPath = () => exports.utils.getConfig("tool_call").cli_prompt || exports.utils.getDefault("prompts/cli_prompt.md");
-exports.getCliPromptPath = getCliPromptPath;
 exports.CHAT_CONST = {
     DEFAULT_NAME: "New Chat"
 };

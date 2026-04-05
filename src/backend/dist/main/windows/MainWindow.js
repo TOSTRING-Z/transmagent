@@ -44,99 +44,21 @@ const worker_threads_1 = require("worker_threads");
 const BaseWindow_1 = require("./BaseWindow");
 const WindowManager_1 = require("./WindowManager");
 const globals_1 = require("../../utils/globals");
-const LLMService_1 = require("../../core/LLMService");
 const ReActAgent_1 = require("../../core/ReActAgent");
-const ToolCall_1 = require("../../core/ToolCall");
-const ChainCall_1 = require("../../core/ChainCall");
-const Plugins_1 = require("../../core/Plugins");
 const CaptureMouse_1 = require("../../mouse/CaptureMouse");
 const Install_1 = require("../../core/Install");
 const MainServer_1 = require("../../server/MainServer");
+const SessionManager_1 = require("../../core/SessionManager");
 class MainWindow extends BaseWindow_1.BaseWindow {
     funcItems;
-    plugins;
-    llm_service;
-    tool_call;
-    chain_call;
+    sessionManager;
     main_server;
     worker;
     last_clipboard_content;
     concat;
-    agentMode;
+    session;
     constructor(windowManager) {
         super(windowManager);
-        this.agentMode = globals_1.store.get('agentMode', 'transagent');
-        this.funcItems = {
-            clip: {
-                statu: globals_1.utils.getConfig("func_status")?.clip || false,
-                event: () => { },
-                click: () => { this.funcItems.clip.statu = !this.funcItems.clip.statu; }
-            },
-            markdown: {
-                statu: globals_1.utils.getConfig("func_status")?.markdown || false,
-                event: () => { },
-                click: () => {
-                    this.funcItems.markdown.statu = !this.funcItems.markdown.statu;
-                    this.funcItems.markdown.event();
-                }
-            },
-            text: {
-                statu: globals_1.utils.getConfig("func_status")?.text || false,
-                event: () => { },
-                click: () => { this.funcItems.text.statu = !this.funcItems.text.statu; }
-            },
-            del: {
-                statu: globals_1.utils.getConfig("func_status")?.del || false,
-                event: () => { },
-                click: () => { this.funcItems.del.statu = !this.funcItems.del.statu; }
-            },
-            react: {
-                statu: globals_1.utils.getConfig("func_status")?.react || true,
-                event: () => { },
-                transagent: {
-                    statu: globals_1.sysConfig[this.agentMode] === globals_1.sysConfig.transagent,
-                    click: () => {
-                        this.funcItems.react.event();
-                        this.agentMode = 'transagent';
-                        globals_1.utils.agentMode = this.agentMode;
-                        globals_1.store.set('agentMode', 'transagent');
-                        this.setActiveAgent('transagent');
-                        this.serverInit();
-                    }
-                },
-                baseagent: {
-                    statu: globals_1.sysConfig[this.agentMode] === globals_1.sysConfig.baseagent,
-                    click: () => {
-                        this.funcItems.react.event();
-                        this.agentMode = 'baseagent';
-                        globals_1.utils.agentMode = this.agentMode;
-                        globals_1.store.set('agentMode', 'baseagent');
-                        this.setActiveAgent('baseagent');
-                        this.serverInit();
-                    }
-                },
-                multagent: {
-                    statu: globals_1.sysConfig[this.agentMode] === globals_1.sysConfig.multagent,
-                    click: () => {
-                        this.funcItems.react.event();
-                        this.agentMode = 'multagent';
-                        globals_1.utils.agentMode = this.agentMode;
-                        globals_1.store.set('agentMode', 'multagent');
-                        this.setActiveAgent('multagent');
-                        this.serverInit();
-                    }
-                },
-                llm: {
-                    statu: false,
-                    click: () => {
-                        this.funcItems.react.statu = !this.funcItems.react.statu;
-                        this.funcItems.react.llm.statu = !this.funcItems.react.llm.statu;
-                        this.funcItems.react.event();
-                        this.updateVersionsSubmenu();
-                    }
-                },
-            },
-        };
     }
     setActiveAgent(activeAgent) {
         // 重置所有状态
@@ -182,13 +104,13 @@ class MainWindow extends BaseWindow_1.BaseWindow {
         }).catch(err => console.error('Restart prompt failed:', err));
     }
     setupHeartbeat() {
-        const heartbeat = globals_1.utils.getConfig("heartbeat");
+        const heartbeat = this.session().utils.getConfig("heartbeat");
         if (heartbeat && heartbeat.enabled) {
             logger_1.logger.log(`[Heartbeat] Service started. Interval: ${heartbeat.interval}s`);
             setInterval(async () => {
-                if (this.tool_call && (this.tool_call.state === ReActAgent_1.State.IDLE || this.tool_call.state === ReActAgent_1.State.FINAL)) {
+                if (this.session().tool_call && (this.session().tool_call.state === ReActAgent_1.State.IDLE || this.session().tool_call.state === ReActAgent_1.State.FINAL)) {
                     try {
-                        let time = this.tool_call.environment_details.time;
+                        let time = this.session().tool_call.environment_details.time;
                         let query = { query: `[${time}] This is a heartbeat timestamp. Please keep the system active.` };
                         this.sendQuery(query);
                     }
@@ -200,42 +122,11 @@ class MainWindow extends BaseWindow_1.BaseWindow {
         }
     }
     serverInit() {
-        this.plugins = new Plugins_1.Plugins();
-        this.plugins.loadInit();
-        this.llm_service = new LLMService_1.LLMService([], this.window);
-        let agentTools = {};
-        let agent_mode = "transagent";
-        let mcp_server = true;
-        let skill = true;
-        if (this.funcItems.react.transagent.statu && globals_1.utils.getConfig("tool_call")?.subagent) {
-            agentTools = { "tool_manager": this.windowManager.subAgentWindow?.agentTools?.["tool_manager"] };
-        }
-        if (this.funcItems.react.multagent.statu) {
-            agent_mode = "multagent";
-            mcp_server = false;
-            skill = false;
-            agentTools = { ...this.windowManager.subAgentWindow?.getMainSubAgent() };
-        }
-        if (this.funcItems.react.baseagent.statu) {
-            agent_mode = "baseagent";
-        }
-        agentTools["deep_researcher"] = this.windowManager.subAgentWindow?.agentTools?.["deep_researcher"];
-        this.tool_call = new ToolCall_1.ToolCall(this.plugins, agentTools, this.llm_service, this.window, {
-            agent_prompt: null,
-            mcp_server: mcp_server,
-            todolist: true,
-            env: true,
-            skill: skill,
-            subagent: false,
-            agent_mode: agent_mode,
-            agent_name: "TransMAgent"
-        });
-        this.chain_call = new ChainCall_1.ChainCall(this.plugins, this.llm_service, this.window);
         this.main_server = new MainServer_1.MainServer(this);
         // 启动 WebServer Worker
         this.worker = new worker_threads_1.Worker(path.join(__dirname, '../../server/MainWorker.js'));
         // 传入配置启动
-        const webserverConfig = globals_1.utils.getConfig("webserver");
+        const webserverConfig = this.session().utils.getConfig("webserver");
         this.worker.postMessage({
             type: 'start',
             config: {
@@ -279,7 +170,72 @@ class MainWindow extends BaseWindow_1.BaseWindow {
                 preload: path.join(__dirname, '../preloads/main_window_preload.js'),
             },
         });
+        this.sessionManager = new SessionManager_1.SessionManager(this.window);
+        this.sessionManager.addSession();
         this.serverInit();
+        this.session = () => this.sessionManager.getActiveSession();
+        this.funcItems = {
+            clip: {
+                statu: this.session().utils.getConfig("func_status")?.clip || false,
+                event: () => { },
+                click: () => { this.funcItems.clip.statu = !this.funcItems.clip.statu; }
+            },
+            markdown: {
+                statu: this.session().utils.getConfig("func_status")?.markdown || false,
+                event: () => { },
+                click: () => {
+                    this.funcItems.markdown.statu = !this.funcItems.markdown.statu;
+                    this.funcItems.markdown.event();
+                }
+            },
+            text: {
+                statu: this.session().utils.getConfig("func_status")?.text || false,
+                event: () => { },
+                click: () => { this.funcItems.text.statu = !this.funcItems.text.statu; }
+            },
+            del: {
+                statu: this.session().utils.getConfig("func_status")?.del || false,
+                event: () => { },
+                click: () => { this.funcItems.del.statu = !this.funcItems.del.statu; }
+            },
+            react: {
+                statu: this.session().utils.getConfig("func_status")?.react || true,
+                event: () => { },
+                transagent: {
+                    statu: globals_1.sysConfig[this.sessionManager.getAgentMode()] === globals_1.sysConfig.transagent,
+                    click: () => {
+                        this.funcItems.react.event();
+                        this.setActiveAgent('transagent');
+                        this.sessionManager.setActiveagentMode('multagent');
+                    }
+                },
+                baseagent: {
+                    statu: globals_1.sysConfig[this.sessionManager.getAgentMode()] === globals_1.sysConfig.baseagent,
+                    click: () => {
+                        this.funcItems.react.event();
+                        this.setActiveAgent('baseagent');
+                        this.sessionManager.setActiveagentMode('multagent');
+                    }
+                },
+                multagent: {
+                    statu: globals_1.sysConfig[this.sessionManager.getAgentMode()] === globals_1.sysConfig.multagent,
+                    click: () => {
+                        this.funcItems.react.event();
+                        this.setActiveAgent('multagent');
+                        this.sessionManager.setActiveagentMode('multagent');
+                    }
+                },
+                llm: {
+                    statu: false,
+                    click: () => {
+                        this.funcItems.react.statu = !this.funcItems.react.statu;
+                        this.funcItems.react.llm.statu = !this.funcItems.react.llm.statu;
+                        this.funcItems.react.event();
+                        this.updateVersionsSubmenu();
+                    }
+                },
+            },
+        };
         this.window.on('focus', () => {
             this.window?.setAlwaysOnTop(true);
             setTimeout(() => this.window?.setAlwaysOnTop(false), 0);
@@ -316,21 +272,21 @@ class MainWindow extends BaseWindow_1.BaseWindow {
             this.window?.show();
         else
             this.window?.focus();
-        data = this.tool_call.getDataDefault({
+        data = this.session().tool_call.getDataDefault({
             ...data
         });
         data.query = this.funcItems.text.event(data.query);
-        this.llm_service.startLoop();
+        this.session().llm_service.startLoop();
         if (data?.is_plugin) {
-            await this.chain_call.pluginCall(data);
+            await this.session().chain_call.pluginCall(data);
         }
         else if (this.funcItems.react.statu) {
-            await this.tool_call.callReAct(data);
-            this.tool_call.saveLongTermMemory(data.query, data.output);
+            await this.session().tool_call.callReAct(data);
+            this.session().tool_call.saveLongTermMemory(data.query, data.output);
         }
         else {
-            await this.chain_call.callChain(data);
-            this.tool_call.saveLongTermMemory(data.query, data.output);
+            await this.session().chain_call.callChain(data);
+            this.session().tool_call.saveLongTermMemory(data.query, data.output);
         }
     }
     setup() {
@@ -344,14 +300,14 @@ class MainWindow extends BaseWindow_1.BaseWindow {
         });
         electron_1.ipcMain.handle('get-file-path', async () => {
             return new Promise((resolve, reject) => {
-                const lastDirectory = globals_1.store.get('lastFileDirectory') || globals_1.utils.getDefault("config_transagent.json");
+                const lastDirectory = globals_1.store.get('lastFileDirectory') || this.session().utils.getDefault("config_transagent.json");
                 electron_1.dialog.showOpenDialog(this.window, { properties: ['openFile'], defaultPath: lastDirectory })
                     .then(result => {
                     if (!result.canceled) {
                         const filePath = result.filePaths[0];
                         globals_1.store.set('lastFileDirectory', path.dirname(filePath));
                         if (this.funcItems.react.statu) {
-                            const ssh_config = globals_1.utils.getSshConfig();
+                            const ssh_config = this.session().utils.getSshConfig();
                             if (ssh_config?.enabled) {
                                 const conn = new ssh2_1.Client();
                                 conn.on('ready', () => {
@@ -396,23 +352,23 @@ class MainWindow extends BaseWindow_1.BaseWindow {
         // 适配后的 ChatManager 调用 (替换 toggleMessageGroup 等)
         // ============================================
         electron_1.ipcMain.handle("compressionGroupMessage", async (_event, data) => {
-            let compression_content = await this.tool_call.compressionGroupMessage({ ...data });
-            this.tool_call.setHistory();
+            let compression_content = await this.session().tool_call.compressionGroupMessage({ ...data });
+            this.session().tool_call.setHistory();
             return { compression_content };
         });
         electron_1.ipcMain.handle("toggleMessageGroup", async (_event, data) => {
-            let message_len = await this.llm_service.chatManager.toggleMessageGroup({ ...data, del_mode: !!this.funcItems.del.statu });
-            this.tool_call.setHistory();
+            let message_len = await this.session().llm_service.chatManager.toggleMessageGroup({ ...data, del_mode: !!this.funcItems.del.statu });
+            this.session().tool_call.setHistory();
             logger_1.logger.log(`delete id: ${data.id}, length: ${message_len}`);
             return { del_mode: !!this.funcItems.del.statu };
         });
         electron_1.ipcMain.handle("thumbMessageGroup", async (_event, data) => {
-            let result = this.llm_service.chatManager.thumbMessageGroup(data);
+            let result = this.session().llm_service.chatManager.thumbMessageGroup(data);
             if (result?.type === "messages") {
                 const messages = result.data;
-                this.tool_call.setHistory();
-                globals_1.utils.sendData(globals_1.CONSTANTS.COLLECTION_URL, {
-                    "chat_id": this.llm_service.chatManager.chat.id,
+                this.session().tool_call.setHistory();
+                this.session().utils.sendData(globals_1.CONSTANTS.COLLECTION_URL, {
+                    "chat_id": this.sessionManager.getChat()?.id,
                     "message_id": data.group_id,
                     "user_message": messages[0].content,
                     "agent_messages": messages,
@@ -424,70 +380,71 @@ class MainWindow extends BaseWindow_1.BaseWindow {
             }
         });
         electron_1.ipcMain.handle("toggleContextMessage", async (_event, context_id) => {
-            let memory_len = await this.llm_service.chatManager.toggleContextMessage({ context_id: context_id, del_mode: !!this.funcItems.del.statu });
-            this.tool_call.setHistory();
+            let memory_len = await this.sessionManager.toggleContextMessage({ context_id: context_id, del_mode: !!this.funcItems.del.statu });
+            this.session().tool_call.setHistory();
             logger_1.logger.log(`delete context_id: ${context_id}, length: ${memory_len}`);
             return { del_mode: !!this.funcItems.del.statu };
         });
         electron_1.ipcMain.on("stopMessage", () => {
-            this.llm_service.stopLoop();
+            this.sessionManager.stopLoop();
             this.windowManager.subAgentWindow?.destroy();
         });
         electron_1.ipcMain.on('changeMode', (_event, mode) => {
-            this.tool_call.changeMode(mode);
-            this.window?.webContents.send('handleSetChat', this.llm_service.chatManager.chat);
+            this.session().tool_call.changeMode(mode);
+            this.window?.webContents.send('handleSetChat', this.sessionManager.getChat());
         });
         electron_1.ipcMain.on('open-external', (_event, href) => electron_1.shell.openExternal(href));
         electron_1.ipcMain.handle('newChat', () => {
             this.windowManager.subAgentWindow?.destroy();
-            const chat = this.tool_call.newChat();
+            const chat = this.session().tool_call.newChat();
             this.updateVersionsSubmenu();
             return chat;
         });
         electron_1.ipcMain.handle('loadChat', (_event, id) => {
             this.windowManager.subAgentWindow?.destroy();
-            const chat = this.tool_call.loadChat(id);
+            const chat = this.session().tool_call.loadChat(id);
             this.updateVersionsSubmenu();
             return chat;
         });
         electron_1.ipcMain.on('del-chat', (_event, id) => {
-            this.tool_call.delHistory(id);
+            this.session().tool_call.delHistory(id);
         });
-        electron_1.ipcMain.on('rename-chat', (_event, chat) => this.tool_call.renameHistory(chat));
-        electron_1.ipcMain.handle('get-config-main', () => globals_1.utils.getConfig());
+        electron_1.ipcMain.on('rename-chat', (_event, chat) => this.session().tool_call.renameHistory(chat));
+        electron_1.ipcMain.handle('get-config-main', () => this.session().utils.getConfig());
         electron_1.ipcMain.handle('set-config-main', (_, config) => {
-            let state = globals_1.utils.setConfig(config);
+            let state = this.session().utils.setConfig(config);
             this.updateVersionsSubmenu();
-            const plugins = new Plugins_1.Plugins();
-            plugins.loadInit();
+            this.setActiveAgent(this.sessionManager.getAgentMode());
             return state;
         });
         electron_1.ipcMain.handle('envs', (_, data) => {
             if (data.type === "set") {
-                this.llm_service.chatManager.chat.envs = data.envs;
-                this.tool_call.setHistory();
+                this.sessionManager.setChat({ envs: data.envs });
+                this.session().tool_call.setHistory();
                 return true;
             }
             else {
-                return this.tool_call?.llm_service.chatManager.chat.envs || {};
+                return this.session().tool_call?.llm_service.chatManager.chat.envs || {};
             }
         });
         electron_1.ipcMain.handle('tasks', (_, data) => {
             if (data.type === "set") {
-                this.llm_service.chatManager.chat.vars.tasks = data.tasks;
-                this.tool_call.setHistory();
+                let vars = this.sessionManager.getChat()?.vars || {};
+                vars.tasks = data.tasks;
+                this.sessionManager.setChat({ vars });
+                this.session().tool_call.setHistory();
                 return true;
             }
             else {
-                return this.tool_call?.llm_service.chatManager.chat.vars.tasks || [];
+                return this.session().tool_call?.llm_service.chatManager.chat.vars.tasks || [];
             }
         });
         electron_1.ipcMain.on('setChat', (_, chat) => {
-            this.llm_service.chatManager.chat.seconds = chat.seconds;
+            this.sessionManager.setChat({ seconds: chat.seconds });
             if (chat.compress_context !== undefined) {
-                this.llm_service.chatManager.chat.compress_context = chat.compress_context;
+                this.sessionManager.setChat({ compress_context: chat.compress_context });
             }
-            this.tool_call.setHistory();
+            this.session().tool_call.setHistory();
         });
         electron_1.ipcMain.on('show-log', (_, data) => this.windowManager.alertWindow?.create(data));
     }
@@ -544,15 +501,15 @@ class MainWindow extends BaseWindow_1.BaseWindow {
     getReactEvent(e) {
         const extraReact = () => {
             this.window?.webContents.send('react-statu', e.statu);
-            if (this.llm_service.chatManager.chat.is_plugin) {
-                this.window?.webContents.send("extra_load", e.statu && this.plugins.getTool[this.llm_service.chatManager.chat.version]?.extra);
+            if (this.sessionManager.getChat()?.is_plugin) {
+                this.window?.webContents.send("extra_load", e.statu && this.session().plugins.getTool[this.sessionManager.getChat()?.version]?.extra);
             }
             else {
-                const ssh_config = globals_1.utils.getSshConfig();
+                const ssh_config = this.session().utils.getSshConfig();
                 let extra = [{ "type": "act-plan" }];
                 if (ssh_config?.enabled)
                     extra.push({ "type": "file-upload" });
-                this.window?.webContents.send("extra_load", e.statu ? extra : globals_1.utils.getConfig("extra"));
+                this.window?.webContents.send("extra_load", e.statu ? extra : this.session().utils.getConfig("extra"));
             }
         };
         extraReact();
@@ -565,21 +522,21 @@ class MainWindow extends BaseWindow_1.BaseWindow {
         this.funcItems.react.event = this.getReactEvent(this.funcItems.react);
     }
     initInfo() {
-        const filePath = globals_1.utils.getConfig("prompt");
+        const filePath = this.session().utils.getConfig("prompt");
         let prompt = "";
         if (fs.existsSync(filePath))
             prompt = fs.readFileSync(filePath, 'utf-8');
-        const history_data = globals_1.utils.getHistoryData();
+        const history_data = this.session().utils.getHistoryData();
         console.log(history_data[0]);
         this.window?.webContents.send('init-info', {
             prompt,
-            config: globals_1.sysConfig[this.agentMode],
+            config: globals_1.sysConfig[this.sessionManager.getAgentMode()],
             concat: this.concat,
             last_clipboard_content: this.last_clipboard_content,
-            model: this.llm_service.chatManager.chat.model,
-            version: this.llm_service.chatManager.chat.version,
-            is_plugin: this.llm_service.chatManager.chat.is_plugin,
-            chat: this.llm_service.chatManager.chat,
+            model: this.sessionManager.getChat()?.model,
+            version: this.sessionManager.getChat()?.version,
+            is_plugin: this.sessionManager.getChat()?.is_plugin,
+            chat: this.sessionManager.getChat(),
             chats: history_data.data
         });
     }
@@ -588,44 +545,46 @@ class MainWindow extends BaseWindow_1.BaseWindow {
         electron_1.Menu.setApplicationMenu(menu);
     }
     getModelsSubmenu() {
-        return Object.keys(globals_1.utils.getConfig("models")).map((_model) => ({
+        return Object.keys(this.session().utils.getConfig("models")).map((_model) => ({
             type: 'radio',
-            checked: this.llm_service.chatManager.chat.model === _model,
+            checked: this.sessionManager.getChat()?.model === _model,
             click: () => {
-                this.llm_service.chatManager.chat.model = _model;
-                this.llm_service.chatManager.chat.is_plugin = _model === "plugins";
-                const modelConfig = globals_1.utils.getConfig("models")[_model];
-                this.llm_service.chatManager.chat.version = modelConfig?.versions[0].version;
+                const modelConfig = this.session().utils.getConfig("models")[_model];
+                this.sessionManager.setChat({
+                    model: _model,
+                    is_plugin: _model === "plugins",
+                    version: modelConfig?.versions[0].version,
+                });
                 this.updateVersionsSubmenu();
-                this.window?.webContents.send("handleSetChat", this.llm_service.chatManager.chat);
-                if (this.tool_call.setHistory)
-                    this.tool_call.setHistory();
+                this.window?.webContents.send("handleSetChat", this.sessionManager.getChat());
+                if (this.session().tool_call.setHistory)
+                    this.session().tool_call.setHistory();
             },
             label: _model
         }));
     }
     getVersionsSubmenu() {
         let versions;
-        if (this.llm_service.chatManager.chat.is_plugin) {
-            versions = Object.values(this.plugins.getTool())
+        if (this.sessionManager.getChat()?.is_plugin) {
+            versions = Object.values(this.session().plugins.getTool())
                 .filter((tool) => tool?.version && tool?.show)
                 .map((tool) => ({ version: tool.version, show: tool.show }));
         }
         else {
-            versions = globals_1.utils.getConfig("models")[this.llm_service.chatManager.chat.model]["versions"];
+            versions = this.session().utils.getConfig("models")[this.sessionManager.getChat()?.model]["versions"];
         }
         this.funcItems.react.event();
         return versions.map((version) => {
             const _version = version?.version || version;
             return {
                 type: 'radio',
-                checked: this.llm_service.chatManager.chat.version === _version,
+                checked: this.sessionManager.getChat()?.version === _version,
                 click: () => {
-                    this.llm_service.chatManager.chat.version = _version;
-                    this.window?.webContents.send("handleSetChat", this.llm_service.chatManager.chat);
-                    if (this.tool_call.setHistory)
-                        this.tool_call.setHistory();
-                    if (this.llm_service.chatManager.chat.is_plugin)
+                    this.sessionManager.setChat({ version: _version });
+                    this.window?.webContents.send("handleSetChat", this.sessionManager.getChat());
+                    if (this.session().tool_call.setHistory)
+                        this.session().tool_call.setHistory();
+                    if (this.sessionManager.getChat()?.is_plugin)
                         this.window?.webContents.send("extra_load", version?.extra);
                 },
                 label: _version
@@ -641,32 +600,32 @@ class MainWindow extends BaseWindow_1.BaseWindow {
                 submenu: [
                     {
                         type: 'radio',
-                        checked: this.llm_service.chatManager.chat.tool_format === 'toolcalls',
+                        checked: this.sessionManager.getChat()?.tool_format === 'toolcalls',
                         label: 'ToolCalls (Native API)',
                         click: () => {
-                            this.llm_service.chatManager.chat.tool_format = 'toolcalls';
-                            let config = globals_1.utils.getConfig();
+                            this.sessionManager.setChat({ tool_format: 'toolcalls' });
+                            let config = this.session().utils.getConfig();
                             config.default.tool_format = 'toolcalls';
-                            globals_1.utils.setConfig(config);
+                            this.session().utils.setConfig(config);
                             this.updateVersionsSubmenu();
-                            this.window?.webContents.send('handleSetChat', this.llm_service.chatManager.chat);
-                            if (this.tool_call.setHistory)
-                                this.tool_call.setHistory();
+                            this.window?.webContents.send('handleSetChat', this.sessionManager.getChat());
+                            if (this.session().tool_call.setHistory)
+                                this.session().tool_call.setHistory();
                         }
                     },
                     {
                         type: 'radio',
-                        checked: this.llm_service.chatManager.chat.tool_format === 'prompt',
+                        checked: this.sessionManager.getChat()?.tool_format === 'prompt',
                         label: 'Prompt (Parse JSON)',
                         click: () => {
-                            this.llm_service.chatManager.chat.tool_format = 'prompt';
-                            let config = globals_1.utils.getConfig();
+                            this.sessionManager.setChat({ tool_format: 'prompt' });
+                            let config = this.session().utils.getConfig();
                             config.default.tool_format = 'prompt';
-                            globals_1.utils.setConfig(config);
+                            this.session().utils.setConfig(config);
                             this.updateVersionsSubmenu();
-                            this.window?.webContents.send('handleSetChat', this.llm_service.chatManager.chat);
-                            if (this.tool_call.setHistory)
-                                this.tool_call.setHistory();
+                            this.window?.webContents.send('handleSetChat', this.sessionManager.getChat());
+                            if (this.session().tool_call.setHistory)
+                                this.session().tool_call.setHistory();
                         }
                     }
                 ]
@@ -681,14 +640,14 @@ class MainWindow extends BaseWindow_1.BaseWindow {
                     {
                         label: 'Save Configuration',
                         click: () => {
-                            const lastPath = path.join(globals_1.store.get('lastSaveConfigurationPath') || globals_1.utils.getDefault(), globals_1.sysConfig[this.agentMode]);
+                            const lastPath = path.join(globals_1.store.get('lastSaveConfigurationPath') || this.session().utils.getDefault(), globals_1.sysConfig[this.sessionManager.getAgentMode()]);
                             electron_1.dialog.showSaveDialog(this.window, {
                                 defaultPath: lastPath,
                                 filters: [{ name: 'JSON File', extensions: ['json'] }, { name: 'All Files', extensions: ['*'] }]
                             }).then(result => {
                                 if (!result.canceled) {
                                     globals_1.store.set('lastSaveConfigurationPath', path.dirname(result.filePath));
-                                    fs.writeFileSync(result.filePath, JSON.stringify(globals_1.utils.getConfig(), null, 2));
+                                    fs.writeFileSync(result.filePath, JSON.stringify(this.session().utils.getConfig(), null, 2));
                                 }
                             });
                         }
@@ -696,14 +655,14 @@ class MainWindow extends BaseWindow_1.BaseWindow {
                     {
                         label: 'Load Configuration',
                         click: () => {
-                            const lastPath = globals_1.store.get('lastLoadConfigurationPath') || globals_1.utils.getDefault();
+                            const lastPath = globals_1.store.get('lastLoadConfigurationPath') || this.session().utils.getDefault();
                             electron_1.dialog.showOpenDialog(this.window, {
                                 defaultPath: lastPath,
                                 filters: [{ name: 'JSON File', extensions: ['json'] }, { name: 'All Files', extensions: ['*'] }]
                             }).then(result => {
                                 if (!result.canceled) {
                                     globals_1.store.set('lastLoadConfigurationPath', path.dirname(result.filePaths[0]));
-                                    const configFilePath = path.join(globals_1.utils.getDefault(), globals_1.sysConfig[this.agentMode]);
+                                    const configFilePath = path.join(this.session().utils.getDefault(), globals_1.sysConfig[this.sessionManager.getAgentMode()]);
                                     fs.copyFile(result.filePaths[0], configFilePath, (err) => {
                                         if (!err) {
                                             this.windowManager.configWindow?.window?.webContents.send('load-config', configFilePath);
@@ -759,27 +718,27 @@ class MainWindow extends BaseWindow_1.BaseWindow {
                         click: () => {
                             this.window?.webContents.send('clear');
                             this.windowManager.subAgentWindow?.destroy();
-                            this.tool_call.initVar();
-                            const chat_id = this.llm_service.chatManager.chat.id;
-                            this.llm_service.chatManager.init();
-                            this.llm_service.chatManager.chat.id = chat_id;
-                            this.tool_call.setHistory();
-                            this.tool_call.changeMode();
+                            this.session().tool_call.initVar();
+                            const chat_id = this.sessionManager.getChat()?.id;
+                            this.session().llm_service.chatManager.init();
+                            this.sessionManager.setChat({ id: chat_id });
+                            this.session().tool_call.setHistory();
+                            this.session().tool_call.changeMode();
                             this.updateVersionsSubmenu();
-                            this.window?.webContents.send('handleSetChat', this.llm_service.chatManager.chat);
+                            this.window?.webContents.send('handleSetChat', this.sessionManager.getChat());
                         }
                     },
                     {
                         label: 'Save Conversation',
                         click: () => {
-                            const lastPath = path.join(globals_1.store.get('lastSavePath') || globals_1.utils.getDefault("history/"), `messages_${this.llm_service.chatManager.chat.name || globals_1.utils.formatDate()}.json`);
+                            const lastPath = path.join(globals_1.store.get('lastSavePath') || this.session().utils.getDefault("history/"), `messages_${this.sessionManager.getChat()?.name || this.session().utils.formatDate()}.json`);
                             electron_1.dialog.showSaveDialog(this.window, {
                                 defaultPath: lastPath,
                                 filters: [{ name: 'JSON File', extensions: ['json'] }, { name: 'All Files', extensions: ['*'] }]
                             }).then(result => {
                                 if (!result.canceled) {
                                     globals_1.store.set('lastSavePath', path.dirname(result.filePath));
-                                    this.llm_service.chatManager.saveMessages(result.filePath);
+                                    this.session().llm_service.chatManager.saveMessages(result.filePath);
                                 }
                             });
                         }
@@ -787,21 +746,21 @@ class MainWindow extends BaseWindow_1.BaseWindow {
                     {
                         label: 'Load Conversation',
                         click: () => {
-                            const lastPath = globals_1.store.get('lastLoadPath') || globals_1.utils.getDefault("history/");
+                            const lastPath = globals_1.store.get('lastLoadPath') || this.session().utils.getDefault("history/");
                             electron_1.dialog.showOpenDialog(this.window, {
                                 defaultPath: lastPath,
                                 filters: [{ name: 'JSON File', extensions: ['json'] }, { name: 'All Files', extensions: ['*'] }]
                             }).then(result => {
                                 if (!result.canceled) {
                                     globals_1.store.set('lastLoadPath', path.dirname(result.filePaths[0]));
-                                    this.tool_call.initVar();
-                                    this.tool_call.loadMessage(result.filePaths[0]);
-                                    let id_exist = this.tool_call.setHistory();
+                                    this.session().tool_call.initVar();
+                                    this.session().tool_call.loadMessage(result.filePaths[0]);
+                                    let id_exist = this.session().tool_call.setHistory();
                                     if (id_exist) {
-                                        this.window?.webContents.send('select-chat', this.llm_service.chatManager.chat);
+                                        this.window?.webContents.send('select-chat', this.sessionManager.getChat());
                                     }
                                     else {
-                                        this.window?.webContents.send('handleSetChat', this.llm_service.chatManager.chat);
+                                        this.window?.webContents.send('handleSetChat', this.sessionManager.getChat());
                                     }
                                     ;
                                 }
@@ -812,7 +771,7 @@ class MainWindow extends BaseWindow_1.BaseWindow {
                     {
                         label: 'Open Memory',
                         click: () => {
-                            const memoryPath = path.join(globals_1.utils.getDefault(), 'memory.md');
+                            const memoryPath = path.join(this.session().utils.getDefault(), 'memory.md');
                             if (!fs.existsSync(memoryPath))
                                 fs.writeFileSync(memoryPath, '');
                             electron_1.shell.openPath(memoryPath).catch(err => WindowManager_1.WindowManager.instance.alertWindow.show('error', `Failed to open :${memoryPath}`));
@@ -821,7 +780,7 @@ class MainWindow extends BaseWindow_1.BaseWindow {
                     {
                         label: 'Open Extra Prompt',
                         click: () => {
-                            const promptPath = path.join(globals_1.utils.getDefault(), globals_1.extraPrompt[this.agentMode]);
+                            const promptPath = path.join(this.session().utils.getDefault(), globals_1.extraPrompt[this.sessionManager.getAgentMode()]);
                             if (!fs.existsSync(promptPath))
                                 fs.writeFileSync(promptPath, '');
                             electron_1.shell.openPath(promptPath).catch(err => WindowManager_1.WindowManager.instance.alertWindow.show('error', `Failed to open :${promptPath}`));
@@ -830,7 +789,7 @@ class MainWindow extends BaseWindow_1.BaseWindow {
                     {
                         label: 'Open CLI Prompt',
                         click: () => {
-                            const promptPath = (0, globals_1.getCliPromptPath)();
+                            const promptPath = this.session().utils.getConfig("tool_call").cli_prompt || this.session().utils.getDefault("prompts/cli_prompt.md");
                             if (!fs.existsSync(promptPath))
                                 fs.writeFileSync(promptPath, '');
                             electron_1.shell.openPath(promptPath).catch(err => WindowManager_1.WindowManager.instance.alertWindow.show('error', `Failed to open :${promptPath}`));
@@ -853,20 +812,20 @@ class MainWindow extends BaseWindow_1.BaseWindow {
     }
     setPrompt(filePath = null) {
         if (filePath && fs.existsSync(filePath)) {
-            const config = globals_1.utils.getConfig();
+            const config = this.session().utils.getConfig();
             if (this.funcItems.react.statu) {
                 config.tool_call.extra_prompt = filePath;
             }
             else {
                 const system_prompt = fs.readFileSync(filePath, 'utf-8');
-                this.llm_service.chatManager.chat.system_prompt = system_prompt;
+                this.sessionManager.setChat({ system_prompt });
                 this.window?.webContents.send('prompt', system_prompt);
             }
-            globals_1.utils.setConfig(config);
+            this.session().utils.setConfig(config);
         }
     }
     loadPrompt() {
-        const lastDirectory = globals_1.store.get('lastPromptDirectory') || globals_1.utils.getDefault("prompts/");
+        const lastDirectory = globals_1.store.get('lastPromptDirectory') || this.session().utils.getDefault("prompts/");
         electron_1.dialog.showOpenDialog(this.window, { properties: ['openFile'], defaultPath: lastDirectory })
             .then(result => {
             if (!result.canceled) {
@@ -877,13 +836,13 @@ class MainWindow extends BaseWindow_1.BaseWindow {
         }).catch(err => logger_1.logger.log(err));
     }
     setChain(chainStr) {
-        let config = globals_1.utils.getConfig();
+        let config = this.session().utils.getConfig();
         config.chain_call = JSON.parse(chainStr).chain_call;
         config.extra = [];
         for (const key in config.chain_call) {
             const item = config.chain_call[key];
             let extra = item?.model === globals_1.CONSTANTS.PLUGIN_MODEL_NAME
-                ? (this.plugins.getTool(item.version)?.extra || [])
+                ? (this.session().plugins.getTool(item.version)?.extra || [])
                 : [{ "type": "system-prompt" }];
             extra.forEach((e) => config.extra.push(e));
         }
@@ -896,7 +855,7 @@ class MainWindow extends BaseWindow_1.BaseWindow {
             });
         };
         config.extra = deduplicateByType(config.extra);
-        globals_1.utils.setConfig(config);
+        this.session().utils.setConfig(config);
         this.funcItems.react.statu = false;
         this.funcItems.react.transagent.statu = false;
         this.funcItems.react.multagent.statu = false;

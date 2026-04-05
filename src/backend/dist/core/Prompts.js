@@ -34,7 +34,6 @@ var __importStar = (this && this.__importStar) || (function () {
 })();
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.MODE_CONSTRAINTS = void 0;
-const globals_1 = require("../utils/globals");
 const logger_1 = require("../utils/logger");
 const fs = __importStar(require("fs"));
 const SkillManager_1 = require("./SkillManager");
@@ -73,7 +72,7 @@ class Prompts {
     getCliPrompt() {
         if (this.agent.agentConfigs.agent_mode === "transagent") {
             try {
-                const cliPromptPath = (0, globals_1.getCliPromptPath)();
+                const cliPromptPath = this.agent.utils.getConfig("tool_call").cli_prompt || this.agent.utils.getDefault("prompts/cli_prompt.md");
                 if (fs.existsSync(cliPromptPath)) {
                     return fs.readFileSync(cliPromptPath, 'utf-8');
                 }
@@ -90,7 +89,7 @@ class Prompts {
     ;
     getExtraPrompt(extraPromptPath) {
         try {
-            extraPromptPath = extraPromptPath || globals_1.utils.getDefault(`prompts/${this.agent.agentConfigs.agent_mode}.md`);
+            extraPromptPath = extraPromptPath || this.agent.utils.getDefault(`prompts/${this.agent.agentConfigs.agent_mode}.md`);
             if (fs.existsSync(extraPromptPath)) {
                 return fs.readFileSync(extraPromptPath, 'utf-8');
             }
@@ -124,7 +123,7 @@ class Prompts {
             const hasTodolist = !!this.agent.agentConfigs.todolist;
             const hasEnv = !!this.agent.agentConfigs.env;
             const hasSkill = !!this.agent.agentConfigs.skill;
-            const hasMemory = !isSubagent && globals_1.utils.getConfig('embedding')?.enabled;
+            const hasMemory = !isSubagent && this.agent.utils.getConfig('embedding')?.enabled;
             const isTransagent = this.agent.agentConfigs.agent_mode === "transagent";
             const hasMcpServer = !!this.agent.agentConfigs.mcp_server;
             const usePromptFormat = this.agent.llm_service.chatManager.chat.tool_format === 'prompt';

@@ -5,7 +5,8 @@ import * as os from 'os';
 import { Client } from 'ssh2';
 import puppeteer from 'puppeteer';
 import { logger } from '../utils/logger';
-import { utils } from '../utils/globals';
+import * as utils from '../utils/public';
+import { WindowManager } from '../main/windows/WindowManager';
 
 export interface VisionParams {
     api_url?: string;
@@ -30,7 +31,7 @@ export function main(params: VisionParams) {
 
             if (!apiKey) return "Error: 'api_key' is missing.";
 
-            const sshConfig = utils.getSshConfig ? utils.getSshConfig() : null;
+            const sshConfig = WindowManager.instance.mainWindow.session().utils.getSshConfig ? WindowManager.instance.mainWindow.session().utils.getSshConfig() : null;
             const isRemote = !!(sshConfig?.enabled && sshConfig?.host);
             
             let fileBuffer: Buffer;

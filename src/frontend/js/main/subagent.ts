@@ -1,11 +1,5 @@
 import { userData, infoData, streamData, toolData } from './chat';
-
-const State = {
-    scroll_top: {
-        info: true,
-        data: true,
-    },
-};
+import { State } from './state';
 
 let info: Record<string, any> = {
     id: null,

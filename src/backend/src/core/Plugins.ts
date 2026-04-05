@@ -1,7 +1,7 @@
 import * as fs from 'fs';
 import * as path from 'path';
-import { utils } from '../utils/globals';
 import { logger } from '../utils/logger';
+import { Utils } from '../utils/Utils';
 
 export interface PluginItem {
     func: (...args: any[]) => any;
@@ -31,9 +31,10 @@ interface PluginInfo {
 export class Plugins {
     public static instance: Plugins | null = null;
     private tools: Record<string, PluginItem>;
+    private utils: Utils;
 
-    constructor() {
-        Plugins.instance = this;
+    constructor(utils: Utils) {
+        this.utils = utils;
         this.tools = {};
     }
 
@@ -89,7 +90,7 @@ export class Plugins {
     }
 
     public loadInit(config_name: string | null = null, forceLoad: boolean = false): void {
-        const plugins = utils.getConfig("plugins", config_name);
+        const plugins = this.utils.getConfig("plugins", config_name);
         if (!plugins) {
             console.warn("[Plugins] No plugins configuration found.");
             return;

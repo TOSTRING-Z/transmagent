@@ -1,4 +1,5 @@
-import { ChatState, DOM, State } from './globals';
+import { DOM } from './globals';
+import { State, ChatState } from './state';
 import { init_size, autoResizeTextarea, handleClear, showLog, toggleMode, toggleSidebar, updateProgress, hideRenameDialog } from './ui';
 import { addChatItem, handleNewChat, selectChat, deleteChat, renameChat, confirmRename, showHistoryMenu, initChat, updateChat } from './history';
 import { initConfigEvents, showConfig, saveConfig, hideConfig } from './config';
@@ -164,6 +165,9 @@ window.electronAPI.handleMarkDownFormat((status) => State.markdown_statu = statu
 window.electronAPI.handleReactStatu((status) => State.react_statu = status);
 
 window.electronAPI.streamData((data) => {
+  if (data.uuid && data.uuid !== State.uuid) {
+    return;
+  }
   updateChat(data as ChatState);
   if (data?.id !== State.chat.id) {
     return;
@@ -189,6 +193,9 @@ window.electronAPI.streamData((data) => {
 });
 
 window.electronAPI.toolData((data) => {
+  if (data.uuid && data.uuid !== State.uuid) {
+    return;
+  }
   updateChat(data as ChatState);
   if (data?.id !== State.chat.id) {
     return;
@@ -197,6 +204,9 @@ window.electronAPI.toolData((data) => {
 });
 
 window.electronAPI.infoData((data) => {
+  if (data.uuid && data.uuid !== State.uuid) {
+    return;
+  }
   updateChat(data as ChatState);
   if (data?.id !== State.chat.id) {
     return;
@@ -213,6 +223,9 @@ window.electronAPI.infoData((data) => {
 });
 
 window.electronAPI.userData((data) => {
+  if (data.uuid && data.uuid !== State.uuid) {
+    return;
+  }
   updateChat(data as ChatState);
   if (data?.id !== State.chat.id) {
     return;
@@ -295,13 +308,16 @@ window.electronAPI.handleSelectChat((chat) => selectChat(chat.id));
 
 window.electronAPI.handleSetChat(async (chat) => initChat(chat));
 
-window.electronAPI.handleAutoRenameChat(async (chat) => {
-  State.chat.id = chat.id;
-  await window.electronAPI.renameChat({ id: State.chat.id!, name: chat.name });
+window.electronAPI.handleAutoRenameChat(async (data) => {
+  if (data.uuid && data.uuid !== State.uuid) {
+    return;
+  }
+  State.chat.id = data.id;
+  await window.electronAPI.renameChat({ id: State.chat.id!, name: data.name });
   const items = DOM.history_list.getElementsByClassName("history-item");
   Array.from(items).forEach((item: any) => {
     if (item.id == State.chat.id)
-      (item.getElementsByClassName("history-text")[0] as HTMLElement).innerText = chat.name;
+      (item.getElementsByClassName("history-text")[0] as HTMLElement).innerText = data.name;
   });
 });
 

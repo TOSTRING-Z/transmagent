@@ -1,21 +1,25 @@
 import { ReActAgent, State } from './ReActAgent';
-import { utils, CHAT_CONST } from '../utils/globals';
+import { CHAT_CONST } from '../utils/globals';
 import { formatString } from '../utils/format';
 import { LLMService } from './LLMService';
 import { PluginItem, Plugins } from './Plugins';
+import { Utils } from '../utils/Utils';
+import { BrowserWindow } from 'electron/main';
 
 export class ChainCall extends ReActAgent {
     public plugins: Plugins;
 
-    constructor(plugins: Plugins, llm_service: LLMService, window: any) {
-        super(llm_service, window);
+    constructor(plugins: Plugins, llm_service: LLMService, window: BrowserWindow | null, utils: Utils) {
+        super(llm_service, window, utils);
         this.plugins = plugins;
         this.llm_service.chatManager.chat.is_plugin = false;
     }
 
     public async pluginCall(data: Record<string, any>): Promise<any> {
-        this.window.webContents.send('userData', { group_id: this.llm_service.chatManager.chat.group_id, context_id: this.llm_service.chatManager.chat.context_id, content: data.query, del: false });
+        this.setUUID(data);
+        this.window?.webContents.send('userData', { ...this.llm_service.chatManager.chat, content: data.query, del: false, uuid: data.uuid });
         data.prompt_format = "";
+        data.uuid = this.llm_service.chatManager.uuid;
 
         let func = (this.plugins.getTool(data.version) as PluginItem)?.func;
         if (!func) {
@@ -28,7 +32,7 @@ export class ChainCall extends ReActAgent {
             return null;
         }
 
-        data.outputs.push(utils.copy(data.output));
+        data.outputs.push(this.utils.copy(data.output));
 
         // 替换原有的 data.output_template.format(data)
         if (data.output_template) {
@@ -37,9 +41,9 @@ export class ChainCall extends ReActAgent {
             data.output_format = data.output;
         }
 
-        data.output_formats.push(utils.copy(data.output_format));
+        data.output_formats.push(this.utils.copy(data.output_format));
 
-        this.window?.webContents.send('streamData', { ...this.llm_service.chatManager.chat, content: data.output_format, end: true, is_plugin: data.is_plugin });
+        this.window?.webContents.send('streamData', { ...this.llm_service.chatManager.chat, content: data.output_format, end: true, is_plugin: data.is_plugin, uuid: data.uuid });
     }
 
     public async step(data: Record<string, any>): Promise<void> {
@@ -51,8 +55,8 @@ export class ChainCall extends ReActAgent {
         } else {
             stateResult = await this.llmCall(data);
             // 存入本地记忆与结束反馈
-            this.llm_service.chatManager.pushUserMessage({ ...this.llm_service.chatManager.chat, content: data.query });
-            this.llm_service.chatManager.pushAssistantMessage({ ...this.llm_service.chatManager.chat, content: data.output });
+            this.llm_service.chatManager.pushUserMessage({ ...this.llm_service.chatManager.chat, content: data.query, uuid: data.uuid });
+            this.llm_service.chatManager.pushAssistantMessage({ ...this.llm_service.chatManager.chat, content: data.output, uuid: data.uuid });
         }
 
         if (!stateResult) {
@@ -65,19 +69,19 @@ export class ChainCall extends ReActAgent {
     }
 
     public async callChain(data: Record<string, any>): Promise<any> {
-        // 适配新架构的 chat 访问
+        this.setUUID(data);
         this.llm_service.chatManager.chat.system_prompt = data.prompt;
         this.state = State.IDLE;
         this.llm_service.chatManager.chat.step = 1;
         this.llm_service.chatManager.chat.group_id = String((new Date()).getTime());
         this.llm_service.chatManager.chat.context_id = `${this.llm_service.chatManager.chat.group_id}${this.llm_service.chatManager.chat.step}`
-        this.window.webContents.send('userData', { ...this.llm_service.chatManager.chat, content: data.query, del: false });
+        this.window?.webContents.send('userData', { ...this.llm_service.chatManager.chat, content: data.query, del: false });
 
-        let chain_calls = utils.getConfig("chain_call");
+        let chain_calls = this.utils.getConfig("chain_call");
 
         for (const step in chain_calls) {
             if (this.llm_service.stopFlag) {
-                this.window?.webContents.send('streamData', { ...this.llm_service.chatManager.chat, content: "", end: true });
+                this.window?.webContents.send('streamData', { ...this.llm_service.chatManager.chat, uuid: data.uuid, end: true });
                 break;
             }
 
@@ -92,7 +96,7 @@ export class ChainCall extends ReActAgent {
                     tool_params[key] = typeof item === 'string' ? formatString(item, data) : item;
                 }
             }
-            
+
             data = { ...data, ...tool_params };
 
             await this.step(data);
@@ -102,7 +106,7 @@ export class ChainCall extends ReActAgent {
             if (!currentChatName || currentChatName === CHAT_CONST.DEFAULT_NAME) {
                 this.setChatName(data).then(() => {
                     if (this.llm_service.chatManager.chat.name && this.llm_service.chatManager.chat.name !== CHAT_CONST.DEFAULT_NAME) {
-                        this.window?.webContents.send('auto-rename-chat', this.llm_service.chatManager.chat);
+                        this.window?.webContents.send('handleAutoRenameChat', { ...this.llm_service.chatManager.chat, uuid: data.uuid });
                     }
                 });
             }
@@ -110,17 +114,17 @@ export class ChainCall extends ReActAgent {
             this.setHistory();
             if ((this.state as any) === "final") {
                 if (this.llm_service.chatManager.chat.is_plugin) {
-                    this.window?.webContents.send('streamData', { group_id: this.llm_service.chatManager.chat.group_id, content: data.output_format, end: true });
+                    this.window?.webContents.send('streamData', { ...this.llm_service.chatManager.chat, content: data.output_format, uuid: data.uuid, end: true });
                 }
                 break;
             }
             if ((this.state as any) === "error") {
-                this.window?.webContents.send('streamData', { group_id: this.llm_service.chatManager.chat.group_id, content: "Error occurred!", end: true });
+                this.window?.webContents.send('streamData', { ...this.llm_service.chatManager.chat, content: "Error occurred!", uuid: data.uuid, end: true });
                 break;
             }
 
             let info = this.getInfo(data);
-            this.window?.webContents.send('infoData', { group_id: this.llm_service.chatManager.chat.group_id, content: info });
+            this.window?.webContents.send('infoData', { ...this.llm_service.chatManager.chat, content: info, uuid: data.uuid });
         }
 
         this.sendData(data);

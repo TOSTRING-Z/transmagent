@@ -11,16 +11,20 @@ class LLMService {
     chatManager;
     stopFlag = false;
     adapter;
-    constructor(messages = [], window = null) {
+    utils;
+    constructor(messages = [], window = null, utils) {
         this.window = window;
-        this.chatManager = new ChatManager_1.ChatManager(messages);
+        this.utils = utils;
+        this.chatManager = new ChatManager_1.ChatManager(messages, {}, utils);
         this.adapter = AdapterFactory_1.LLMAdapterFactory.getAdapter("openai"); // 默认 API 适配器
     }
     stopLoop() {
         this.stopFlag = true;
+        this.chatManager.uuid = this.chatManager.getUUID();
     }
     startLoop() {
         this.stopFlag = false;
+        this.chatManager.uuid = this.chatManager.getUUID();
     }
     async chatBase(data) {
         try {
@@ -78,7 +82,8 @@ class LLMService {
                 logger_1.logger.error(`HTTP Error ${resp.status}: ${errorText}`);
                 this.window?.webContents.send('infoData', {
                     ...this.chatManager.chat,
-                    content: `Response error: ${errorText}\n`
+                    content: `Response error: ${errorText}\n`,
+                    uuid: data.uuid
                 });
                 return null;
             }
@@ -93,6 +98,7 @@ class LLMService {
                     ...this.chatManager.chat,
                     content_reasoning: messageOutput.reasoning_content,
                     content: data.react ? `\n\n${finalResponseText}` : "",
+                    uuid: data.uuid,
                     end: true
                 });
             }
@@ -102,7 +108,8 @@ class LLMService {
             logger_1.logger.error(error);
             this.window?.webContents.send('infoData', {
                 ...this.chatManager.chat,
-                content: `Response error: ${error.message}\n`
+                content: `Response error: ${error.message}\n`,
+                uuid: data.uuid
             });
             return null;
         }
@@ -168,7 +175,8 @@ class LLMService {
                 this.window?.webContents.send('streamData', {
                     ...this.chatManager.chat,
                     content: content,
-                    reasoning_content: reasoning_content
+                    reasoning_content: reasoning_content,
+                    uuid: data.uuid
                 });
             }
         }
@@ -187,7 +195,8 @@ class LLMService {
             console.error(error);
             this.window?.webContents.send('infoData', {
                 ...this.chatManager.chat,
-                content: `Response error: ${error.message}\n`
+                content: `Response error: ${error.message}\n`,
+                uuid: data.uuid
             });
             return false;
         }
@@ -205,7 +214,8 @@ class LLMService {
             this.window?.webContents.send('streamData', {
                 ...this.chatManager.chat,
                 content: `\n\n${data.output}`,
-                reasoning_content: reasoning_content
+                reasoning_content: reasoning_content,
+                uuid: data.uuid
             });
         }
         // ========== 截断检测与自动续传机制 (Max: 3) ==========

@@ -1,17 +1,19 @@
 import { Message, ChatState } from '../types';
+import { Utils } from '../utils/Utils';
 export declare class ChatManager {
     messages: Message[];
     chat: ChatState;
     tagSuccess: boolean;
     uuid: string;
-    constructor(messages?: Message[], chatInitParams?: Partial<ChatState>);
+    utils: Utils;
+    constructor(messages: Message[] | undefined, chatInitParams: Partial<ChatState> | undefined, utils: Utils);
     getUUID(): string;
     init(messages?: Message[]): void;
     updateChat(): void;
     getMessages(all?: boolean): Message[];
     compressContext(messages: any): Message[];
-    pushMessage(msg: Message): void;
-    pushSystemMessage(content: string): void;
+    pushMessage(msg: Message, uuid: string): void;
+    pushSystemMessage(msg: any): void;
     pushUserMessage(msg: any): void;
     pushAssistantMessageWithToolCalls(msg: any): void;
     pushAssistantMessage(msg: any): void;

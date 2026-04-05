@@ -1,7 +1,7 @@
 import { ILLMAdapter, IToolCallAdapter } from './IAdapter';
 import { ChatRequestData, Message, MessageContent, OllamaContent, StreamChunkResult, ImageContent, TextContent, ToolInfo, ToolCall, AssistantMessage } from '../types';
 import JSON5 from 'json5';
-import { utils } from '../utils/globals';
+import * as utils from '../utils/public';
 import { logger } from '../utils/logger';
 
 /**

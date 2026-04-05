@@ -5,7 +5,6 @@ const index_js_1 = require("@modelcontextprotocol/sdk/client/index.js");
 const stdio_js_1 = require("@modelcontextprotocol/sdk/client/stdio.js");
 const streamableHttp_js_1 = require("@modelcontextprotocol/sdk/client/streamableHttp.js");
 const types_js_1 = require("@modelcontextprotocol/sdk/types.js");
-const globals_1 = require("../utils/globals");
 class MCPClient {
     toolcall;
     static instance = null;
@@ -71,7 +70,7 @@ class MCPClient {
         const client = this.clients[clientName];
         if (!client)
             throw new Error(`MCP tool "${params.name}" not found.`);
-        const timeout = (globals_1.utils.getConfig("tool_call")?.mcp_timeout || 600) * 1000;
+        const timeout = (this.toolcall?.utils.getConfig("tool_call")?.mcp_timeout || 600) * 1000;
         return await client.callTool(params, types_js_1.CallToolResultSchema, { timeout });
     }
     /**
@@ -80,7 +79,7 @@ class MCPClient {
     async initMcp() {
         if (this.isInitialized)
             return;
-        const configs = globals_1.utils.getConfig("mcp_server") || {};
+        const configs = this.toolcall?.utils.getConfig("mcp_server") || {};
         // 并发初始化所有 client 提升速度
         await Promise.all(Object.entries(configs).map(async ([name, config]) => {
             if (!config.disabled) {

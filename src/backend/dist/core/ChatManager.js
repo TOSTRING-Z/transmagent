@@ -43,9 +43,11 @@ class ChatManager {
     chat;
     tagSuccess = false;
     uuid;
-    constructor(messages = [], chatInitParams = {}) {
+    utils;
+    constructor(messages = [], chatInitParams = {}, utils) {
         this.chat = this.getChatInit(chatInitParams);
         this.uuid = this.getUUID();
+        this.utils = utils;
         this.init(messages);
     }
     getUUID() {
@@ -66,12 +68,12 @@ class ChatManager {
     }
     getMessages(all = true) {
         if (all)
-            return globals_1.utils.copy(this.messages);
-        let msgs = globals_1.utils.copy(this.messages.filter(message => !message?.del));
+            return this.utils.copy(this.messages);
+        let msgs = this.utils.copy(this.messages.filter(message => !message?.del));
         return msgs;
     }
     compressContext(messages) {
-        let msgs = globals_1.utils.copy(messages);
+        let msgs = this.utils.copy(messages);
         const lastMessage = msgs[msgs.length - 1];
         if (this.chat.compress_context) {
             msgs = msgs.filter(message => {
@@ -91,29 +93,31 @@ class ChatManager {
         }
         return msgs;
     }
-    pushMessage(msg) {
-        this.messages.push(msg);
-        this.updateChat();
+    pushMessage(msg, uuid) {
+        if (this.uuid === uuid) {
+            this.messages.push(msg);
+            this.updateChat();
+        }
     }
-    pushSystemMessage(content) {
-        const systemMsg = { role: "system", content };
-        this.pushMessage(systemMsg);
+    pushSystemMessage(msg) {
+        const systemMsg = { role: "system", content: msg.content };
+        this.pushMessage(systemMsg, msg.uuid);
     }
     pushUserMessage(msg) {
         const userMsg = { role: "user", content: msg.content, group_id: msg.group_id, context_id: msg.context_id, show: true, react: false };
-        this.pushMessage(userMsg);
+        this.pushMessage(userMsg, msg.uuid);
     }
     pushAssistantMessageWithToolCalls(msg) {
         const assistantMsg = { role: "assistant", content: msg.content, reasoning_content: msg.reasoning_content, tool_calls: msg.tool_calls, group_id: msg.group_id, context_id: msg.context_id, show: true, react: true };
-        this.pushMessage(assistantMsg);
+        this.pushMessage(assistantMsg, msg.uuid);
     }
     pushAssistantMessage(msg) {
         const assistantMsg = { role: "assistant", content: msg.content, group_id: msg.group_id, context_id: msg.context_id, show: true, react: false };
-        this.pushMessage(assistantMsg);
+        this.pushMessage(assistantMsg, msg.uuid);
     }
     pushToolMessage(msg) {
         const toolMsg = { role: "tool", content: msg.content, tool_call_id: msg.tool_call_id, tool_call_name: msg.tool_call_name, group_id: msg.group_id, context_id: msg.context_id, show: true, react: true };
-        this.pushMessage(toolMsg);
+        this.pushMessage(toolMsg, msg.uuid);
     }
     popMessage(group_id, context_id) {
         if (this.messages.length > 0) {
@@ -137,14 +141,14 @@ class ChatManager {
     }
     getDefaultConfig() {
         return {
-            model: globals_1.utils.getConfig("default")["model"] || "deepseek[openai]",
-            version: globals_1.utils.getConfig("default")["version"] || "deepseek-chat",
-            tool_format: globals_1.utils.getConfig("default")["tool_format"] || "toolcalls",
-            is_plugin: globals_1.utils.getConfig("default")["model"] === "plugins",
-            compress_context: globals_1.utils.getConfig("default")["compress_context"] || false,
-            memory_length: globals_1.utils.getConfig('tool_call')["memory_length"] || 100,
-            long_memory_length: globals_1.utils.getConfig('tool_call')["long_memory_length"] || 200,
-            max_tokens: globals_1.utils.getConfig('tool_call')["max_tokens"] || 1e5,
+            model: this.utils.getConfig("default")["model"] || "deepseek[openai]",
+            version: this.utils.getConfig("default")["version"] || "deepseek-chat",
+            tool_format: this.utils.getConfig("default")["tool_format"] || "toolcalls",
+            is_plugin: this.utils.getConfig("default")["model"] === "plugins",
+            compress_context: this.utils.getConfig("default")["compress_context"] || false,
+            memory_length: this.utils.getConfig('tool_call')["memory_length"] || 100,
+            long_memory_length: this.utils.getConfig('tool_call')["long_memory_length"] || 200,
+            max_tokens: this.utils.getConfig('tool_call')["max_tokens"] || 1e5,
         };
     }
     getChatInit(params = {}) {
@@ -185,7 +189,7 @@ class ChatManager {
                 break;
             }
         }
-        if (lastAssistantIdx === this.messages.length - 1)
+        if (lastAssistantIdx === -1)
             return;
         const assistantMsg = this.messages[lastAssistantIdx];
         // 3. 如果 assistant 有 tool_calls，需要检查 tool 结果是否完整
@@ -206,7 +210,8 @@ class ChatManager {
                         tool_call_id: call.id,
                         tool_call_name: call.function?.name,
                         group_id: assistantMsg.group_id,
-                        context_id: assistantMsg.context_id
+                        context_id: assistantMsg.context_id,
+                        uuid: this.uuid
                     });
                 }
             }
@@ -214,7 +219,8 @@ class ChatManager {
             this.pushAssistantMessage({
                 content: "The user interrupted the task.",
                 group_id: assistantMsg.group_id,
-                context_id: assistantMsg.context_id
+                context_id: assistantMsg.context_id,
+                uuid: this.uuid
             });
         }
     }
@@ -249,7 +255,7 @@ class ChatManager {
             if (!fs.existsSync(filePath)) {
                 return [];
             }
-            const data = globals_1.utils.parseJsonContent(fs.readFileSync(filePath, "utf-8"));
+            const data = this.utils.parseJsonContent(fs.readFileSync(filePath, "utf-8"));
             this.messages = data.messages;
             this.chat = this.getChatInit(data.chat);
             this.fixMessages();
@@ -336,10 +342,10 @@ class ChatManager {
     }
     // 仅仅保留部分思考和调用工具名 (屏蔽过长内容节省 token)
     delMessage(message, truncateThinking = false) {
-        let message_copy = globals_1.utils.copy(message);
+        let message_copy = this.utils.copy(message);
         if (typeof message_copy.content !== 'string')
             return message_copy;
-        const content_parse = globals_1.utils.parseJsonContent(message_copy.content);
+        const content_parse = this.utils.parseJsonContent(message_copy.content);
         if (content_parse) {
             if (content_parse?.observation && message_copy.role === "user") {
                 message_copy.content = `Assistant called ${content_parse.tool_call} tool...[User deleted this record]`;

@@ -3,7 +3,7 @@ Object.defineProperty(exports, "__esModule", { value: true });
 exports.Shortcut = void 0;
 const electron_1 = require("electron");
 const logger_1 = require("../utils/logger");
-const globals_1 = require("../utils/globals");
+const WindowManager_1 = require("./windows/WindowManager");
 const CaptureMouse_1 = require("../mouse/CaptureMouse");
 class Shortcut {
     windowManager;
@@ -11,7 +11,7 @@ class Shortcut {
         this.windowManager = windowManager;
     }
     init() {
-        const shortcutKey = globals_1.utils.getConfig("short_cut");
+        const shortcutKey = WindowManager_1.WindowManager.instance.mainWindow.session().utils.getConfig("short_cut");
         if (!shortcutKey) {
             console.warn("[Shortcut] No shortcut key configured.");
             return;

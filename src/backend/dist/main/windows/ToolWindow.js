@@ -3,7 +3,6 @@ Object.defineProperty(exports, "__esModule", { value: true });
 exports.ToolWindow = void 0;
 const electron_1 = require("electron");
 const BaseWindow_1 = require("./BaseWindow");
-const globals_1 = require("../../utils/globals");
 class ToolWindow extends BaseWindow_1.BaseWindow {
     constructor(windowManager) {
         super(windowManager);
@@ -42,26 +41,26 @@ class ToolWindow extends BaseWindow_1.BaseWindow {
         }
     }
     setup() {
-        electron_1.ipcMain.handle('get-tools', async () => globals_1.utils.getConfig("plugins") || {});
+        electron_1.ipcMain.handle('get-tools', async () => this.utils().getConfig("plugins") || {});
         electron_1.ipcMain.handle('save-tool', async (_, toolData) => {
             if (!toolData?.id) {
                 this.windowManager.alertWindow?.show("error", "Tool ID is required.");
                 return;
             }
-            const config = globals_1.utils.getConfig();
+            const config = this.utils().getConfig();
             const plugins = config.plugins || {};
             plugins[toolData.id] = toolData;
             config.plugins = plugins;
-            globals_1.utils.setConfig(config);
+            this.utils().setConfig(config);
             this.windowManager.alertWindow?.show("success", "Tool saved successfully!");
         });
         electron_1.ipcMain.handle('delete-tool', async (_, id) => {
-            const config = globals_1.utils.getConfig();
+            const config = this.utils().getConfig();
             const plugins = config.plugins || {};
             if (plugins[id]) {
                 delete plugins[id];
                 config.plugins = plugins;
-                globals_1.utils.setConfig(config);
+                this.utils().setConfig(config);
                 this.windowManager.alertWindow?.show("success", "Tool deleted successfully!");
             }
         });

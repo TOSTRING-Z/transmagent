@@ -1,5 +1,5 @@
 import { State } from "./ReActAgent";
-import { utils } from '../utils/globals';
+import * as utils from '../utils/public';
 import { ToolCall } from "./ToolCall";
 import { WindowManager } from "../main/windows/WindowManager";
 
@@ -13,7 +13,7 @@ export default function getBaseTools(toolCallInstance: ToolCall): Record<string,
                     }
 
                     // 主代理实例
-                    const chatState = WindowManager.instance.mainWindow.llm_service.chatManager.chat;
+                    const chatState = WindowManager.instance.mainWindow.session().llm_service.chatManager.chat;
 
                     // Ensure envs object exists
                     if (!chatState.envs) {

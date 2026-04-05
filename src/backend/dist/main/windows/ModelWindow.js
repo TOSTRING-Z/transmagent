@@ -3,7 +3,6 @@ Object.defineProperty(exports, "__esModule", { value: true });
 exports.ModelWindow = void 0;
 const electron_1 = require("electron");
 const BaseWindow_1 = require("./BaseWindow");
-const globals_1 = require("../../utils/globals");
 class ModelWindow extends BaseWindow_1.BaseWindow {
     constructor(windowManager) {
         super(windowManager);
@@ -44,7 +43,7 @@ class ModelWindow extends BaseWindow_1.BaseWindow {
     setup() {
         electron_1.ipcMain.handle('get-models', async () => {
             const models = [];
-            const config_models = globals_1.utils.getConfig("models") || {};
+            const config_models = this.utils().getConfig("models") || {};
             for (const name in config_models) {
                 const versions = config_models[name]["versions"] || [];
                 versions.forEach((version) => {
@@ -53,7 +52,7 @@ class ModelWindow extends BaseWindow_1.BaseWindow {
                         llm_params = version.llm_params;
                     }
                     models.push({
-                        id: globals_1.utils.hashCode(`${name}-${version.version}`),
+                        id: this.utils().hashCode(`${name}-${version.version}`),
                         name,
                         api_url: config_models[name].api_url,
                         api_key: config_models[name]?.api_key,
@@ -74,12 +73,12 @@ class ModelWindow extends BaseWindow_1.BaseWindow {
                 this.windowManager.alertWindow?.show("error", "Model name and version are required.");
                 return;
             }
-            const config = globals_1.utils.getConfig();
+            const config = this.utils().getConfig();
             const config_models = config.models || {};
             // 先从旧位置移除（处理改名场景）
             for (const model_name in config_models) {
                 config_models[model_name].versions = config_models[model_name].versions.filter((v) => {
-                    return globals_1.utils.hashCode(`${model_name}-${v.version}`) !== modelData.id;
+                    return this.utils().hashCode(`${model_name}-${v.version}`) !== modelData.id;
                 });
                 if (config_models[model_name].versions.length === 0)
                     delete config_models[model_name];
@@ -110,22 +109,22 @@ class ModelWindow extends BaseWindow_1.BaseWindow {
                 config_models[modelData.name].versions.push(newVersionEntry);
             }
             config.models = config_models;
-            globals_1.utils.setConfig(config);
+            this.utils().setConfig(config);
             this.windowManager.alertWindow?.show("success", "Model saved successfully!");
             this.windowManager.mainWindow.updateVersionsSubmenu();
         });
         electron_1.ipcMain.handle('delete-model', async (_, id) => {
-            const config = globals_1.utils.getConfig();
+            const config = this.utils().getConfig();
             const config_models = config.models || {};
             for (const name in config_models) {
                 config_models[name].versions = config_models[name].versions.filter((v) => {
-                    return globals_1.utils.hashCode(`${name}-${v.version}`) !== id;
+                    return this.utils().hashCode(`${name}-${v.version}`) !== id;
                 });
                 if (config_models[name].versions.length === 0)
                     delete config_models[name];
             }
             config.models = config_models;
-            globals_1.utils.setConfig(config);
+            this.utils().setConfig(config);
             this.windowManager.alertWindow?.show("success", "Model deleted successfully!");
             this.windowManager.mainWindow.updateVersionsSubmenu();
         });

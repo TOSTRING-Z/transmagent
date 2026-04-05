@@ -9,6 +9,7 @@ export interface ElectronAPI {
   changeMode: (mode: string) => void;
   getFilePath: () => Promise<string | null>;
   setChat: (chat: any) => Promise<void>;
+  setUUID: (callback: (uuid: string) => void) => void;
   toggleMessageGroup: (data: { group_id: string; del: boolean }) => Promise<{ del_mode: boolean }>;
   compressionGroupMessage: (data: { group_id: string }) => Promise<{ compression_content: string }>;
   thumbMessageGroup: (data: { group_id: string; thumb: number }) => Promise<number>;

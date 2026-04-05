@@ -39,7 +39,7 @@ const fs = __importStar(require("fs"));
 const path = __importStar(require("path"));
 const ssh2_1 = require("ssh2");
 const logger_1 = require("../utils/logger");
-const globals_1 = require("../utils/globals");
+const WindowManager_1 = require("../main/windows/WindowManager");
 // 工业级过滤规则
 const EXCLUDE_PATTERNS = [
     // 依赖目录 (黑洞)
@@ -68,7 +68,7 @@ function main(params = {}) {
         const result = [];
         let limitReached = false;
         let isTimedOut = false;
-        const sshConfig = globals_1.utils.getSshConfig ? globals_1.utils.getSshConfig() : null;
+        const sshConfig = WindowManager_1.WindowManager.instance.mainWindow.session().utils.getSshConfig ? WindowManager_1.WindowManager.instance.mainWindow.session().utils.getSshConfig() : null;
         const isRemote = !!(sshConfig?.enabled && sshConfig?.host);
         // ==========================================
         // 全局超时守护 (Watchdog)

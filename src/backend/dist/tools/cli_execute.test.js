@@ -37,8 +37,8 @@ const cli_execute_1 = require("./cli_execute");
 const fs = __importStar(require("fs"));
 const child_process = __importStar(require("child_process"));
 const electron_1 = require("electron");
-const globals_1 = require("../utils/globals");
 const ssh2_1 = require("ssh2");
+const WindowManager_1 = require("../main/windows/WindowManager");
 // --- Mocks ---
 jest.mock('fs', () => ({
     writeFileSync: jest.fn(),
@@ -148,7 +148,7 @@ describe('cli_execute tool', () => {
     });
     describe('Local Execution', () => {
         it('1. 应该能够成功执行本地 bash 代码并返回结果', async () => {
-            globals_1.utils.getSshConfig.mockReturnValue({ enabled: false });
+            WindowManager_1.WindowManager.instance.mainWindow.session().utils.getSshConfig.mockReturnValue({ enabled: false });
             const execute = (0, cli_execute_1.main)({});
             const promise = execute({ code: 'echo "Hello Local"' });
             // 获取 mock 的 exec 返回的 child 实例
@@ -162,7 +162,7 @@ describe('cli_execute tool', () => {
             expect(fs.unlinkSync).toHaveBeenCalled();
         });
         it('2. 如果执行超时，应该终止并返回超时前收集到的内容', async () => {
-            globals_1.utils.getSshConfig.mockReturnValue({ enabled: false });
+            WindowManager_1.WindowManager.instance.mainWindow.session().utils.getSshConfig.mockReturnValue({ enabled: false });
             // 设置一个短超时
             const execute = (0, cli_execute_1.main)({});
             const promise = execute({ code: 'sleep 100', timeout: 100 });
@@ -179,7 +179,7 @@ describe('cli_execute tool', () => {
     });
     describe('SSH Execution', () => {
         it('3. 当开启 SSH 配置时，应通过 ssh2 模块上传并执行代码', async () => {
-            globals_1.utils.getSshConfig.mockReturnValue({ enabled: true, host: '192.168.1.1' });
+            WindowManager_1.WindowManager.instance.mainWindow.session().utils.getSshConfig.mockReturnValue({ enabled: true, host: '192.168.1.1' });
             const execute = (0, cli_execute_1.main)({});
             const promise = execute({ code: 'echo "Hello SSH"' });
             // 重点：只快进少量时间（如 50ms），让所有的 setTimeout 初始化回调（connect -> sftp -> writeStream -> exec）走完。
@@ -201,7 +201,7 @@ describe('cli_execute tool', () => {
     });
     describe('IPC Resource Cleanup', () => {
         it('4. 无论成功失败，结束时都必须清理 IPC 监听器防止内存泄漏', async () => {
-            globals_1.utils.getSshConfig.mockReturnValue({ enabled: false });
+            WindowManager_1.WindowManager.instance.mainWindow.session().utils.getSshConfig.mockReturnValue({ enabled: false });
             const execute = (0, cli_execute_1.main)({});
             const promise = execute({ code: 'ls' });
             const execMock = child_process.exec.mock.results[0].value;
@@ -215,7 +215,7 @@ describe('cli_execute tool', () => {
     });
     describe('Threshold Truncation', () => {
         it('5. 输出过长时应该被截断', async () => {
-            globals_1.utils.getSshConfig.mockReturnValue({ enabled: false });
+            WindowManager_1.WindowManager.instance.mainWindow.session().utils.getSshConfig.mockReturnValue({ enabled: false });
             const execute = (0, cli_execute_1.main)({ max_lines: 10, max_chars_per_line: 100 });
             const promise = execute({ code: 'echo' });
             const execMock = child_process.exec.mock.results[0].value;

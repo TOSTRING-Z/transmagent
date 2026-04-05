@@ -1,4 +1,5 @@
-import { DOM, State } from './globals';
+import { DOM } from './globals';
+import { State } from './state';
 import { createElement } from './utils';
 import { toggleMode } from './ui';
 

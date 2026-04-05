@@ -2,9 +2,9 @@ import { LLMService } from './LLMService';
 import { ReActAgent } from './ReActAgent';
 import { Plugins } from './Plugins';
 import { ToolCallAdapterFactory } from '../factories/AdapterFactory';
-import { utils, CONSTANTS } from '../utils/globals';
 import { Message, ToolInfo, AssistantMessage } from '../types';
 import { logger } from '../utils/logger';
+import { Utils } from '../utils/Utils';
 
 /**
  * LLMAssistant - LLM对话辅助功能类
@@ -13,10 +13,12 @@ import { logger } from '../utils/logger';
 export class LLMAssistant {
     private llm_service: LLMService;
     private plugins: Plugins | null;
+    private utils: Utils;
 
-    constructor(llm_service: LLMService, plugins: Plugins | null = null) {
+    constructor(llm_service: LLMService, plugins: Plugins | null = null, utils: Utils) {
         this.llm_service = llm_service;
         this.plugins = plugins;
+        this.utils = utils;
     }
 
     public setLLMService(llm_service: LLMService): void {
@@ -35,7 +37,7 @@ export class LLMAssistant {
      * @param modifyMessages 可选回调，用于对拷贝的消息列表进行修改
      */
     private createTempAgent(modifyMessages?: (messages: Message[]) => void): ReActAgent {
-        const temp_llm_service = new LLMService();
+        const temp_llm_service = new LLMService(undefined, null, this.utils);
         // 复制聊天配置
         temp_llm_service.chatManager.chat = { ...this.llm_service.chatManager.chat };
 
@@ -47,7 +49,7 @@ export class LLMAssistant {
         }
 
         temp_llm_service.chatManager.messages = clonedMessages;
-        return new ReActAgent(temp_llm_service);
+        return new ReActAgent(temp_llm_service, null, this.llm_service.utils);
     }
 
     // ==================== 对话压缩功能 ====================
@@ -65,7 +67,7 @@ export class LLMAssistant {
             const data = react_agent.getDataDefault({
                 prompt, 
                 query, 
-                params: { ...utils.getConfig("llm_params"), temperature: 0.3 },
+                params: { ...this.utils.getConfig("llm_params"), temperature: 0.3 },
                 llm_conversation_mode: true
             });
 
@@ -118,14 +120,14 @@ export class LLMAssistant {
 
     public async setChatName(_data: any = {}): Promise<void> {
         if (_data?.is_plugin) {
-            this.llm_service.chatManager.chat.name = utils.formatDate();
+            this.llm_service.chatManager.chat.name = this.utils.formatDate();
             return;
         }
 
         const react_agent = this.createTempAgent();
 
         const prompt = `You are an intelligent assistant skilled at generating short chat names based on contextual content.`;
-        const query = `Generate a short ${_data?.language || utils.getLanguage()} chat name based on context...`;
+        const query = `Generate a short ${_data?.language || this.utils.getLanguage()} chat name based on context...`;
 
         const callData = react_agent.getDataDefault({
             prompt,
@@ -142,7 +144,7 @@ export class LLMAssistant {
             const adapter = ToolCallAdapterFactory.getAdapter(format);
             const rawContent = adapter.extractText(messageOutput);
             const chatName = rawContent.split("\n")[0].trim();
-            this.llm_service.chatManager.chat.name = chatName || utils.formatDate();
+            this.llm_service.chatManager.chat.name = chatName || this.utils.formatDate();
         }
     }
 
@@ -159,7 +161,7 @@ export class LLMAssistant {
     }
 
     public async auditToolCall(toolInfo: ToolInfo, data: Record<string, any>): Promise<string | null> {
-        if (!toolInfo.tool_call_name || !this.isToolRequireAudit(toolInfo.tool_call_name) || !utils.getConfig("tool_call")?.llm_judge) {
+        if (!toolInfo.tool_call_name || !this.isToolRequireAudit(toolInfo.tool_call_name) || !this.utils.getConfig("tool_call")?.llm_judge) {
             return null;
         }
 
@@ -210,7 +212,7 @@ ${payloadString}
         const callData = critic_agent.getDataDefault({
             ...data,
             query: criticQuery,
-            params: { ...utils.getConfig("llm_params"), temperature: 0.3 },
+            params: { ...this.utils.getConfig("llm_params"), temperature: 0.3 },
             llm_conversation_mode: true,
             output_format: null
         });
@@ -294,7 +296,7 @@ ${consoleOutput}
             const callData = react_agent.getDataDefault({
                 query,
                 params: { 
-                    ...utils.getConfig("llm_params"), 
+                    ...this.utils.getConfig("llm_params"), 
                     temperature: 0.1,
                     tool_choice: "none",
                     response_format: { type: "json_object" }
@@ -337,7 +339,7 @@ Please create a concise summary of the key points, important decisions, and valu
             const callData = react_agent.getDataDefault({
                 query,
                 params: { 
-                    ...utils.getConfig("llm_params"), 
+                    ...this.utils.getConfig("llm_params"), 
                     temperature: 0.3,
                     tool_choice: "none"
                 },

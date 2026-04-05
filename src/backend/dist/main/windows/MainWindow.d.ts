@@ -1,11 +1,7 @@
 import { BrowserWindow, MenuItemConstructorOptions } from 'electron';
 import { BaseWindow } from "./BaseWindow";
 import { WindowManager } from "./WindowManager";
-import { LLMService } from '../../core/LLMService';
-import { ToolCall } from '../../core/ToolCall';
-import { ChainCall } from '../../core/ChainCall';
-import { Plugins } from '../../core/Plugins';
-import { AgentMode } from '../../types';
+import { Session, SessionManager } from '../../core/SessionManager';
 interface FuncItemNode {
     statu: boolean;
     event?: any;
@@ -14,15 +10,12 @@ interface FuncItemNode {
 }
 export declare class MainWindow extends BaseWindow {
     funcItems: Record<string, FuncItemNode>;
-    plugins: Plugins;
-    llm_service: LLMService;
-    tool_call: ToolCall;
-    chain_call: ChainCall;
+    sessionManager: SessionManager;
     main_server: any;
     worker: any;
     last_clipboard_content?: string | null;
     concat?: boolean;
-    agentMode: AgentMode;
+    session: (() => Session);
     constructor(windowManager: WindowManager);
     setActiveAgent(activeAgent: any): void;
     destroy(): void;

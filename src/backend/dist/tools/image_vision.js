@@ -45,7 +45,7 @@ const os = __importStar(require("os"));
 const ssh2_1 = require("ssh2");
 const puppeteer_1 = __importDefault(require("puppeteer"));
 const logger_1 = require("../utils/logger");
-const globals_1 = require("../utils/globals");
+const WindowManager_1 = require("../main/windows/WindowManager");
 function main(params) {
     return async (args) => {
         try {
@@ -57,7 +57,7 @@ function main(params) {
             const model = params.model || "gpt-4o";
             if (!apiKey)
                 return "Error: 'api_key' is missing.";
-            const sshConfig = globals_1.utils.getSshConfig ? globals_1.utils.getSshConfig() : null;
+            const sshConfig = WindowManager_1.WindowManager.instance.mainWindow.session().utils.getSshConfig ? WindowManager_1.WindowManager.instance.mainWindow.session().utils.getSshConfig() : null;
             const isRemote = !!(sshConfig?.enabled && sshConfig?.host);
             let fileBuffer;
             const ext = path.extname(file_path).toLowerCase();

@@ -34,7 +34,10 @@
       innerText: "0"
     }
   };
+
+  // main/state.ts
   var State = {
+    uuid: null,
     markdown_statu: true,
     chat: {},
     scroll_top: {
@@ -770,14 +773,9 @@ $$
     }
     return messageSystem;
   }
+  window.electronAPI.setUUID((uuid) => State.uuid = uuid);
 
   // main/subagent.ts
-  var State2 = {
-    scroll_top: {
-      info: true,
-      data: true
-    }
-  };
   var info = {
     id: null,
     name: null
@@ -791,24 +789,24 @@ $$
   };
   document.addEventListener("DOMContentLoaded", () => {
     DOM2.top_div.addEventListener("mouseenter", () => {
-      State2.scroll_top.info = false;
-      State2.scroll_top.data = false;
+      State.scroll_top.info = false;
+      State.scroll_top.data = false;
     });
     DOM2.top_div.addEventListener("mouseleave", () => {
-      State2.scroll_top.info = true;
-      State2.scroll_top.data = true;
+      State.scroll_top.info = true;
+      State.scroll_top.data = true;
     });
   });
   window.electronAPI.streamData((chunk) => {
     streamData(chunk).then((_) => {
-      if (State2.scroll_top.data)
+      if (State.scroll_top.data)
         DOM2.top_div.scrollTop = DOM2.top_div.scrollHeight;
     });
   });
   window.electronAPI.toolData((chunk) => toolData(chunk));
   window.electronAPI.infoData((info2) => {
     infoData(info2).then((info_content) => {
-      if (State2.scroll_top.info && info_content)
+      if (State.scroll_top.info && info_content)
         info_content.scrollTop = info_content?.scrollHeight;
     });
   });
@@ -818,7 +816,7 @@ $$
       thinking.classList.remove("hidden");
       const btn = messageSystem?.getElementsByClassName("btn")[0];
       btn.remove();
-      if (State2.scroll_top.data)
+      if (State.scroll_top.data)
         DOM2.top_div.scrollTop = DOM2.top_div.scrollHeight;
     });
   });

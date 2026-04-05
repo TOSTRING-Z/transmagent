@@ -38,7 +38,7 @@ exports.getPrompt = getPrompt;
 const fs = __importStar(require("fs"));
 const path = __importStar(require("path"));
 const ssh2_1 = require("ssh2");
-const globals_1 = require("../utils/globals");
+const WindowManager_1 = require("../main/windows/WindowManager");
 // 本地文件操作
 async function writeLocalFile(filePath, content, mode) {
     const dir = path.dirname(filePath);
@@ -98,7 +98,7 @@ function main() {
             if (!file_path) {
                 throw new Error("file_path is required");
             }
-            const sshConfig = globals_1.utils?.getSshConfig ? globals_1.utils.getSshConfig() : null;
+            const sshConfig = WindowManager_1.WindowManager.instance.mainWindow.session().utils.getSshConfig ? WindowManager_1.WindowManager.instance.mainWindow.session().utils.getSshConfig() : null;
             const isRemote = !!(sshConfig?.enabled && sshConfig?.host);
             if (isRemote) {
                 await writeRemoteFile(file_path, content, mode, sshConfig);

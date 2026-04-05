@@ -1,7 +1,6 @@
 import { BrowserWindow, ipcMain, screen } from 'electron';
 import { BaseWindow } from './BaseWindow';
 import { WindowManager } from './WindowManager';
-import { utils } from '../../utils/globals';
 
 export class AlertWindow extends BaseWindow {
     private width = 800;
@@ -20,7 +19,7 @@ export class AlertWindow extends BaseWindow {
         const display = screen.getPrimaryDisplay();
         const x = Math.round((display.workAreaSize.width - this.width) / 2);
         const y = 20;
-        const autoCloseMs = (utils.getConfig("icon_time") || 5) * 1000;
+        const autoCloseMs = (WindowManager.instance.mainWindow.session().utils.getConfig("icon_time") || 5) * 1000;
 
         if (this.window) {
             this.window.setPosition(x, y);

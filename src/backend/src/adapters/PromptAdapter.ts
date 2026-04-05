@@ -1,7 +1,7 @@
 import { IToolCallAdapter } from './IAdapter';
 import { AssistantMessage, Message,ToolInfo } from '../types';
 import JSON5 from 'json5';
-import { utils } from '../utils/globals';
+import * as utils from '../utils/public';
 
 export class PromptToolCallAdapter implements IToolCallAdapter {
     formatTools(toolSchemas: any[]): any {

@@ -1,7 +1,40 @@
 "use strict";
+var __createBinding = (this && this.__createBinding) || (Object.create ? (function(o, m, k, k2) {
+    if (k2 === undefined) k2 = k;
+    var desc = Object.getOwnPropertyDescriptor(m, k);
+    if (!desc || ("get" in desc ? !m.__esModule : desc.writable || desc.configurable)) {
+      desc = { enumerable: true, get: function() { return m[k]; } };
+    }
+    Object.defineProperty(o, k2, desc);
+}) : (function(o, m, k, k2) {
+    if (k2 === undefined) k2 = k;
+    o[k2] = m[k];
+}));
+var __setModuleDefault = (this && this.__setModuleDefault) || (Object.create ? (function(o, v) {
+    Object.defineProperty(o, "default", { enumerable: true, value: v });
+}) : function(o, v) {
+    o["default"] = v;
+});
+var __importStar = (this && this.__importStar) || (function () {
+    var ownKeys = function(o) {
+        ownKeys = Object.getOwnPropertyNames || function (o) {
+            var ar = [];
+            for (var k in o) if (Object.prototype.hasOwnProperty.call(o, k)) ar[ar.length] = k;
+            return ar;
+        };
+        return ownKeys(o);
+    };
+    return function (mod) {
+        if (mod && mod.__esModule) return mod;
+        var result = {};
+        if (mod != null) for (var k = ownKeys(mod), i = 0; i < k.length; i++) if (k[i] !== "default") __createBinding(result, mod, k[i]);
+        __setModuleDefault(result, mod);
+        return result;
+    };
+})();
 Object.defineProperty(exports, "__esModule", { value: true });
 const image_vision_1 = require("./image_vision"); // 请替换为你的实际工具文件路径
-const globals_1 = require("../utils/globals"); // 请替换为你的全局配置路径
+const utils = __importStar(require("../utils/public")); // 请替换为你的全局配置路径
 // 涉及真实 API 请求和 SSH 连接，将 Jest 超时时间设为 60 秒
 jest.setTimeout(60000);
 describe('Image Vision Tool Integration Tests', () => {
@@ -12,15 +45,15 @@ describe('Image Vision Tool Integration Tests', () => {
     };
     const executeTool = (0, image_vision_1.main)(params);
     // 备份原始的 getSshConfig 函数
-    const originalGetSshConfig = globals_1.utils.getSshConfig;
+    const originalGetSshConfig = utils.getSshConfig;
     afterEach(() => {
         // 每个测试用例结束后，恢复原始配置，防止污染其他测试
-        globals_1.utils.getSshConfig = originalGetSshConfig;
+        utils.getSshConfig = originalGetSshConfig;
         jest.restoreAllMocks();
     });
     test('Test 1: Should successfully read LOCAL PNG and get vision result', async () => {
         // Mock 全局配置：强制模拟本地环境（禁用 SSH）
-        globals_1.utils.getSshConfig = jest.fn().mockReturnValue({ enabled: false });
+        utils.getSshConfig = jest.fn().mockReturnValue({ enabled: false });
         const result = await executeTool({
             prompt: "请用简短的一句话描述这张图片的核心内容。",
             file_path: "C:\\Users\\tostring\\Pictures\\AgentSCEM.png"

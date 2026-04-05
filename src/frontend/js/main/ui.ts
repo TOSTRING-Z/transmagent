@@ -1,5 +1,6 @@
 import { startAgentLoop } from './chat';
-import { DOM, State } from './globals';
+import { DOM } from './globals';
+import { State } from './state';
 import { initChat } from './history';
 import { createElement } from './utils';
 

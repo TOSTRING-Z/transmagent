@@ -1,6 +1,8 @@
 import { LLMService } from './LLMService';
 import { ChatState, AssistantMessage } from '../types';
 import { LLMAssistant } from './LLMAssistant';
+import { BrowserWindow } from 'electron/main';
+import { Utils } from '../utils/Utils';
 export declare enum State {
     IDLE = "idle",
     RUNNING = "running",
@@ -17,12 +19,14 @@ export declare enum Mode {
 export declare class ReActAgent {
     state: State;
     llm_service: LLMService;
-    window: any;
+    window: BrowserWindow | null;
     context_id?: string;
     assistant: LLMAssistant;
-    constructor(llm_service: LLMService, window?: any);
+    utils: Utils;
+    constructor(llm_service: LLMService, window: (BrowserWindow | null) | undefined, utils: Utils);
+    setUUID(data: Record<string, any>): void;
     private formatTemplate;
-    changeWindow(window?: any): void;
+    changeWindow(window?: BrowserWindow | null): void;
     setHistory(chat?: ChatState | null): boolean | undefined;
     delHistory(id: string): void;
     renameHistory(chat: ChatState): void;

@@ -3,17 +3,20 @@ import { logger } from '../utils/logger';
 
 import * as path from 'path';
 import { Message, ChatState, UserMessage, AssistantMessage, ToolMessage, LongTermMemory } from '../types';
-import { utils, CHAT_CONST } from '../utils/globals';
+import { CHAT_CONST } from '../utils/globals';
+import { Utils } from '../utils/Utils';
 
 export class ChatManager {
     public messages: Message[] = [];
     public chat: ChatState;
     public tagSuccess: boolean = false;
     public uuid: string;
+    public utils: Utils;
 
-    constructor(messages: Message[] = [], chatInitParams: Partial<ChatState> = {}) {
+    constructor(messages: Message[] = [], chatInitParams: Partial<ChatState> = {}, utils: Utils) {
         this.chat = this.getChatInit(chatInitParams);
         this.uuid = this.getUUID();
+        this.utils = utils;
         this.init(messages);
     }
 
@@ -37,13 +40,13 @@ export class ChatManager {
     }
 
     public getMessages(all = true): Message[] {
-        if (all) return utils.copy(this.messages);
-        let msgs = utils.copy(this.messages.filter(message => !message?.del));
+        if (all) return this.utils.copy(this.messages);
+        let msgs = this.utils.copy(this.messages.filter(message => !message?.del));
         return msgs;
     }
 
     public compressContext(messages): Message[] {
-        let msgs = utils.copy(messages);
+        let msgs = this.utils.copy(messages);
         const lastMessage = msgs[msgs.length - 1];
         if (this.chat.compress_context) {
             msgs = msgs.filter(message => {
@@ -64,32 +67,34 @@ export class ChatManager {
         return msgs;
     }
 
-    public pushMessage(msg: Message) {
-        this.messages.push(msg);
-        this.updateChat();
+    public pushMessage(msg: Message, uuid: string) {
+        if (this.uuid === uuid) {
+            this.messages.push(msg);
+            this.updateChat();
+        }
     }
 
-    public pushSystemMessage(content: string) {
-        const systemMsg: Message = { role: "system", content };
-        this.pushMessage(systemMsg);
+    public pushSystemMessage(msg: any) {
+        const systemMsg: Message = { role: "system", content: msg.content };
+        this.pushMessage(systemMsg, msg.uuid);
     }
 
     public pushUserMessage(msg: any) {
         const userMsg: UserMessage = { role: "user", content: msg.content, group_id: msg.group_id, context_id: msg.context_id, show: true, react: false };
-        this.pushMessage(userMsg);
+        this.pushMessage(userMsg, msg.uuid);
     }
     public pushAssistantMessageWithToolCalls(msg: any) {
         const assistantMsg: AssistantMessage = { role: "assistant", content: msg.content, reasoning_content: msg.reasoning_content, tool_calls: msg.tool_calls, group_id: msg.group_id, context_id: msg.context_id, show: true, react: true };
-        this.pushMessage(assistantMsg);
+        this.pushMessage(assistantMsg, msg.uuid);
     }
     public pushAssistantMessage(msg: any) {
         const assistantMsg: AssistantMessage = { role: "assistant", content: msg.content, group_id: msg.group_id, context_id: msg.context_id, show: true, react: false };
-        this.pushMessage(assistantMsg);
+        this.pushMessage(assistantMsg, msg.uuid);
     }
 
     public pushToolMessage(msg: any) {
         const toolMsg: ToolMessage = { role: "tool", content: msg.content, tool_call_id: msg.tool_call_id, tool_call_name: msg.tool_call_name, group_id: msg.group_id, context_id: msg.context_id, show: true, react: true };
-        this.pushMessage(toolMsg);
+        this.pushMessage(toolMsg, msg.uuid);
     }
 
     public popMessage(group_id?: string, context_id?: string): Message | null {
@@ -115,14 +120,14 @@ export class ChatManager {
 
     public getDefaultConfig(): Partial<ChatState> {
         return {
-            model: utils.getConfig("default")["model"] || "deepseek[openai]",
-            version: utils.getConfig("default")["version"] || "deepseek-chat",
-            tool_format: utils.getConfig("default")["tool_format"] || "toolcalls",
-            is_plugin: utils.getConfig("default")["model"] === "plugins",
-            compress_context: utils.getConfig("default")["compress_context"] || false,
-            memory_length: utils.getConfig('tool_call')["memory_length"] || 100,
-            long_memory_length: utils.getConfig('tool_call')["long_memory_length"] || 200,
-            max_tokens: utils.getConfig('tool_call')["max_tokens"] || 1e5,
+            model: this.utils.getConfig("default")["model"] || "deepseek[openai]",
+            version: this.utils.getConfig("default")["version"] || "deepseek-chat",
+            tool_format: this.utils.getConfig("default")["tool_format"] || "toolcalls",
+            is_plugin: this.utils.getConfig("default")["model"] === "plugins",
+            compress_context: this.utils.getConfig("default")["compress_context"] || false,
+            memory_length: this.utils.getConfig('tool_call')["memory_length"] || 100,
+            long_memory_length: this.utils.getConfig('tool_call')["long_memory_length"] || 200,
+            max_tokens: this.utils.getConfig('tool_call')["max_tokens"] || 1e5,
         };
     }
 
@@ -168,7 +173,7 @@ export class ChatManager {
             }
         }
 
-        if (lastAssistantIdx === this.messages.length - 1) return;
+        if (lastAssistantIdx === -1) return;
 
         const assistantMsg = this.messages[lastAssistantIdx] as AssistantMessage;
 
@@ -191,7 +196,8 @@ export class ChatManager {
                         tool_call_id: call.id,
                         tool_call_name: call.function?.name,
                         group_id: assistantMsg.group_id,
-                        context_id: assistantMsg.context_id
+                        context_id: assistantMsg.context_id,
+                        uuid: this.uuid
                     });
                 }
             }
@@ -200,7 +206,8 @@ export class ChatManager {
             this.pushAssistantMessage({
                 content: "The user interrupted the task.",
                 group_id: assistantMsg.group_id,
-                context_id: assistantMsg.context_id
+                context_id: assistantMsg.context_id,
+                uuid: this.uuid
             });
         }
     }
@@ -237,7 +244,7 @@ export class ChatManager {
             if (!fs.existsSync(filePath)) {
                 return [];
             }
-            const data = utils.parseJsonContent(fs.readFileSync(filePath, "utf-8"));
+            const data = this.utils.parseJsonContent(fs.readFileSync(filePath, "utf-8"));
             this.messages = data.messages;
             this.chat = this.getChatInit(data.chat as Partial<ChatState>);
             this.fixMessages();
@@ -319,10 +326,10 @@ export class ChatManager {
 
     // 仅仅保留部分思考和调用工具名 (屏蔽过长内容节省 token)
     public delMessage(message: Message, truncateThinking = false): Message {
-        let message_copy = utils.copy(message);
+        let message_copy = this.utils.copy(message);
         if (typeof message_copy.content !== 'string') return message_copy;
 
-        const content_parse = utils.parseJsonContent(message_copy.content);
+        const content_parse = this.utils.parseJsonContent(message_copy.content);
         if (content_parse) {
             if (content_parse?.observation && message_copy.role === "user") {
                 message_copy.content = `Assistant called ${content_parse.tool_call} tool...[User deleted this record]`;

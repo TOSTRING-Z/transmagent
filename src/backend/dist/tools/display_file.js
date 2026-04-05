@@ -40,7 +40,6 @@ const fs = __importStar(require("fs"));
 const path = __importStar(require("path"));
 const readline = __importStar(require("readline"));
 const ssh2_1 = require("ssh2");
-const globals_1 = require("../utils/globals");
 const WindowManager_1 = require("../main/windows/WindowManager");
 // 移除了多余的 Singleton 反模式
 class DisplayFile {
@@ -56,7 +55,7 @@ class DisplayFile {
      */
     async display(filePath, options = {}) {
         const normalizedOptions = this._normalizeOptions(options);
-        const sshConfig = globals_1.utils?.getSshConfig ? globals_1.utils.getSshConfig() : null;
+        const sshConfig = WindowManager_1.WindowManager.instance.mainWindow.session().utils?.getSshConfig ? WindowManager_1.WindowManager.instance.mainWindow.session().utils.getSshConfig() : null;
         const isRemote = !!(sshConfig?.enabled && sshConfig?.host);
         const actualFileType = normalizedOptions.fileType === 'auto'
             ? this._detectFileType(filePath)
@@ -391,7 +390,7 @@ class DisplayFile {
         const sheet = workbook.Sheets[workbook.SheetNames[0]];
         if (!sheet['!ref'])
             return "Empty Excel file";
-        const range = XLSX.utils.decode_range(sheet['!ref']);
+        const range = XLSX.WindowManager.instance.mainWindow.session().utils.decode_range(sheet['!ref']);
         const totalRows = range.e.r + 1;
         const totalCols = range.e.c + 1;
         const actualStart = Math.max(0, startLine > 0 ? startLine - 1 : 0);
@@ -400,7 +399,7 @@ class DisplayFile {
         if (maxCols > 0) {
             actualEndCol = Math.min(range.e.c, range.s.c + maxCols - 1);
         }
-        const jsonData = XLSX.utils.sheet_to_json(sheet, {
+        const jsonData = XLSX.WindowManager.instance.mainWindow.session().utils.sheet_to_json(sheet, {
             range: { s: { c: range.s.c, r: actualStart }, e: { c: actualEndCol, r: actualEnd } },
             defval: ''
         });

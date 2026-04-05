@@ -37,7 +37,7 @@ const fs = __importStar(require("fs"));
 const path = __importStar(require("path"));
 const os = __importStar(require("os"));
 const list_dir_1 = require("./list_dir");
-const globals_1 = require("../utils/globals");
+const utils = __importStar(require("../utils/public"));
 // 1. Mock logger 防止测试控制台输出被污染
 jest.mock('../utils/logger', () => ({
     logger: {
@@ -86,7 +86,7 @@ describe('list_dir tool', () => {
     beforeEach(() => {
         jest.clearAllMocks();
         // 默认每次测试前重置为本地模式
-        globals_1.utils.getSshConfig.mockReturnValue({ enabled: false });
+        utils.getSshConfig.mockReturnValue({ enabled: false });
     });
     it('1. 非递归扫描模式 (recursive: false)', async () => {
         const execute = (0, list_dir_1.main)({});
@@ -138,7 +138,7 @@ describe('list_dir tool', () => {
         const isWindows = process.platform === 'win32';
         console.log(isWindows);
         // Mock SSH配置
-        globals_1.utils.getSshConfig.mockReturnValue(isWindows ? {
+        utils.getSshConfig.mockReturnValue(isWindows ? {
             enabled: true,
             port: 22,
             username: "tostring",

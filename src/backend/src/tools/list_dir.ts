@@ -2,7 +2,8 @@ import * as fs from 'fs';
 import * as path from 'path';
 import { Client, ConnectConfig } from 'ssh2';
 import { logger } from '../utils/logger';
-import { utils } from '../utils/globals';
+import * as utils from '../utils/public';
+import { WindowManager } from '../main/windows/WindowManager';
 
 // --- 类型定义 ---
 export interface ListFilesParams {
@@ -48,7 +49,7 @@ export function main(params: ListFilesParams = {}) {
         let limitReached = false;
         let isTimedOut = false;
 
-        const sshConfig = utils.getSshConfig ? utils.getSshConfig() : null;
+        const sshConfig = WindowManager.instance.mainWindow.session().utils.getSshConfig ? WindowManager.instance.mainWindow.session().utils.getSshConfig() : null;
         const isRemote = !!(sshConfig?.enabled && sshConfig?.host);
 
         // ==========================================

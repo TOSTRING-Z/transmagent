@@ -1,9 +1,7 @@
 import { BrowserWindow, ipcMain } from 'electron';
 import { BaseWindow } from './BaseWindow';
 import { WindowManager } from './WindowManager';
-import { utils } from '../../utils/globals';
-
-const { Plugins } = require('../../core/Plugins');
+import { Plugins }  from '../../core/Plugins';
 
 export class ConfigWindow extends BaseWindow {
     constructor(windowManager: WindowManager) {
@@ -51,12 +49,12 @@ export class ConfigWindow extends BaseWindow {
     }
 
     public setup() {
-        ipcMain.handle('get-config', () => utils.getConfig());
+        ipcMain.handle('get-config', () => this.utils().getConfig());
 
         ipcMain.handle('set-config', (_, config) => {
-            let state = utils.setConfig(config);
+            let state = this.utils().setConfig(config);
             this.windowManager.mainWindow.updateVersionsSubmenu();
-            const plugins = new Plugins();
+            const plugins = new Plugins(this.utils());
             plugins.loadInit();
             this.windowManager.alertWindow?.show("success", "config saved, restart to apply");
             this.windowManager.mainWindow.restart(this.windowManager.mainWindow.window);
