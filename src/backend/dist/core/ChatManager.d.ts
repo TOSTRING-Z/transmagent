@@ -3,7 +3,9 @@ export declare class ChatManager {
     messages: Message[];
     chat: ChatState;
     tagSuccess: boolean;
+    uuid: string;
     constructor(messages?: Message[], chatInitParams?: Partial<ChatState>);
+    getUUID(): string;
     init(messages?: Message[]): void;
     updateChat(): void;
     getMessages(all?: boolean): Message[];

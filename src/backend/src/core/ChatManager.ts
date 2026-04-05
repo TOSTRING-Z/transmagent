@@ -9,10 +9,20 @@ export class ChatManager {
     public messages: Message[] = [];
     public chat: ChatState;
     public tagSuccess: boolean = false;
+    public uuid: string;
 
     constructor(messages: Message[] = [], chatInitParams: Partial<ChatState> = {}) {
         this.chat = this.getChatInit(chatInitParams);
+        this.uuid = this.getUUID();
         this.init(messages);
+    }
+
+    public getUUID(): string {
+        return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, function (c) {
+            const r = Math.random() * 16 | 0;
+            const v = c === 'x' ? r : (r & 0x3 | 0x8);
+            return v.toString(16);
+        });
     }
 
     public init(messages: Message[] = []) {
