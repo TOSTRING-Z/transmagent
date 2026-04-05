@@ -824,6 +824,19 @@ $$
     addChatItem(chat);
     initChat(chat);
   }
+  function updateChat(chat) {
+    if (!chat)
+      return;
+    State.chat = chat;
+    toggleMode(State.chat.mode);
+    DOM.system_prompt.value = State.chat.system_prompt || "";
+    DOM.tokens.innerText = String(State.chat.tokens || 0);
+    DOM.msg_count.innerText = String(State.chat.msg_count || 0);
+    DOM.seconds.innerText = (State.chat.seconds || 0).toFixed(1);
+    DOM.version.innerText = State.chat.model;
+    DOM.model_select.value = State.chat.model;
+    DOM.compress_box.checked = State.chat.compress_context || false;
+  }
   function initChat(chat = {}) {
     State.chat = chat;
     toggleMode(State.chat.mode);
@@ -1300,17 +1313,14 @@ ${DOM.input.value}`;
     });
   });
   window.electronAPI.initInfo((data) => {
-    State.chat = data;
-    toggleMode(data.mode);
-    DOM.system_prompt.value = data.system_prompt;
-    DOM.version.innerText = data.version;
+    initChat(data);
     DOM.history_list.innerHTML = "";
     data.chats.forEach((chat) => addChatItem(chat));
   });
   window.electronAPI.handleMarkDownFormat((status) => State.markdown_statu = status);
   window.electronAPI.handleReactStatu((status) => State.react_statu = status);
   window.electronAPI.streamData((data) => {
-    State.chat = data;
+    updateChat(data);
     if (data?.id !== State.chat.id) {
       return;
     }
@@ -1332,13 +1342,14 @@ ${DOM.input.value}`;
     });
   });
   window.electronAPI.toolData((data) => {
-    State.chat = data;
+    updateChat(data);
     if (data?.id !== State.chat.id) {
       return;
     }
     toolData(data);
   });
   window.electronAPI.infoData((data) => {
+    updateChat(data);
     if (data?.id !== State.chat.id) {
       return;
     }
@@ -1353,6 +1364,7 @@ ${DOM.input.value}`;
     }
   });
   window.electronAPI.userData((data) => {
+    updateChat(data);
     if (data?.id !== State.chat.id) {
       return;
     }

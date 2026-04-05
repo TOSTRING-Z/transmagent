@@ -1,6 +1,6 @@
 import { ChatState, DOM, State } from './globals';
 import { init_size, autoResizeTextarea, handleClear, showLog, toggleMode, toggleSidebar, updateProgress, hideRenameDialog } from './ui';
-import { addChatItem, handleNewChat, selectChat, deleteChat, renameChat, confirmRename, showHistoryMenu, initChat } from './history';
+import { addChatItem, handleNewChat, selectChat, deleteChat, renameChat, confirmRename, showHistoryMenu, initChat, updateChat } from './history';
 import { initConfigEvents, showConfig, saveConfig, hideConfig } from './config';
 import { userData, infoData, streamData, startAgentLoop, addRunning, toolData, enterEnd } from './chat';
 import { initMermaid } from './markdown';
@@ -154,10 +154,7 @@ window.electronAPI.handleDeleteMemory(({ context_ids, ids }) => {
 });
 
 window.electronAPI.initInfo((data) => {
-  State.chat = data as ChatState;
-  toggleMode(data.mode);
-  DOM.system_prompt.value = data.system_prompt;
-  DOM.version.innerText = data.version;
+  initChat(data as ChatState);
   DOM.history_list.innerHTML = ""; // Clear list before adding
   data.chats.forEach((chat: any) => addChatItem(chat));
 });
@@ -167,7 +164,7 @@ window.electronAPI.handleMarkDownFormat((status) => State.markdown_statu = statu
 window.electronAPI.handleReactStatu((status) => State.react_statu = status);
 
 window.electronAPI.streamData((data) => {
-  State.chat = data as ChatState;
+  updateChat(data as ChatState);
   if (data?.id !== State.chat.id) {
     return;
   }
@@ -192,7 +189,7 @@ window.electronAPI.streamData((data) => {
 });
 
 window.electronAPI.toolData((data) => {
-  State.chat = data as ChatState;
+  updateChat(data as ChatState);
   if (data?.id !== State.chat.id) {
     return;
   }
@@ -200,6 +197,7 @@ window.electronAPI.toolData((data) => {
 });
 
 window.electronAPI.infoData((data) => {
+  updateChat(data as ChatState);
   if (data?.id !== State.chat.id) {
     return;
   }
@@ -215,6 +213,7 @@ window.electronAPI.infoData((data) => {
 });
 
 window.electronAPI.userData((data) => {
+  updateChat(data as ChatState);
   if (data?.id !== State.chat.id) {
     return;
   }
