@@ -144,10 +144,9 @@ export interface ChatState {
     tool_format: "toolcalls" | "prompt";
     is_plugin: boolean;
     compress_context: boolean;
-    memory_length: number,
-    long_memory_length: number,
-    max_tokens: number,
-    
+    memory_length: number;
+    long_memory_length: number;
+    max_tokens: number;
 }
 
 export interface ChatRequestData {

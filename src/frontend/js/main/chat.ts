@@ -273,10 +273,6 @@ export function menuEvent(messageSystem: HTMLElement, message_content: HTMLEleme
 }
 
 export async function enterEnd(messageSystem: HTMLElement, chunk: any = null) {
-  if (State.seconds_timer) {
-    clearInterval(State.seconds_timer);
-    State.seconds_timer = null;
-  }
   const message_content = messageSystem.getElementsByClassName('message')[0] as HTMLElement;
   const thinking = messageSystem?.getElementsByClassName("thinking")[0];
   thinking.classList.add('hidden');
@@ -461,13 +457,6 @@ export async function startAgentLoop(data: any) {
   DOM.pause.innerHTML = "";
   const optionDom = document.querySelector('.base-container');
   if (optionDom) optionDom.remove();
-
-  if (State.seconds_timer) clearInterval(State.seconds_timer);
-  State.seconds_timer = setInterval(() => {
-    State.chat.seconds += 0.1;
-    DOM.seconds.innerText = State.chat.seconds.toFixed(1);
-    if (State.chat.version && DOM.version) DOM.version.innerText = State.chat.version;
-  }, 100);
 
   DOM.tokens.innerText = State.chat.tokens.toString();
   DOM.version.innerText = data.version;

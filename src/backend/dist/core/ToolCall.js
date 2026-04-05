@@ -606,6 +606,7 @@ class ToolCall extends ReActAgent_1.ReActAgent {
         }
         this.state = ReActAgent_1.State.IDLE;
         let tool_call = globals_1.utils.getConfig("tool_call");
+        this.llm_service.chatManager.chat.seconds = 0;
         while (this.state === ReActAgent_1.State.IDLE || this.state === ReActAgent_1.State.RUNNING) {
             // 延时1s，避免过快进入死循环
             await new Promise(resolve => setTimeout(resolve, 1000));
@@ -617,7 +618,12 @@ class ToolCall extends ReActAgent_1.ReActAgent {
             if (data?.max_step && this.llm_service.chatManager.chat.step > data.max_step)
                 break;
             data = { ...data, ...tool_call, step: this.llm_service.chatManager.chat.step, tools: this.getToolsPrompt(), react: true };
+            // 记录开始时间
+            const startSeconds = Date.now() / 1000;
             await this.step(data);
+            // 记录结束时间
+            const endSeconds = Date.now() / 1000;
+            this.llm_service.chatManager.chat.seconds += (endSeconds - startSeconds);
             this.llm_service.chatManager.chat.step++;
             this.llm_service.chatManager.chat.context_id = `${this.llm_service.chatManager.chat.group_id}${this.llm_service.chatManager.chat.step}`;
             const currentChatName = this.llm_service.chatManager.chat.name;

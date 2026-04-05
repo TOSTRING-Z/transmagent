@@ -143,6 +143,7 @@ class AnthropicAdapter {
         let reasoning_content = "";
         let tool_calls = undefined;
         let tokens = undefined;
+        let is_incremental_tokens;
         if (chunk.type === "content_block_start") {
             // 工具调用开始
             if (chunk.content_block?.type === "tool_use") {
@@ -167,12 +168,15 @@ class AnthropicAdapter {
             }
         }
         else if (chunk.type === "message_delta" && chunk.usage?.output_tokens) {
+            is_incremental_tokens = true;
             tokens = chunk.usage.output_tokens;
         }
         else if (chunk.type === "message_start" && chunk.message?.usage) {
-            tokens = chunk.message.usage.input_tokens;
+            is_incremental_tokens = false;
+            const usage = chunk.message.usage;
+            tokens = (usage?.cache_creation_input_tokens || usage?.cache_read_input_tokens) + usage.input_tokens;
         }
-        return { content, reasoning_content, tool_calls, tokens, is_incremental_tokens: true };
+        return { content, reasoning_content, tool_calls, tokens, is_incremental_tokens };
     }
     parseResponse(respJson) {
         let content = "";

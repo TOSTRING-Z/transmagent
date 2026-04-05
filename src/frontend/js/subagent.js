@@ -36,8 +36,7 @@
   };
   var State = {
     markdown_statu: true,
-    seconds_timer: null,
-    chat: { tokens: 0, seconds: 0, id: null, mode: "auto", version: null, system_prompt: "" },
+    chat: {},
     scroll_top: {
       info: true,
       data: true
@@ -604,10 +603,6 @@ $$
     });
   }
   async function enterEnd(messageSystem, chunk = null) {
-    if (State.seconds_timer) {
-      clearInterval(State.seconds_timer);
-      State.seconds_timer = null;
-    }
     const message_content = messageSystem.getElementsByClassName("message")[0];
     const thinking = messageSystem?.getElementsByClassName("thinking")[0];
     thinking.classList.add("hidden");

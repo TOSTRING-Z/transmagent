@@ -128,7 +128,7 @@ class ChatManager {
     }
     getDefaultConfig() {
         return {
-            model: globals_1.utils.getConfig("default")["model"] || "deepseek",
+            model: globals_1.utils.getConfig("default")["model"] || "deepseek[openai]",
             version: globals_1.utils.getConfig("default")["version"] || "deepseek-chat",
             tool_format: globals_1.utils.getConfig("default")["tool_format"] || "toolcalls",
             is_plugin: globals_1.utils.getConfig("default")["model"] === "plugins",
@@ -180,7 +180,7 @@ class ChatManager {
             return;
         const assistantMsg = this.messages[lastAssistantIdx];
         // 3. 如果 assistant 有 tool_calls，需要检查 tool 结果是否完整
-        if (assistantMsg.tool_calls && assistantMsg.tool_calls.length > 0) {
+        if (assistantMsg?.tool_calls && assistantMsg.tool_calls.length > 0) {
             // 收集从 assistant 之后的所有 tool 结果 ID
             const existingToolIds = new Set();
             for (let i = lastAssistantIdx + 1; i < this.messages.length; i++) {

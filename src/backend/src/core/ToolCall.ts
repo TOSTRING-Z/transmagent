@@ -15,6 +15,7 @@ import { ToolDSL, Primitives } from "../utils/ToolDSL";
 import { logger } from '../utils/logger';
 import { WindowManager } from '../main/windows/WindowManager';
 import { LLMAssistant } from './LLMAssistant';
+import { time } from 'console';
 const { all, any, not, always } = ToolDSL;
 const { isSubagent, isMode, hasArg } = Primitives;
 
@@ -163,7 +164,7 @@ export class ToolCall extends ReActAgent {
             const options = ['continue'];
             if (lastMessage.role === "tool") {
                 this.window?.webContents.send('options', { ...this.llm_service.chatManager.chat, options: options });
-            } 
+            }
             if (lastMessage.role === "assistant" && lastMessage.tool_calls) {
                 this.state = State.PAUSE;
                 this.window?.webContents.send('options', { ...this.llm_service.chatManager.chat, options: options });
@@ -657,6 +658,8 @@ export class ToolCall extends ReActAgent {
         this.state = State.IDLE;
         let tool_call = utils.getConfig("tool_call");
 
+        this.llm_service.chatManager.chat.seconds = 0
+
         while (this.state === State.IDLE || this.state === State.RUNNING) {
             // 延时1s，避免过快进入死循环
             await new Promise(resolve => setTimeout(resolve, 1000));
@@ -668,7 +671,12 @@ export class ToolCall extends ReActAgent {
             if (data?.max_step && this.llm_service.chatManager.chat.step > data.max_step) break;
             data = { ...data, ...tool_call, step: this.llm_service.chatManager.chat.step, tools: this.getToolsPrompt(), react: true };
 
+            // 记录开始时间
+            const startSeconds = Date.now() / 1000;
             await this.step(data);
+            // 记录结束时间
+            const endSeconds = Date.now() / 1000;
+            this.llm_service.chatManager.chat.seconds += (endSeconds - startSeconds);
 
             this.llm_service.chatManager.chat.step++;
             this.llm_service.chatManager.chat.context_id = `${this.llm_service.chatManager.chat.group_id}${this.llm_service.chatManager.chat.step}`

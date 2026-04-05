@@ -36,8 +36,7 @@
   };
   var State = {
     markdown_statu: true,
-    seconds_timer: null,
-    chat: { tokens: 0, seconds: 0, id: null, mode: "auto", version: null, system_prompt: "" },
+    chat: {},
     scroll_top: {
       info: true,
       data: true
@@ -607,10 +606,6 @@ $$
     });
   }
   async function enterEnd(messageSystem, chunk = null) {
-    if (State.seconds_timer) {
-      clearInterval(State.seconds_timer);
-      State.seconds_timer = null;
-    }
     const message_content = messageSystem.getElementsByClassName("message")[0];
     const thinking = messageSystem?.getElementsByClassName("thinking")[0];
     thinking.classList.add("hidden");
@@ -784,18 +779,110 @@ $$
     const optionDom = document.querySelector(".base-container");
     if (optionDom)
       optionDom.remove();
-    if (State.seconds_timer)
-      clearInterval(State.seconds_timer);
-    State.seconds_timer = setInterval(() => {
-      State.chat.seconds += 0.1;
-      DOM.seconds.innerText = State.chat.seconds.toFixed(1);
-      if (State.chat.version && DOM.version)
-        DOM.version.innerText = State.chat.version;
-    }, 100);
     DOM.tokens.innerText = State.chat.tokens.toString();
     DOM.version.innerText = data.version;
     data.prompt = DOM.system_prompt.value;
     DOM.top_div.scrollTop = DOM.top_div.scrollHeight;
+  }
+
+  // main/history.ts
+  var new_item_template = `<div class="history-item" onclick="selectChat('@id')">
+    <div class="history-text"></div>
+    <div class="history-menu" onclick="showHistoryMenu(event, '@id')">
+      <i class="fas fa-ellipsis-v"></i>
+      <div class="history-menu-dropdown">
+        <div class="history-menu-item" onclick="renameChat('@id')">
+          <i class="fas fa-edit"></i> Rename
+        </div>
+        <div class="history-menu-item" onclick="deleteChat('@id')">
+          <i class="fas fa-trash"></i> Delete
+        </div>
+      </div>
+    </div>
+  </div>`;
+  function addChatItem(chat) {
+    const item = createElement(new_item_template.replace(/@id/g, chat.id));
+    item.getElementsByClassName("history-text")[0].innerText = chat.name || "New Chat";
+    item.getElementsByClassName("history-text")[0].title = chat.name || "New Chat";
+    item.id = chat.id;
+    DOM.history_list.insertBefore(item, DOM.history_list.firstChild);
+    item.onclick = () => selectChat(chat.id);
+    const menu = item.querySelector(".history-menu");
+    menu.onclick = (e) => showHistoryMenu(e, chat.id);
+    const renameBtn = item.querySelector(".history-menu-item:nth-child(1)");
+    renameBtn.onclick = (e) => {
+      e.stopPropagation();
+      renameChat(chat.id);
+    };
+    const deleteBtn = item.querySelector(".history-menu-item:nth-child(2)");
+    deleteBtn.onclick = (e) => {
+      e.stopPropagation();
+      deleteChat(chat.id);
+    };
+  }
+  function handleNewChat(chat) {
+    addChatItem(chat);
+    initChat(chat);
+  }
+  function initChat(chat = {}) {
+    State.chat = chat;
+    toggleMode(State.chat.mode);
+    DOM.system_prompt.value = State.chat.system_prompt || "";
+    DOM.tokens.innerText = String(State.chat.tokens || 0);
+    DOM.msg_count.innerText = String(State.chat.msg_count || 0);
+    DOM.seconds.innerText = (State.chat.seconds || 0).toFixed(1);
+    DOM.version.innerText = State.chat.model;
+    DOM.model_select.value = State.chat.model;
+    DOM.compress_box.checked = State.chat.compress_context || false;
+    const items = DOM.history_list.getElementsByClassName("history-item");
+    Array.from(items).forEach((item) => {
+      if (item.id == chat.id)
+        item.classList.add("active");
+      else
+        item.classList.remove("active");
+    });
+  }
+  async function selectChat(chatId) {
+    State.chat.id = chatId;
+    const chat = await window.electronAPI.loadChat(chatId);
+    initChat(chat);
+  }
+  async function deleteChat(chatId) {
+    if (confirm("Are you sure you want to delete this conversation?")) {
+      await window.electronAPI.delChat(chatId);
+      const items = DOM.history_list.getElementsByClassName("history-item");
+      Array.from(items).forEach((item) => {
+        if (item.id == chatId)
+          item.remove();
+      });
+    }
+  }
+  function showHistoryMenu(event, chatId) {
+    event.stopPropagation();
+    const menus = document.querySelectorAll(".history-menu-dropdown");
+    menus.forEach((menu2) => menu2.style.display = "none");
+    const target = event.currentTarget;
+    const menu = target.querySelector(".history-menu-dropdown");
+    menu.style.display = "block";
+    State.chat.id = chatId;
+  }
+  function renameChat(chatId) {
+    State.chat.id = chatId;
+    DOM.renameDialog.style.display = "flex";
+    DOM.renameInput.focus();
+  }
+  async function confirmRename() {
+    const newName = DOM.renameInput.value.trim();
+    if (newName && State.chat.id) {
+      await window.electronAPI.renameChat({ id: State.chat.id, name: newName });
+      const items = DOM.history_list.getElementsByClassName("history-item");
+      Array.from(items).forEach((item) => {
+        if (item.id == State.chat.id)
+          item.getElementsByClassName("history-text")[0].innerText = newName;
+      });
+    }
+    DOM.renameDialog.style.display = "none";
+    DOM.renameInput.value = "";
   }
 
   // main/ui.ts
@@ -880,18 +967,11 @@ $$
     </div>
   </div>
 `;
-  function loadOptions() {
+  function handleClear() {
     DOM.messages.innerHTML = "";
     DOM.pause.style.display = "none";
     DOM.pause.innerHTML = "";
-    State.chat.seconds = 0;
-    if (State.seconds_timer)
-      clearInterval(State.seconds_timer);
-    State.chat.tokens = 0;
-    State.chat.msg_count = 0;
-    DOM.tokens.innerText = "0";
-    DOM.seconds.innerText = "0";
-    DOM.msg_count.innerText = "0";
+    initChat();
     const optionDom = createElement(htmlContent);
     const optionCards = optionDom.querySelectorAll(".option-card");
     optionCards.forEach((card) => {
@@ -950,105 +1030,6 @@ ${DOM.input.value}`;
         }, 3e3);
         break;
     }
-  }
-
-  // main/history.ts
-  var new_item_template = `<div class="history-item" onclick="selectChat('@id')">
-    <div class="history-text"></div>
-    <div class="history-menu" onclick="showHistoryMenu(event, '@id')">
-      <i class="fas fa-ellipsis-v"></i>
-      <div class="history-menu-dropdown">
-        <div class="history-menu-item" onclick="renameChat('@id')">
-          <i class="fas fa-edit"></i> Rename
-        </div>
-        <div class="history-menu-item" onclick="deleteChat('@id')">
-          <i class="fas fa-trash"></i> Delete
-        </div>
-      </div>
-    </div>
-  </div>`;
-  function addChatItem(chat) {
-    const item = createElement(new_item_template.replace(/@id/g, chat.id));
-    item.getElementsByClassName("history-text")[0].innerText = chat.name || "New Chat";
-    item.getElementsByClassName("history-text")[0].title = chat.name || "New Chat";
-    item.id = chat.id;
-    DOM.history_list.insertBefore(item, DOM.history_list.firstChild);
-    item.onclick = () => selectChat(chat.id);
-    const menu = item.querySelector(".history-menu");
-    menu.onclick = (e) => showHistoryMenu(e, chat.id);
-    const renameBtn = item.querySelector(".history-menu-item:nth-child(1)");
-    renameBtn.onclick = (e) => {
-      e.stopPropagation();
-      renameChat(chat.id);
-    };
-    const deleteBtn = item.querySelector(".history-menu-item:nth-child(2)");
-    deleteBtn.onclick = (e) => {
-      e.stopPropagation();
-      deleteChat(chat.id);
-    };
-  }
-  function handleNewChat(chat) {
-    addChatItem(chat);
-    initChat(chat);
-  }
-  function initChat(chat) {
-    State.chat = chat;
-    toggleMode(State.chat.mode);
-    DOM.system_prompt.value = State.chat.system_prompt;
-    DOM.tokens.innerText = State.chat.tokens.toString();
-    DOM.msg_count.innerText = State.chat.msg_count?.toString() || "0";
-    DOM.seconds.innerText = State.chat.seconds.toFixed(1);
-    DOM.model_select.value = State.chat.model;
-    DOM.compress_box.checked = State.chat.compress_context || false;
-    const items = DOM.history_list.getElementsByClassName("history-item");
-    Array.from(items).forEach((item) => {
-      if (item.id == chat.id)
-        item.classList.add("active");
-      else
-        item.classList.remove("active");
-    });
-  }
-  async function selectChat(chatId) {
-    State.chat.id = chatId;
-    const chat = await window.electronAPI.loadChat(chatId);
-    initChat(chat);
-  }
-  async function deleteChat(chatId) {
-    if (confirm("Are you sure you want to delete this conversation?")) {
-      await window.electronAPI.delChat(chatId);
-      const items = DOM.history_list.getElementsByClassName("history-item");
-      Array.from(items).forEach((item) => {
-        if (item.id == chatId)
-          item.remove();
-      });
-    }
-  }
-  function showHistoryMenu(event, chatId) {
-    event.stopPropagation();
-    const menus = document.querySelectorAll(".history-menu-dropdown");
-    menus.forEach((menu2) => menu2.style.display = "none");
-    const target = event.currentTarget;
-    const menu = target.querySelector(".history-menu-dropdown");
-    menu.style.display = "block";
-    State.chat.id = chatId;
-  }
-  function renameChat(chatId) {
-    State.chat.id = chatId;
-    DOM.renameDialog.style.display = "flex";
-    DOM.renameInput.focus();
-  }
-  async function confirmRename() {
-    const newName = DOM.renameInput.value.trim();
-    if (newName && State.chat.id) {
-      await window.electronAPI.renameChat({ id: State.chat.id, name: newName });
-      const items = DOM.history_list.getElementsByClassName("history-item");
-      Array.from(items).forEach((item) => {
-        if (item.id == State.chat.id)
-          item.getElementsByClassName("history-text")[0].innerText = newName;
-      });
-    }
-    DOM.renameDialog.style.display = "none";
-    DOM.renameInput.value = "";
   }
 
   // main/config.ts
@@ -1195,7 +1176,7 @@ ${DOM.input.value}`;
     init_size();
     autoResizeTextarea(DOM.input);
     initMermaid();
-    loadOptions();
+    handleClear();
     initConfigEvents();
     if (DOM.bottom_div && DOM.top_div) {
       const resizeObserver = new ResizeObserver(() => {
@@ -1319,21 +1300,17 @@ ${DOM.input.value}`;
     });
   });
   window.electronAPI.initInfo((data) => {
+    State.chat = data;
     toggleMode(data.mode);
     DOM.system_prompt.value = data.system_prompt;
     DOM.version.innerText = data.version;
     DOM.history_list.innerHTML = "";
     data.chats.forEach((chat) => addChatItem(chat));
-    if (State.seconds_timer)
-      clearInterval(State.seconds_timer);
-    State.seconds_timer = null;
-    State.chat = data;
-    DOM.tokens.innerText = State.chat.tokens?.toString();
-    DOM.seconds.innerText = State.chat.seconds?.toString();
   });
   window.electronAPI.handleMarkDownFormat((status) => State.markdown_statu = status);
   window.electronAPI.handleReactStatu((status) => State.react_statu = status);
   window.electronAPI.streamData((data) => {
+    State.chat = data;
     if (data?.id !== State.chat.id) {
       return;
     }
@@ -1355,6 +1332,7 @@ ${DOM.input.value}`;
     });
   });
   window.electronAPI.toolData((data) => {
+    State.chat = data;
     if (data?.id !== State.chat.id) {
       return;
     }
@@ -1439,7 +1417,7 @@ ${DOM.input.value}`;
       DOM.top_div.scrollTop = DOM.top_div.scrollHeight;
   });
   window.electronAPI.setPrompt((prompt) => DOM.system_prompt.value = prompt);
-  window.electronAPI.handleClear(() => loadOptions());
+  window.electronAPI.handleClear(() => handleClear());
   window.electronAPI.uploadProgress((info) => updateProgress(info));
   window.electronAPI.handleNewChat((chat) => handleNewChat(chat));
   window.electronAPI.handleSelectChat((chat) => selectChat(chat.id));

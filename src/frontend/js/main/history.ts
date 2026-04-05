@@ -38,13 +38,14 @@ export function handleNewChat(chat: any) {
   initChat(chat);
 }
 
-export function initChat(chat: any) {
+export function initChat(chat: any = {}) {
   State.chat = chat;
   toggleMode(State.chat.mode);
-  DOM.system_prompt.value = State.chat.system_prompt;
-  DOM.tokens.innerText = State.chat.tokens.toString();
-  DOM.msg_count.innerText = State.chat.msg_count?.toString() || "0";
-  DOM.seconds.innerText = State.chat.seconds.toFixed(1);
+  DOM.system_prompt.value = State.chat.system_prompt || "";
+  DOM.tokens.innerText = String(State.chat.tokens || 0);
+  DOM.msg_count.innerText = String(State.chat.msg_count || 0);
+  DOM.seconds.innerText = (State.chat.seconds || 0).toFixed(1);
+  DOM.version.innerText = State.chat.model;
   DOM.model_select.value = State.chat.model;
   DOM.compress_box.checked = State.chat.compress_context || false;
   const items = DOM.history_list.getElementsByClassName("history-item");

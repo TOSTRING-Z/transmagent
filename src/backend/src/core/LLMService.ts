@@ -134,6 +134,8 @@ export class LLMService {
             streamRes = streamJSON(resp);
         }
 
+        let final_tokens = 0;
+
         for await (const chunk of streamRes) {
             if (this.stopFlag) return false;
 
@@ -174,7 +176,14 @@ export class LLMService {
             }
 
             // 更新 token
-            if (tokens) { if (is_incremental_tokens) { this.chatManager.chat.tokens = (this.chatManager.chat.tokens || 0) + tokens; } else { this.chatManager.chat.tokens = tokens; } }
+            if (tokens) {
+                if (is_incremental_tokens) {
+                    final_tokens += tokens;
+                }
+                else {
+                    final_tokens = tokens;
+                }
+            }
 
             // IPC 向前台推流
             if (!data?.react && data?.llm_conversation_mode) {
@@ -185,6 +194,8 @@ export class LLMService {
                 });
             }
         }
+
+        this.chatManager.chat.tokens = final_tokens;
 
         // index可能大于0
         if (messageOutput.tool_calls)

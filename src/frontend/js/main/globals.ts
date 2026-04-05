@@ -33,21 +33,32 @@ export const DOM = {
 };
 
 export interface ChatState {
-  tokens: number;
-  seconds: number;
-  id: string | null;
-  mode: string;
-  version: string | null;
-  system_prompt: string;
-  model: string;
-  compress_context: boolean;
-  msg_count?: number;
+    id: string;
+    name: string;
+    system_prompt: string;
+    step: number;
+    group_id: string;
+    context_id: string;
+    mode: string;
+    tokens: number;
+    seconds: number;
+    msg_count: number;
+    envs: Record<string, any>;
+    vars: Record<string, any>;
+    model: string;
+    version: string;
+    api_type: "openai" | "anthropic" | "ollama";
+    tool_format: "toolcalls" | "prompt";
+    is_plugin: boolean;
+    compress_context: boolean;
+    memory_length: number;
+    long_memory_length: number;
+    max_tokens: number;
 }
 
 export const State = {
   markdown_statu: true,
-  seconds_timer: null as any,
-  chat: { tokens: 0, seconds: 0, id: null, mode: 'auto', version: null, system_prompt: "" } as ChatState,
+  chat: { } as ChatState,
   scroll_top: {
     info: true,
     data: true,

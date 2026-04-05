@@ -1,5 +1,6 @@
 import { startAgentLoop } from './chat';
 import { DOM, State } from './globals';
+import { initChat } from './history';
 import { createElement } from './utils';
 
 // UI Helper Functions
@@ -10,7 +11,7 @@ export function showLog(type: string, content: string) {
 
 export function toggleMode(mode: string, send = false) {
   if (send) window.electronAPI.changeMode(mode);
-  
+
   DOM.auto.classList.remove("active");
   DOM.act.classList.remove("active");
   DOM.plan.classList.remove("active");
@@ -41,11 +42,11 @@ export function autoResizeTextarea(textarea: HTMLTextAreaElement) {
   // A safer bet is 40px base.
   const minHeight = 40;
   const maxHeight = minHeight * 3;
-  
+
   const scrollHeight = textarea.scrollHeight;
   const newHeight = Math.max(minHeight, Math.min(scrollHeight, maxHeight));
   textarea.style.height = newHeight + "px";
-  
+
   if (DOM.top_div && DOM.bottom_div) {
     DOM.top_div.style.height = (window.innerHeight - DOM.bottom_div.clientHeight) + "px";
   }
@@ -96,22 +97,15 @@ const htmlContent = `
   </div>
 `;
 
-export function loadOptions() {
+export function handleClear() {
   DOM.messages.innerHTML = "";
   DOM.pause.style.display = "none";
   DOM.pause.innerHTML = "";
-  
-  State.chat.seconds = 0;
-  if (State.seconds_timer) clearInterval(State.seconds_timer);
-  State.chat.tokens = 0;
-  State.chat.msg_count = 0;
-  DOM.tokens.innerText = "0";
-  DOM.seconds.innerText = "0";
-  DOM.msg_count.innerText = "0";
+  initChat();
 
   const optionDom = createElement(htmlContent);
   const optionCards = optionDom.querySelectorAll('.option-card');
-  
+
   optionCards.forEach((card: any) => {
     card.addEventListener('click', () => {
       const query = card.dataset.query;
@@ -169,7 +163,7 @@ export function updateProgress(info: any) {
       DOM.progress_bar.textContent = `上传失败: ${info.error}`;
       setTimeout(() => {
         DOM.progress_container.style.display = "none";
-        DOM.progress_bar.style.backgroundColor = ""; 
+        DOM.progress_bar.style.backgroundColor = "";
       }, 3000);
       break;
   }
