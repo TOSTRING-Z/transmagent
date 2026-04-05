@@ -49,9 +49,6 @@ electron_1.app.whenReady().then(() => {
     logger_1.logger.log("[App] Application is ready. Initializing subsystems...");
     const windowManager = new WindowManager_1.WindowManager();
     const shortcut = new Shortcut(windowManager);
-    // 创建并配置主窗口
-    windowManager.mainWindow.create();
-    windowManager.mainWindow.setup();
     // 配置各辅助窗口的 IPC 和事件总线
     windowManager.iconWindow?.setup();
     windowManager.alertWindow?.setup();

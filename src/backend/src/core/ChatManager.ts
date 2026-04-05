@@ -14,9 +14,9 @@ export class ChatManager {
     public utils: Utils;
 
     constructor(messages: Message[] = [], chatInitParams: Partial<ChatState> = {}, utils: Utils) {
+        this.utils = utils;
         this.chat = this.getChatInit(chatInitParams);
         this.uuid = this.getUUID();
-        this.utils = utils;
         this.init(messages);
     }
 

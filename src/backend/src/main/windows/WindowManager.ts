@@ -25,6 +25,7 @@ export class WindowManager {
 
     constructor() {
         if (!WindowManager.instance) {
+            WindowManager.instance = this;
             this.mainWindow = new MainWindow(this);
             this.alertWindow = new AlertWindow(this);
             this.iconWindow = new IconWindow(this);
@@ -38,7 +39,6 @@ export class WindowManager {
             this.toolWindow.setup();
             this.confirmationWindow = new ConfirmationWindow(this);
             this.confirmationWindow.setup();
-            WindowManager.instance = this;
         }
         return WindowManager.instance;
     }

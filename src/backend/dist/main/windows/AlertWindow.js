@@ -3,7 +3,6 @@ Object.defineProperty(exports, "__esModule", { value: true });
 exports.AlertWindow = void 0;
 const electron_1 = require("electron");
 const BaseWindow_1 = require("./BaseWindow");
-const WindowManager_1 = require("./WindowManager");
 class AlertWindow extends BaseWindow_1.BaseWindow {
     width = 800;
     height = 100;
@@ -18,7 +17,7 @@ class AlertWindow extends BaseWindow_1.BaseWindow {
         const display = electron_1.screen.getPrimaryDisplay();
         const x = Math.round((display.workAreaSize.width - this.width) / 2);
         const y = 20;
-        const autoCloseMs = (WindowManager_1.WindowManager.instance.mainWindow.session().utils.getConfig("icon_time") || 5) * 1000;
+        const autoCloseMs = (this.utils().getConfig("icon_time") || 5) * 1000;
         if (this.window) {
             this.window.setPosition(x, y);
             if (data)

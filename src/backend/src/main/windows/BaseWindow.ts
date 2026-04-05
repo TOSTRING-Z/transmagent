@@ -1,6 +1,7 @@
 import { BrowserWindow } from 'electron';
 import { WindowManager } from './WindowManager';
 import { Utils } from '../../utils/Utils';
+import { store } from '../../utils/globals';
 
 export abstract class BaseWindow {
     public windowManager: WindowManager;
@@ -10,8 +11,7 @@ export abstract class BaseWindow {
     constructor(windowManager: WindowManager) {
         this.windowManager = windowManager;
         this.window = null;
-        this.utils = () => WindowManager.instance.mainWindow.session().utils;
-
+        this.utils = () => windowManager.mainWindow ? windowManager.mainWindow.session().utils : new Utils(store.get('agentMode', 'transagent'));
     }
 
     // 抽象方法，子类必须实现

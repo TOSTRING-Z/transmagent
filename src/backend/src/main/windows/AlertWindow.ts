@@ -19,7 +19,7 @@ export class AlertWindow extends BaseWindow {
         const display = screen.getPrimaryDisplay();
         const x = Math.round((display.workAreaSize.width - this.width) / 2);
         const y = 20;
-        const autoCloseMs = (WindowManager.instance.mainWindow.session().utils.getConfig("icon_time") || 5) * 1000;
+        const autoCloseMs = (this.utils().getConfig("icon_time") || 5) * 1000;
 
         if (this.window) {
             this.window.setPosition(x, y);

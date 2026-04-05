@@ -45,9 +45,9 @@ class ChatManager {
     uuid;
     utils;
     constructor(messages = [], chatInitParams = {}, utils) {
+        this.utils = utils;
         this.chat = this.getChatInit(chatInitParams);
         this.uuid = this.getUUID();
-        this.utils = utils;
         this.init(messages);
     }
     getUUID() {

@@ -17,15 +17,20 @@ export interface Session {
 }
 
 export class SessionManager {
+    public static instance: SessionManager;
     private activeSessionId!: string;
     private activeSession!: Session
-    private window: BrowserWindow;
-    private sessions: Map<string, any>;
+    private window!: BrowserWindow;
+    private sessions!: Map<string, any>;
 
     constructor(window: BrowserWindow) {
-        this.window = window;
-        this.sessions = new Map<string, Session>();
-        this.addSession();
+        if (!SessionManager.instance) {
+            SessionManager.instance = this;
+            this.window = window;
+            this.sessions = new Map<string, Session>();
+            this.addSession();
+        }
+        return SessionManager.instance;
     }
 
     getAgentMode(sessionId?: string): AgentMode {
@@ -78,13 +83,13 @@ export class SessionManager {
         let skill = true;
         let agentMode: AgentMode = store.get('agentMode', 'transagent');
         let subAgentWindow = WindowManager.instance.subAgentWindow;
-        
+
         const utils = new Utils(agentMode);
 
         const plugins = new Plugins(utils);
         plugins.loadInit();
         const llm_service = new LLMService([], this.window, utils);
-        
+
         if (agentMode === 'transagent' && utils.getConfig("tool_call")?.subagent) {
             agentTools = { "tool_manager": subAgentWindow?.agentTools?.["tool_manager"] };
         }

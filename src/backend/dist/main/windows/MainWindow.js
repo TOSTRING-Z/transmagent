@@ -59,6 +59,9 @@ class MainWindow extends BaseWindow_1.BaseWindow {
     session;
     constructor(windowManager) {
         super(windowManager);
+        // 创建并配置主窗口
+        this.create();
+        this.setup();
     }
     setActiveAgent(activeAgent) {
         // 重置所有状态
@@ -172,7 +175,6 @@ class MainWindow extends BaseWindow_1.BaseWindow {
         });
         this.sessionManager = new SessionManager_1.SessionManager(this.window);
         this.sessionManager.addSession();
-        this.serverInit();
         this.session = () => this.sessionManager.getActiveSession();
         this.funcItems = {
             clip: {
@@ -236,6 +238,7 @@ class MainWindow extends BaseWindow_1.BaseWindow {
                 },
             },
         };
+        this.serverInit();
         this.window.on('focus', () => {
             this.window?.setAlwaysOnTop(true);
             setTimeout(() => this.window?.setAlwaysOnTop(false), 0);

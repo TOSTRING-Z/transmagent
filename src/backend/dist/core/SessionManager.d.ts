@@ -13,6 +13,7 @@ export interface Session {
     plugins: Plugins;
 }
 export declare class SessionManager {
+    static instance: SessionManager;
     private activeSessionId;
     private activeSession;
     private window;

@@ -9,14 +9,19 @@ const ToolCall_1 = require("./ToolCall");
 const WindowManager_1 = require("../main/windows/WindowManager");
 const Utils_1 = require("../utils/Utils");
 class SessionManager {
+    static instance;
     activeSessionId;
     activeSession;
     window;
     sessions;
     constructor(window) {
-        this.window = window;
-        this.sessions = new Map();
-        this.addSession();
+        if (!SessionManager.instance) {
+            SessionManager.instance = this;
+            this.window = window;
+            this.sessions = new Map();
+            this.addSession();
+        }
+        return SessionManager.instance;
     }
     getAgentMode(sessionId) {
         const session = this.sessions.get(sessionId || this.activeSessionId);

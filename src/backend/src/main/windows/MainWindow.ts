@@ -35,6 +35,9 @@ export class MainWindow extends BaseWindow {
 
     constructor(windowManager: WindowManager) {
         super(windowManager);
+        // 创建并配置主窗口
+        this.create();
+        this.setup();
     }
 
     public setActiveAgent(activeAgent) {
@@ -163,8 +166,6 @@ export class MainWindow extends BaseWindow {
 
         this.sessionManager.addSession();
 
-        this.serverInit();
-
         this.session = () => this.sessionManager.getActiveSession();
 
         this.funcItems = {
@@ -229,6 +230,8 @@ export class MainWindow extends BaseWindow {
                 },
             },
         };
+
+        this.serverInit();
 
         this.window.on('focus', () => {
             this.window?.setAlwaysOnTop(true);

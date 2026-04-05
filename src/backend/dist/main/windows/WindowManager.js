@@ -25,6 +25,7 @@ class WindowManager {
     confirmationWindow;
     constructor() {
         if (!WindowManager.instance) {
+            WindowManager.instance = this;
             this.mainWindow = new MainWindow_1.MainWindow(this);
             this.alertWindow = new AlertWindow_1.AlertWindow(this);
             this.iconWindow = new IconWindow_1.IconWindow(this);
@@ -38,7 +39,6 @@ class WindowManager {
             this.toolWindow.setup();
             this.confirmationWindow = new ConfirmationWindow_1.ConfirmationWindow(this);
             this.confirmationWindow.setup();
-            WindowManager.instance = this;
         }
         return WindowManager.instance;
     }
