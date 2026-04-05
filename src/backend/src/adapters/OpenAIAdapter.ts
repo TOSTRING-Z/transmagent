@@ -1,5 +1,5 @@
 import { ILLMAdapter, IToolCallAdapter } from './IAdapter';
-import { AssistantMessage, ChatRequestData, Message, OpenAIContent, StreamChunkResult, ToolCall, ToolInfo } from '../types';
+import { AssistantMessage, ChatRequestData, Message, OpenAIContent, StreamChunkResult, ToolInfo } from '../types';
 import JSON5 from 'json5';
 import { parse } from 'partial-json';
 
