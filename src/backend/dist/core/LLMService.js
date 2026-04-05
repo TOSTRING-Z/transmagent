@@ -26,25 +26,24 @@ class LLMService {
         try {
             // 1. 根据 api_type 获取 API 通信适配器
             this.adapter = AdapterFactory_1.LLMAdapterFactory.getAdapter(data.api_type);
-            // 2. 输入数据清洗与格式化
-            let content;
-            if (data?.img_url) {
-                content = [
-                    { type: "text", text: data.input },
-                    { type: "image_url", image_url: { url: data.img_url } }
-                ];
-            }
-            else {
-                content = data.input;
-            }
             // 3. 构建消息上下文记录
             let messagesList = [];
             if (data.system_prompt) {
                 messagesList.push({ role: "system", content: data.system_prompt, show: true, react: false });
             }
             messagesList = messagesList.concat(this.chatManager.getMemory());
-            const messageInput = { role: "user", content: content, group_id: this.chatManager.chat.group_id, show: true, react: false };
             if (data?.llm_conversation_mode) {
+                let content;
+                if (data?.img_url) {
+                    content = [
+                        { type: "text", text: data.input },
+                        { type: "image_url", image_url: { url: data.img_url } }
+                    ];
+                }
+                else {
+                    content = data.input;
+                }
+                const messageInput = { role: "user", content: content, group_id: this.chatManager.chat.group_id, show: true, react: false };
                 messagesList.push(messageInput);
             }
             let messageOutput = { role: 'assistant', content: '', group_id: this.chatManager.chat.group_id, show: true, react: false };
@@ -88,9 +87,7 @@ class LLMService {
             }
             // 7. 处理并序列化 Tool Calls
             data.output = messageOutput.content;
-            if (data.end) {
-                if (!data?.llm_conversation_mode)
-                    return messageOutput; // 只需返回
+            if (data.end && data?.llm_conversation_mode) {
                 const finalResponseText = data.output_template ? (0, format_1.formatString)(data.output_template, { ...data }) : data.output;
                 this.window?.webContents.send('streamData', {
                     ...this.chatManager.chat,
@@ -174,6 +171,9 @@ class LLMService {
                 });
             }
         }
+        // index可能大于0
+        if (messageOutput.tool_calls)
+            messageOutput.tool_calls = messageOutput.tool_calls.filter(Boolean);
         return true;
     }
     async handleNormal(resp, adapter, headers, body, data, messageOutput) {
@@ -200,7 +200,11 @@ class LLMService {
         if (tokens)
             this.chatManager.chat.tokens = tokens;
         if (!data?.react && data?.llm_conversation_mode) {
-            this.window?.webContents.send('streamData', { ...this.chatManager.chat, content: `\n\n${data.output}`, reasoning_content: reasoning_content });
+            this.window?.webContents.send('streamData', {
+                ...this.chatManager.chat,
+                content: `\n\n${data.output}`,
+                reasoning_content: reasoning_content
+            });
         }
         // ========== 截断检测与自动续传机制 (Max: 3) ==========
         if (finish_reason === "length" && data.output) {

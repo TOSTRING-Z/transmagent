@@ -33,17 +33,6 @@ export class LLMService {
             // 1. 根据 api_type 获取 API 通信适配器
             this.adapter = LLMAdapterFactory.getAdapter(data.api_type);
 
-            // 2. 输入数据清洗与格式化
-            let content: string | MessageContent[];
-            if (data?.img_url) {
-                content = [
-                    { type: "text", text: data.input },
-                    { type: "image_url", image_url: { url: data.img_url } }
-                ];
-            } else {
-                content = data.input;
-            }
-
             // 3. 构建消息上下文记录
             let messagesList: Message[] = [];
             if (data.system_prompt) {
@@ -52,8 +41,17 @@ export class LLMService {
 
             messagesList = messagesList.concat(this.chatManager.getMemory());
 
-            const messageInput: UserMessage = { role: "user", content: content, group_id: this.chatManager.chat.group_id, show: true, react: false };
             if (data?.llm_conversation_mode) {
+                let content: string | MessageContent[];
+                if (data?.img_url) {
+                    content = [
+                        { type: "text", text: data.input },
+                        { type: "image_url", image_url: { url: data.img_url } }
+                    ];
+                } else {
+                    content = data.input;
+                }
+                const messageInput: UserMessage = { role: "user", content: content, group_id: this.chatManager.chat.group_id, show: true, react: false };
                 messagesList.push(messageInput);
             }
 
@@ -104,11 +102,8 @@ export class LLMService {
             // 7. 处理并序列化 Tool Calls
             data.output = messageOutput.content;
 
-            if (data.end) {
-                if (!data?.llm_conversation_mode) return messageOutput; // 只需返回
-
+            if (data.end && data?.llm_conversation_mode) {
                 const finalResponseText = data.output_template ? formatString(data.output_template, { ...data }) : data.output;
-
                 this.window?.webContents.send('streamData', {
                     ...this.chatManager.chat,
                     content_reasoning: messageOutput.reasoning_content,
@@ -191,6 +186,10 @@ export class LLMService {
             }
         }
 
+        // index可能大于0
+        if (messageOutput.tool_calls)
+            messageOutput.tool_calls = messageOutput.tool_calls.filter(Boolean);
+
         return true;
     }
 
@@ -219,7 +218,11 @@ export class LLMService {
         if (tokens) this.chatManager.chat.tokens = tokens;
 
         if (!data?.react && data?.llm_conversation_mode) {
-            this.window?.webContents.send('streamData', { ...this.chatManager.chat, content: `\n\n${data.output}`, reasoning_content: reasoning_content });
+            this.window?.webContents.send('streamData', {
+                ...this.chatManager.chat,
+                content: `\n\n${data.output}`,
+                reasoning_content: reasoning_content
+            });
         }
 
         // ========== 截断检测与自动续传机制 (Max: 3) ==========

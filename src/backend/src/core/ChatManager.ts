@@ -158,7 +158,7 @@ export class ChatManager {
             }
         }
 
-        if (lastAssistantIdx === -1) return;
+        if (lastAssistantIdx === this.messages.length - 1) return;
 
         const assistantMsg = this.messages[lastAssistantIdx] as AssistantMessage;
 
@@ -176,18 +176,22 @@ export class ChatManager {
             // 为缺失的 tool 调用补充"被中断"的结果
             for (const call of assistantMsg.tool_calls) {
                 if (!existingToolIds.has(call.id as string)) {
-                    this.pushMessage({
-                        role: "tool",
+                    this.pushToolMessage({
                         content: "The user interrupted the task.",
                         tool_call_id: call.id,
                         tool_call_name: call.function?.name,
                         group_id: assistantMsg.group_id,
-                        context_id: assistantMsg.context_id,
-                        show: false,
-                        react: false
+                        context_id: assistantMsg.context_id
                     });
                 }
             }
+
+            // 添加中断提示
+            this.pushAssistantMessage({
+                content: "The user interrupted the task.",
+                group_id: assistantMsg.group_id,
+                context_id: assistantMsg.context_id
+            });
         }
     }
 

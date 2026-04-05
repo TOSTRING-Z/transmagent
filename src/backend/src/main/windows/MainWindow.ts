@@ -579,6 +579,7 @@ export class MainWindow extends BaseWindow {
         if (fs.existsSync(filePath)) prompt = fs.readFileSync(filePath, 'utf-8');
 
         const history_data = utils.getHistoryData();
+        console.log(history_data[0]);
         this.window?.webContents.send('init-info', {
             prompt,
             config: sysConfig[this.agentMode],

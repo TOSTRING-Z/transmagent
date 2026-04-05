@@ -164,8 +164,8 @@ window.electronAPI.initInfo((data) => {
   State.seconds_timer = null;
 
   State.chat = data;
-  DOM.tokens.innerText = State.chat.tokens.toString();
-  DOM.seconds.innerText = State.chat.seconds.toString();
+  DOM.tokens.innerText = State.chat.tokens?.toString();
+  DOM.seconds.innerText = State.chat.seconds?.toString();
 });
 
 window.electronAPI.handleMarkDownFormat((status) => State.markdown_statu = status);

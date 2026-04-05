@@ -9,61 +9,25 @@ export declare class LLMAssistant {
     private llm_service;
     private plugins;
     constructor(llm_service: LLMService, plugins?: Plugins | null);
-    /**
-     * 设置关联的 LLMService 实例
-     */
     setLLMService(llm_service: LLMService): void;
-    /**
-     * 设置关联的 Plugins 实例
-     */
     setPlugins(plugins: Plugins): void;
     /**
-     * 压缩指定群组的消息
-     * @param group_id 要压缩的消息群组ID
-     * @returns 压缩后的内容，如果失败返回null
+     * 创建临时 ReActAgent
+     * 统一处理配置拷贝与消息深拷贝，避免对主对话上下文造成意外污染
+     * @param modifyMessages 可选回调，用于对拷贝的消息列表进行修改
      */
+    private createTempAgent;
     compressionGroupMessage({ group_id }: {
         group_id: string;
     }): Promise<string | null>;
-    /**
-     * 根据对话内容生成聊天名称
-     * @param _data 可选参数，包含language, model, version等配置
-     */
     setChatName(_data?: any): Promise<void>;
-    /**
-     * 检查工具是否需要审计
-     * @param toolName 工具名称
-     */
     isToolRequireAudit(toolName: string): boolean;
-    /**
-     * 获取工具配置
-     * @param toolName 工具名称
-     */
     getToolConfig(toolName: string): any;
-    /**
-     * AI 审查者逻辑 (LLM-as-a-Judge)
-     * 对敏感工具调用进行数据完整性审查
-     * @param toolInfo 工具信息
-     * @param assistantMessage 助手消息
-     * @param data 额外数据
-     * @returns 审查结果，如果通过返回null，如果拦截返回错误信息
-     */
     auditToolCall(toolInfo: ToolInfo, data: Record<string, any>): Promise<string | null>;
-    /**
-     * 检查控制台输出是否需要中断指令
-     * @param consoleOutput 控制台输出内容
-     * @param executionTimeMs 执行时间（毫秒）
-     * @returns 检查结果，包含是否中断以及中断理由
-     */
     checkConsoleOutput(consoleOutput: string, executionTimeMs?: number): Promise<{
         shouldInterrupt: boolean;
         reason: string | null;
     }>;
-    /**
-     * 检查并执行 KV Cache 总结
-     * @param data 包含 memory_length 的参数对象
-     * @returns 总结内容，如果无需总结或失败返回 null
-     */
     kvCacheSummary(): Promise<void>;
 }
 export default LLMAssistant;
