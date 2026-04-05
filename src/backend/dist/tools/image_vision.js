@@ -174,12 +174,19 @@ function main(params) {
 function getPrompt() {
     return {
         name: "image_vision",
-        description: "Analyze any image or PDF file (local or remote). High-fidelity rendering included.",
+        // 在描述中增加了关于格式转换的明确说明
+        description: "Analyze images, PDFs, or web files (local/remote). Note: All non-image formats (like PDF/HTML) will be automatically rendered into PNG images before analysis to ensure high-fidelity visual recognition.",
         parameters: {
             type: "object",
             properties: {
-                prompt: { type: "string", description: "Question about the file content." },
-                file_path: { type: "string", description: "Path to the file." }
+                prompt: {
+                    type: "string",
+                    description: "The specific question or instruction regarding the file's visual content."
+                },
+                file_path: {
+                    type: "string",
+                    description: "Full path to the file. Supports .png, .jpg, .pdf, .html, .svg."
+                }
             },
             required: ["prompt", "file_path"]
         }
