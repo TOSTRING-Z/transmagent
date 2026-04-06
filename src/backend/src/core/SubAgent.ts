@@ -112,6 +112,10 @@ export class SubAgent {
         );
     }
 
+    public getAgentTools(): Record<string, AgentTool> {
+        return this.agentTools;
+    }
+
     private toolInit(): void {
         if (!this.utils.getConfig()?.plugins?.cli_execute) return;
 
