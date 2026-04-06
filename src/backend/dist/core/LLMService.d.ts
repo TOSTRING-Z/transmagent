@@ -9,6 +9,7 @@ export declare class LLMService {
     stopFlag: boolean;
     adapter: ILLMAdapter;
     utils: Utils;
+    environment_details: any;
     constructor(messages: Message[] | undefined, window: (BrowserWindow | null) | undefined, utils: Utils);
     stopLoop(): void;
     startLoop(): void;

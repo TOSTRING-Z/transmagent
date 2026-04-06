@@ -12,6 +12,7 @@ class LLMService {
     stopFlag = false;
     adapter;
     utils;
+    environment_details = {};
     constructor(messages = [], window = null, utils) {
         this.window = window;
         this.utils = utils;

@@ -10,16 +10,16 @@ const logger_1 = require("../utils/logger");
  * 统一管理压缩对话、设置聊天名称、工具审计等LLM交互功能
  */
 class LLMAssistant {
-    llm_service;
+    llmService;
     plugins;
     utils;
-    constructor(llm_service, plugins = null, utils) {
-        this.llm_service = llm_service;
+    constructor(llmService, plugins = null, utils) {
+        this.llmService = llmService;
         this.plugins = plugins;
         this.utils = utils;
     }
-    setLLMService(llm_service) {
-        this.llm_service = llm_service;
+    setLLMService(llmService) {
+        this.llmService = llmService;
     }
     setPlugins(plugins) {
         this.plugins = plugins;
@@ -31,21 +31,21 @@ class LLMAssistant {
      * @param modifyMessages 可选回调，用于对拷贝的消息列表进行修改
      */
     createTempAgent(modifyMessages) {
-        const temp_llm_service = new LLMService_1.LLMService(undefined, null, this.utils);
+        const temp_llmService = new LLMService_1.LLMService(undefined, null, this.utils);
         // 复制聊天配置
-        temp_llm_service.chatManager.chat = { ...this.llm_service.chatManager.chat };
+        temp_llmService.chatManager.chat = { ...this.llmService.chatManager.chat };
         // 深拷贝消息，规避原代码中修改引用带来的越权污染隐患
-        const clonedMessages = this.llm_service.chatManager.getMessages(true).map(m => ({ ...m }));
+        const clonedMessages = this.llmService.chatManager.getMessages(true).map(m => ({ ...m }));
         if (modifyMessages) {
             modifyMessages(clonedMessages);
         }
-        temp_llm_service.chatManager.messages = clonedMessages;
-        return new ReActAgent_1.ReActAgent(temp_llm_service, null, this.llm_service.utils);
+        temp_llmService.chatManager.messages = clonedMessages;
+        return new ReActAgent_1.ReActAgent(temp_llmService, null, this.llmService.utils);
     }
     // ==================== 对话压缩功能 ====================
     async compressionGroupMessage({ group_id }) {
         try {
-            const will_compress_messages = this.llm_service.chatManager.getMessages().filter(m => m.group_id === group_id);
+            const will_compress_messages = this.llmService.chatManager.getMessages().filter(m => m.group_id === group_id);
             if (will_compress_messages.length === 0)
                 return null;
             const react_agent = this.createTempAgent();
@@ -58,7 +58,7 @@ class LLMAssistant {
                 llm_conversation_mode: true
             });
             let messageOutput = await react_agent.llmCall(data);
-            if (messageOutput && !this.llm_service.stopFlag) {
+            if (messageOutput && !this.llmService.stopFlag) {
                 let content = "The user compressed the execution process of the current task. The compressed document is as follows:\n\n---\n\n" + messageOutput.content.trim();
                 const firstMsg = will_compress_messages[0];
                 const preservedUser = will_compress_messages.find(m => m.role === 'user');
@@ -69,7 +69,7 @@ class LLMAssistant {
                     react: false,
                     context_id: preservedUser?.context_id ?? firstMsg.context_id
                 };
-                let allMessages = this.llm_service.chatManager.getMessages(true);
+                let allMessages = this.llmService.chatManager.getMessages(true);
                 const originalFirstIndex = allMessages.findIndex(m => m.group_id === group_id);
                 const newMessages = [];
                 let keptUser = false;
@@ -86,7 +86,7 @@ class LLMAssistant {
                     ? newMessages.findIndex(m => m.group_id === group_id && m.role === 'user') + 1
                     : (originalFirstIndex === -1 ? newMessages.length : originalFirstIndex);
                 newMessages.splice(insertPos, 0, compressed_message);
-                this.llm_service.chatManager.messages = newMessages;
+                this.llmService.chatManager.messages = newMessages;
                 logger_1.logger.log(`Compression success for id: ${group_id}`);
                 return compressed_message.content;
             }
@@ -99,7 +99,7 @@ class LLMAssistant {
     // ==================== 聊天命名功能 ====================
     async setChatName(_data = {}) {
         if (_data?.is_plugin) {
-            this.llm_service.chatManager.chat.name = this.utils.formatDate();
+            this.llmService.chatManager.chat.name = this.utils.formatDate();
             return;
         }
         const react_agent = this.createTempAgent();
@@ -113,12 +113,12 @@ class LLMAssistant {
             llm_conversation_mode: true
         });
         const messageOutput = await react_agent.llmCall(callData);
-        if (messageOutput && !this.llm_service.stopFlag) {
-            const format = this.llm_service.chatManager.chat.tool_format;
+        if (messageOutput && !this.llmService.stopFlag) {
+            const format = this.llmService.chatManager.chat.tool_format;
             const adapter = AdapterFactory_1.ToolCallAdapterFactory.getAdapter(format);
             const rawContent = adapter.extractText(messageOutput);
             const chatName = rawContent.split("\n")[0].trim();
-            this.llm_service.chatManager.chat.name = chatName || this.utils.formatDate();
+            this.llmService.chatManager.chat.name = chatName || this.utils.formatDate();
         }
     }
     // ==================== 工具审计功能 ====================
@@ -182,7 +182,7 @@ ${payloadString}
         });
         try {
             const messageOutput = await critic_agent.llmCall(callData);
-            if (messageOutput?.content && !this.llm_service.stopFlag) {
+            if (messageOutput?.content && !this.llmService.stopFlag) {
                 const jsonMatch = messageOutput.content.match(/\{[\s\S]*\}/);
                 if (jsonMatch) {
                     const verdict = JSON.parse(jsonMatch[0]);
@@ -259,7 +259,7 @@ ${consoleOutput}
                 output_format: null
             });
             const messageOutput = await react_agent.llmCall(callData);
-            if (messageOutput?.content && !this.llm_service.stopFlag) {
+            if (messageOutput?.content && !this.llmService.stopFlag) {
                 const jsonMatch = messageOutput.content.match(/\{[\s\S]*\}/);
                 if (jsonMatch) {
                     const verdict = JSON.parse(jsonMatch[0]);
@@ -279,7 +279,7 @@ ${consoleOutput}
     async kvCacheSummary() {
         try {
             const react_agent = this.createTempAgent();
-            react_agent.llm_service.chatManager.fixMessages();
+            react_agent.llmService.chatManager.fixMessages();
             const query = `[SYSTEM OVERRIDE: KV CACHE SUMMARY PROTOCOL]
 You are an intelligent assistant skilled at summarizing conversation history. Your task is to create a concise summary of the key points, decisions, and important information from the conversation history.
 
@@ -295,11 +295,11 @@ Please create a concise summary of the key points, important decisions, and valu
                 output_format: null
             });
             const messageOutput = await react_agent.llmCall(callData);
-            if (messageOutput?.content && !this.llm_service.stopFlag) {
+            if (messageOutput?.content && !this.llmService.stopFlag) {
                 const summaryContent = messageOutput.content.trim();
                 logger_1.logger.log(`[KVCacheSummary] Summary generated successfully, length=${summaryContent.length}`);
                 if (summaryContent) {
-                    const messages = this.llm_service.chatManager.messages;
+                    const messages = this.llmService.chatManager.messages;
                     if (messages.length > 0) {
                         const lastMsg = messages[messages.length - 1];
                         lastMsg.content = lastMsg.content + `\n\n[SESSION SUMMARY]\n${summaryContent}`;

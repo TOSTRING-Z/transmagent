@@ -32,7 +32,6 @@ export class WindowManager {
             this.overlayWindow = new OverlayWindow(this);
             this.configWindow = new ConfigWindow(this);
             this.modelWindow = new ModelWindow(this);
-            this.subAgentWindow = new SubAgentWindow(this);
             this.codeWindow = new CodeWindow(this);
             this.codeWindow.setup();
             this.toolWindow = new ToolWindow(this);

@@ -279,7 +279,7 @@ class MainWindow extends BaseWindow_1.BaseWindow {
             ...data
         });
         data.query = this.funcItems.text.event(data.query);
-        this.session().llm_service.startLoop();
+        this.session().llmService.startLoop();
         if (data?.is_plugin) {
             await this.session().chain_call.pluginCall(data);
         }
@@ -360,13 +360,13 @@ class MainWindow extends BaseWindow_1.BaseWindow {
             return { compression_content };
         });
         electron_1.ipcMain.handle("toggleMessageGroup", async (_event, data) => {
-            let message_len = await this.session().llm_service.chatManager.toggleMessageGroup({ ...data, del_mode: !!this.funcItems.del.statu });
+            let message_len = await this.session().llmService.chatManager.toggleMessageGroup({ ...data, del_mode: !!this.funcItems.del.statu });
             this.session().tool_call.setHistory();
             logger_1.logger.log(`delete id: ${data.id}, length: ${message_len}`);
             return { del_mode: !!this.funcItems.del.statu };
         });
         electron_1.ipcMain.handle("thumbMessageGroup", async (_event, data) => {
-            let result = this.session().llm_service.chatManager.thumbMessageGroup(data);
+            let result = this.session().llmService.chatManager.thumbMessageGroup(data);
             if (result?.type === "messages") {
                 const messages = result.data;
                 this.session().tool_call.setHistory();
@@ -427,7 +427,7 @@ class MainWindow extends BaseWindow_1.BaseWindow {
                 return true;
             }
             else {
-                return this.session().tool_call?.llm_service.chatManager.chat.envs || {};
+                return this.session().tool_call?.llmService.chatManager.chat.envs || {};
             }
         });
         electron_1.ipcMain.handle('tasks', (_, data) => {
@@ -439,7 +439,7 @@ class MainWindow extends BaseWindow_1.BaseWindow {
                 return true;
             }
             else {
-                return this.session().tool_call?.llm_service.chatManager.chat.vars.tasks || [];
+                return this.session().tool_call?.llmService.chatManager.chat.vars.tasks || [];
             }
         });
         electron_1.ipcMain.on('setChat', (_, chat) => {
@@ -723,7 +723,7 @@ class MainWindow extends BaseWindow_1.BaseWindow {
                             this.windowManager.subAgentWindow?.destroy();
                             this.session().tool_call.initVar();
                             const chat_id = this.sessionManager.getChat()?.id;
-                            this.session().llm_service.chatManager.init();
+                            this.session().llmService.chatManager.init();
                             this.sessionManager.setChat({ id: chat_id });
                             this.session().tool_call.setHistory();
                             this.session().tool_call.changeMode();
@@ -741,7 +741,7 @@ class MainWindow extends BaseWindow_1.BaseWindow {
                             }).then(result => {
                                 if (!result.canceled) {
                                     globals_1.store.set('lastSavePath', path.dirname(result.filePath));
-                                    this.session().llm_service.chatManager.saveMessages(result.filePath);
+                                    this.session().llmService.chatManager.saveMessages(result.filePath);
                                 }
                             });
                         }

@@ -13,7 +13,7 @@ export default function getBaseTools(toolCallInstance: ToolCall): Record<string,
                     }
 
                     // 主代理实例
-                    const chatState = WindowManager.instance.mainWindow.session().llm_service.chatManager.chat;
+                    const chatState = WindowManager.instance.mainWindow.session().llmService.chatManager.chat;
 
                     // Ensure envs object exists
                     if (!chatState.envs) {
@@ -103,7 +103,7 @@ export default function getBaseTools(toolCallInstance: ToolCall): Record<string,
         "context_retrieval": {
             func: async ({ context_id }: { context_id: string | number }) => {
                 // 修复：指向 ChatManager 获取历史记录
-                const history = toolCallInstance.llm_service.chatManager.getMessages(true);
+                const history = toolCallInstance.llmService.chatManager.getMessages(true);
                 const target = history.find(m => String(m.context_id) === String(context_id));
                 return target ? { role: target.role, content: target.content } : "Error: Context ID not found.";
             },
@@ -128,7 +128,7 @@ export default function getBaseTools(toolCallInstance: ToolCall): Record<string,
                 }
 
                 // 修复：指向 ChatManager 中的 vars
-                const chatVars = toolCallInstance.llm_service.chatManager.chat.vars;
+                const chatVars = toolCallInstance.llmService.chatManager.chat.vars;
                 chatVars.tasks = chatVars.tasks || {};
                 chatVars.subtask_id = chatVars.subtask_id ?? 100;
 
@@ -190,7 +190,7 @@ export default function getBaseTools(toolCallInstance: ToolCall): Record<string,
                 const now = new Date().toISOString();
 
                 // 修复：指向 ChatManager 中的 vars
-                const chatVars = toolCallInstance.llm_service.chatManager.chat.vars;
+                const chatVars = toolCallInstance.llmService.chatManager.chat.vars;
 
                 let updated = 0;
                 let recurringTasksToCheck = new Set<any>();

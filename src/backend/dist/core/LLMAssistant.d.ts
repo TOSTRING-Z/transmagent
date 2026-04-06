@@ -7,11 +7,11 @@ import { Utils } from '../utils/Utils';
  * 统一管理压缩对话、设置聊天名称、工具审计等LLM交互功能
  */
 export declare class LLMAssistant {
-    private llm_service;
+    private llmService;
     private plugins;
     private utils;
-    constructor(llm_service: LLMService, plugins: (Plugins | null) | undefined, utils: Utils);
-    setLLMService(llm_service: LLMService): void;
+    constructor(llmService: LLMService, plugins: (Plugins | null) | undefined, utils: Utils);
+    setLLMService(llmService: LLMService): void;
     setPlugins(plugins: Plugins): void;
     /**
      * 创建临时 ReActAgent

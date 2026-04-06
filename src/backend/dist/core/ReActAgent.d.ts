@@ -18,12 +18,12 @@ export declare enum Mode {
 }
 export declare class ReActAgent {
     state: State;
-    llm_service: LLMService;
+    llmService: LLMService;
     window: BrowserWindow | null;
     context_id?: string;
     assistant: LLMAssistant;
     utils: Utils;
-    constructor(llm_service: LLMService, window: (BrowserWindow | null) | undefined, utils: Utils);
+    constructor(llmService: LLMService, window: (BrowserWindow | null) | undefined, utils: Utils);
     setUUID(data: Record<string, any>): void;
     private formatTemplate;
     changeWindow(window?: BrowserWindow | null): void;

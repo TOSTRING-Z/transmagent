@@ -41,9 +41,9 @@ const globals_1 = require("../../utils/globals");
 const LLMService_1 = require("../../core/LLMService");
 const ReActAgent_1 = require("../../core/ReActAgent");
 class CodeWindow extends BaseWindow_1.BaseWindow {
-    llm_service_completion = null;
+    llmService_completion = null;
     react_agent_completion = null;
-    llm_service_refactor = null;
+    llmService_refactor = null;
     react_agent_refactor = null;
     auto_complete_enabled = false; // 自动AI补全开关，默认关闭
     auto_error_correct_enabled = false; // 自动错误纠正开关，默认关闭
@@ -151,13 +151,13 @@ class CodeWindow extends BaseWindow_1.BaseWindow {
                 return { success: false, message: `Load failed: ${error.message}` };
             }
         });
-        electron_1.ipcMain.on('clear-completion', () => this.llm_service_completion?.stopLoop());
-        electron_1.ipcMain.on('clear-refactor', () => this.llm_service_refactor?.stopLoop());
+        electron_1.ipcMain.on('clear-completion', () => this.llmService_completion?.stopLoop());
+        electron_1.ipcMain.on('clear-refactor', () => this.llmService_refactor?.stopLoop());
         electron_1.ipcMain.handle('code-completion', async (_, { prefix, suffix, isMidWord }) => {
             try {
-                this.llm_service_completion?.stopLoop();
-                this.llm_service_completion = new LLMService_1.LLMService(undefined, null, this.utils());
-                this.react_agent_completion = new ReActAgent_1.ReActAgent(this.llm_service_completion, null, this.utils());
+                this.llmService_completion?.stopLoop();
+                this.llmService_completion = new LLMService_1.LLMService(undefined, null, this.utils());
+                this.react_agent_completion = new ReActAgent_1.ReActAgent(this.llmService_completion, null, this.utils());
                 const prompt = this.utils().getConfig("code")?.completion?.prompt || "You are a code/text completion engine. Output code directly, no Markdown. If no completion is needed, return an empty string.";
                 const query = `${prefix}<CURSOR>${suffix}`;
                 const data = this.react_agent_completion.getDataDefault({
@@ -173,9 +173,9 @@ class CodeWindow extends BaseWindow_1.BaseWindow {
         });
         electron_1.ipcMain.handle('code-refactor', async (_, code) => {
             try {
-                this.llm_service_refactor?.stopLoop();
-                this.llm_service_refactor = new LLMService_1.LLMService(undefined, null, this.utils());
-                this.react_agent_refactor = new ReActAgent_1.ReActAgent(this.llm_service_refactor, null, this.utils());
+                this.llmService_refactor?.stopLoop();
+                this.llmService_refactor = new LLMService_1.LLMService(undefined, null, this.utils());
+                this.react_agent_refactor = new ReActAgent_1.ReActAgent(this.llmService_refactor, null, this.utils());
                 const prompt = this.utils().getConfig("code")?.refactor?.prompt || `You are a strict code linter. Return JSON: {"errors": [{"text": "erroneous_code", "fix": "fixed_code"}]}.`;
                 const data = this.react_agent_refactor.getDataDefault({
                     prompt, query: code,
@@ -190,8 +190,8 @@ class CodeWindow extends BaseWindow_1.BaseWindow {
         });
         electron_1.ipcMain.handle('code-modify', async (_, { selectedText, instruction }) => {
             try {
-                const llm_service = new LLMService_1.LLMService(undefined, null, this.utils());
-                const react_agent = new ReActAgent_1.ReActAgent(llm_service, null, this.utils());
+                const llmService = new LLMService_1.LLMService(undefined, null, this.utils());
+                const react_agent = new ReActAgent_1.ReActAgent(llmService, null, this.utils());
                 const prompt = this.utils().getConfig("code")?.modify?.prompt || "You are an intelligent code assistant. Return only the modified code, no Markdown markers.";
                 const query = `[CODE START]\n${selectedText}\n[CODE END]\n\nUser instruction: ${instruction}\n\nPlease modify the code above:`;
                 const data = react_agent.getDataDefault({
@@ -224,8 +224,8 @@ class CodeWindow extends BaseWindow_1.BaseWindow {
         });
         electron_1.ipcMain.handle('detect-language', async (_, code) => {
             try {
-                const llm_service = new LLMService_1.LLMService(undefined, null, this.utils());
-                const react_agent = new ReActAgent_1.ReActAgent(llm_service, null, this.utils());
+                const llmService = new LLMService_1.LLMService(undefined, null, this.utils());
+                const react_agent = new ReActAgent_1.ReActAgent(llmService, null, this.utils());
                 const prompt = "You are a programming language detector. Output ONLY the lowercase language name.";
                 const snippet = code?.length > 1000 ? code.slice(0, 1000) : code;
                 const data = react_agent.getDataDefault({

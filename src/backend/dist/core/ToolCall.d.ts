@@ -63,7 +63,7 @@ export declare class ToolCall extends ReActAgent {
     private rememberedChoices;
     assistant: LLMAssistant;
     tool_schemas?: any[];
-    constructor(plugins: Plugins, agentTools: Record<string, any> | undefined, llm_service: LLMService, window: BrowserWindow | null, utils: Utils, agentConfigs?: AgentConfigs);
+    constructor(plugins: Plugins, agentTools: Record<string, any> | undefined, llmService: LLMService, window: BrowserWindow | null, utils: Utils, agentConfigs?: AgentConfigs);
     initVar(): void;
     /**
      * 获取工具配置（委托给 LLMAssistant）

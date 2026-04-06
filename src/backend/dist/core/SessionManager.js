@@ -6,8 +6,8 @@ const ChainCall_1 = require("./ChainCall");
 const LLMService_1 = require("./LLMService");
 const Plugins_1 = require("./Plugins");
 const ToolCall_1 = require("./ToolCall");
-const WindowManager_1 = require("../main/windows/WindowManager");
 const Utils_1 = require("../utils/Utils");
+const SubAgent_1 = require("./SubAgent");
 class SessionManager {
     static instance;
     activeSessionId;
@@ -35,7 +35,7 @@ class SessionManager {
     }
     getChat(sessionId) {
         const session = this.sessions.get(sessionId || this.activeSessionId);
-        return session ? session.llm_service.chatManager.chat : null;
+        return session ? session.llmService.chatManager.chat : null;
     }
     setChat(chat, sessionId) {
         const session = this.sessions.get(sessionId || this.activeSessionId);
@@ -43,7 +43,7 @@ class SessionManager {
             Object.keys(chat).forEach(key => {
                 const value = chat[key];
                 if (value !== undefined) {
-                    session.llm_service.chatManager.chat[key] = value;
+                    session.llmService.chatManager.chat[key] = value;
                 }
             });
         }
@@ -52,13 +52,13 @@ class SessionManager {
         const session = this.sessions.get(sessionId || this.activeSessionId);
         if (session) {
             const { context_id, del_mode } = arg0;
-            session.llm_service.chatManager.toggleContextMessage({ context_id, del_mode });
+            session.llmService.chatManager.toggleContextMessage({ context_id, del_mode });
         }
     }
     stopLoop(sessionId) {
         const session = this.sessions.get(sessionId || this.activeSessionId);
         if (session) {
-            session.llm_service.stopLoop();
+            session.llmService.stopLoop();
         }
     }
     createSession() {
@@ -66,21 +66,21 @@ class SessionManager {
         let mcp_server = true;
         let skill = true;
         let agentMode = globals_1.store.get('agentMode', 'transagent');
-        let subAgentWindow = WindowManager_1.WindowManager.instance.subAgentWindow;
         const utils = new Utils_1.Utils(agentMode);
         const plugins = new Plugins_1.Plugins(utils);
         plugins.loadInit();
-        const llm_service = new LLMService_1.LLMService([], this.window, utils);
+        const llmService = new LLMService_1.LLMService([], this.window, utils);
+        let subAgent = new SubAgent_1.SubAgent(utils, llmService);
         if (agentMode === 'transagent' && utils.getConfig("tool_call")?.subagent) {
-            agentTools = { "tool_manager": subAgentWindow?.agentTools?.["tool_manager"] };
+            agentTools = { "tool_manager": subAgent.getMainSubAgent()["tool_manager"] };
         }
         if (agentMode === 'multagent') {
             mcp_server = false;
             skill = false;
-            agentTools = { ...subAgentWindow?.getMainSubAgent() };
+            agentTools = { ...subAgent.getMainSubAgent() };
         }
-        agentTools["deep_researcher"] = subAgentWindow?.agentTools?.["deep_researcher"];
-        const tool_call = new ToolCall_1.ToolCall(plugins, agentTools, llm_service, this.window, utils, {
+        agentTools["deep_researcher"] = subAgent.getMainSubAgent()["deep_researcher"];
+        const tool_call = new ToolCall_1.ToolCall(plugins, agentTools, llmService, this.window, utils, {
             agent_prompt: null,
             mcp_server: mcp_server,
             todolist: true,
@@ -90,8 +90,8 @@ class SessionManager {
             agent_mode: agentMode,
             agent_name: "TransMAgent"
         });
-        const chain_call = new ChainCall_1.ChainCall(plugins, llm_service, this.window, utils);
-        return { tool_call, chain_call, llm_service, utils, plugins };
+        const chain_call = new ChainCall_1.ChainCall(plugins, llmService, this.window, utils);
+        return { tool_call, chain_call, llmService, utils, plugins, subAgent };
     }
     addSession() {
         const session = this.createSession();

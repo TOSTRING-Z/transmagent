@@ -269,7 +269,7 @@ export class MainWindow extends BaseWindow {
             ...data
         });
         data.query = this.funcItems.text.event(data.query);
-        this.session().llm_service.startLoop();
+        this.session().llmService.startLoop();
 
         if (data?.is_plugin) {
             await this.session().chain_call.pluginCall(data);
@@ -351,14 +351,14 @@ export class MainWindow extends BaseWindow {
         });
 
         ipcMain.handle("toggleMessageGroup", async (_event, data) => {
-            let message_len = await this.session().llm_service.chatManager.toggleMessageGroup({ ...data, del_mode: !!this.funcItems.del.statu });
+            let message_len = await this.session().llmService.chatManager.toggleMessageGroup({ ...data, del_mode: !!this.funcItems.del.statu });
             this.session().tool_call.setHistory();
             logger.log(`delete id: ${data.id}, length: ${message_len}`)
             return { del_mode: !!this.funcItems.del.statu };
         });
 
         ipcMain.handle("thumbMessageGroup", async (_event, data) => {
-            let result = this.session().llm_service.chatManager.thumbMessageGroup(data);
+            let result = this.session().llmService.chatManager.thumbMessageGroup(data);
             if (result?.type === "messages") {
                 const messages = result.data;
                 this.session().tool_call.setHistory();
@@ -428,7 +428,7 @@ export class MainWindow extends BaseWindow {
                 this.session().tool_call.setHistory();
                 return true;
             } else {
-                return this.session().tool_call?.llm_service.chatManager.chat.envs || {};
+                return this.session().tool_call?.llmService.chatManager.chat.envs || {};
             }
         });
 
@@ -440,7 +440,7 @@ export class MainWindow extends BaseWindow {
                 this.session().tool_call.setHistory();
                 return true;
             } else {
-                return this.session().tool_call?.llm_service.chatManager.chat.vars.tasks || [];
+                return this.session().tool_call?.llmService.chatManager.chat.vars.tasks || [];
             }
         });
 
@@ -732,7 +732,7 @@ export class MainWindow extends BaseWindow {
                             this.windowManager.subAgentWindow?.destroy();
                             this.session().tool_call.initVar();
                             const chat_id = this.sessionManager.getChat()?.id;
-                            this.session().llm_service.chatManager.init();
+                            this.session().llmService.chatManager.init();
                             this.sessionManager.setChat({ id: chat_id });
                             this.session().tool_call.setHistory();
                             this.session().tool_call.changeMode();
@@ -750,7 +750,7 @@ export class MainWindow extends BaseWindow {
                             }).then(result => {
                                 if (!result.canceled) {
                                     store.set('lastSavePath', path.dirname(result.filePath));
-                                    this.session().llm_service.chatManager.saveMessages(result.filePath);
+                                    this.session().llmService.chatManager.saveMessages(result.filePath);
                                 }
                             });
                         }

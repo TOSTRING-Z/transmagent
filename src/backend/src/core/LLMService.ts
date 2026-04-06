@@ -15,6 +15,7 @@ export class LLMService {
     public stopFlag: boolean = false;
     public adapter: ILLMAdapter;
     public utils: Utils;
+    public environment_details: any = {};
 
     constructor(messages: Message[] = [], window: BrowserWindow | null = null, utils: Utils) {
         this.window = window;

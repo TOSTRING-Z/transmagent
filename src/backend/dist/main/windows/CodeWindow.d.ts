@@ -1,9 +1,9 @@
 import { BaseWindow } from './BaseWindow';
 import { WindowManager } from './WindowManager';
 export declare class CodeWindow extends BaseWindow {
-    private llm_service_completion;
+    private llmService_completion;
     private react_agent_completion;
-    private llm_service_refactor;
+    private llmService_refactor;
     private react_agent_refactor;
     private auto_complete_enabled;
     private auto_error_correct_enabled;

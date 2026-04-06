@@ -28,7 +28,7 @@ export class MainServer {
 
     async completions(data: CompletionsRequest): Promise<ServerResult> {
         return new Promise((resolve, reject) => {
-            const chatManager = this.mainWindow.session().llm_service.chatManager;
+            const chatManager = this.mainWindow.session().llmService.chatManager;
 
             const cdata: any = {
                 query: data.messages[data.messages.length - 1].content,
@@ -36,7 +36,7 @@ export class MainServer {
             };
 
             this.mainWindow.startAgentLoop(cdata);
-            this.mainWindow.session().llm_service.startLoop();
+            this.mainWindow.session().llmService.startLoop();
 
             const _data = this.mainWindow.session().tool_call.getDataDefault(cdata);
 
@@ -47,7 +47,7 @@ export class MainServer {
                     let message_list = chatManager.getMessages(true)
                         .filter((message: any) => message.group_id === chatManager.chat.group_id);
 
-                    message_list = this.mainWindow.session().llm_service.adapter.formatMessages(
+                    message_list = this.mainWindow.session().llmService.adapter.formatMessages(
                         message_list,
                         result
                     );
@@ -65,9 +65,9 @@ export class MainServer {
         try {
             if (data.mode) {
                 this.mainWindow.session().tool_call.changeMode(data.mode);
-                this.mainWindow.window?.webContents.send('handleSetChat', this.mainWindow.session().llm_service.chatManager.chat);
+                this.mainWindow.window?.webContents.send('handleSetChat', this.mainWindow.session().llmService.chatManager.chat);
             }
-            return { chat_mode: this.mainWindow.session().llm_service.chatManager.chat.mode };
+            return { chat_mode: this.mainWindow.session().llmService.chatManager.chat.mode };
         } catch (error: any) {
             return { error: error.message };
         }
@@ -84,7 +84,7 @@ export class MainServer {
 
     async checkout(data: CheckoutRequest): Promise<ServerResult> {
         try {
-            const chatManager = this.mainWindow.session().llm_service.chatManager;
+            const chatManager = this.mainWindow.session().llmService.chatManager;
 
             if (data?.chat_id) {
                 // 加载已有会话

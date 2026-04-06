@@ -63,16 +63,16 @@ exports.MODE_CONSTRAINTS = {
 - **NO OVERHEAD**: You are FORBIDDEN from generating Mermaid charts, subtask breakdowns, or long summaries. Reach the end state as fast as possible.`
 };
 class Prompts {
-    agent;
+    toolCall;
     skillManager;
-    constructor(agent) {
-        this.agent = agent;
+    constructor(toolCall) {
+        this.toolCall = toolCall;
         this.skillManager = new SkillManager_1.SkillManager();
     }
     getCliPrompt() {
-        if (this.agent.agentConfigs.agent_mode === "transagent") {
+        if (this.toolCall.agentConfigs.agent_mode === "transagent") {
             try {
-                const cliPromptPath = this.agent.utils.getConfig("tool_call").cli_prompt || this.agent.utils.getDefault("prompts/cli_prompt.md");
+                const cliPromptPath = this.toolCall.utils.getConfig("tool_call").cli_prompt || this.toolCall.utils.getDefault("prompts/cli_prompt.md");
                 if (fs.existsSync(cliPromptPath)) {
                     return fs.readFileSync(cliPromptPath, 'utf-8');
                 }
@@ -89,7 +89,7 @@ class Prompts {
     ;
     getExtraPrompt(extraPromptPath) {
         try {
-            extraPromptPath = extraPromptPath || this.agent.utils.getDefault(`prompts/${this.agent.agentConfigs.agent_mode}.md`);
+            extraPromptPath = extraPromptPath || this.toolCall.utils.getDefault(`prompts/${this.toolCall.agentConfigs.agent_mode}.md`);
             if (fs.existsSync(extraPromptPath)) {
                 return fs.readFileSync(extraPromptPath, 'utf-8');
             }
@@ -107,7 +107,7 @@ class Prompts {
         return skillsPrompt || "\n*No active skills detected.*";
     }
     getSystemPrompts(toolsData) {
-        const baseTools = Object.keys(this.agent.baseTools);
+        const baseTools = Object.keys(this.toolCall.baseTools);
         const baseToolPrompt = Object.entries(toolsData)
             .filter(([key]) => baseTools.includes(key))
             .map(([_, val]) => val)
@@ -118,24 +118,24 @@ class Prompts {
             .join("\n\n");
         const prompts = (() => {
             // 1. 提取核心状态标志，提升代码可读性，彻底消除三元表达式嵌套陷阱
-            const isSubagent = !!this.agent.agentConfigs.subagent;
-            const isMultagent = this.agent.agentConfigs.agent_mode === "multagent";
-            const hasTodolist = !!this.agent.agentConfigs.todolist;
-            const hasEnv = !!this.agent.agentConfigs.env;
-            const hasSkill = !!this.agent.agentConfigs.skill;
-            const hasMemory = !isSubagent && this.agent.utils.getConfig('embedding')?.enabled;
-            const isTransagent = this.agent.agentConfigs.agent_mode === "transagent";
-            const hasMcpServer = !!this.agent.agentConfigs.mcp_server;
-            const usePromptFormat = this.agent.llm_service.chatManager.chat.tool_format === 'prompt';
+            const isSubagent = !!this.toolCall.agentConfigs.subagent;
+            const isMultagent = this.toolCall.agentConfigs.agent_mode === "multagent";
+            const hasTodolist = !!this.toolCall.agentConfigs.todolist;
+            const hasEnv = !!this.toolCall.agentConfigs.env;
+            const hasSkill = !!this.toolCall.agentConfigs.skill;
+            const hasMemory = !isSubagent && this.toolCall.utils.getConfig('embedding')?.enabled;
+            const isTransagent = this.toolCall.agentConfigs.agent_mode === "transagent";
+            const hasMcpServer = !!this.toolCall.agentConfigs.mcp_server;
+            const usePromptFormat = this.toolCall.llmService.chatManager.chat.tool_format === 'prompt';
             // 2. 绝对安全的身份定义（避免由于配置丢失导致子代理越权的 Fallback 陷阱）
             let identityPrompt = "";
             if (isSubagent) {
-                identityPrompt = this.agent.agentConfigs.agent_prompt || `You are **${this.agent.agentConfigs.agent_name}**, a specialized execution sub-agent. Your sole purpose is to execute your assigned tasks efficiently and return the results without attempting to orchestrate other agents.`;
+                identityPrompt = this.toolCall.agentConfigs.agent_prompt || `You are **${this.toolCall.agentConfigs.agent_name}**, a specialized execution sub-agent. Your sole purpose is to execute your assigned tasks efficiently and return the results without attempting to orchestrate other agents.`;
             }
             else {
                 identityPrompt = isMultagent
-                    ? `You are **${this.agent.agentConfigs.agent_name}**, an elite bioinformatics and workflow orchestration assistant. You coordinate specialized sub-agents to solve complex scientific and engineering problems.`
-                    : `You are **${this.agent.agentConfigs.agent_name}**, a versatile, high-efficiency AI assistant capable of solving complex user requests through strategic tool usage.`;
+                    ? `You are **${this.toolCall.agentConfigs.agent_name}**, an elite bioinformatics and workflow orchestration assistant. You coordinate specialized sub-agents to solve complex scientific and engineering problems.`
+                    : `You are **${this.toolCall.agentConfigs.agent_name}**, a versatile, high-efficiency AI assistant capable of solving complex user requests through strategic tool usage.`;
             }
             // 3. 构建完整的 Prompt 模板
             return `${identityPrompt}
@@ -305,7 +305,7 @@ ${!isSubagent ? `
         return prompts;
     }
     getTodoListPrompt() {
-        const { todolist } = this.agent.agentConfigs;
+        const { todolist } = this.toolCall.agentConfigs;
         // 如果存在 todolist 参数，则返回对应的模板字符串，否则返回空字符串
         return todolist ? `
 ### 📋 PROGRESS: {todolist}

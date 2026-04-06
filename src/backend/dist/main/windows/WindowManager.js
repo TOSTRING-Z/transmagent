@@ -9,7 +9,6 @@ const ConfigWindow_1 = require("./ConfigWindow");
 const ModelWindow_1 = require("./ModelWindow");
 const CodeWindow_1 = require("./CodeWindow");
 const ToolWindow_1 = require("./ToolWindow");
-const SubAgentWindow_1 = require("./SubAgentWindow");
 const ConfirmationWindow_1 = require("./ConfirmationWindow");
 class WindowManager {
     static instance;
@@ -32,7 +31,6 @@ class WindowManager {
             this.overlayWindow = new OverlayWindow_1.OverlayWindow(this);
             this.configWindow = new ConfigWindow_1.ConfigWindow(this);
             this.modelWindow = new ModelWindow_1.ModelWindow(this);
-            this.subAgentWindow = new SubAgentWindow_1.SubAgentWindow(this);
             this.codeWindow = new CodeWindow_1.CodeWindow(this);
             this.codeWindow.setup();
             this.toolWindow = new ToolWindow_1.ToolWindow(this);

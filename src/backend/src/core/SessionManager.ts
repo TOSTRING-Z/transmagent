@@ -7,13 +7,15 @@ import { Plugins } from "./Plugins";
 import { ToolCall } from "./ToolCall";
 import { WindowManager } from "../main/windows/WindowManager";
 import { Utils } from "../utils/Utils";
+import { SubAgent } from "./SubAgent";
 
 export interface Session {
     tool_call: ToolCall;
     chain_call: ChainCall;
-    llm_service: LLMService;
+    llmService: LLMService;
     utils: Utils;
     plugins: Plugins;
+    subAgent: SubAgent;
 }
 
 export class SessionManager {
@@ -47,7 +49,7 @@ export class SessionManager {
 
     getChat(sessionId?: string): ChatState | null {
         const session: Session = this.sessions.get(sessionId || this.activeSessionId);
-        return session ? session.llm_service.chatManager.chat : null;
+        return session ? session.llmService.chatManager.chat : null;
     }
 
     setChat(chat: Partial<ChatState>, sessionId?: string) {
@@ -56,7 +58,7 @@ export class SessionManager {
             Object.keys(chat).forEach(key => {
                 const value = chat[key];
                 if (value !== undefined) {
-                    session.llm_service.chatManager.chat[key] = value;
+                    session.llmService.chatManager.chat[key] = value;
                 }
             });
         }
@@ -66,14 +68,14 @@ export class SessionManager {
         const session: Session = this.sessions.get(sessionId || this.activeSessionId);
         if (session) {
             const { context_id, del_mode } = arg0;
-            session.llm_service.chatManager.toggleContextMessage({ context_id, del_mode });
+            session.llmService.chatManager.toggleContextMessage({ context_id, del_mode });
         }
     }
 
     stopLoop(sessionId?: string) {
         const session: Session = this.sessions.get(sessionId || this.activeSessionId);
         if (session) {
-            session.llm_service.stopLoop();
+            session.llmService.stopLoop();
         }
     }
 
@@ -82,26 +84,26 @@ export class SessionManager {
         let mcp_server = true;
         let skill = true;
         let agentMode: AgentMode = store.get('agentMode', 'transagent');
-        let subAgentWindow = WindowManager.instance.subAgentWindow;
-
+        
         const utils = new Utils(agentMode);
-
+        
         const plugins = new Plugins(utils);
         plugins.loadInit();
-        const llm_service = new LLMService([], this.window, utils);
+        const llmService = new LLMService([], this.window, utils);
+        let subAgent = new SubAgent(utils, llmService);
 
         if (agentMode === 'transagent' && utils.getConfig("tool_call")?.subagent) {
-            agentTools = { "tool_manager": subAgentWindow?.agentTools?.["tool_manager"] };
+            agentTools = { "tool_manager": subAgent.getMainSubAgent()["tool_manager"] };
         }
         if (agentMode === 'multagent') {
             mcp_server = false;
             skill = false;
-            agentTools = { ...subAgentWindow?.getMainSubAgent() };
+            agentTools = { ...subAgent.getMainSubAgent() };
         }
 
-        agentTools["deep_researcher"] = subAgentWindow?.agentTools?.["deep_researcher"];
+        agentTools["deep_researcher"] = subAgent.getMainSubAgent()["deep_researcher"];
 
-        const tool_call = new ToolCall(plugins, agentTools, llm_service, this.window, utils, {
+        const tool_call = new ToolCall(plugins, agentTools, llmService, this.window, utils, {
             agent_prompt: null,
             mcp_server: mcp_server,
             todolist: true,
@@ -112,8 +114,8 @@ export class SessionManager {
             agent_name: "TransMAgent"
         });
 
-        const chain_call = new ChainCall(plugins, llm_service, this.window, utils);
-        return { tool_call, chain_call, llm_service, utils, plugins };
+        const chain_call = new ChainCall(plugins, llmService, this.window, utils);
+        return { tool_call, chain_call, llmService, utils, plugins, subAgent };
     }
 
     addSession() {

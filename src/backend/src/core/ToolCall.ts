@@ -83,7 +83,7 @@ export class ToolCall extends ReActAgent {
     constructor(
         plugins: Plugins,
         agentTools: Record<string, any> = {},
-        llm_service: LLMService,
+        llmService: LLMService,
         window: BrowserWindow | null,
         utils: Utils,
         agentConfigs: AgentConfigs = {
@@ -97,10 +97,10 @@ export class ToolCall extends ReActAgent {
             agent_name: "TransMAgent",
         },
     ) {
-        super(llm_service, window, utils);
-        this.llm_service.chatManager.chat = llm_service.chatManager.chat;
+        super(llmService, window, utils);
+        this.llmService.chatManager.chat = llmService.chatManager.chat;
         this.plugins = plugins;
-        this.assistant = new LLMAssistant(llm_service, plugins, utils);
+        this.assistant = new LLMAssistant(llmService, plugins, utils);
         this.mcp_client = new MCPClient(this);
         this.agentConfigs = agentConfigs;
 
@@ -124,7 +124,7 @@ export class ToolCall extends ReActAgent {
         this.response_repetitions = [];
         this.repetitions_delay_empty = 0;
 
-        this.environment_details = {
+        this.llmService.environment_details = {
             system_platform: this.utils.getConfig("tool_call")?.system_platform || os.platform(),
             system_arch: this.utils.getConfig("tool_call")?.system_arch || os.arch(),
             language: this.utils.getLanguage(),
@@ -161,19 +161,19 @@ export class ToolCall extends ReActAgent {
     public loadMessage(filePath: string) {
         super.loadMessage(filePath);
         // 判断是否任务结束
-        const messages = this.llm_service.chatManager.getMessages();
+        const messages = this.llmService.chatManager.getMessages();
         if (messages.length > 0) {
             const lastMessage = messages[messages.length - 1];
             const options = ['continue'];
             if (lastMessage.role === "tool") {
-                this.window?.webContents.send('options', { ...this.llm_service.chatManager.chat, options: options });
+                this.window?.webContents.send('options', { ...this.llmService.chatManager.chat, options: options });
             }
             if (lastMessage.role === "assistant" && lastMessage.tool_calls) {
                 this.state = State.PAUSE;
-                this.window?.webContents.send('options', { ...this.llm_service.chatManager.chat, options: options });
+                this.window?.webContents.send('options', { ...this.llmService.chatManager.chat, options: options });
             }
         }
-        this.changeMode(this.llm_service.chatManager.chat.mode);
+        this.changeMode(this.llmService.chatManager.chat.mode);
     }
 
     public getToolsPrompt(): any {
@@ -203,12 +203,12 @@ export class ToolCall extends ReActAgent {
         // 2. 组装上下文 (供 DSL 校验使用)
         const context = {
             args: this.agentConfigs || {},
-            env: this.environment_details || {},
+            env: this.llmService.environment_details || {},
             modes: Mode || {},
             isSubagent: !!this.agentConfigs?.subagent,
-            currentMode: this.environment_details?.mode
+            currentMode: this.llmService.environment_details?.mode
         };
-        const format = this.llm_service.chatManager.chat.tool_format;
+        const format = this.llmService.chatManager.chat.tool_format;
         // 3. 流水线处理：过滤 -> 提取Schema -> 格式化
         this.tool_schemas = Object.entries(this.tools)
             .filter(([key, tool]) => {
@@ -247,9 +247,9 @@ export class ToolCall extends ReActAgent {
     public async saveLongTermMemory(user_content: string, final_answer: string) {
         try {
             if (user_content && final_answer) {
-                const time = this.environment_details.time;
+                const time = this.llmService.environment_details.time;
                 const content = `Date: ${time}\nUser: ${user_content}\nAgent: ${final_answer}`;
-                await this.memory_manager.addLongTermMemory(this.llm_service.chatManager.chat.id, content, time);
+                await this.memory_manager.addLongTermMemory(this.llmService.chatManager.chat.id, content, time);
             }
         } catch (e: any) {
             console.error("Error saving memory", e);
@@ -273,9 +273,9 @@ export class ToolCall extends ReActAgent {
     }
 
     public environmentUpdate(data: Record<string, any>) {
-        this.environment_details.time = this.utils.formatDate();
-        this.environment_details.language = data?.language || this.utils.getLanguage();
-        const chatState = this.llm_service.chatManager.chat;
+        this.llmService.environment_details.time = this.utils.formatDate();
+        this.llmService.environment_details.language = data?.language || this.utils.getLanguage();
+        const chatState = this.llmService.chatManager.chat;
 
         const envs = Object.keys(chatState.envs || {}).map(key => `- ${key}: ${chatState.envs[key]}`);
         const todolist = Object.keys(chatState.vars.tasks || {}).map(task_id => {
@@ -284,17 +284,17 @@ export class ToolCall extends ReActAgent {
             return `- ${task_id}: ${taskObj.task}:\n${subtasks.join("\n")}`;
         });
 
-        this.environment_details.todolist = todolist.join("\n");
-        this.environment_details.envs = envs.length > 0 ? envs.join("\n") : "";
-        this.environment_details.skills = this.prompts.getSkillPrompt();
+        this.llmService.environment_details.todolist = todolist.join("\n");
+        this.llmService.environment_details.envs = envs.length > 0 ? envs.join("\n") : "";
+        this.llmService.environment_details.skills = this.prompts.getSkillPrompt();
 
         if (this.agentConfigs.env && this.utils.getConfig("tool_call")?.env_message) {
-            data.env_message = formatString(this.env_prompt, this.environment_details as any);
+            data.env_message = formatString(this.env_prompt, this.llmService.environment_details as any);
         } else {
             data.env_message = null;
         }
         if (this.agentConfigs.todolist && this.utils.getConfig("tool_call")?.todolist_message) {
-            data.todolist_message = formatString(this.todolist_prompt, this.environment_details as any);
+            data.todolist_message = formatString(this.todolist_prompt, this.llmService.environment_details as any);
         } else {
             data.todolist_message = null;
         }
@@ -303,9 +303,9 @@ export class ToolCall extends ReActAgent {
     public changeMode(mode: string | null = null) {
         const selectedMode = this.modeMap[mode || ""] || Mode.ACT;
         const shortMode = this.modeMap[mode || ""] ? mode : "act";
-        this.environment_details.mode = selectedMode;
-        this.environment_details.mode_constraint = MODE_CONSTRAINTS[selectedMode];
-        this.llm_service.chatManager.chat.mode = shortMode as string;
+        this.llmService.environment_details.mode = selectedMode;
+        this.llmService.environment_details.mode_constraint = MODE_CONSTRAINTS[selectedMode];
+        this.llmService.chatManager.chat.mode = shortMode as string;
         if (!this.agentConfigs.subagent) {
             this.setHistory();
         }
@@ -354,7 +354,7 @@ export class ToolCall extends ReActAgent {
         if (!this.toolInfos || this.toolInfos.length === 0) {
             logger.error(`Tool Info Error`);
             this.window?.webContents.send('infoData', {
-                ...this.llm_service.chatManager.chat,
+                ...this.llmService.chatManager.chat,
                 content: `Tool Info Error\n`,
                 uuid: data.uuid
             });
@@ -378,13 +378,13 @@ export class ToolCall extends ReActAgent {
         if (this.response_repetitions.length > (this.utils.getConfig("tool_call")?.max_response_repetitions || 5)) {
             const error_message = `Detected repetitive response: "${currentResponse}". Repetition count: ${this.response_repetitions.length}`;
             logger.warn(error_message);
-            this.llm_service.chatManager.pushAssistantMessage({
-                ...this.llm_service.chatManager.chat,
+            this.llmService.chatManager.pushAssistantMessage({
+                ...this.llmService.chatManager.chat,
                 content: error_message,
                 uuid: data.uuid
             });
             this.window?.webContents.send('streamData', {
-                ...this.llm_service.chatManager.chat,
+                ...this.llmService.chatManager.chat,
                 content: error_message,
                 uuid: data.uuid,
                 end: true
@@ -398,12 +398,12 @@ export class ToolCall extends ReActAgent {
         const isThinkingOnly = this.toolInfos.length === 1 && !this.toolInfos[0].tool_call_name;
 
         if (hasTool || isThinkingOnly) {
-            this.llm_service.chatManager.pushAssistantMessageWithToolCalls({ ...this.llm_service.chatManager.chat, ...messageOutput, uuid: data.uuid });
+            this.llmService.chatManager.pushAssistantMessageWithToolCalls({ ...this.llmService.chatManager.chat, ...messageOutput, uuid: data.uuid });
         }
 
         // 纯思考结束流程
         if (isThinkingOnly) {
-            this.window?.webContents.send('streamData', { ...this.llm_service.chatManager.chat, uuid: data.uuid, end: true });
+            this.window?.webContents.send('streamData', { ...this.llmService.chatManager.chat, uuid: data.uuid, end: true });
             this.state = State.FINAL;
             return;
         }
@@ -416,11 +416,11 @@ export class ToolCall extends ReActAgent {
 
             // [1. 解析错误处理]
             if (toolInfo.error) {
-                this.llm_service.chatManager.pushToolMessage({
-                    ...toolInfo, ...this.llm_service.chatManager.chat, uuid: data.uuid
+                this.llmService.chatManager.pushToolMessage({
+                    ...toolInfo, ...this.llmService.chatManager.chat, uuid: data.uuid
                 });
                 this.window?.webContents.send('streamData', {
-                    ...this.llm_service.chatManager.chat,
+                    ...this.llmService.chatManager.chat,
                     content: toolInfo.error,
                     uuid: data.uuid
                 });
@@ -431,12 +431,12 @@ export class ToolCall extends ReActAgent {
             let auditError = await this.auditToolCall(toolInfo, data);
             if (auditError) {
                 // 如果被拦截，将 Critic 的报错喂回给原 Agent
-                this.llm_service.chatManager.pushToolMessage({
-                    ...toolInfo, ...this.llm_service.chatManager.chat, content: auditError, uuid: data.uuid
+                this.llmService.chatManager.pushToolMessage({
+                    ...toolInfo, ...this.llmService.chatManager.chat, content: auditError, uuid: data.uuid
                 });
 
                 this.window?.webContents.send('streamData', {
-                    ...this.llm_service.chatManager.chat,
+                    ...this.llmService.chatManager.chat,
                     content: `\n\n---\n\n⚠️ **Security Intercept**: ${auditError}`,
                     uuid: data.uuid
                 });
@@ -448,7 +448,7 @@ export class ToolCall extends ReActAgent {
             const toolConfig = this.getToolConfig(toolInfo.tool_call_name);
             const requireConfirmation = !!toolConfig?.require_confirmation;
 
-            if (requireConfirmation && WindowManager.instance?.confirmationWindow && this.environment_details.mode === Mode.ACT) {
+            if (requireConfirmation && WindowManager.instance?.confirmationWindow && this.llmService.environment_details.mode === Mode.ACT) {
 
                 let toolDescription = '';
                 const toolName = toolInfo.tool_call_name;
@@ -461,11 +461,11 @@ export class ToolCall extends ReActAgent {
                         this.handleToolObservation(observation, toolInfo, data);
                     } else {
                         const cancelMessage = `用户取消了高风险工具 ${toolInfo.tool_call_name} 的执行（已记住的选择）`;
-                        this.llm_service.chatManager.pushToolMessage({
-                            ...toolInfo, ...this.llm_service.chatManager.chat, content: cancelMessage, uuid: data.uuid
+                        this.llmService.chatManager.pushToolMessage({
+                            ...toolInfo, ...this.llmService.chatManager.chat, content: cancelMessage, uuid: data.uuid
                         });
                         this.window?.webContents.send('streamData', {
-                            ...this.llm_service.chatManager.chat,
+                            ...this.llmService.chatManager.chat,
                             content: `\n\n---\n\n❌ **执行取消**: ${cancelMessage}`,
                             uuid: data.uuid
                         });
@@ -512,12 +512,12 @@ export class ToolCall extends ReActAgent {
                         this.handleToolObservation(observation, toolInfo, data);
                     } else {
                         const cancelMessage = `用户取消了高风险工具 ${toolInfo.tool_call_name} 的执行`;
-                        this.llm_service.chatManager.pushToolMessage({
-                            ...toolInfo, ...this.llm_service.chatManager.chat, content: cancelMessage, uuid: data.uuid
+                        this.llmService.chatManager.pushToolMessage({
+                            ...toolInfo, ...this.llmService.chatManager.chat, content: cancelMessage, uuid: data.uuid
                         });
 
                         this.window?.webContents.send('streamData', {
-                            ...this.llm_service.chatManager.chat,
+                            ...this.llmService.chatManager.chat,
                             content: `\n\n---\n\n❌ **执行取消**: ${cancelMessage}`,
                             uuid: data.uuid
                         });
@@ -544,15 +544,15 @@ export class ToolCall extends ReActAgent {
             }
         }
 
-        if (this.llm_service.chatManager.chat.tokens >= this.llm_service.chatManager.chat.max_tokens) {
+        if (this.llmService.chatManager.chat.tokens >= this.llmService.chatManager.chat.max_tokens) {
             this.assistant.kvCacheSummary();
-            this.llm_service.chatManager.chat.long_memory_length = Math.floor(this.llm_service.chatManager.chat.long_memory_length / 2);
-            this.llm_service.chatManager.chat.memory_length = Math.floor(this.llm_service.chatManager.chat.memory_length / 2);
+            this.llmService.chatManager.chat.long_memory_length = Math.floor(this.llmService.chatManager.chat.long_memory_length / 2);
+            this.llmService.chatManager.chat.memory_length = Math.floor(this.llmService.chatManager.chat.memory_length / 2);
         }
     }
 
     public async getToolInfos(data: Record<string, any>, assistantMessage: AssistantMessage): Promise<ToolInfo[]> {
-        const adapter: IToolCallAdapter = ToolCallAdapterFactory.getAdapter(this.llm_service.chatManager.chat.tool_format);
+        const adapter: IToolCallAdapter = ToolCallAdapterFactory.getAdapter(this.llmService.chatManager.chat.tool_format);
         const toolInfos = adapter.getToolInfos(assistantMessage);
 
         // 网络或内容容错处理
@@ -561,13 +561,13 @@ export class ToolCall extends ReActAgent {
         let toolInfoStr = JSON.stringify(toolInfos, null, 2);
         data.output_format = toolInfoStr;
 
-        this.window?.webContents.send('infoData', { ...this.llm_service.chatManager.chat, content: this.getInfo(data), uuid: data.uuid });
+        this.window?.webContents.send('infoData', { ...this.llmService.chatManager.chat, content: this.getInfo(data), uuid: data.uuid });
 
         const content = toolInfos[0]?.content || "";
         const reasoning_content = toolInfos[0]?.reasoning_content || "";
         if (content || reasoning_content) {
             this.window?.webContents.send('streamData', {
-                ...this.llm_service.chatManager.chat,
+                ...this.llmService.chatManager.chat,
                 content: `\n\n${content}`,
                 reasoning_content: reasoning_content,
                 uuid: data.uuid
@@ -618,28 +618,28 @@ export class ToolCall extends ReActAgent {
 
         switch (toolInfo?.tool_call_name) {
             case "display_file":
-                this.window?.webContents.send('streamData', { ...this.llm_service.chatManager.chat, content: `\n\n${observation.result}`, uuid: data.uuid });
+                this.window?.webContents.send('streamData', { ...this.llmService.chatManager.chat, content: `\n\n${observation.result}`, uuid: data.uuid });
                 break;
             case "add_subtasks":
             case "record_subtasks":
-                this.window?.webContents.send('streamData', { ...this.llm_service.chatManager.chat, content: `\n\n\`\`\`json\n${observation.result}\n\`\`\``, uuid: data.uuid });
+                this.window?.webContents.send('streamData', { ...this.llmService.chatManager.chat, content: `\n\n\`\`\`json\n${observation.result}\n\`\`\``, uuid: data.uuid });
                 break;
         }
 
         if (observation.subagent_tool) {
-            this.window?.webContents.send('streamData', { ...this.llm_service.chatManager.chat, content: `\n\n${observation.result}`, uuid: data.uuid });
+            this.window?.webContents.send('streamData', { ...this.llmService.chatManager.chat, content: `\n\n${observation.result}`, uuid: data.uuid });
         }
 
         if (this.state === (State.PAUSE as State)) {
             const { ask, options } = observation;
-            this.window?.webContents.send('streamData', { ...this.llm_service.chatManager.chat, content: `\n\n${ask}`, uuid: data.uuid, end: true });
-            this.window?.webContents.send('options', { ...this.llm_service.chatManager.chat, ...toolInfo, options: options, uuid: data.uuid });
+            this.window?.webContents.send('streamData', { ...this.llmService.chatManager.chat, content: `\n\n${ask}`, uuid: data.uuid, end: true });
+            this.window?.webContents.send('options', { ...this.llmService.chatManager.chat, ...toolInfo, options: options, uuid: data.uuid });
         } else if (this.state === (State.FINAL as State)) {
-            this.llm_service.chatManager.pushToolMessage({ ...this.llm_service.chatManager.chat, ...toolInfo, content: observation.result, uuid: data.uuid });
-            this.window?.webContents.send('streamData', { ...this.llm_service.chatManager.chat, content: `\n\n${observation.result}`, uuid: data.uuid, end: true });
+            this.llmService.chatManager.pushToolMessage({ ...this.llmService.chatManager.chat, ...toolInfo, content: observation.result, uuid: data.uuid });
+            this.window?.webContents.send('streamData', { ...this.llmService.chatManager.chat, content: `\n\n${observation.result}`, uuid: data.uuid, end: true });
         } else {
-            this.llm_service.chatManager.pushToolMessage({ ...this.llm_service.chatManager.chat, ...toolInfo, content: observation.result, uuid: data.uuid });
-            this.window?.webContents.send('infoData', { ...this.llm_service.chatManager.chat, content: this.getInfo({ output_format: observation.result }), uuid: data.uuid });
+            this.llmService.chatManager.pushToolMessage({ ...this.llmService.chatManager.chat, ...toolInfo, content: observation.result, uuid: data.uuid });
+            this.window?.webContents.send('infoData', { ...this.llmService.chatManager.chat, content: this.getInfo({ output_format: observation.result }), uuid: data.uuid });
         }
     }
 
@@ -647,56 +647,56 @@ export class ToolCall extends ReActAgent {
         this.setUUID(data);
         if (this.state === State.PAUSE) {
             data.role = "tool";
-            let context_id = `${this.llm_service.chatManager.chat.group_id}${this.llm_service.chatManager.chat.step - 1}`
-            this.llm_service.chatManager.pushToolMessage({
+            let context_id = `${this.llmService.chatManager.chat.group_id}${this.llmService.chatManager.chat.step - 1}`
+            this.llmService.chatManager.pushToolMessage({
                 ...this.currentToolInfo,
-                ...this.llm_service.chatManager.chat,
+                ...this.llmService.chatManager.chat,
                 context_id: context_id,
                 content: data.query,
                 uuid: data.uuid
             });
-            this.window?.webContents.send('toolData', { ...this.llm_service.chatManager.chat, content: `\n\n---\n\n${data.query}`, uuid: data.uuid });
+            this.window?.webContents.send('toolData', { ...this.llmService.chatManager.chat, content: `\n\n---\n\n${data.query}`, uuid: data.uuid });
         } else {
-            this.llm_service.chatManager.chat.step = 1;
-            this.llm_service.chatManager.chat.group_id = String((new Date()).getTime());
-            this.llm_service.chatManager.chat.context_id = `${this.llm_service.chatManager.chat.group_id}${this.llm_service.chatManager.chat.step}`
+            this.llmService.chatManager.chat.step = 1;
+            this.llmService.chatManager.chat.group_id = String((new Date()).getTime());
+            this.llmService.chatManager.chat.context_id = `${this.llmService.chatManager.chat.group_id}${this.llmService.chatManager.chat.step}`
             data.role = "user";
-            this.llm_service.chatManager.fixMessages();
-            this.llm_service.chatManager.pushUserMessage({ ...this.llm_service.chatManager.chat, content: data.query, uuid: data.uuid });
-            this.window?.webContents.send('userData', { ...this.llm_service.chatManager.chat, content: data.query, uuid: data.uuid });
+            this.llmService.chatManager.fixMessages();
+            this.llmService.chatManager.pushUserMessage({ ...this.llmService.chatManager.chat, content: data.query, uuid: data.uuid });
+            this.window?.webContents.send('userData', { ...this.llmService.chatManager.chat, content: data.query, uuid: data.uuid });
         }
 
         this.state = State.IDLE;
         let tool_call = this.utils.getConfig("tool_call");
 
-        this.llm_service.chatManager.chat.seconds = 0
+        this.llmService.chatManager.chat.seconds = 0
 
         while (this.state === State.IDLE || this.state === State.RUNNING) {
             // 延时1s，避免过快进入死循环
             await new Promise(resolve => setTimeout(resolve, 1000));
-            if (this.llm_service.stopFlag) {
+            if (this.llmService.stopFlag) {
                 this.state = State.FINAL;
-                this.window?.webContents.send('streamData', { group_id: this.llm_service.chatManager.chat.group_id, content: "", end: true, uuid: data.uuid });
+                this.window?.webContents.send('streamData', { group_id: this.llmService.chatManager.chat.group_id, end: true, uuid: data.uuid });
                 break;
             }
-            if (data?.max_step && this.llm_service.chatManager.chat.step > data.max_step) break;
-            data = { ...data, ...tool_call, step: this.llm_service.chatManager.chat.step, tools: this.getToolsPrompt(), react: true };
+            if (data?.max_step && this.llmService.chatManager.chat.step > data.max_step) break;
+            data = { ...data, ...tool_call, step: this.llmService.chatManager.chat.step, tools: this.getToolsPrompt(), react: true };
 
             // 记录开始时间
             const startSeconds = Date.now() / 1000;
             await this.step(data);
             // 记录结束时间
             const endSeconds = Date.now() / 1000;
-            this.llm_service.chatManager.chat.seconds += (endSeconds - startSeconds);
+            this.llmService.chatManager.chat.seconds += (endSeconds - startSeconds);
 
-            this.llm_service.chatManager.chat.step++;
-            this.llm_service.chatManager.chat.context_id = `${this.llm_service.chatManager.chat.group_id}${this.llm_service.chatManager.chat.step}`
+            this.llmService.chatManager.chat.step++;
+            this.llmService.chatManager.chat.context_id = `${this.llmService.chatManager.chat.group_id}${this.llmService.chatManager.chat.step}`
 
-            const currentChatName = this.llm_service.chatManager.chat.name;
+            const currentChatName = this.llmService.chatManager.chat.name;
             if (!currentChatName || currentChatName === CHAT_CONST.DEFAULT_NAME) {
                 await this.setChatName(data).then(() => {
-                    if (this.llm_service.chatManager.chat.name && this.llm_service.chatManager.chat.name !== CHAT_CONST.DEFAULT_NAME) {
-                        this.window?.webContents.send('handleAutoRenameChat', { ...this.llm_service.chatManager.chat, uuid: data.uuid });
+                    if (this.llmService.chatManager.chat.name && this.llmService.chatManager.chat.name !== CHAT_CONST.DEFAULT_NAME) {
+                        this.window?.webContents.send('handleAutoRenameChat', { ...this.llmService.chatManager.chat, uuid: data.uuid });
                     }
                 });
             }

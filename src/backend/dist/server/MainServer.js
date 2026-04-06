@@ -8,20 +8,20 @@ class MainServer {
     }
     async completions(data) {
         return new Promise((resolve, reject) => {
-            const chatManager = this.mainWindow.session().llm_service.chatManager;
+            const chatManager = this.mainWindow.session().llmService.chatManager;
             const cdata = {
                 query: data.messages[data.messages.length - 1].content,
                 max_step: data?.max_step
             };
             this.mainWindow.startAgentLoop(cdata);
-            this.mainWindow.session().llm_service.startLoop();
+            this.mainWindow.session().llmService.startLoop();
             const _data = this.mainWindow.session().tool_call.getDataDefault(cdata);
             this.mainWindow.session().tool_call.callReAct(_data)
                 .then((result) => {
                 this.mainWindow.session().tool_call.setHistory();
                 let message_list = chatManager.getMessages(true)
                     .filter((message) => message.group_id === chatManager.chat.group_id);
-                message_list = this.mainWindow.session().llm_service.adapter.formatMessages(message_list, result);
+                message_list = this.mainWindow.session().llmService.adapter.formatMessages(message_list, result);
                 resolve({ messages: message_list });
             })
                 .catch((error) => {
@@ -34,9 +34,9 @@ class MainServer {
         try {
             if (data.mode) {
                 this.mainWindow.session().tool_call.changeMode(data.mode);
-                this.mainWindow.window?.webContents.send('handleSetChat', this.mainWindow.session().llm_service.chatManager.chat);
+                this.mainWindow.window?.webContents.send('handleSetChat', this.mainWindow.session().llmService.chatManager.chat);
             }
-            return { chat_mode: this.mainWindow.session().llm_service.chatManager.chat.mode };
+            return { chat_mode: this.mainWindow.session().llmService.chatManager.chat.mode };
         }
         catch (error) {
             return { error: error.message };
@@ -53,7 +53,7 @@ class MainServer {
     }
     async checkout(data) {
         try {
-            const chatManager = this.mainWindow.session().llm_service.chatManager;
+            const chatManager = this.mainWindow.session().llmService.chatManager;
             if (data?.chat_id) {
                 // 加载已有会话
                 const chat = await this.mainWindow.session().tool_call.loadChat(data.chat_id);

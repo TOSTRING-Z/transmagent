@@ -5,12 +5,14 @@ import { LLMService } from "./LLMService";
 import { Plugins } from "./Plugins";
 import { ToolCall } from "./ToolCall";
 import { Utils } from "../utils/Utils";
+import { SubAgent } from "./SubAgent";
 export interface Session {
     tool_call: ToolCall;
     chain_call: ChainCall;
-    llm_service: LLMService;
+    llmService: LLMService;
     utils: Utils;
     plugins: Plugins;
+    subAgent: SubAgent;
 }
 export declare class SessionManager {
     static instance: SessionManager;
@@ -31,9 +33,10 @@ export declare class SessionManager {
     createSession(): {
         tool_call: ToolCall;
         chain_call: ChainCall;
-        llm_service: LLMService;
+        llmService: LLMService;
         utils: Utils;
         plugins: Plugins;
+        subAgent: SubAgent;
     };
     addSession(): void;
     checkoutSession(id: string): any;

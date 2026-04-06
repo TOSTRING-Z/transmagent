@@ -24,26 +24,26 @@ export enum Mode {
 
 export class ReActAgent {
     public state: State;
-    public llm_service: LLMService;
+    public llmService: LLMService;
     public window: BrowserWindow | null;
     public context_id?: string; // 用于记录当前的 memory id
     public assistant: LLMAssistant; // LLM对话辅助功能实例
     public utils: Utils;
 
     constructor(
-        llm_service: LLMService,
+        llmService: LLMService,
         window: BrowserWindow | null = null,
         utils: Utils
     ) {
         this.state = State.IDLE;
-        this.llm_service = llm_service;
+        this.llmService = llmService;
         this.window = window;
-        this.assistant = new LLMAssistant(llm_service, null, utils);
+        this.assistant = new LLMAssistant(llmService, null, utils);
         this.utils = utils;
     }
 
     public setUUID(data: Record<string, any>) {
-        data.uuid = this.llm_service.chatManager.uuid;
+        data.uuid = this.llmService.chatManager.uuid;
         this.window?.webContents.send('setUUID', data.uuid);
     }
 
@@ -65,12 +65,12 @@ export class ReActAgent {
 
     public changeWindow(window: BrowserWindow | null = null) {
         this.window = window;
-        this.llm_service.window = window;
+        this.llmService.window = window;
     }
 
     public setHistory(chat: ChatState | null = null): boolean | undefined {
         if (!chat) {
-            chat = this.llm_service.chatManager.chat;
+            chat = this.llmService.chatManager.chat;
         }
 
         if (chat.id) {
@@ -89,7 +89,7 @@ export class ReActAgent {
 
             this.utils.setHistoryData(history_data);
             const history_path = this.utils.getHistoryPath(chat.id);
-            this.llm_service.chatManager.saveMessages(history_path);
+            this.llmService.chatManager.saveMessages(history_path);
             return id_exist;
         }
     }
@@ -101,8 +101,8 @@ export class ReActAgent {
     }
 
     public renameHistory(chat: ChatState) {
-        if (this.llm_service.chatManager.chat.id === chat.id) {
-            this.llm_service.chatManager.chat.name = chat.name;
+        if (this.llmService.chatManager.chat.id === chat.id) {
+            this.llmService.chatManager.chat.name = chat.name;
         }
         let history_data = this.utils.getHistoryData();
         history_data.data = history_data.data.map((h: any) => {
@@ -117,7 +117,7 @@ export class ReActAgent {
         let count = 0;
 
         while (count < retry_time) {
-            if (this.llm_service.stopFlag) return null;
+            if (this.llmService.stopFlag) return null;
 
             try {
                 let output = await func(data);
@@ -160,7 +160,7 @@ export class ReActAgent {
             data.input = this.formatTemplate(data.input_template, data);
         }
 
-        const func = (reqData: any) => this.llm_service.chatBase(reqData);
+        const func = (reqData: any) => this.llmService.chatBase(reqData);
 
         let baseResult = await this.retry(func, data);
 
@@ -177,9 +177,9 @@ export class ReActAgent {
     }
 
     public async sendData(data: Record<string, any>): Promise<boolean> {
-        let agent_messages = this.llm_service.chatManager.getMessages(true).filter(m => m.group_id === data.id);
+        let agent_messages = this.llmService.chatManager.getMessages(true).filter(m => m.group_id === data.id);
         this.utils.sendData(CONSTANTS.COLLECTION_URL, {
-            "chat_id": this.llm_service.chatManager.chat.id,
+            "chat_id": this.llmService.chatManager.chat.id,
             "message_id": data.id,
             "user_message": data.query,
             "agent_messages": agent_messages,
@@ -197,9 +197,9 @@ export class ReActAgent {
             api_url: null,
             api_key: null,
             api_type: null,
-            model: this.llm_service.chatManager.chat.model,
-            version: this.llm_service.chatManager.chat.version,
-            is_plugin: this.llm_service.chatManager.chat.model === "plugins",
+            model: this.llmService.chatManager.chat.model,
+            version: this.llmService.chatManager.chat.version,
+            is_plugin: this.llmService.chatManager.chat.model === "plugins",
             output_template: null,
             input_template: null,
             prompt_template: null,
@@ -221,9 +221,9 @@ export class ReActAgent {
     public newChat(): ChatState {
         this.window?.webContents.send('clear');
         this.initVar();
-        this.llm_service.chatManager.init();
-        this.setHistory(this.llm_service.chatManager.chat);
-        return this.llm_service.chatManager.chat;
+        this.llmService.chatManager.init();
+        this.setHistory(this.llmService.chatManager.chat);
+        return this.llmService.chatManager.chat;
     }
 
     public initVar() {
@@ -234,13 +234,13 @@ export class ReActAgent {
         this.initVar();
         const history_path = this.utils.getHistoryPath(id);
         this.loadMessage(history_path);
-        return this.llm_service.chatManager.chat;
+        return this.llmService.chatManager.chat;
     }
 
     public loadMessage(filePath: string) {
         this.window?.webContents.send('clear');
-        let messages = this.llm_service.chatManager.loadMessages(filePath);
-        const chat = this.llm_service.chatManager.chat;
+        let messages = this.llmService.chatManager.loadMessages(filePath);
+        const chat = this.llmService.chatManager.chat;
 
         if (messages.length > 0) {
             messages.forEach((message, i) => {
@@ -273,7 +273,7 @@ export class ReActAgent {
                 if (message.role === "assistant") {
                     if (message.react) {
                         try {
-                            const adapter = ToolCallAdapterFactory.getAdapter(this.llm_service.chatManager.chat.tool_format);
+                            const adapter = ToolCallAdapterFactory.getAdapter(this.llmService.chatManager.chat.tool_format);
                             const toolInfos = adapter.getToolInfos(message);
                             const toolInfo = toolInfos[0] || { content: message.content, reasoning_content: message.reasoning_content || null, tool: null, params: {} };
                             let toolInfoStr = JSON.stringify(toolInfo, null, 2).replaceAll("`", "\\`");
@@ -297,7 +297,7 @@ export class ReActAgent {
         data.output_format = data.output_format?.replaceAll("`", "\\`");
 
         let infoTemplate = this.utils.getConfig("info_template");
-        let info = this.formatTemplate(infoTemplate, { ...data, ...this.llm_service.chatManager.chat });
+        let info = this.formatTemplate(infoTemplate, { ...data, ...this.llmService.chatManager.chat });
 
         data.output_format = output_format; // 恢复原数据
         logger.log(info);

@@ -3,9 +3,9 @@ import { ToolCall } from './ToolCall';
 import { Mode } from './ReActAgent';
 export declare const MODE_CONSTRAINTS: Record<Mode, string>;
 declare class Prompts {
-    agent: ToolCall;
+    toolCall: ToolCall;
     skillManager: SkillManager;
-    constructor(agent: ToolCall);
+    constructor(toolCall: ToolCall);
     getCliPrompt(): string;
     getExtraPrompt(extraPromptPath?: string | null): string;
     getSkillPrompt(): string;

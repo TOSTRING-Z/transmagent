@@ -46,7 +46,7 @@ function getBaseTools(toolCallInstance) {
                         return { status: "error", message: "Both key and value parameters are required." };
                     }
                     // 主代理实例
-                    const chatState = WindowManager_1.WindowManager.instance.mainWindow.session().llm_service.chatManager.chat;
+                    const chatState = WindowManager_1.WindowManager.instance.mainWindow.session().llmService.chatManager.chat;
                     // Ensure envs object exists
                     if (!chatState.envs) {
                         chatState.envs = {};
@@ -132,7 +132,7 @@ function getBaseTools(toolCallInstance) {
         "context_retrieval": {
             func: async ({ context_id }) => {
                 // 修复：指向 ChatManager 获取历史记录
-                const history = toolCallInstance.llm_service.chatManager.getMessages(true);
+                const history = toolCallInstance.llmService.chatManager.getMessages(true);
                 const target = history.find(m => String(m.context_id) === String(context_id));
                 return target ? { role: target.role, content: target.content } : "Error: Context ID not found.";
             },
@@ -156,7 +156,7 @@ function getBaseTools(toolCallInstance) {
                     return { status: "error", message: "Recurring tasks MUST have a 'trigger_condition'." };
                 }
                 // 修复：指向 ChatManager 中的 vars
-                const chatVars = toolCallInstance.llm_service.chatManager.chat.vars;
+                const chatVars = toolCallInstance.llmService.chatManager.chat.vars;
                 chatVars.tasks = chatVars.tasks || {};
                 chatVars.subtask_id = chatVars.subtask_id ?? 100;
                 const subtaskList = (Array.isArray(subtasks) ? subtasks : [subtasks]).map(desc => ({
@@ -213,7 +213,7 @@ function getBaseTools(toolCallInstance) {
                 const ids = new Set((Array.isArray(subtask_ids) ? subtask_ids : [subtask_ids]).map(Number));
                 const now = new Date().toISOString();
                 // 修复：指向 ChatManager 中的 vars
-                const chatVars = toolCallInstance.llm_service.chatManager.chat.vars;
+                const chatVars = toolCallInstance.llmService.chatManager.chat.vars;
                 let updated = 0;
                 let recurringTasksToCheck = new Set();
                 Object.values(chatVars.tasks || {}).forEach((task) => {
