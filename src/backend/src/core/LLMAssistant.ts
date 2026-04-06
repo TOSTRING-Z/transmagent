@@ -172,7 +172,7 @@ STRICT RULES:
         return (tool && typeof tool === 'object') ? tool : null;
     }
 
-public async auditToolCall(toolInfo: ToolInfo, data: Record<string, any>): Promise<string | null> {
+    public async auditToolCall(toolInfo: ToolInfo, data: Record<string, any>): Promise<string | null> {
         if (!toolInfo.tool_call_name || !this.isToolRequireAudit(toolInfo.tool_call_name) || !this.utils.getConfig("tool_call")?.llm_judge) {
             return null;
         }
@@ -201,7 +201,7 @@ public async auditToolCall(toolInfo: ToolInfo, data: Record<string, any>): Promi
         }
 
         const payloadString = JSON.stringify(toolInfo.params || {}, null, 2);
-        
+
         // 更新 Prompt：加入人称代词和拟人化语气的强制约束
         const criticQuery = `
 [SYSTEM OVERRIDE: INTERNAL AUDIT PROTOCOL]
@@ -235,7 +235,7 @@ ${payloadString}
         const callData = critic_agent.getDataDefault({
             ...data,
             query: criticQuery,
-            params: { ...this.utils.getConfig("llm_params"), temperature: 0.3 },
+            params: { ...this.utils.getConfig("llm_params") },
             llm_conversation_mode: true,
             output_format: null
         });

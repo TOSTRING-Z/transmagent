@@ -197,7 +197,7 @@ ${payloadString}
         const callData = critic_agent.getDataDefault({
             ...data,
             query: criticQuery,
-            params: { ...this.utils.getConfig("llm_params"), temperature: 0.3 },
+            params: { ...this.utils.getConfig("llm_params") },
             llm_conversation_mode: true,
             output_format: null
         });
