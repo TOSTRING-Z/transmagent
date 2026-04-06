@@ -2,8 +2,7 @@ import * as fs from 'fs';
 import * as path from 'path';
 import { Client, ConnectConfig } from 'ssh2';
 import { logger } from '../utils/logger';
-import * as utils from '../utils/public';
-import { WindowManager } from '../main/windows/WindowManager';
+import { ToolCall } from '../core/ToolCall';
 
 // --- 类型定义 ---
 export interface ListFilesParams {
@@ -15,6 +14,7 @@ export interface ListFilesArgs {
     path: string;
     recursive?: boolean;
     regex?: string | null;
+    toolCall: ToolCall;
 }
 
 // 工业级过滤规则
@@ -44,12 +44,13 @@ export function main(params: ListFilesParams = {}) {
         const threshold = params.threshold || 150;
         const timeoutMs = params.timeoutMs || 10000;
         const regexObj = args.regex ? new RegExp(args.regex, 'i') : null;
+        const toolCall = args.toolCall;
 
         const result: string[] = [];
         let limitReached = false;
         let isTimedOut = false;
 
-        const sshConfig = WindowManager.instance.mainWindow.session().utils.getSshConfig ? WindowManager.instance.mainWindow.session().utils.getSshConfig() : null;
+        const sshConfig = toolCall.utils.getSshConfig();
         const isRemote = !!(sshConfig?.enabled && sshConfig?.host);
 
         // ==========================================

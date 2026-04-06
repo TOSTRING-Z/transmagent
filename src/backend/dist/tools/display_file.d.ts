@@ -1,9 +1,11 @@
+import { ToolCall } from '../core/ToolCall';
 export interface DisplayOptions {
     start_line?: string | number;
     end_line?: string | number;
     max_line_length?: string | number;
     max_cols?: string | number;
     format?: string;
+    toolCall: ToolCall;
 }
 export interface NormalizedOptions {
     startLine: number;

@@ -45,11 +45,10 @@ const os = __importStar(require("os"));
 const ssh2_1 = require("ssh2");
 const puppeteer_1 = __importDefault(require("puppeteer"));
 const logger_1 = require("../utils/logger");
-const WindowManager_1 = require("../main/windows/WindowManager");
 function main(params) {
     return async (args) => {
         try {
-            const { prompt, file_path } = args;
+            const { prompt, file_path, toolCall } = args;
             if (!prompt || !file_path)
                 return "Error: 'prompt' and 'file_path' are required.";
             const apiUrl = params.api_url || "https://api.openai.com/v1/chat/completions";
@@ -57,7 +56,7 @@ function main(params) {
             const model = params.model || "gpt-4o";
             if (!apiKey)
                 return "Error: 'api_key' is missing.";
-            const sshConfig = WindowManager_1.WindowManager.instance.mainWindow.session().utils.getSshConfig ? WindowManager_1.WindowManager.instance.mainWindow.session().utils.getSshConfig() : null;
+            const sshConfig = toolCall.utils.getSshConfig();
             const isRemote = !!(sshConfig?.enabled && sshConfig?.host);
             let fileBuffer;
             const ext = path.extname(file_path).toLowerCase();

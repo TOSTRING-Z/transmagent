@@ -4,6 +4,7 @@ import { writeFileSync, unlinkSync, existsSync, createWriteStream } from 'fs';
 import * as path from 'path';
 import { BrowserWindow, ipcMain, IpcMainEvent } from 'electron';
 import { logger } from '../utils/logger';
+import { ToolCall } from '../core/ToolCall';
 
 // 定义传入参数的接口
 export interface PythonExecuteParams {
@@ -15,6 +16,7 @@ export interface PythonExecuteParams {
 
 export interface ExecuteArgs {
     code: string;
+    toolCall: ToolCall;
 }
 
 export interface ExecuteResult {

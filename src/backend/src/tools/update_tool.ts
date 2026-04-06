@@ -1,11 +1,12 @@
 import * as fs from 'fs';
 import { logger } from '../utils/logger';
-import { WindowManager } from '../main/windows/WindowManager';
+import { ToolCall } from '../core/ToolCall';
 
 // --- 类型定义 ---
 export interface UpdateToolParams {
     tool_name: string;
     tool_documentation: string;
+    toolCall: ToolCall;
 }
 
 export interface UpdateToolResult {
@@ -19,14 +20,14 @@ export interface UpdateToolResult {
 export function main() {
     return async (params: UpdateToolParams): Promise<UpdateToolResult> => {
         try {
-            const { tool_name, tool_documentation } = params;
+            const { tool_name, tool_documentation, toolCall } = params;
 
             if (!tool_name || !tool_documentation) {
                 throw new Error("Both tool_name and tool_documentation parameters are required");
             }
 
             // 安全获取 prompt 配置文件路径
-            const prompt_file = WindowManager.instance.mainWindow.session().utils.getConfig("tool_call").cli_prompt || WindowManager.instance.mainWindow.session().utils.getDefault("prompts/cli_prompt.md");
+            const prompt_file = toolCall.utils.getConfig("tool_call").cli_prompt || toolCall.utils.getDefault("prompts/cli_prompt.md");
 
             if (!fs.existsSync(prompt_file)) {
                 // 如果文件不存在，初始化一个空文件

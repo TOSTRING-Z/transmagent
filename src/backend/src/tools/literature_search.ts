@@ -7,7 +7,7 @@
 import { logger } from '../utils/logger';
 import * as https from 'https';
 import * as http from 'http';
-import { URL } from 'url';
+import { ToolCall } from '../core/ToolCall';
 
 // --- 类型定义 ---
 export interface LiteratureResult {
@@ -31,6 +31,7 @@ export interface LiteratureSearchParams {
     dateTo?: string;               // 结束日期 YYYY-MM-DD
     source?: 'all' | 'pubmed' | 'arxiv' | 'semantic' | 'crossref';  // 数据源
     sortBy?: 'relevance' | 'date';  // 排序方式
+    toolCall: ToolCall;
 }
 
 export interface LiteratureSearchResult {
@@ -354,11 +355,6 @@ export async function literatureSearch(params: LiteratureSearchParams): Promise<
             error: error instanceof Error ? error.message : 'Unknown error'
         } as any;
     }
-}
-
-// 兼容旧接口
-export async function searchLiterature(query: string, maxResults: number = 20): Promise<LiteratureSearchResult> {
-    return literatureSearch({ query, maxResults });
 }
 
 // --- 插件导出格式 (符合 Plugins.ts 规范) ---

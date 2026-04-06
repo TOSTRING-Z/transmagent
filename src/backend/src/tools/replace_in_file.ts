@@ -1,14 +1,12 @@
 import * as fs from 'fs';
-import * as path from 'path';
 import { Client, ConnectConfig } from 'ssh2';
-import { logger } from '../utils/logger';
-import * as utils from '../utils/public';
-import { WindowManager } from '../main/windows/WindowManager';
+import { ToolCall } from '../core/ToolCall';
 
 // 定义输入参数接口
 export interface ReplaceParams {
     file_path: string;
     diff: string;
+    toolCall: ToolCall;
 }
 
 // 读取远程文件内容
@@ -134,13 +132,13 @@ async function replaceInRemoteFile(file_path: string, diff: string, sshConfig: a
 }
 
 export function main() {
-    return async ({ file_path, diff }: ReplaceParams): Promise<string> => {
+    return async ({ file_path, diff, toolCall }: ReplaceParams): Promise<string> => {
         try {
             if (!file_path || !diff) {
                 throw new Error("Both file_path and diff parameters are required.");
             }
 
-            const sshConfig = WindowManager.instance.mainWindow.session().utils.getSshConfig ? WindowManager.instance.mainWindow.session().utils.getSshConfig() : null;
+            const sshConfig = toolCall.utils.getSshConfig();
             const isRemote = !!(sshConfig?.enabled && sshConfig?.host);
 
             if (isRemote) {

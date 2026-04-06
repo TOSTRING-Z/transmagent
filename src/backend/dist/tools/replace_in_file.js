@@ -37,7 +37,6 @@ exports.main = main;
 exports.getPrompt = getPrompt;
 const fs = __importStar(require("fs"));
 const ssh2_1 = require("ssh2");
-const WindowManager_1 = require("../main/windows/WindowManager");
 // 读取远程文件内容
 async function readRemoteFile(filePath, sshConfig) {
     return new Promise((resolve, reject) => {
@@ -144,12 +143,12 @@ async function replaceInRemoteFile(file_path, diff, sshConfig) {
     return `File ${file_path} modified successfully`;
 }
 function main() {
-    return async ({ file_path, diff }) => {
+    return async ({ file_path, diff, toolCall }) => {
         try {
             if (!file_path || !diff) {
                 throw new Error("Both file_path and diff parameters are required.");
             }
-            const sshConfig = WindowManager_1.WindowManager.instance.mainWindow.session().utils.getSshConfig ? WindowManager_1.WindowManager.instance.mainWindow.session().utils.getSshConfig() : null;
+            const sshConfig = toolCall.utils.getSshConfig();
             const isRemote = !!(sshConfig?.enabled && sshConfig?.host);
             if (isRemote) {
                 return await replaceInRemoteFile(file_path, diff, sshConfig);

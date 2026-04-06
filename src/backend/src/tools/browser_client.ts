@@ -1,8 +1,3 @@
-import * as https from 'https';
-import { URL } from 'url';
-import { parse as htmlParse } from 'node-html-parser';
-import * as cheerio from 'cheerio';
-import { HttpsProxyAgent } from 'https-proxy-agent';
 import { logger } from '../utils/logger';
 import puppeteer, {
     Browser,
@@ -10,23 +5,23 @@ import puppeteer, {
     ScreenshotOptions,
     Viewport,
     CookieParam,
-    Protocol
 } from 'puppeteer';
 import globalAgent from 'global-agent';
+import { ToolCall } from '../core/ToolCall';
 
 // --- 初始化全局代理 (必须在所有HTTP请求之前) ---
 function bootstrapGlobalProxy(): void {
     // 从环境变量获取代理地址
-    const proxyUrl = process.env.https_proxy || process.env.HTTPS_PROXY || 
-                     process.env.http_proxy || process.env.HTTP_PROXY ||
-                     process.env.ALL_PROXY || process.env.all_proxy;
-    
+    const proxyUrl = process.env.https_proxy || process.env.HTTPS_PROXY ||
+        process.env.http_proxy || process.env.HTTP_PROXY ||
+        process.env.ALL_PROXY || process.env.all_proxy;
+
     if (proxyUrl) {
         // 设置全局代理环境变量
         process.env.GLOBAL_AGENT_HTTP_PROXY = proxyUrl;
         logger.log(`Global proxy bootstrapped: ${proxyUrl}`);
     }
-    
+
     // 初始化 global-agent (自动让所有 HTTP/HTTPS 请求使用代理)
     (globalAgent as any).bootstrap();
 }
@@ -40,22 +35,9 @@ try {
 
 // --- 代理配置工具函数 ---
 function getProxyUrl(): string | undefined {
-    return process.env.https_proxy || process.env.HTTPS_PROXY || 
-           process.env.http_proxy || process.env.HTTP_PROXY ||
-           process.env.ALL_PROXY || process.env.all_proxy;
-}
-
-function getProxyAgent(): https.Agent | undefined {
-    const proxyUrl = getProxyUrl();
-    if (proxyUrl) {
-        try {
-            return new HttpsProxyAgent(proxyUrl);
-        } catch (e) {
-            logger.warn('Failed to create proxy agent:', e);
-            return undefined;
-        }
-    }
-    return undefined;
+    return process.env.https_proxy || process.env.HTTPS_PROXY ||
+        process.env.http_proxy || process.env.HTTP_PROXY ||
+        process.env.ALL_PROXY || process.env.all_proxy;
 }
 
 function getChromeProxyArgs(): string[] {
@@ -181,13 +163,13 @@ class BrowserController {
 
         try {
             logger.log('正在启动浏览器...');
-            
+
             // 获取代理参数
             const proxyArgs = getChromeProxyArgs();
             if (proxyArgs.length > 0) {
                 logger.log(`使用浏览器代理: ${proxyArgs.join(', ')}`);
             }
-            
+
             this.browser = await puppeteer.launch({
                 headless: false,
                 devtools: false,
@@ -419,7 +401,7 @@ class BrowserController {
                         type: params.type || 'png',
                         fullPage: params.fullPage || false,
                         // 将 Uint8Array 转换为 Base64 字符串
-                        data: Buffer.from(screenshot).toString('base64') 
+                        data: Buffer.from(screenshot).toString('base64')
                     };
                     break;
 
@@ -583,7 +565,7 @@ class BrowserController {
 
                 const rect = element.getBoundingClientRect();
                 const styles = window.getComputedStyle(element);
-                
+
                 const attributes: Record<string, string> = {};
                 for (let i = 0; i < element.attributes.length; i++) {
                     const attr = element.attributes[i];
@@ -1089,9 +1071,9 @@ export function getPrompt() {
 
 const extractor = new ContentExtractor();
 
-export function main() {
+export function main(): (params: Record<string, any>) => Promise<ToolResponse> {
     return async (params: Record<string, any>): Promise<ToolResponse> => {
-        return await extractor.main(params);
+        return await extractor.main({ ...params, toolCall: ToolCall });
     };
 }
 

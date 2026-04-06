@@ -1,3 +1,4 @@
+import { ToolCall } from '../core/ToolCall';
 export interface ListFilesParams {
     threshold?: number;
     timeoutMs?: number;
@@ -6,6 +7,7 @@ export interface ListFilesArgs {
     path: string;
     recursive?: boolean;
     regex?: string | null;
+    toolCall: ToolCall;
 }
 export declare function main(params?: ListFilesParams): (args: ListFilesArgs) => Promise<string[]>;
 export declare function getPrompt(): {

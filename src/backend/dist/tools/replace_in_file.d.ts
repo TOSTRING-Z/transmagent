@@ -1,8 +1,10 @@
+import { ToolCall } from '../core/ToolCall';
 export interface ReplaceParams {
     file_path: string;
     diff: string;
+    toolCall: ToolCall;
 }
-export declare function main(): ({ file_path, diff }: ReplaceParams) => Promise<string>;
+export declare function main(): ({ file_path, diff, toolCall }: ReplaceParams) => Promise<string>;
 export declare function getPrompt(): {
     name: string;
     description: string;

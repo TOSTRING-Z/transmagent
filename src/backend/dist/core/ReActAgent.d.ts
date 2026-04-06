@@ -21,7 +21,7 @@ export declare class ReActAgent {
     llmService: LLMService;
     window: BrowserWindow | null;
     context_id?: string;
-    assistant: LLMAssistant;
+    llmAssistant: LLMAssistant;
     utils: Utils;
     constructor(llmService: LLMService, window: (BrowserWindow | null) | undefined, utils: Utils);
     setUUID(data?: Record<string, any>): string;

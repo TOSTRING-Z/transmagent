@@ -1,6 +1,8 @@
+import { ToolCall } from '../core/ToolCall';
 export interface ErrorSolutionParams {
     error_message: string;
     max_results?: number;
+    toolCall: ToolCall;
 }
 export interface SolutionMetadata {
     rank: number;
@@ -34,7 +36,7 @@ export interface RawSolution {
     views: number;
     is_answered: boolean;
 }
-export declare function main(): ({ error_message, max_results }: ErrorSolutionParams) => Promise<SearchResult>;
+export declare function main(): ({ error_message, max_results, toolCall }: ErrorSolutionParams) => Promise<SearchResult>;
 export declare function getPrompt(): {
     name: string;
     description: string;

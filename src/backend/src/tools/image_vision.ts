@@ -5,8 +5,7 @@ import * as os from 'os';
 import { Client } from 'ssh2';
 import puppeteer from 'puppeteer';
 import { logger } from '../utils/logger';
-import * as utils from '../utils/public';
-import { WindowManager } from '../main/windows/WindowManager';
+import { ToolCall } from '../core/ToolCall';
 
 export interface VisionParams {
     api_url?: string;
@@ -17,12 +16,13 @@ export interface VisionParams {
 export interface ToolArgs {
     prompt: string;
     file_path: string;
+    toolCall: ToolCall;
 }
 
 export function main(params: VisionParams) {
     return async (args: ToolArgs): Promise<string> => {
         try {
-            const { prompt, file_path } = args;
+            const { prompt, file_path, toolCall } = args;
             if (!prompt || !file_path) return "Error: 'prompt' and 'file_path' are required.";
 
             const apiUrl = params.api_url || "https://api.openai.com/v1/chat/completions";
@@ -31,7 +31,7 @@ export function main(params: VisionParams) {
 
             if (!apiKey) return "Error: 'api_key' is missing.";
 
-            const sshConfig = WindowManager.instance.mainWindow.session().utils.getSshConfig ? WindowManager.instance.mainWindow.session().utils.getSshConfig() : null;
+            const sshConfig = toolCall.utils.getSshConfig();
             const isRemote = !!(sshConfig?.enabled && sshConfig?.host);
             
             let fileBuffer: Buffer;

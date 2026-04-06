@@ -79,7 +79,7 @@ export class ToolCall extends ReActAgent {
     public currentObservation: Observation | undefined;
     public modeMap: Record<string, Mode> = { "auto": Mode.AUTO, "plan": Mode.PLAN, "flash": Mode.FLASH, "act": Mode.ACT };
     private rememberedChoices: Record<string, boolean> = {};
-    public assistant: LLMAssistant;
+    public llmAssistant: LLMAssistant;
     public tool_schemas?: any[];
 
     constructor(
@@ -102,7 +102,7 @@ export class ToolCall extends ReActAgent {
         super(llmService, window, utils);
         this.llmService = llmService;
         this.plugins = plugins;
-        this.assistant = new LLMAssistant(llmService, plugins, utils);
+        this.llmAssistant = new LLMAssistant(llmService, plugins, utils);
         this.mcp_client = new MCPClient(this);
         this.agentConfigs = agentConfigs;
 
@@ -143,21 +143,21 @@ export class ToolCall extends ReActAgent {
      * 获取工具配置（委托给 LLMAssistant）
      */
     public getToolConfig(toolName: string): any {
-        return this.assistant.getToolConfig(toolName);
+        return this.llmAssistant.getToolConfig(toolName);
     }
 
     /**
      * 检查工具是否需要审计（委托给 LLMAssistant）
      */
     public isToolRequireAudit(toolName: string): boolean {
-        return this.assistant.isToolRequireAudit(toolName);
+        return this.llmAssistant.isToolRequireAudit(toolName);
     }
 
     /**
      * AI 审查者逻辑 (LLM-as-a-Judge) - 委托给 LLMAssistant
      */
     public async auditToolCall(toolInfo: ToolInfo, data: Record<string, any>): Promise<string | null> {
-        return this.assistant.auditToolCall(toolInfo, data);
+        return this.llmAssistant.auditToolCall(toolInfo, data);
     }
 
     public loadMessage(filePath: string, id?: string) {
@@ -533,7 +533,7 @@ export class ToolCall extends ReActAgent {
         }
 
         if (this.llmService.chatManager.chat.tokens >= this.llmService.chatManager.chat.max_tokens) {
-            this.assistant.kvCacheSummary();
+            this.llmAssistant.kvCacheSummary();
             this.llmService.chatManager.chat.long_memory_length = Math.floor(this.llmService.chatManager.chat.long_memory_length / 2);
             this.llmService.chatManager.chat.memory_length = Math.floor(this.llmService.chatManager.chat.memory_length / 2);
         }
@@ -574,7 +574,7 @@ export class ToolCall extends ReActAgent {
                 };
             } else {
                 const will_tool = this.tools[toolInfo.tool_call_name as string].func;
-                const response = await will_tool(toolInfo?.params);
+                const response = await will_tool({...toolInfo?.params, toolCall: ToolCall});
                 let result: string;
                 if (response?.subagent_tool) {
                     result = response.content;

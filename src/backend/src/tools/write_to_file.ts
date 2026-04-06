@@ -1,9 +1,7 @@
 import * as fs from 'fs';
 import * as path from 'path';
 import { Client, ConnectConfig } from 'ssh2';
-import { logger } from '../utils/logger';
-import * as utils from '../utils/public';
-import { WindowManager } from '../main/windows/WindowManager';
+import { ToolCall } from '../core/ToolCall';
 
 /**
  * 工业级文件写入工具 (精简版)
@@ -19,6 +17,7 @@ export interface WriteToFileParams {
     file_path: string;
     content?: string;
     mode?: 'overwrite' | 'append';
+    toolCall: ToolCall;
 }
 
 // 本地文件操作
@@ -80,13 +79,13 @@ async function writeRemoteFile(filePath: string, content: string, mode: 'overwri
 export function main() {
     return async (params: WriteToFileParams): Promise<string> => {
         try {
-            const { file_path, content = '', mode = 'overwrite' } = params;
+            const { file_path, content = '', mode = 'overwrite', toolCall } = params;
 
             if (!file_path) {
                 throw new Error("file_path is required");
             }
 
-            const sshConfig = WindowManager.instance.mainWindow.session().utils.getSshConfig ? WindowManager.instance.mainWindow.session().utils.getSshConfig() : null;
+            const sshConfig = toolCall.utils.getSshConfig();
             const isRemote = !!(sshConfig?.enabled && sshConfig?.host);
 
             if (isRemote) {

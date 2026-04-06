@@ -364,7 +364,7 @@ class ErrorSolutionFinder {
     }
 }
 function main() {
-    return async ({ error_message, max_results = 5 }) => {
+    return async ({ error_message, max_results = 5, toolCall }) => {
         try {
             if (!error_message) {
                 return {

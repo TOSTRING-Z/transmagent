@@ -1,12 +1,14 @@
 import * as fs from 'fs';
 import * as path from 'path';
 import { logger } from '../utils/logger';
+import { ToolCall } from '../core/ToolCall';
 
 export interface SearchFilesParams {
     path: string;
     regex?: string;
     file_pattern?: string;
     timeout_ms?: number; // [新增] 超时时间参数
+    toolCall: ToolCall;
 }
 
 export interface SearchResult {

@@ -3,6 +3,7 @@
  * 全面最新文献查询工具
  * 支持多源学术数据库查询，自动提取论文元数据
  */
+import { ToolCall } from '../core/ToolCall';
 export interface LiteratureResult {
     id: string;
     title: string;
@@ -23,6 +24,7 @@ export interface LiteratureSearchParams {
     dateTo?: string;
     source?: 'all' | 'pubmed' | 'arxiv' | 'semantic' | 'crossref';
     sortBy?: 'relevance' | 'date';
+    toolCall: ToolCall;
 }
 export interface LiteratureSearchResult {
     success: boolean;
@@ -72,7 +74,6 @@ export declare const literatureSearchTool: {
     };
 };
 export declare function literatureSearch(params: LiteratureSearchParams): Promise<LiteratureSearchResult>;
-export declare function searchLiterature(query: string, maxResults?: number): Promise<LiteratureSearchResult>;
 export declare function main(params?: any): (args: LiteratureSearchParams) => Promise<LiteratureSearchResult>;
 export declare function getPrompt(): {
     name: string;

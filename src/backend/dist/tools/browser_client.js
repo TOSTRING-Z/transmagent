@@ -6,10 +6,10 @@ Object.defineProperty(exports, "__esModule", { value: true });
 exports.ContentExtractor = void 0;
 exports.getPrompt = getPrompt;
 exports.main = main;
-const https_proxy_agent_1 = require("https-proxy-agent");
 const logger_1 = require("../utils/logger");
 const puppeteer_1 = __importDefault(require("puppeteer"));
 const global_agent_1 = __importDefault(require("global-agent"));
+const ToolCall_1 = require("../core/ToolCall");
 // --- 初始化全局代理 (必须在所有HTTP请求之前) ---
 function bootstrapGlobalProxy() {
     // 从环境变量获取代理地址
@@ -36,19 +36,6 @@ function getProxyUrl() {
     return process.env.https_proxy || process.env.HTTPS_PROXY ||
         process.env.http_proxy || process.env.HTTP_PROXY ||
         process.env.ALL_PROXY || process.env.all_proxy;
-}
-function getProxyAgent() {
-    const proxyUrl = getProxyUrl();
-    if (proxyUrl) {
-        try {
-            return new https_proxy_agent_1.HttpsProxyAgent(proxyUrl);
-        }
-        catch (e) {
-            logger_1.logger.warn('Failed to create proxy agent:', e);
-            return undefined;
-        }
-    }
-    return undefined;
 }
 function getChromeProxyArgs() {
     const proxyUrl = getProxyUrl();
@@ -891,7 +878,7 @@ function getPrompt() {
 const extractor = new ContentExtractor();
 function main() {
     return async (params) => {
-        return await extractor.main(params);
+        return await extractor.main({ ...params, toolCall: ToolCall_1.ToolCall });
     };
 }
 // ==========================================

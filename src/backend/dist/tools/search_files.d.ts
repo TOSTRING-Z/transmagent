@@ -1,8 +1,10 @@
+import { ToolCall } from '../core/ToolCall';
 export interface SearchFilesParams {
     path: string;
     regex?: string;
     file_pattern?: string;
     timeout_ms?: number;
+    toolCall: ToolCall;
 }
 export interface SearchResult {
     file: string;

@@ -1,3 +1,4 @@
+import { ToolCall } from '../core/ToolCall';
 export interface SearchResultItem {
     url: string;
     summ?: string;
@@ -18,6 +19,7 @@ export interface ActionArgs {
     topk?: number;
     timeout?: number;
     max_length?: number;
+    toolCall: ToolCall;
 }
 export type RawSearchResult = [string, string, string];
 export declare class TTLCache<T> {

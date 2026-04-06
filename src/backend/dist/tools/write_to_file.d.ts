@@ -1,3 +1,4 @@
+import { ToolCall } from '../core/ToolCall';
 /**
  * 工业级文件写入工具 (精简版)
  * * 核心逻辑：
@@ -10,6 +11,7 @@ export interface WriteToFileParams {
     file_path: string;
     content?: string;
     mode?: 'overwrite' | 'append';
+    toolCall: ToolCall;
 }
 export declare function main(): (params: WriteToFileParams) => Promise<string>;
 export declare function getPrompt(): {

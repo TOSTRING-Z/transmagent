@@ -40,7 +40,6 @@ var __importStar = (this && this.__importStar) || (function () {
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.literatureSearchTool = void 0;
 exports.literatureSearch = literatureSearch;
-exports.searchLiterature = searchLiterature;
 exports.main = main;
 exports.getPrompt = getPrompt;
 const logger_1 = require("../utils/logger");
@@ -330,10 +329,6 @@ async function literatureSearch(params) {
             error: error instanceof Error ? error.message : 'Unknown error'
         };
     }
-}
-// 兼容旧接口
-async function searchLiterature(query, maxResults = 20) {
-    return literatureSearch({ query, maxResults });
 }
 // --- 插件导出格式 (符合 Plugins.ts 规范) ---
 function main(params) {

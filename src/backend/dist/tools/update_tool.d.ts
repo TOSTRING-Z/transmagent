@@ -1,6 +1,8 @@
+import { ToolCall } from '../core/ToolCall';
 export interface UpdateToolParams {
     tool_name: string;
     tool_documentation: string;
+    toolCall: ToolCall;
 }
 export interface UpdateToolResult {
     success: boolean;

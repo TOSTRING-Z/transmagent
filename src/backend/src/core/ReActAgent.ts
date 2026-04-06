@@ -28,7 +28,7 @@ export class ReActAgent {
     public llmService: LLMService;
     public window: BrowserWindow | null;
     public context_id?: string; // 用于记录当前的 memory id
-    public assistant: LLMAssistant; // LLM对话辅助功能实例
+    public llmAssistant: LLMAssistant; // LLM对话辅助功能实例
     public utils: Utils;
 
     constructor(
@@ -39,7 +39,7 @@ export class ReActAgent {
         this.state = State.IDLE;
         this.llmService = llmService;
         this.window = window;
-        this.assistant = new LLMAssistant(llmService, null, utils);
+        this.llmAssistant = new LLMAssistant(llmService, null, utils);
         this.utils = utils;
     }
 
@@ -321,13 +321,13 @@ export class ReActAgent {
      * 对话压缩功能（委托给 LLMAssistant）
      */
     public async compressionGroupMessage(params: { group_id: string }): Promise<string | null> {
-        return this.assistant.compressionGroupMessage(params);
+        return this.llmAssistant.compressionGroupMessage(params);
     }
 
     /**
      * 聊天命名功能（委托给 LLMAssistant）
      */
     public async setChatName(data: Record<string, any>): Promise<void> {
-        return this.assistant.setChatName(data);
+        return this.llmAssistant.setChatName(data);
     }
 }

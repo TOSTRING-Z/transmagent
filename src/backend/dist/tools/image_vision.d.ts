@@ -1,3 +1,4 @@
+import { ToolCall } from '../core/ToolCall';
 export interface VisionParams {
     api_url?: string;
     api_key: string;
@@ -6,6 +7,7 @@ export interface VisionParams {
 export interface ToolArgs {
     prompt: string;
     file_path: string;
+    toolCall: ToolCall;
 }
 export declare function main(params: VisionParams): (args: ToolArgs) => Promise<string>;
 export declare function getPrompt(): {

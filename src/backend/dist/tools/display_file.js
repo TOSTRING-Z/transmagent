@@ -53,9 +53,10 @@ class DisplayFile {
     /**
      * 统一入口：智能路由处理本地/远程文件
      */
-    async display(filePath, options = {}) {
+    async display(filePath, options) {
+        const toolCall = options.toolCall;
         const normalizedOptions = this._normalizeOptions(options);
-        const sshConfig = WindowManager_1.WindowManager.instance.mainWindow.session().utils?.getSshConfig ? WindowManager_1.WindowManager.instance.mainWindow.session().utils.getSshConfig() : null;
+        const sshConfig = toolCall.utils.getSshConfig();
         const isRemote = !!(sshConfig?.enabled && sshConfig?.host);
         const actualFileType = normalizedOptions.fileType === 'auto'
             ? this._detectFileType(filePath)
@@ -390,7 +391,7 @@ class DisplayFile {
         const sheet = workbook.Sheets[workbook.SheetNames[0]];
         if (!sheet['!ref'])
             return "Empty Excel file";
-        const range = XLSX.WindowManager.instance.mainWindow.session().utils.decode_range(sheet['!ref']);
+        const range = XLSX.utils.decode_range(sheet['!ref']);
         const totalRows = range.e.r + 1;
         const totalCols = range.e.c + 1;
         const actualStart = Math.max(0, startLine > 0 ? startLine - 1 : 0);
@@ -399,7 +400,7 @@ class DisplayFile {
         if (maxCols > 0) {
             actualEndCol = Math.min(range.e.c, range.s.c + maxCols - 1);
         }
-        const jsonData = XLSX.WindowManager.instance.mainWindow.session().utils.sheet_to_json(sheet, {
+        const jsonData = XLSX.utils.sheet_to_json(sheet, {
             range: { s: { c: range.s.c, r: actualStart }, e: { c: actualEndCol, r: actualEnd } },
             defval: ''
         });

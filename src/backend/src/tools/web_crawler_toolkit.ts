@@ -5,6 +5,7 @@ import * as cheerio from 'cheerio';
 import { HttpsProxyAgent } from 'https-proxy-agent';
 import { logger } from '../utils/logger';
 import globalAgent from 'global-agent';
+import { ToolCall } from '../core/ToolCall';
 
 // --- 初始化全局代理 (必须在所有HTTP请求之前) ---
 function bootstrapGlobalProxy(): void {
@@ -65,6 +66,7 @@ export interface ActionArgs {
     topk?: number;
     timeout?: number;
     max_length?: number;
+    toolCall: ToolCall;
 }
 
 export type RawSearchResult = [string, string, string]; // [url, snippet, title]

@@ -3,8 +3,8 @@ import * as fs from 'fs';
 import * as path from 'path';
 import * as readline from 'readline';
 import { Client, ConnectConfig } from 'ssh2';
-import * as utils from '../utils/public';
 import { WindowManager } from '../main/windows/WindowManager';
+import { ToolCall } from '../core/ToolCall';
 
 // 接口定义 (修复了 format 参数匹配)
 export interface DisplayOptions {
@@ -13,6 +13,7 @@ export interface DisplayOptions {
     max_line_length?: string | number;
     max_cols?: string | number;
     format?: string; // 修正：与 Prompt 保持一致
+    toolCall: ToolCall;
 }
 
 export interface NormalizedOptions {
@@ -45,9 +46,10 @@ class DisplayFile {
     /**
      * 统一入口：智能路由处理本地/远程文件
      */
-    public async display(filePath: string, options: DisplayOptions = {}): Promise<ProcessResult> {
+    public async display(filePath: string, options: DisplayOptions): Promise<ProcessResult> {
+        const toolCall = options.toolCall;
         const normalizedOptions = this._normalizeOptions(options);
-        const sshConfig = WindowManager.instance.mainWindow.session().utils?.getSshConfig ? WindowManager.instance.mainWindow.session().utils.getSshConfig() : null;
+        const sshConfig =toolCall.utils.getSshConfig();
         const isRemote = !!(sshConfig?.enabled && sshConfig?.host);
 
         const actualFileType = normalizedOptions.fileType === 'auto'
@@ -423,7 +425,7 @@ class DisplayFile {
         const sheet = workbook.Sheets[workbook.SheetNames[0]];
         if (!sheet['!ref']) return "Empty Excel file";
 
-        const range = XLSX.WindowManager.instance.mainWindow.session().utils.decode_range(sheet['!ref']);
+        const range = XLSX.utils.decode_range(sheet['!ref']);
         const totalRows = range.e.r + 1;
         const totalCols = range.e.c + 1;
 
@@ -435,7 +437,7 @@ class DisplayFile {
             actualEndCol = Math.min(range.e.c, range.s.c + maxCols - 1);
         }
 
-        const jsonData = XLSX.WindowManager.instance.mainWindow.session().utils.sheet_to_json(sheet, {
+        const jsonData = XLSX.utils.sheet_to_json(sheet, {
             range: { s: { c: range.s.c, r: actualStart }, e: { c: actualEndCol, r: actualEnd } },
             defval: ''
         });

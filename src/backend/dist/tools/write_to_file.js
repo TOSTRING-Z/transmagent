@@ -38,7 +38,6 @@ exports.getPrompt = getPrompt;
 const fs = __importStar(require("fs"));
 const path = __importStar(require("path"));
 const ssh2_1 = require("ssh2");
-const WindowManager_1 = require("../main/windows/WindowManager");
 // 本地文件操作
 async function writeLocalFile(filePath, content, mode) {
     const dir = path.dirname(filePath);
@@ -94,11 +93,11 @@ async function writeRemoteFile(filePath, content, mode, sshConfig) {
 function main() {
     return async (params) => {
         try {
-            const { file_path, content = '', mode = 'overwrite' } = params;
+            const { file_path, content = '', mode = 'overwrite', toolCall } = params;
             if (!file_path) {
                 throw new Error("file_path is required");
             }
-            const sshConfig = WindowManager_1.WindowManager.instance.mainWindow.session().utils.getSshConfig ? WindowManager_1.WindowManager.instance.mainWindow.session().utils.getSshConfig() : null;
+            const sshConfig = toolCall.utils.getSshConfig();
             const isRemote = !!(sshConfig?.enabled && sshConfig?.host);
             if (isRemote) {
                 await writeRemoteFile(file_path, content, mode, sshConfig);

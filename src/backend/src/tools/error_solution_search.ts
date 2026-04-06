@@ -1,11 +1,13 @@
 import * as puppeteer from 'puppeteer';
 import { logger } from '../utils/logger';
 import { WindowManager } from '../main/windows/WindowManager';
+import { ToolCall } from '../core/ToolCall';
 
 // --- 类型定义 ---
 export interface ErrorSolutionParams {
     error_message: string;
     max_results?: number;
+    toolCall: ToolCall;
 }
 
 export interface SolutionMetadata {
@@ -420,7 +422,7 @@ class ErrorSolutionFinder {
 }
 
 export function main() {
-    return async ({ error_message, max_results = 5 }: ErrorSolutionParams): Promise<SearchResult> => {
+    return async ({ error_message, max_results = 5, toolCall }: ErrorSolutionParams): Promise<SearchResult> => {
         try {
             if (!error_message) {
                 return {

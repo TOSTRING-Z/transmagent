@@ -26,13 +26,13 @@ class ReActAgent {
     llmService;
     window;
     context_id; // 用于记录当前的 memory id
-    assistant; // LLM对话辅助功能实例
+    llmAssistant; // LLM对话辅助功能实例
     utils;
     constructor(llmService, window = null, utils) {
         this.state = State.IDLE;
         this.llmService = llmService;
         this.window = window;
-        this.assistant = new LLMAssistant_1.LLMAssistant(llmService, null, utils);
+        this.llmAssistant = new LLMAssistant_1.LLMAssistant(llmService, null, utils);
         this.utils = utils;
     }
     setUUID(data) {
@@ -287,13 +287,13 @@ class ReActAgent {
      * 对话压缩功能（委托给 LLMAssistant）
      */
     async compressionGroupMessage(params) {
-        return this.assistant.compressionGroupMessage(params);
+        return this.llmAssistant.compressionGroupMessage(params);
     }
     /**
      * 聊天命名功能（委托给 LLMAssistant）
      */
     async setChatName(data) {
-        return this.assistant.setChatName(data);
+        return this.llmAssistant.setChatName(data);
     }
 }
 exports.ReActAgent = ReActAgent;
