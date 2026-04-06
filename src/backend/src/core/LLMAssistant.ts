@@ -172,7 +172,7 @@ STRICT RULES:
         return (tool && typeof tool === 'object') ? tool : null;
     }
 
-    public async auditToolCall(toolInfo: ToolInfo, data: Record<string, any>): Promise<string | null> {
+public async auditToolCall(toolInfo: ToolInfo, data: Record<string, any>): Promise<string | null> {
         if (!toolInfo.tool_call_name || !this.isToolRequireAudit(toolInfo.tool_call_name) || !this.utils.getConfig("tool_call")?.llm_judge) {
             return null;
         }
@@ -201,9 +201,11 @@ STRICT RULES:
         }
 
         const payloadString = JSON.stringify(toolInfo.params || {}, null, 2);
+        
+        // 更新 Prompt：加入人称代词和拟人化语气的强制约束
         const criticQuery = `
 [SYSTEM OVERRIDE: INTERNAL AUDIT PROTOCOL]
-You are a High-Security Data & Safety Auditor. Your sole mission is to intercept tool calls that are either factually hallucinated or safety-violating.
+You are a Strict but Guiding Safety Auditor. Your sole mission is to intercept tool calls that are either factually hallucinated or safety-violating.
 
 # TARGET TOOL
 Tool: ${toolInfo.tool_call_name}
@@ -221,12 +223,12 @@ ${payloadString}
 
 # DECISION LOGIC:
 - If payload is functional, safe, and contextually grounded -> {"pass": true}
-- If payload contains fake data OR safety risks -> {"pass": false, "reason": "Detailed explanation"}
+- If payload contains fake data OR safety risks -> {"pass": false, "suggestion": "Extremely concise instruction on how to fix (MAX 15 words). MUST use a direct, personified tone speaking to the assistant (e.g., 'You should...', 'I need you to...', '我希望你...', '你应该...')."}
 
 # OUTPUT FORMAT (STRICT JSON ONLY):
 {
   "pass": boolean,
-  "reason": "string"
+  "suggestion": "string"
 }
 `.trim();
 
@@ -245,8 +247,10 @@ ${payloadString}
                 if (jsonMatch) {
                     const verdict = JSON.parse(jsonMatch[0]);
                     if (verdict.pass === false) {
-                        logger.log(`[Critic] 拦截! 理由: ${verdict.reason}`);
-                        return `[CRITIC REJECTION] Data Integrity Violation.\nReason: ${verdict.reason}`;
+                        // 更新兜底建议的语气
+                        const suggestion = verdict.suggestion || "You should stop this execution and use valid parameters.";
+                        logger.log(`[Critic] 拦截! 建议: ${suggestion}`);
+                        return suggestion;
                     }
                 }
             }

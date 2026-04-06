@@ -419,9 +419,8 @@ export class ToolCall extends ReActAgent {
             // [2. 触发 AI 审查者 (Critic)]
             let auditError = await this.auditToolCall(toolInfo, data);
             if (auditError) {
-                // 如果被拦截，将 Critic 的报错喂回给原 Agent
                 this.llmService.chatManager.pushToolMessage({
-                    ...toolInfo, ...this.llmService.chatManager.chat, content: auditError, uuid: data.uuid
+                    ...toolInfo, ...this.llmService.chatManager.chat, content: `User intercept:\n ${auditError}`, uuid: data.uuid
                 });
 
                 this.window?.webContents.send('streamData', {
