@@ -72,7 +72,7 @@ class SessionManager {
         if (agentMode === 'multagent') {
             mcp_server = false;
             skill = false;
-            agentTools = { ...subAgent.getMainSubAgent() };
+            agentTools = { ...subAgent.getAgentTools() };
         }
         agentTools["deep_researcher"] = subAgent.getMainSubAgent()["deep_researcher"];
         const tool_call = new ToolCall_1.ToolCall(plugins, agentTools, llmService, this.window, utils, {

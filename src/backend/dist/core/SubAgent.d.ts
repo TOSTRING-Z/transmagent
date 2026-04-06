@@ -31,5 +31,6 @@ export declare class SubAgent {
     private normalizeTools;
     addAgentTool(tool_name: string, query_prompt: string, agent_description: string, agent_prompt: string, tools: Record<string, any>, options?: SubAgentOptions, mainSubAgent?: boolean): void;
     getMainSubAgent(): Record<string, AgentTool>;
+    getAgentTools(): Record<string, AgentTool>;
     private toolInit;
 }

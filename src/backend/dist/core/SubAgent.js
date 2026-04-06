@@ -78,6 +78,9 @@ class SubAgent {
     getMainSubAgent() {
         return Object.fromEntries(Object.entries(this.agentTools).filter(([, subagent]) => subagent.mainSubAgent));
     }
+    getAgentTools() {
+        return this.agentTools;
+    }
     toolInit() {
         if (!this.utils.getConfig()?.plugins?.cli_execute)
             return;
