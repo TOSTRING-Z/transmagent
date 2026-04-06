@@ -22,14 +22,9 @@ export declare class SessionManager {
     private sessions;
     constructor(window: BrowserWindow);
     getAgentMode(sessionId?: string): AgentMode;
-    setActiveagentMode(agentMode: AgentMode): void;
     getChat(sessionId?: string): ChatState | null;
     setChat(chat: Partial<ChatState>, sessionId?: string): void;
-    toggleContextMessage(arg0: {
-        context_id: any;
-        del_mode: boolean;
-    }, sessionId?: string): void;
-    stopLoop(sessionId?: string): void;
+    setActiveagentMode(agentMode: AgentMode): void;
     createSession(): {
         tool_call: ToolCall;
         chain_call: ChainCall;
@@ -38,8 +33,8 @@ export declare class SessionManager {
         plugins: Plugins;
         subAgent: SubAgent;
     };
-    addSession(): void;
-    checkoutSession(id: string): any;
+    addSession(id?: string): string;
+    checkoutSession(id: string): string;
     getSession(id?: string): Session | null;
     getActiveSession(): Session;
 }

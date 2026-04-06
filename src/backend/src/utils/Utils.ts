@@ -271,9 +271,22 @@ export class Utils {
         }
     }
 
+    public deleteFile(filePath: string): boolean {
+        if (fs.existsSync(filePath)) {
+            fs.unlinkSync(filePath);
+            return true;
+        } else {
+            return false;   
+        }
+    }
+
     public setHistoryData(historyData: any) {
         const historyConfigPath = this.getHistoryConfigPath();
-        fs.writeFileSync(historyConfigPath, JSON.stringify(historyData, null, 2));
+        // 先复杂一份临时文件，写入完成后再覆盖原文件，避免写入过程中程序异常导致数据损坏
+        const tempFilePath = historyConfigPath + '.tmp';
+        fs.writeFileSync(tempFilePath, JSON.stringify(historyData, null, 2));
+        fs.renameSync(tempFilePath, historyConfigPath);
+        return true;
     }
 
     public getHistoryConfigPath(): string {

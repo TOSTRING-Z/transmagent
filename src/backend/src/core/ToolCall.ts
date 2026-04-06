@@ -75,6 +75,7 @@ export class ToolCall extends ReActAgent {
     public environment_details!: EnvironmentDetails;
     public toolInfos: ToolInfo[] = [];
     public currentToolInfo: ToolInfo | undefined; // 用于记录当前执行的工具，方便 callReAct 等外部调用读取状态
+    public currentObservation: Observation | undefined;
     public modeMap: Record<string, Mode> = { "auto": Mode.AUTO, "plan": Mode.PLAN, "flash": Mode.FLASH, "act": Mode.ACT };
     private rememberedChoices: Record<string, boolean> = {};
     public assistant: LLMAssistant;
@@ -158,22 +159,9 @@ export class ToolCall extends ReActAgent {
         return this.assistant.auditToolCall(toolInfo, data);
     }
 
-    public loadMessage(filePath: string) {
-        super.loadMessage(filePath);
-        // 判断是否任务结束
-        const messages = this.llmService.chatManager.getMessages();
-        if (messages.length > 0) {
-            const lastMessage = messages[messages.length - 1];
-            const options = ['continue'];
-            if (lastMessage.role === "tool") {
-                this.window?.webContents.send('options', { ...this.llmService.chatManager.chat, options: options });
-            }
-            if (lastMessage.role === "assistant" && lastMessage.tool_calls) {
-                this.state = State.PAUSE;
-                this.window?.webContents.send('options', { ...this.llmService.chatManager.chat, options: options });
-            }
-        }
-        this.changeMode(this.llmService.chatManager.chat.mode);
+    public loadMessage(filePath: string, id?: string) {
+        super.loadMessage(filePath, id);
+        this.changeMode(this.llmService.chatManager.chat.mode, false);
     }
 
     public getToolsPrompt(): any {
@@ -300,13 +288,13 @@ export class ToolCall extends ReActAgent {
         }
     }
 
-    public changeMode(mode: string | null = null) {
+    public changeMode(mode: string | null = null, saveHistory: boolean = true) {
         const selectedMode = this.modeMap[mode || ""] || Mode.ACT;
         const shortMode = this.modeMap[mode || ""] ? mode : "act";
         this.llmService.environment_details.mode = selectedMode;
         this.llmService.environment_details.mode_constraint = MODE_CONSTRAINTS[selectedMode];
         this.llmService.chatManager.chat.mode = shortMode as string;
-        if (!this.agentConfigs.subagent) {
+        if (!this.agentConfigs.subagent && saveHistory) {
             this.setHistory();
         }
     }
@@ -606,6 +594,7 @@ export class ToolCall extends ReActAgent {
                 result: `Tool has been executed with error: ${error.message}`
             };
         }
+        this.currentObservation = observation; // 更新当前状态引用，供 callReAct 等外部断点恢复使用
         return observation;
     }
 
@@ -633,7 +622,7 @@ export class ToolCall extends ReActAgent {
         if (this.state === (State.PAUSE as State)) {
             const { ask, options } = observation;
             this.window?.webContents.send('streamData', { ...this.llmService.chatManager.chat, content: `\n\n${ask}`, uuid: data.uuid, end: true });
-            this.window?.webContents.send('options', { ...this.llmService.chatManager.chat, ...toolInfo, options: options, uuid: data.uuid });
+            this.window?.webContents.send('handleOptions', { ...this.llmService.chatManager.chat, ...toolInfo, options: options, uuid: data.uuid });
         } else if (this.state === (State.FINAL as State)) {
             this.llmService.chatManager.pushToolMessage({ ...this.llmService.chatManager.chat, ...toolInfo, content: observation.result, uuid: data.uuid });
             this.window?.webContents.send('streamData', { ...this.llmService.chatManager.chat, content: `\n\n${observation.result}`, uuid: data.uuid, end: true });
@@ -665,6 +654,8 @@ export class ToolCall extends ReActAgent {
             this.llmService.chatManager.pushUserMessage({ ...this.llmService.chatManager.chat, content: data.query, uuid: data.uuid });
             this.window?.webContents.send('userData', { ...this.llmService.chatManager.chat, content: data.query, uuid: data.uuid });
         }
+
+        this.window?.webContents.send('agentRunning', { group_id: this.llmService.chatManager.chat.group_id, uuid: data.uuid });
 
         this.state = State.IDLE;
         let tool_call = this.utils.getConfig("tool_call");

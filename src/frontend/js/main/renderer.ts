@@ -3,7 +3,7 @@ import { State, ChatState } from './state';
 import { init_size, autoResizeTextarea, handleClear, showLog, toggleMode, toggleSidebar, updateProgress, hideRenameDialog } from './ui';
 import { addChatItem, handleNewChat, selectChat, deleteChat, renameChat, confirmRename, showHistoryMenu, initChat, updateChat } from './history';
 import { initConfigEvents, showConfig, saveConfig, hideConfig } from './config';
-import { userData, infoData, streamData, startAgentLoop, addRunning, toolData, enterEnd } from './chat';
+import { userData, infoData, streamData, startAgentLoop, toolData, enterEnd } from './chat';
 import { initMermaid } from './markdown';
 import { getFileName } from './utils';
 
@@ -230,8 +230,7 @@ window.electronAPI.userData((data) => {
   if (data?.id !== State.chat.id) {
     return;
   }
-  userData(DOM.messages, data).then(messageSystem => {
-    addRunning(messageSystem);
+  userData(DOM.messages, data).then(_ => {
     if (State.scroll_top.data)
       DOM.top_div.scrollTop = DOM.top_div.scrollHeight;
   })
@@ -259,7 +258,10 @@ window.electronAPI.handleExtraLoad((data) => {
   init_size();
 });
 
-window.electronAPI.handleOptions(({ options, group_id }) => {
+window.electronAPI.handleOptions(({ options, group_id, uuid }) => {
+  if (uuid && uuid !== State.uuid) {
+    return;
+  }
   DOM.pause.style.display = "flex";
   let option_querys: string[] = [];
 
@@ -309,11 +311,7 @@ window.electronAPI.handleSelectChat((chat) => selectChat(chat.id));
 window.electronAPI.handleSetChat(async (chat) => initChat(chat));
 
 window.electronAPI.handleAutoRenameChat(async (data) => {
-  if (data.uuid && data.uuid !== State.uuid) {
-    return;
-  }
-  State.chat.id = data.id;
-  await window.electronAPI.renameChat({ id: State.chat.id!, name: data.name });
+  await window.electronAPI.renameChat({ id: State.chat.id, name: data.name });
   const items = DOM.history_list.getElementsByClassName("history-item");
   Array.from(items).forEach((item: any) => {
     if (item.id == State.chat.id)

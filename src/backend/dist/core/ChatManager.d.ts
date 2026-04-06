@@ -8,7 +8,7 @@ export declare class ChatManager {
     utils: Utils;
     constructor(messages: Message[] | undefined, chatInitParams: Partial<ChatState> | undefined, utils: Utils);
     getUUID(): string;
-    init(messages?: Message[]): void;
+    init(messages?: Message[], id?: string): void;
     updateChat(): void;
     getMessages(all?: boolean): Message[];
     compressContext(messages: any): Message[];
@@ -19,7 +19,6 @@ export declare class ChatManager {
     pushAssistantMessage(msg: any): void;
     pushToolMessage(msg: any): void;
     popMessage(group_id?: string, context_id?: string): Message | null;
-    getChatId(): string;
     getDefaultConfig(): Partial<ChatState>;
     getChatInit(params?: Partial<ChatState>): ChatState;
     fixMessages(): void;

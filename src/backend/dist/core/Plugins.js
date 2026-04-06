@@ -44,6 +44,7 @@ class Plugins {
     constructor(utils) {
         this.utils = utils;
         this.tools = {};
+        this.loadInit();
     }
     getTool(name) {
         if (name) {

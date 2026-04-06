@@ -182,3 +182,7 @@ export const copy = <T>(data: T): T => {
         return data;
     }
 }
+
+export const getSessionId = (): string => {
+    return `chat-${crypto.randomUUID()}`;
+}

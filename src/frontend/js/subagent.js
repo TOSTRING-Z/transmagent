@@ -606,12 +606,14 @@ $$
     });
   }
   async function enterEnd(messageSystem, chunk = null) {
-    const message_content = messageSystem.getElementsByClassName("message")[0];
-    const thinking = messageSystem?.getElementsByClassName("thinking")[0];
-    thinking.classList.add("hidden");
-    if (!messageSystem.dataset?.event_stop) {
-      messageSystem.dataset.event_stop = "true";
-      menuEvent(messageSystem, message_content.dataset.content, chunk?.is_plugin);
+    if (messageSystem) {
+      const message_content = messageSystem.getElementsByClassName("message")[0];
+      const thinking = messageSystem?.getElementsByClassName("thinking")[0];
+      thinking.classList.add("hidden");
+      if (!messageSystem.dataset?.event_stop) {
+        messageSystem.dataset.event_stop = "true";
+        menuEvent(messageSystem, message_content.dataset.content, chunk?.is_plugin);
+      }
     }
     DOM.submit.classList.remove("running");
   }
@@ -620,6 +622,7 @@ $$
     const thinking = messageSystem?.getElementsByClassName("thinking")[0];
     thinking.classList.remove("hidden");
     const btn = messageSystem?.getElementsByClassName("btn")[0];
+    messageSystem.dataset.event_stop = "false";
     btn?.addEventListener("click", async () => {
       await window.electronAPI.stopMessage();
       enterEnd(messageSystem);
@@ -690,9 +693,6 @@ $$
     }
   }
   async function toolData(chunk) {
-    const messageSystems = document.querySelectorAll(`[data-id='${chunk.group_id}']`);
-    const messageSystem = messageSystems[1];
-    addRunning(messageSystem);
     streamData(chunk);
   }
   async function streamData(chunk) {
@@ -774,6 +774,29 @@ $$
     return messageSystem;
   }
   window.electronAPI.setUUID((uuid) => State.uuid = uuid);
+  window.electronAPI.agentRunning((data) => {
+    if (data.group_id && data.uuid && State.uuid !== data.uuid) {
+      return;
+    }
+    const messageSystems = document.querySelectorAll(`[data-id='${data.group_id}']`);
+    const messageSystem = messageSystems[1];
+    if (messageSystem) {
+      addRunning(messageSystem);
+    }
+  });
+  window.electronAPI.agentIdle((data) => {
+    if (!data.group_id) {
+      DOM.submit.classList.remove("running");
+    }
+    if (data.group_id && data.uuid && State.uuid !== data.uuid) {
+      return;
+    }
+    const messageSystems = document.querySelectorAll(`[data-id='${data.group_id}']`);
+    const messageSystem = messageSystems[1];
+    if (messageSystem) {
+      enterEnd(messageSystem);
+    }
+  });
 
   // main/subagent.ts
   var info = {
@@ -803,14 +826,25 @@ $$
         DOM2.top_div.scrollTop = DOM2.top_div.scrollHeight;
     });
   });
-  window.electronAPI.toolData((chunk) => toolData(chunk));
+  window.electronAPI.toolData((chunk) => {
+    if (chunk.uuid && chunk.uuid !== State.uuid) {
+      return;
+    }
+    toolData(chunk);
+  });
   window.electronAPI.infoData((info2) => {
+    if (info2.uuid && info2.uuid !== State.uuid) {
+      return;
+    }
     infoData(info2).then((info_content) => {
       if (State.scroll_top.info && info_content)
         info_content.scrollTop = info_content?.scrollHeight;
     });
   });
   window.electronAPI.userData((data) => {
+    if (data.uuid && data.uuid !== State.uuid) {
+      return;
+    }
     userData(DOM2.messages, data).then((messageSystem) => {
       const thinking = messageSystem?.getElementsByClassName("thinking")[0];
       thinking.classList.remove("hidden");

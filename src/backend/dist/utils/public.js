@@ -36,7 +36,7 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
     return (mod && mod.__esModule) ? mod : { "default": mod };
 };
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.copy = exports.formatDate = exports.getLanguage = exports.mergeConfigEnhanced = exports.getFile = exports.getSystem = exports.getDefault = exports.delay = exports.parseJsonContent = exports.extractJson = exports.hashCode = void 0;
+exports.getSessionId = exports.copy = exports.formatDate = exports.getLanguage = exports.mergeConfigEnhanced = exports.getFile = exports.getSystem = exports.getDefault = exports.delay = exports.parseJsonContent = exports.extractJson = exports.hashCode = void 0;
 const fs = __importStar(require("fs"));
 const logger_1 = require("./logger");
 const os = __importStar(require("os"));
@@ -221,4 +221,8 @@ const copy = (data) => {
     }
 };
 exports.copy = copy;
+const getSessionId = () => {
+    return `chat-${crypto.randomUUID()}`;
+};
+exports.getSessionId = getSessionId;
 //# sourceMappingURL=public.js.map

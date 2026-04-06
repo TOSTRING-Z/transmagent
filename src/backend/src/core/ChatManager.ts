@@ -5,6 +5,7 @@ import * as path from 'path';
 import { Message, ChatState, UserMessage, AssistantMessage, ToolMessage, LongTermMemory } from '../types';
 import { CHAT_CONST } from '../utils/globals';
 import { Utils } from '../utils/Utils';
+import { getSessionId } from '../utils/public';
 
 export class ChatManager {
     public messages: Message[] = [];
@@ -28,8 +29,8 @@ export class ChatManager {
         });
     }
 
-    public init(messages: Message[] = []) {
-        this.chat = this.getChatInit();
+    public init(messages: Message[] = [], id?: string) {
+        this.chat = this.getChatInit({ id });
         this.messages = messages;
         this.tagSuccess = false;
         this.updateChat();
@@ -114,10 +115,6 @@ export class ChatManager {
         return null;
     }
 
-    public getChatId(): string {
-        return `chat-${crypto.randomUUID()}`;
-    }
-
     public getDefaultConfig(): Partial<ChatState> {
         return {
             model: this.utils.getConfig("default")["model"] || "deepseek[openai]",
@@ -134,7 +131,7 @@ export class ChatManager {
     public getChatInit(params: Partial<ChatState> = {}): ChatState {
         const defaultConfig = this.getDefaultConfig();
         return {
-            id: this.getChatId(),
+            id: getSessionId(),
             name: CHAT_CONST.DEFAULT_NAME,
             system_prompt: null,
             context_id: 0,
@@ -247,7 +244,6 @@ export class ChatManager {
             const data = this.utils.parseJsonContent(fs.readFileSync(filePath, "utf-8"));
             this.messages = data.messages;
             this.chat = this.getChatInit(data.chat as Partial<ChatState>);
-            this.fixMessages();
             this.updateChat();
             return this.messages.filter(message => message.show);
         } catch (error: any) {

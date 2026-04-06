@@ -1,7 +1,7 @@
 import { logger } from '../utils/logger';
 import { LLMService } from './LLMService';
 import { CONSTANTS } from '../utils/globals';
-import { ChatState, AssistantMessage } from '../types';
+import { ChatState, AssistantMessage, Message } from '../types';
 import { LLMAssistant } from './LLMAssistant';
 import { LLMAdapterFactory, ToolCallAdapterFactory } from '../factories/AdapterFactory';
 import { BrowserWindow } from 'electron/main';
@@ -42,9 +42,12 @@ export class ReActAgent {
         this.utils = utils;
     }
 
-    public setUUID(data: Record<string, any>) {
-        data.uuid = this.llmService.chatManager.uuid;
-        this.window?.webContents.send('setUUID', data.uuid);
+    public setUUID(data?: Record<string, any>): string {
+        if (data) {
+            data.uuid = this.llmService.chatManager.uuid;           
+        }
+        this.window?.webContents.send('setUUID', this.llmService.chatManager.uuid);
+        return this.llmService.chatManager.uuid;
     }
 
     // 安全的模板字符串格式化函数（替代被废弃的 String.prototype.format）
@@ -97,7 +100,9 @@ export class ReActAgent {
     public delHistory(id: string) {
         let history_data = this.utils.getHistoryData();
         history_data.data = history_data.data.filter((h: any) => h.id !== id);
+        const history_path = this.utils.getHistoryPath(id);
         this.utils.setHistoryData(history_data);
+        this.utils.deleteFile(history_path);
     }
 
     public renameHistory(chat: ChatState) {
@@ -218,10 +223,10 @@ export class ReActAgent {
         return { ...defaults, ...data };
     }
 
-    public newChat(): ChatState {
+    public newChat(id?: string): ChatState {
         this.window?.webContents.send('clear');
         this.initVar();
-        this.llmService.chatManager.init();
+        this.llmService.chatManager.init(undefined, id);
         this.setHistory(this.llmService.chatManager.chat);
         return this.llmService.chatManager.chat;
     }
@@ -231,15 +236,22 @@ export class ReActAgent {
     }
 
     public loadChat(id: string): ChatState {
-        this.initVar();
+        if (this.llmService.chatManager.chat.id !== id) {
+            this.initVar();
+        }
         const history_path = this.utils.getHistoryPath(id);
-        this.loadMessage(history_path);
+        this.loadMessage(history_path, id);
         return this.llmService.chatManager.chat;
     }
 
-    public loadMessage(filePath: string) {
+    public loadMessage(filePath: string, id?: string) {
         this.window?.webContents.send('clear');
-        let messages = this.llmService.chatManager.loadMessages(filePath);
+        let messages: Message[] = [];
+        if (id !== undefined && this.llmService.chatManager.chat.id === id) {
+            messages = this.llmService.chatManager.getMessages();
+        } else {
+            messages = this.llmService.chatManager.loadMessages(filePath);
+        }
         const chat = this.llmService.chatManager.chat;
 
         if (messages.length > 0) {

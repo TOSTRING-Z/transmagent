@@ -274,12 +274,14 @@ export function menuEvent(messageSystem: HTMLElement, message_content: HTMLEleme
 }
 
 export async function enterEnd(messageSystem: HTMLElement, chunk: any = null) {
-  const message_content = messageSystem.getElementsByClassName('message')[0] as HTMLElement;
-  const thinking = messageSystem?.getElementsByClassName("thinking")[0];
-  thinking.classList.add('hidden');
-  if (!messageSystem.dataset?.event_stop) {
-    messageSystem.dataset.event_stop = "true";
-    menuEvent(messageSystem, message_content.dataset.content as any, chunk?.is_plugin);
+  if (messageSystem) {
+    const message_content = messageSystem.getElementsByClassName('message')[0] as HTMLElement;
+    const thinking = messageSystem?.getElementsByClassName("thinking")[0];
+    thinking.classList.add('hidden');
+    if (!messageSystem.dataset?.event_stop) {
+      messageSystem.dataset.event_stop = "true";
+      menuEvent(messageSystem, message_content.dataset.content as any, chunk?.is_plugin);
+    }
   }
   DOM.submit.classList.remove("running");
 }
@@ -289,6 +291,7 @@ export function addRunning(messageSystem: HTMLElement) {
   const thinking = messageSystem?.getElementsByClassName("thinking")[0];
   thinking.classList.remove('hidden');
   const btn = messageSystem?.getElementsByClassName("btn")[0];
+  messageSystem.dataset.event_stop = "false";
   btn?.addEventListener("click", async () => {
     await window.electronAPI.stopMessage();
     enterEnd(messageSystem);
@@ -364,9 +367,6 @@ export async function infoData(info: any) {
 }
 
 export async function toolData(chunk: any) {
-  const messageSystems = document.querySelectorAll(`[data-id='${chunk.group_id}']`);
-  const messageSystem = messageSystems[1] as HTMLElement;
-  addRunning(messageSystem);
   streamData(chunk);
 }
 
@@ -466,3 +466,28 @@ export async function startAgentLoop(data: any) {
 }
 
 window.electronAPI.setUUID((uuid: string) => State.uuid = uuid);
+
+window.electronAPI.agentRunning((data) => {
+  if (data.group_id && data.uuid && State.uuid !== data.uuid) {
+    return;
+  }
+  const messageSystems = document.querySelectorAll(`[data-id='${data.group_id}']`);
+  const messageSystem = messageSystems[1] as HTMLElement;
+  if (messageSystem) {
+    addRunning(messageSystem);
+  }
+})
+
+window.electronAPI.agentIdle((data) => {
+  if (!data.group_id) {
+    DOM.submit.classList.remove("running");
+  }
+  if (data.group_id &&data.uuid && State.uuid !== data.uuid) {
+    return;
+  }
+  const messageSystems = document.querySelectorAll(`[data-id='${data.group_id}']`);
+  const messageSystem = messageSystems[1] as HTMLElement;
+  if (messageSystem) {
+    enterEnd(messageSystem);
+  }
+})

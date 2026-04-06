@@ -13,3 +13,4 @@ export declare const mergeConfigEnhanced: (defaultConfig: any, userConfig: any) 
 export declare const getLanguage: () => string;
 export declare const formatDate: () => string;
 export declare const copy: <T>(data: T) => T;
+export declare const getSessionId: () => string;

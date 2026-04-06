@@ -64,14 +64,6 @@ app.whenReady().then(() => {
 
     // 初始化全局快捷键
     shortcut.init();
-
-    // Mac 系统点击 Dock 栏恢复窗口逻辑
-    app.on('activate', () => {
-        if (windowManager.mainWindow.window === null) {
-            windowManager.mainWindow.create();
-            windowManager.mainWindow.setup();
-        }
-    });
 }).catch((error) => {
     console.error("[App] Failed to initialize:", error);
 });

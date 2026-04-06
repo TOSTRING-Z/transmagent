@@ -65,8 +65,8 @@ export class LLMAssistant {
             const query = `Please compress our current context into a detailed document. \nRequirements: use concise language while retaining all essential information.\nplease generate the compressed document:`;
 
             const data = react_agent.getDataDefault({
-                prompt, 
-                query, 
+                prompt,
+                query,
                 params: { ...this.utils.getConfig("llm_params"), temperature: 0.3 },
                 llm_conversation_mode: true
             });
@@ -100,10 +100,10 @@ export class LLMAssistant {
                     }
                 }
 
-                const insertPos = keptUser 
-                    ? newMessages.findIndex(m => m.group_id === group_id && m.role === 'user') + 1 
+                const insertPos = keptUser
+                    ? newMessages.findIndex(m => m.group_id === group_id && m.role === 'user') + 1
                     : (originalFirstIndex === -1 ? newMessages.length : originalFirstIndex);
-                
+
                 newMessages.splice(insertPos, 0, compressed_message);
 
                 this.llmService.chatManager.messages = newMessages;
@@ -125,9 +125,20 @@ export class LLMAssistant {
         }
 
         const react_agent = this.createTempAgent();
+        react_agent.llmService.chatManager.fixMessages();
 
-        const prompt = `You are an intelligent assistant skilled at generating short chat names based on contextual content.`;
-        const query = `Generate a short ${_data?.language || this.utils.getLanguage()} chat name based on context...`;
+        // 1. 角色定义：强调指令遵循和格式约束
+        const prompt = `You are a naming assistant. Your task is to provide a concise chat title based on the conversation context. 
+CRITICAL: Output ONLY the plain text of the name. Do not include markdown formatting, quotes, punctuation, or any introductory text.`;
+
+        // 2. 任务指令：加入具体的“不准做”事项
+        const query = `Based on the following conversation context, generate a short chat name (maximum 5-7 words) in ${_data?.language || this.utils.getLanguage()}.
+STRICT RULES:
+- NO quotation marks (e.g., "Name")
+- NO markdown formatting (e.g., **Name**)
+- NO explanatory text (e.g., "Here is the name:")
+- NO prefix or suffix
+- Just the raw name text.`;
 
         const callData = react_agent.getDataDefault({
             prompt,
@@ -175,10 +186,10 @@ export class LLMAssistant {
                 return;
             }
             messages.splice(lastAssistantIdx + 1);
-            
+
             // 增加显式断言
             const targetMessage = messages[messages.length - 1] as AssistantMessage;
-            
+
             targetMessage.content = `[LOGGED ASSISTANT THOUGHT]: ${toolInfo.content || targetMessage.content}\nSYSTEM: Execution paused for data integrity audit.`;
             delete targetMessage.tool_calls;
         });
@@ -191,7 +202,7 @@ export class LLMAssistant {
         const payloadString = JSON.stringify(toolInfo.params || {}, null, 2);
         const criticQuery = `
 [SYSTEM OVERRIDE: INTERNAL AUDIT PROTOCOL]
-You are a strict Data Integrity Critic. Review the following proposed tool call:
+You are a High-Security Data & Safety Auditor. Your sole mission is to intercept tool calls that are either factually hallucinated or safety-violating.
 
 # TARGET TOOL
 Tool: ${toolInfo.tool_call_name}
@@ -201,11 +212,20 @@ Tool: ${toolInfo.tool_call_name}
 ${payloadString}
 \`\`\`
 
-# OBJECTIVE: Determine if the payload contains "Hallucinated/Fake Data" (Blocked) or "Functional Code/Queries" (Allowed).
-# OUTPUT FORMAT (JSON ONLY):
+# AUDIT CRITERIA (CRITICAL):
+1. DATA INTEGRITY: Block payloads containing placeholder data, fake names, or nonsensical identifiers used to bypass logic.
+2. CHEMICAL/BIOLOGICAL SAFETY: Strictly block any tool call attempting to synthesize, calculate, or retrieve formulas for restricted chemicals, explosives, narcotics, or toxic biological agents.
+3. HARMFUL CODE: Block script injections, destructive shell commands, or obfuscated malicious payloads.
+4. MEDICAL ADVICE: Block tool calls providing high-risk medical diagnoses or drug prescriptions.
+
+# DECISION LOGIC:
+- If payload is functional, safe, and contextually grounded -> {"pass": true}
+- If payload contains fake data OR safety risks -> {"pass": false, "reason": "Detailed explanation"}
+
+# OUTPUT FORMAT (STRICT JSON ONLY):
 {
   "pass": boolean,
-  "reason": "Required if pass is false"
+  "reason": "string"
 }
 `.trim();
 
@@ -252,7 +272,7 @@ ${payloadString}
                 }
                 const toolMessages = messages.slice(lastAssistantIdx + 1);
                 messages.splice(lastAssistantIdx + 1);
-                
+
                 // 增加显式断言
                 const targetMessage = messages[messages.length - 1] as AssistantMessage;
 
@@ -274,29 +294,40 @@ ${payloadString}
             };
 
             const query = `
-[SYSTEM OVERRIDE: CONSOLE OUTPUT MONITORING PROTOCOL]
-You are a strict security and safety monitor. Analyze console output and determine if the ongoing command should be interrupted.
+[SYSTEM OVERRIDE: CONSOLE RUNTIME MONITOR]
+You are a Real-time System Sentinel. Analyze the provided console output to determine if the process is stuck, dangerous, or behaving anomalously.
 
-# EXECUTION CONTEXT:
-- Execution Time: ${formatDuration(executionTimeMs)}
-- History Context: See above conversation history
+# INTERRUPTION CRITERIA (Any of these = shouldInterrupt: true):
+1. INFINITE LOOPS: Identical output repeating continuously for long periods without progress.
+2. RESOURCE ABUSE: Warnings about Memory/CPU limits or excessive disk usage.
+3. HANGING/STALLED: No meaningful output change within a reasonable timeframe relative to the task.
+4. SAFETY VIOLATIONS: Output revealing unauthorized data access, attempts to bypass sandboxes, or generation of hazardous content (chemical/biological/malicious code).
+5. INTERACTIVE PROMPT: The command is waiting for user input that the agent cannot provide (e.g., "[y/n]", "Enter password:").
+6. EXPLICIT ERRORS: Fatal crashes or stack traces that indicate the process cannot recover.
 
-# CURRENT CONSOLE OUTPUT TO ANALYZE:
+# EXECUTION METRICS:
+- Total Runtime: ${formatDuration(executionTimeMs)}
+
+# CURRENT CONSOLE SNAPSHOT:
 \`\`\`text
 ${consoleOutput}
 \`\`\`
 
-# OUTPUT FORMAT (JSON ONLY):
+# DECISION LOGIC:
+- Check for repetition, safety, and progress.
+- Be decisive. If the command is wasting tokens or compute without result, stop it.
+
+# OUTPUT FORMAT (STRICT JSON ONLY):
 {
   "shouldInterrupt": boolean,
-  "reason": "Provide a specific reason..."
+  "reason": "Specify which criterion was triggered (e.g., 'Detected infinite loop in logs')"
 }
 `.trim();
 
             const callData = react_agent.getDataDefault({
                 query,
-                params: { 
-                    ...this.utils.getConfig("llm_params"), 
+                params: {
+                    ...this.utils.getConfig("llm_params"),
                     temperature: 0.1,
                     tool_choice: "none",
                     response_format: { type: "json_object" }
@@ -331,15 +362,29 @@ ${consoleOutput}
             const react_agent = this.createTempAgent();
             react_agent.llmService.chatManager.fixMessages();
 
-            const query = `[SYSTEM OVERRIDE: KV CACHE SUMMARY PROTOCOL]
-You are an intelligent assistant skilled at summarizing conversation history. Your task is to create a concise summary of the key points, decisions, and important information from the conversation history.
+            const query = `
+[SYSTEM OVERRIDE: CONTEXT COMPRESSION PROTOCOL]
+You are an expert Context Engineer. Your goal is to compress the conversation history into a high-density summary that retains maximum functional utility for a stateless LLM to resume work.
 
-Please create a concise summary of the key points, important decisions, and valuable information from our conversation history above. Focus on information that would be useful to retain for future context.`;
+# COMPRESSION GUIDELINES:
+1. TECHNICAL DECISIONS: List specific algorithms, tool names, or architectural choices made (e.g., "Used temperature 0.3", "Implemented regex for cleaning").
+2. CODE & LOGIC: Summarize key code structures or logic flows discussed. 
+3. USER PREFERENCES: Note any specific styles (e.g., "Prefers concise JSON", "Nature journal style for diagrams").
+4. PENDING TASKS: Identify what was left unfinished or planned for next steps.
+5. ELIMINATE FLUFF: Remove polite fillers, introductory phrases, and repetitive acknowledgments.
 
+# OUTPUT STRUCTURE:
+- [Core Context]: (1-2 sentences on the main objective)
+- [Key Specs]: (Bulleted list of technical constraints/decisions)
+- [Workflow/Logic]: (Brief breakdown of the process discussed)
+- [Pending]: (Any unresolved items)
+
+Provide a dense, structured summary in ${this.llmService.environment_details?.language || this.utils.getLanguage()}.
+`.trim();
             const callData = react_agent.getDataDefault({
                 query,
-                params: { 
-                    ...this.utils.getConfig("llm_params"), 
+                params: {
+                    ...this.utils.getConfig("llm_params"),
                     temperature: 0.3,
                     tool_choice: "none"
                 },
@@ -352,7 +397,7 @@ Please create a concise summary of the key points, important decisions, and valu
             if (messageOutput?.content && !this.llmService.stopFlag) {
                 const summaryContent = (messageOutput.content as string).trim();
                 logger.log(`[KVCacheSummary] Summary generated successfully, length=${summaryContent.length}`);
-                
+
                 if (summaryContent) {
                     const messages = this.llmService.chatManager.messages;
                     if (messages.length > 0) {

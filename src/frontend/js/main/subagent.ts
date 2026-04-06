@@ -34,9 +34,17 @@ window.electronAPI.streamData((chunk) => {
     });
 });
 
-window.electronAPI.toolData((chunk) => toolData(chunk));
+window.electronAPI.toolData((chunk) => {
+    if (chunk.uuid && chunk.uuid !== State.uuid) {
+        return;
+    }
+    toolData(chunk)
+});
 
 window.electronAPI.infoData((info) => {
+    if (info.uuid && info.uuid !== State.uuid) {
+        return;
+    }
     infoData(info).then(info_content => {
         if (State.scroll_top.info && info_content)
             info_content.scrollTop = info_content?.scrollHeight;
@@ -44,6 +52,9 @@ window.electronAPI.infoData((info) => {
 });
 
 window.electronAPI.userData((data) => {
+    if (data.uuid && data.uuid !== State.uuid) {
+        return;
+    }
     userData(DOM.messages, data).then(messageSystem => {
         const thinking = messageSystem?.getElementsByClassName("thinking")[0];
         thinking.classList.remove('hidden');

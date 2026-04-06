@@ -35,8 +35,11 @@ class ReActAgent {
         this.utils = utils;
     }
     setUUID(data) {
-        data.uuid = this.llmService.chatManager.uuid;
-        this.window?.webContents.send('setUUID', data.uuid);
+        if (data) {
+            data.uuid = this.llmService.chatManager.uuid;
+        }
+        this.window?.webContents.send('setUUID', this.llmService.chatManager.uuid);
+        return this.llmService.chatManager.uuid;
     }
     // 安全的模板字符串格式化函数（替代被废弃的 String.prototype.format）
     formatTemplate(template, data) {
@@ -86,7 +89,9 @@ class ReActAgent {
     delHistory(id) {
         let history_data = this.utils.getHistoryData();
         history_data.data = history_data.data.filter((h) => h.id !== id);
+        const history_path = this.utils.getHistoryPath(id);
         this.utils.setHistoryData(history_data);
+        this.utils.deleteFile(history_path);
     }
     renameHistory(chat) {
         if (this.llmService.chatManager.chat.id === chat.id) {
@@ -192,10 +197,10 @@ class ReActAgent {
         };
         return { ...defaults, ...data };
     }
-    newChat() {
+    newChat(id) {
         this.window?.webContents.send('clear');
         this.initVar();
-        this.llmService.chatManager.init();
+        this.llmService.chatManager.init(undefined, id);
         this.setHistory(this.llmService.chatManager.chat);
         return this.llmService.chatManager.chat;
     }
@@ -203,14 +208,22 @@ class ReActAgent {
         logger_1.logger.log("可选实现");
     }
     loadChat(id) {
-        this.initVar();
+        if (this.llmService.chatManager.chat.id !== id) {
+            this.initVar();
+        }
         const history_path = this.utils.getHistoryPath(id);
-        this.loadMessage(history_path);
+        this.loadMessage(history_path, id);
         return this.llmService.chatManager.chat;
     }
-    loadMessage(filePath) {
+    loadMessage(filePath, id) {
         this.window?.webContents.send('clear');
-        let messages = this.llmService.chatManager.loadMessages(filePath);
+        let messages = [];
+        if (id !== undefined && this.llmService.chatManager.chat.id === id) {
+            messages = this.llmService.chatManager.getMessages();
+        }
+        else {
+            messages = this.llmService.chatManager.loadMessages(filePath);
+        }
         const chat = this.llmService.chatManager.chat;
         if (messages.length > 0) {
             messages.forEach((message, i) => {

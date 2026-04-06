@@ -48,7 +48,6 @@ class ConfigWindow extends BaseWindow_1.BaseWindow {
             let state = this.utils().setConfig(config);
             this.windowManager.mainWindow.updateVersionsSubmenu();
             const plugins = new Plugins_1.Plugins(this.utils());
-            plugins.loadInit();
             this.windowManager.alertWindow?.show("success", "config saved, restart to apply");
             this.windowManager.mainWindow.restart(this.windowManager.mainWindow.window);
             return state;

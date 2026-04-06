@@ -64,6 +64,7 @@ class MainWindow extends BaseWindow_1.BaseWindow {
         this.setup();
     }
     setActiveAgent(activeAgent) {
+        this.sessionManager.setActiveagentMode(activeAgent);
         // 重置所有状态
         this.funcItems.react.transagent.statu = false;
         this.funcItems.react.baseagent.statu = false;
@@ -174,7 +175,6 @@ class MainWindow extends BaseWindow_1.BaseWindow {
             },
         });
         this.sessionManager = new SessionManager_1.SessionManager(this.window);
-        this.sessionManager.addSession();
         this.session = () => this.sessionManager.getActiveSession();
         this.funcItems = {
             clip: {
@@ -208,7 +208,6 @@ class MainWindow extends BaseWindow_1.BaseWindow {
                     click: () => {
                         this.funcItems.react.event();
                         this.setActiveAgent('transagent');
-                        this.sessionManager.setActiveagentMode('multagent');
                     }
                 },
                 baseagent: {
@@ -216,7 +215,6 @@ class MainWindow extends BaseWindow_1.BaseWindow {
                     click: () => {
                         this.funcItems.react.event();
                         this.setActiveAgent('baseagent');
-                        this.sessionManager.setActiveagentMode('multagent');
                     }
                 },
                 multagent: {
@@ -224,7 +222,6 @@ class MainWindow extends BaseWindow_1.BaseWindow {
                     click: () => {
                         this.funcItems.react.event();
                         this.setActiveAgent('multagent');
-                        this.sessionManager.setActiveagentMode('multagent');
                     }
                 },
                 llm: {
@@ -383,14 +380,14 @@ class MainWindow extends BaseWindow_1.BaseWindow {
             }
         });
         electron_1.ipcMain.handle("toggleContextMessage", async (_event, context_id) => {
-            let memory_len = await this.sessionManager.toggleContextMessage({ context_id: context_id, del_mode: !!this.funcItems.del.statu });
+            const memory_length = this.session().llmService.chatManager.toggleContextMessage({ context_id: context_id, del_mode: !!this.funcItems.del.statu });
             this.session().tool_call.setHistory();
-            logger_1.logger.log(`delete context_id: ${context_id}, length: ${memory_len}`);
+            logger_1.logger.log(`delete context_id: ${context_id}, length: ${memory_length}`);
             return { del_mode: !!this.funcItems.del.statu };
         });
         electron_1.ipcMain.on("stopMessage", () => {
-            this.sessionManager.stopLoop();
-            this.windowManager.subAgentWindow?.destroy();
+            this.session().llmService.stopLoop();
+            this.session().subAgent.subAgentWindow?.destroy();
         });
         electron_1.ipcMain.on('changeMode', (_event, mode) => {
             this.session().tool_call.changeMode(mode);
@@ -398,14 +395,14 @@ class MainWindow extends BaseWindow_1.BaseWindow {
         });
         electron_1.ipcMain.on('open-external', (_event, href) => electron_1.shell.openExternal(href));
         electron_1.ipcMain.handle('newChat', () => {
-            this.windowManager.subAgentWindow?.destroy();
-            const chat = this.session().tool_call.newChat();
+            this.sessionManager.addSession();
+            const chat = this.session().llmService.chatManager.chat;
             this.updateVersionsSubmenu();
             return chat;
         });
         electron_1.ipcMain.handle('loadChat', (_event, id) => {
-            this.windowManager.subAgentWindow?.destroy();
-            const chat = this.session().tool_call.loadChat(id);
+            this.sessionManager.checkoutSession(id);
+            const chat = this.session().llmService.chatManager.chat;
             this.updateVersionsSubmenu();
             return chat;
         });
@@ -720,12 +717,11 @@ class MainWindow extends BaseWindow_1.BaseWindow {
                         label: 'Reset Conversation',
                         click: () => {
                             this.window?.webContents.send('clear');
-                            this.windowManager.subAgentWindow?.destroy();
+                            this.session().subAgent.subAgentWindow?.destroy();
                             this.session().tool_call.initVar();
                             const chat_id = this.sessionManager.getChat()?.id;
                             this.session().llmService.chatManager.init();
                             this.sessionManager.setChat({ id: chat_id });
-                            this.session().tool_call.setHistory();
                             this.session().tool_call.changeMode();
                             this.updateVersionsSubmenu();
                             this.window?.webContents.send('handleSetChat', this.sessionManager.getChat());

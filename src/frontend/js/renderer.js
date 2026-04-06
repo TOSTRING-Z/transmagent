@@ -609,12 +609,14 @@ $$
     });
   }
   async function enterEnd(messageSystem, chunk = null) {
-    const message_content = messageSystem.getElementsByClassName("message")[0];
-    const thinking = messageSystem?.getElementsByClassName("thinking")[0];
-    thinking.classList.add("hidden");
-    if (!messageSystem.dataset?.event_stop) {
-      messageSystem.dataset.event_stop = "true";
-      menuEvent(messageSystem, message_content.dataset.content, chunk?.is_plugin);
+    if (messageSystem) {
+      const message_content = messageSystem.getElementsByClassName("message")[0];
+      const thinking = messageSystem?.getElementsByClassName("thinking")[0];
+      thinking.classList.add("hidden");
+      if (!messageSystem.dataset?.event_stop) {
+        messageSystem.dataset.event_stop = "true";
+        menuEvent(messageSystem, message_content.dataset.content, chunk?.is_plugin);
+      }
     }
     DOM.submit.classList.remove("running");
   }
@@ -623,6 +625,7 @@ $$
     const thinking = messageSystem?.getElementsByClassName("thinking")[0];
     thinking.classList.remove("hidden");
     const btn = messageSystem?.getElementsByClassName("btn")[0];
+    messageSystem.dataset.event_stop = "false";
     btn?.addEventListener("click", async () => {
       await window.electronAPI.stopMessage();
       enterEnd(messageSystem);
@@ -693,9 +696,6 @@ $$
     }
   }
   async function toolData(chunk) {
-    const messageSystems = document.querySelectorAll(`[data-id='${chunk.group_id}']`);
-    const messageSystem = messageSystems[1];
-    addRunning(messageSystem);
     streamData(chunk);
   }
   async function streamData(chunk) {
@@ -788,6 +788,29 @@ $$
     DOM.top_div.scrollTop = DOM.top_div.scrollHeight;
   }
   window.electronAPI.setUUID((uuid) => State.uuid = uuid);
+  window.electronAPI.agentRunning((data) => {
+    if (data.group_id && data.uuid && State.uuid !== data.uuid) {
+      return;
+    }
+    const messageSystems = document.querySelectorAll(`[data-id='${data.group_id}']`);
+    const messageSystem = messageSystems[1];
+    if (messageSystem) {
+      addRunning(messageSystem);
+    }
+  });
+  window.electronAPI.agentIdle((data) => {
+    if (!data.group_id) {
+      DOM.submit.classList.remove("running");
+    }
+    if (data.group_id && data.uuid && State.uuid !== data.uuid) {
+      return;
+    }
+    const messageSystems = document.querySelectorAll(`[data-id='${data.group_id}']`);
+    const messageSystem = messageSystems[1];
+    if (messageSystem) {
+      enterEnd(messageSystem);
+    }
+  });
 
   // main/history.ts
   var new_item_template = `<div class="history-item" onclick="selectChat('@id')">
@@ -1384,8 +1407,7 @@ ${DOM.input.value}`;
     if (data?.id !== State.chat.id) {
       return;
     }
-    userData(DOM.messages, data).then((messageSystem) => {
-      addRunning(messageSystem);
+    userData(DOM.messages, data).then((_) => {
       if (State.scroll_top.data)
         DOM.top_div.scrollTop = DOM.top_div.scrollHeight;
     });
@@ -1410,7 +1432,10 @@ ${DOM.input.value}`;
     });
     init_size();
   });
-  window.electronAPI.handleOptions(({ options, group_id }) => {
+  window.electronAPI.handleOptions(({ options, group_id, uuid }) => {
+    if (uuid && uuid !== State.uuid) {
+      return;
+    }
     DOM.pause.style.display = "flex";
     let option_querys = [];
     options.forEach((value) => {
@@ -1451,10 +1476,6 @@ ${DOM.input.value}`;
   window.electronAPI.handleSelectChat((chat) => selectChat(chat.id));
   window.electronAPI.handleSetChat(async (chat) => initChat(chat));
   window.electronAPI.handleAutoRenameChat(async (data) => {
-    if (data.uuid && data.uuid !== State.uuid) {
-      return;
-    }
-    State.chat.id = data.id;
     await window.electronAPI.renameChat({ id: State.chat.id, name: data.name });
     const items = DOM.history_list.getElementsByClassName("history-item");
     Array.from(items).forEach((item) => {

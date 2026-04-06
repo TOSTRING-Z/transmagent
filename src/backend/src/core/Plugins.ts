@@ -36,6 +36,7 @@ export class Plugins {
     constructor(utils: Utils) {
         this.utils = utils;
         this.tools = {};
+        this.loadInit();
     }
 
     public getTool(name?: string | null): PluginItem | Record<string, PluginItem> {

@@ -24,7 +24,7 @@ export declare class ReActAgent {
     assistant: LLMAssistant;
     utils: Utils;
     constructor(llmService: LLMService, window: (BrowserWindow | null) | undefined, utils: Utils);
-    setUUID(data: Record<string, any>): void;
+    setUUID(data?: Record<string, any>): string;
     private formatTemplate;
     changeWindow(window?: BrowserWindow | null): void;
     setHistory(chat?: ChatState | null): boolean | undefined;
@@ -34,10 +34,10 @@ export declare class ReActAgent {
     llmCall(data: Record<string, any>): Promise<AssistantMessage | null>;
     sendData(data: Record<string, any>): Promise<boolean>;
     getDataDefault(cdata?: any): any;
-    newChat(): ChatState;
+    newChat(id?: string): ChatState;
     initVar(): void;
     loadChat(id: string): ChatState;
-    loadMessage(filePath: string): void;
+    loadMessage(filePath: string, id?: string): void;
     getInfo(data: Record<string, any>): string;
     /**
      * 对话压缩功能（委托给 LLMAssistant）

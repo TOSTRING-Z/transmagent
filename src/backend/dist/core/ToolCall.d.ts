@@ -59,6 +59,7 @@ export declare class ToolCall extends ReActAgent {
     environment_details: EnvironmentDetails;
     toolInfos: ToolInfo[];
     currentToolInfo: ToolInfo | undefined;
+    currentObservation: Observation | undefined;
     modeMap: Record<string, Mode>;
     private rememberedChoices;
     assistant: LLMAssistant;
@@ -77,12 +78,12 @@ export declare class ToolCall extends ReActAgent {
      * AI 审查者逻辑 (LLM-as-a-Judge) - 委托给 LLMAssistant
      */
     auditToolCall(toolInfo: ToolInfo, data: Record<string, any>): Promise<string | null>;
-    loadMessage(filePath: string): void;
+    loadMessage(filePath: string, id?: string): void;
     getToolsPrompt(): any;
     saveLongTermMemory(user_content: string, final_answer: string): Promise<void>;
     memoryUpdate(data: Record<string, any>): void;
     environmentUpdate(data: Record<string, any>): void;
-    changeMode(mode?: string | null): void;
+    changeMode(mode?: string | null, saveHistory?: boolean): void;
     /**
      * 获取已记住的工具选择
      */

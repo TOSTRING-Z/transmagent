@@ -38,6 +38,7 @@ const fs = __importStar(require("fs"));
 const logger_1 = require("../utils/logger");
 const path = __importStar(require("path"));
 const globals_1 = require("../utils/globals");
+const public_1 = require("../utils/public");
 class ChatManager {
     messages = [];
     chat;
@@ -57,8 +58,8 @@ class ChatManager {
             return v.toString(16);
         });
     }
-    init(messages = []) {
-        this.chat = this.getChatInit();
+    init(messages = [], id) {
+        this.chat = this.getChatInit({ id });
         this.messages = messages;
         this.tagSuccess = false;
         this.updateChat();
@@ -136,9 +137,6 @@ class ChatManager {
         }
         return null;
     }
-    getChatId() {
-        return `chat-${crypto.randomUUID()}`;
-    }
     getDefaultConfig() {
         return {
             model: this.utils.getConfig("default")["model"] || "deepseek[openai]",
@@ -154,7 +152,7 @@ class ChatManager {
     getChatInit(params = {}) {
         const defaultConfig = this.getDefaultConfig();
         return {
-            id: this.getChatId(),
+            id: (0, public_1.getSessionId)(),
             name: globals_1.CHAT_CONST.DEFAULT_NAME,
             system_prompt: null,
             context_id: 0,
@@ -258,7 +256,6 @@ class ChatManager {
             const data = this.utils.parseJsonContent(fs.readFileSync(filePath, "utf-8"));
             this.messages = data.messages;
             this.chat = this.getChatInit(data.chat);
-            this.fixMessages();
             this.updateChat();
             return this.messages.filter(message => message.show);
         }

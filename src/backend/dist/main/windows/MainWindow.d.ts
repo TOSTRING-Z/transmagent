@@ -2,6 +2,7 @@ import { BrowserWindow, MenuItemConstructorOptions } from 'electron';
 import { BaseWindow } from "./BaseWindow";
 import { WindowManager } from "./WindowManager";
 import { Session, SessionManager } from '../../core/SessionManager';
+import { AgentMode } from '../../types';
 interface FuncItemNode {
     statu: boolean;
     event?: any;
@@ -17,7 +18,7 @@ export declare class MainWindow extends BaseWindow {
     concat?: boolean;
     session: (() => Session);
     constructor(windowManager: WindowManager);
-    setActiveAgent(activeAgent: any): void;
+    setActiveAgent(activeAgent: AgentMode): void;
     destroy(): void;
     restart(window: BrowserWindow | null): void;
     setupHeartbeat(): void;

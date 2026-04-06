@@ -23,7 +23,8 @@ export declare class Utils {
     formatDate(): string;
     copy<T>(data: T): T;
     getHistoryData(): any;
-    setHistoryData(historyData: any): void;
+    deleteFile(filePath: string): boolean;
+    setHistoryData(historyData: any): boolean;
     getHistoryConfigPath(): string;
     getHistoryPath(id: string): string;
     getImportantMemoryPath(): string;

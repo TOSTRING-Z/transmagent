@@ -74,6 +74,7 @@ class ToolCall extends ReActAgent_1.ReActAgent {
     environment_details;
     toolInfos = [];
     currentToolInfo; // 用于记录当前执行的工具，方便 callReAct 等外部调用读取状态
+    currentObservation;
     modeMap = { "auto": ReActAgent_1.Mode.AUTO, "plan": ReActAgent_1.Mode.PLAN, "flash": ReActAgent_1.Mode.FLASH, "act": ReActAgent_1.Mode.ACT };
     rememberedChoices = {};
     assistant;
@@ -139,22 +140,9 @@ class ToolCall extends ReActAgent_1.ReActAgent {
     async auditToolCall(toolInfo, data) {
         return this.assistant.auditToolCall(toolInfo, data);
     }
-    loadMessage(filePath) {
-        super.loadMessage(filePath);
-        // 判断是否任务结束
-        const messages = this.llmService.chatManager.getMessages();
-        if (messages.length > 0) {
-            const lastMessage = messages[messages.length - 1];
-            const options = ['continue'];
-            if (lastMessage.role === "tool") {
-                this.window?.webContents.send('options', { ...this.llmService.chatManager.chat, options: options });
-            }
-            if (lastMessage.role === "assistant" && lastMessage.tool_calls) {
-                this.state = ReActAgent_1.State.PAUSE;
-                this.window?.webContents.send('options', { ...this.llmService.chatManager.chat, options: options });
-            }
-        }
-        this.changeMode(this.llmService.chatManager.chat.mode);
+    loadMessage(filePath, id) {
+        super.loadMessage(filePath, id);
+        this.changeMode(this.llmService.chatManager.chat.mode, false);
     }
     getToolsPrompt() {
         // --- 工具策略注册表 ---
@@ -278,13 +266,13 @@ class ToolCall extends ReActAgent_1.ReActAgent {
             data.todolist_message = null;
         }
     }
-    changeMode(mode = null) {
+    changeMode(mode = null, saveHistory = true) {
         const selectedMode = this.modeMap[mode || ""] || ReActAgent_1.Mode.ACT;
         const shortMode = this.modeMap[mode || ""] ? mode : "act";
         this.llmService.environment_details.mode = selectedMode;
         this.llmService.environment_details.mode_constraint = Prompts_1.MODE_CONSTRAINTS[selectedMode];
         this.llmService.chatManager.chat.mode = shortMode;
-        if (!this.agentConfigs.subagent) {
+        if (!this.agentConfigs.subagent && saveHistory) {
             this.setHistory();
         }
     }
@@ -555,6 +543,7 @@ class ToolCall extends ReActAgent_1.ReActAgent {
                 result: `Tool has been executed with error: ${error.message}`
             };
         }
+        this.currentObservation = observation; // 更新当前状态引用，供 callReAct 等外部断点恢复使用
         return observation;
     }
     handleToolObservation(observation, toolInfo, data) {
@@ -578,7 +567,7 @@ class ToolCall extends ReActAgent_1.ReActAgent {
         if (this.state === ReActAgent_1.State.PAUSE) {
             const { ask, options } = observation;
             this.window?.webContents.send('streamData', { ...this.llmService.chatManager.chat, content: `\n\n${ask}`, uuid: data.uuid, end: true });
-            this.window?.webContents.send('options', { ...this.llmService.chatManager.chat, ...toolInfo, options: options, uuid: data.uuid });
+            this.window?.webContents.send('handleOptions', { ...this.llmService.chatManager.chat, ...toolInfo, options: options, uuid: data.uuid });
         }
         else if (this.state === ReActAgent_1.State.FINAL) {
             this.llmService.chatManager.pushToolMessage({ ...this.llmService.chatManager.chat, ...toolInfo, content: observation.result, uuid: data.uuid });
@@ -612,6 +601,7 @@ class ToolCall extends ReActAgent_1.ReActAgent {
             this.llmService.chatManager.pushUserMessage({ ...this.llmService.chatManager.chat, content: data.query, uuid: data.uuid });
             this.window?.webContents.send('userData', { ...this.llmService.chatManager.chat, content: data.query, uuid: data.uuid });
         }
+        this.window?.webContents.send('agentRunning', { group_id: this.llmService.chatManager.chat.group_id, uuid: data.uuid });
         this.state = ReActAgent_1.State.IDLE;
         let tool_call = this.utils.getConfig("tool_call");
         this.llmService.chatManager.chat.seconds = 0;

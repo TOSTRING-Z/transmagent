@@ -15,6 +15,7 @@ import { captureMouse } from '../../mouse/CaptureMouse';
 import { install } from '../../core/Install';
 import { MainServer } from '../../server/MainServer';
 import { Session, SessionManager } from '../../core/SessionManager';
+import { AgentMode } from '../../types';
 
 // 定义 FuncItems 结构以启用严格模式
 interface FuncItemNode {
@@ -40,7 +41,8 @@ export class MainWindow extends BaseWindow {
         this.setup();
     }
 
-    public setActiveAgent(activeAgent) {
+    public setActiveAgent(activeAgent: AgentMode) {
+        this.sessionManager.setActiveagentMode(activeAgent);
         // 重置所有状态
         this.funcItems.react.transagent.statu = false;
         this.funcItems.react.baseagent.statu = false;
@@ -164,8 +166,6 @@ export class MainWindow extends BaseWindow {
 
         this.sessionManager = new SessionManager(this.window);
 
-        this.sessionManager.addSession();
-
         this.session = () => this.sessionManager.getActiveSession();
 
         this.funcItems = {
@@ -200,7 +200,6 @@ export class MainWindow extends BaseWindow {
                     click: () => {
                         this.funcItems.react.event();
                         this.setActiveAgent('transagent');
-                        this.sessionManager.setActiveagentMode('multagent');
                     }
                 },
                 baseagent: {
@@ -208,7 +207,6 @@ export class MainWindow extends BaseWindow {
                     click: () => {
                         this.funcItems.react.event();
                         this.setActiveAgent('baseagent');
-                        this.sessionManager.setActiveagentMode('multagent');
                     }
                 },
                 multagent: {
@@ -216,7 +214,6 @@ export class MainWindow extends BaseWindow {
                     click: () => {
                         this.funcItems.react.event();
                         this.setActiveAgent('multagent');
-                        this.sessionManager.setActiveagentMode('multagent');
                     }
                 },
                 llm: {
@@ -375,15 +372,15 @@ export class MainWindow extends BaseWindow {
         });
 
         ipcMain.handle("toggleContextMessage", async (_event, context_id) => {
-            let memory_len = await this.sessionManager.toggleContextMessage({ context_id: context_id, del_mode: !!this.funcItems.del.statu });
+            const memory_length = this.session().llmService.chatManager.toggleContextMessage({ context_id: context_id, del_mode: !!this.funcItems.del.statu });
             this.session().tool_call.setHistory();
-            logger.log(`delete context_id: ${context_id}, length: ${memory_len}`)
+            logger.log(`delete context_id: ${context_id}, length: ${memory_length}`);
             return { del_mode: !!this.funcItems.del.statu };
         });
 
         ipcMain.on("stopMessage", () => {
-            this.sessionManager.stopLoop();
-            this.windowManager.subAgentWindow?.destroy();
+            this.session().llmService.stopLoop();
+            this.session().subAgent.subAgentWindow?.destroy();
         });
 
         ipcMain.on('changeMode', (_event, mode) => {
@@ -394,15 +391,15 @@ export class MainWindow extends BaseWindow {
         ipcMain.on('open-external', (_event, href) => shell.openExternal(href));
 
         ipcMain.handle('newChat', () => {
-            this.windowManager.subAgentWindow?.destroy();
-            const chat = this.session().tool_call.newChat();
+            this.sessionManager.addSession();
+            const chat = this.session().llmService.chatManager.chat;
             this.updateVersionsSubmenu();
             return chat;
         });
 
         ipcMain.handle('loadChat', (_event, id) => {
-            this.windowManager.subAgentWindow?.destroy();
-            const chat = this.session().tool_call.loadChat(id);
+            this.sessionManager.checkoutSession(id);
+            const chat = this.session().llmService.chatManager.chat;
             this.updateVersionsSubmenu();
             return chat;
         });
@@ -729,12 +726,11 @@ export class MainWindow extends BaseWindow {
                         label: 'Reset Conversation',
                         click: () => {
                             this.window?.webContents.send('clear');
-                            this.windowManager.subAgentWindow?.destroy();
+                            this.session().subAgent.subAgentWindow?.destroy();
                             this.session().tool_call.initVar();
                             const chat_id = this.sessionManager.getChat()?.id;
                             this.session().llmService.chatManager.init();
                             this.sessionManager.setChat({ id: chat_id });
-                            this.session().tool_call.setHistory();
                             this.session().tool_call.changeMode();
                             this.updateVersionsSubmenu();
                             this.window?.webContents.send('handleSetChat', this.sessionManager.getChat());
