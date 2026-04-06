@@ -5,7 +5,6 @@ export interface DisplayOptions {
     max_line_length?: string | number;
     max_cols?: string | number;
     format?: string;
-    toolCall: ToolCall;
 }
 export interface NormalizedOptions {
     startLine: number;
@@ -24,6 +23,7 @@ export declare function main(params?: {
     local_path?: string;
 }): (args: {
     file_path: string;
+    toolCall: ToolCall;
 } & DisplayOptions) => Promise<string>;
 export declare function getPrompt(): {
     name: string;

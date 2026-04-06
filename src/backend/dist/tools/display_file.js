@@ -53,8 +53,7 @@ class DisplayFile {
     /**
      * 统一入口：智能路由处理本地/远程文件
      */
-    async display(filePath, options) {
-        const toolCall = options.toolCall;
+    async display(filePath, toolCall, options) {
         const normalizedOptions = this._normalizeOptions(options);
         const sshConfig = toolCall.utils.getSshConfig();
         const isRemote = !!(sshConfig?.enabled && sshConfig?.host);
@@ -477,7 +476,7 @@ class DisplayFile {
 function main(params) {
     return async function (args) {
         const display = new DisplayFile(params?.local_path);
-        const result = await display.display(args.file_path, args);
+        const result = await display.display(args.file_path, args.toolCall, args);
         return result.success ? result.content : `Error: ${result.error}`;
     };
 }

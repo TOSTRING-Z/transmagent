@@ -13,7 +13,6 @@ export interface DisplayOptions {
     max_line_length?: string | number;
     max_cols?: string | number;
     format?: string; // 修正：与 Prompt 保持一致
-    toolCall: ToolCall;
 }
 
 export interface NormalizedOptions {
@@ -46,10 +45,9 @@ class DisplayFile {
     /**
      * 统一入口：智能路由处理本地/远程文件
      */
-    public async display(filePath: string, options: DisplayOptions): Promise<ProcessResult> {
-        const toolCall = options.toolCall;
+    public async display(filePath: string, toolCall: ToolCall, options: DisplayOptions): Promise<ProcessResult> {
         const normalizedOptions = this._normalizeOptions(options);
-        const sshConfig =toolCall.utils.getSshConfig();
+        const sshConfig = toolCall.utils.getSshConfig();
         const isRemote = !!(sshConfig?.enabled && sshConfig?.host);
 
         const actualFileType = normalizedOptions.fileType === 'auto'
@@ -508,9 +506,9 @@ class DisplayFile {
 
 // 极其干净的入口函数
 export function main(params?: { local_path?: string }) {
-    return async function (args: { file_path: string } & DisplayOptions) {
+    return async function (args: { file_path: string, toolCall: ToolCall; } & DisplayOptions) {
         const display = new DisplayFile(params?.local_path);
-        const result = await display.display(args.file_path, args);
+        const result = await display.display(args.file_path, args.toolCall, args);
         return result.success ? result.content : `Error: ${result.error}`;
     };
 }
@@ -519,11 +517,11 @@ export function getPrompt() {
     return {
         "name": "display_file",
         "description": "Reads and formats file content for display. \n\n" +
-                       "CRITICAL LIMITATIONS:\n" +
-                       "1. **Text Extraction**: Supported for source code, logs, CSV, and Excel ONLY.\n" +
-                       "2. **Visual Rendering**: Images and PDFs return a placeholder for the UI to render; you will NOT see the text inside a PDF.\n" +
-                       "3. **Unsupported Formats**: DO NOT use this for .docx, .doc, or .pptx files. It will fail or return garbage data.\n" +
-                       "4. **Line Limit**: Default is 10 lines. Use pagination (start_line/end_line) for longer files.",
+            "CRITICAL LIMITATIONS:\n" +
+            "1. **Text Extraction**: Supported for source code, logs, CSV, and Excel ONLY.\n" +
+            "2. **Visual Rendering**: Images and PDFs return a placeholder for the UI to render; you will NOT see the text inside a PDF.\n" +
+            "3. **Unsupported Formats**: DO NOT use this for .docx, .doc, or .pptx files. It will fail or return garbage data.\n" +
+            "4. **Line Limit**: Default is 10 lines. Use pagination (start_line/end_line) for longer files.",
         "parameters": {
             "type": "object",
             "properties": {

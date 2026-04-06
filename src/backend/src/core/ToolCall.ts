@@ -574,7 +574,7 @@ export class ToolCall extends ReActAgent {
                 };
             } else {
                 const will_tool = this.tools[toolInfo.tool_call_name as string].func;
-                const response = await will_tool({...toolInfo?.params, toolCall: ToolCall});
+                const response = await will_tool({...toolInfo?.params, toolCall: this});
                 let result: string;
                 if (response?.subagent_tool) {
                     result = response.content;
