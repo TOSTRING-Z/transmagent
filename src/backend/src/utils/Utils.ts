@@ -6,6 +6,10 @@ import JSON5 from 'json5';
 import { formatString } from './format';
 import { store, sysConfig } from './globals';
 import { AgentMode } from '../types';
+import { parseJsonContent } from './public';
+
+// 定义允许用户覆盖的白名单字段
+const OVERRIDABLE_KEYS = ['plugins', 'mcp_server', 'tool_call'];
 
 export class Utils {
     public agentMode: AgentMode;
@@ -13,16 +17,7 @@ export class Utils {
         this.agentMode = agentMode;
     }
 
-    public hashCode(str: string): string {
-        let hash = 0;
-        if (str.length === 0) return hash.toString();
-        for (let i = 0; i < str.length; i++) {
-            const char = str.charCodeAt(i);
-            hash = ((hash << 5) - hash) + char;
-            hash |= 0;
-        }
-        return Math.abs(hash).toString(16);
-    }
+
 
     public async sendData(base: string, data: any): Promise<any> {
         const backend_url = this.getConfig("backend_url") || 'http://www.licpathway.net/transmagent_web';
@@ -43,72 +38,6 @@ export class Utils {
         } catch (error: any) {
             logger.log('sendData Error sending data:', error.message);
         }
-    }
-
-    public extractJson(text: string): string | null {
-        try {
-            let startIndex = text.search(/[{[]/);
-            if (startIndex === -1) return null;
-
-            const stack: string[] = [];
-            let isInsideString = false;
-
-            for (let i = startIndex; i < text.length; i++) {
-                const currentChar = text[i];
-
-                if (currentChar === '"' && text[i - 1] !== '\\') {
-                    isInsideString = !isInsideString;
-                }
-
-                if (isInsideString) continue;
-
-                if (currentChar === '{' || currentChar === '[') {
-                    stack.push(currentChar);
-                } else if (
-                    (currentChar === '}' && stack[stack.length - 1] === '{') ||
-                    (currentChar === ']' && stack[stack.length - 1] === '[')
-                ) {
-                    stack.pop();
-                }
-
-                if (stack.length === 0) {
-                    const candidate = text.substring(startIndex, i + 1);
-                    try {
-                        return JSON.stringify(JSON5.parse(candidate), null, 2);
-                    } catch (e: any) {
-                        startIndex = text.indexOf('{', i + 1);
-                        if (startIndex === -1) return null;
-                        i = startIndex - 1;
-                        stack.length = 0;
-                    }
-                }
-            }
-            return null;
-        } catch (e: any) {
-            return null;
-        }
-    }
-
-    public parseJsonContent(content: string): any {
-        let content_parse: any = null;
-        try {
-            content_parse = JSON5.parse(content);
-            return content_parse;
-        } catch (e: any) {
-            try {
-                let content_json = this.extractJson(content);
-                if (content_json) {
-                    content_parse = JSON5.parse(content_json);
-                }
-                return content_parse;
-            } catch (e: any) {
-                return content_parse;
-            }
-        }
-    }
-
-    public delay(seconds: number): Promise<void> {
-        return new Promise(resolve => setTimeout(resolve, seconds * 1000));
     }
 
     public getDefault(name: string = ""): string {
@@ -134,37 +63,79 @@ export class Utils {
     }
 
     public getConfig(key: string | null = null, config_name: string | null = null): any {
+
         const sysConfigFilePath = this.getSystem();
         const configFilePath = this.getDefault(config_name || sysConfig[this.agentMode]);
 
-        // 加入容错机制，防止系统首次运行无文件报错
-        let defaultConfig = fs.existsSync(sysConfigFilePath) ? this.parseJsonContent(fs.readFileSync(sysConfigFilePath, 'utf-8')) : {};
-        let userConfig = fs.existsSync(configFilePath) ? this.parseJsonContent(fs.readFileSync(configFilePath, 'utf-8')) : {};
+        // 1. 加载两个配置源
+        let defaultConfig = fs.existsSync(sysConfigFilePath) ? parseJsonContent(fs.readFileSync(sysConfigFilePath, 'utf-8')) : {};
+        let userConfig = fs.existsSync(configFilePath) ? parseJsonContent(fs.readFileSync(configFilePath, 'utf-8')) : {};
 
-        const enhancedResult = this.mergeConfigEnhanced(defaultConfig, userConfig);
-        const config = enhancedResult.mergedConfig;
+        // 2. 构造最终配置
+        // 我们首先以 defaultConfig 为基准
+        let finalConfig = { ...defaultConfig };
 
-        if (key === null) return config;
+        // 3. 仅合并白名单内的字段
+        OVERRIDABLE_KEYS.forEach(whiteKey => {
+            if (userConfig[whiteKey] !== undefined) {
+                // 如果用户配置中有该字段，则进行深度合并或覆盖
+                const enhanced = this.mergeConfigEnhanced({ [whiteKey]: defaultConfig[whiteKey] }, { [whiteKey]: userConfig[whiteKey] });
+                finalConfig[whiteKey] = enhanced.mergedConfig[whiteKey];
+            }
+        });
 
-        if (key === "models" && config["models"]) {
-            const models = config["models"];
+        // 4. 特殊处理：如果 key 为 null，返回过滤后的合并结果
+        if (key === null) return finalConfig;
+
+        // 5. 模型版本兼容性转换逻辑（保持原样）
+        if (key === "models" && finalConfig["models"]) {
+            const models = finalConfig["models"];
             for (const mKey in models) {
                 if (Object.hasOwnProperty.call(models, mKey)) {
                     const versions = models[mKey].versions;
                     if (Array.isArray(versions)) {
                         versions.forEach((version, i) => {
-                            config["models"][mKey].versions[i] = typeof version === "string" ? { version: version } : version;
+                            finalConfig["models"][mKey].versions[i] = typeof version === "string" ? { version: version } : version;
                         });
                     }
                 }
             }
         }
-        return config[key];
+
+        // 6. 返回结果：如果是白名单外字段，这里自然会拿到 defaultConfig 的值
+        return finalConfig[key];
     }
 
     public setConfig(config: any): boolean {
-        const configPath = this.getDefault(sysConfig[this.agentMode]);
-        fs.writeFileSync(configPath, JSON.stringify(config, null, 2));
+        const sysConfigFilePath = this.getSystem();
+        const userConfigPath = this.getDefault(sysConfig[this.agentMode]);
+
+        // 1. 读取现有的默认系统配置（作为基准，避免覆盖时丢失其他未传入的系统字段）
+        let sysConfigData = fs.existsSync(sysConfigFilePath)
+            ? parseJsonContent(fs.readFileSync(sysConfigFilePath, 'utf-8'))
+            : {};
+
+        // 2. 准备用于保存的特定模式配置
+        const userConfigToSave: any = {};
+
+        // 3. 遍历传入的 config，进行拆分分发
+        for (const key in config) {
+            if (OVERRIDABLE_KEYS.includes(key)) {
+                // 白名单内的字段，归入特定模式的配置文件
+                userConfigToSave[key] = config[key];
+            } else {
+                // 白名单外的字段，直接覆盖/更新到全局的系统配置文件
+                sysConfigData[key] = config[key];
+            }
+        }
+
+        // 4. 分别写入两个文件
+        // 写入特定模式配置（白名单字段）
+        fs.writeFileSync(userConfigPath, JSON.stringify(userConfigToSave, null, 2));
+
+        // 写入全局默认配置（非白名单字段，如 models）
+        fs.writeFileSync(sysConfigFilePath, JSON.stringify(sysConfigData, null, 2));
+
         return true;
     }
 
@@ -239,25 +210,6 @@ export class Utils {
         }
     }
 
-    public formatDate(): string {
-        const date = new Date();
-        const year = date.getFullYear();
-        const month = (date.getMonth() + 1).toString().padStart(2, '0');
-        const day = date.getDate().toString().padStart(2, '0');
-        const hours = date.getHours().toString().padStart(2, '0');
-        const minutes = date.getMinutes().toString().padStart(2, '0');
-        const seconds = date.getSeconds().toString().padStart(2, '0');
-        return `${year}-${month}-${day} ${hours}:${minutes}:${seconds}`;
-    }
-
-    public copy<T>(data: T): T {
-        if (data) {
-            return JSON.parse(JSON.stringify(data));
-        } else {
-            return data;
-        }
-    }
-
     public getHistoryData(): any {
         let historyConfigPath = this.getHistoryConfigPath();
         if (!fs.existsSync(historyConfigPath)) {
@@ -267,7 +219,7 @@ export class Utils {
             return { data: [] };
         } else {
             const data = fs.readFileSync(historyConfigPath, 'utf-8');
-            return this.parseJsonContent(data) || { data: [] };
+            return parseJsonContent(data) || { data: [] };
         }
     }
 
@@ -276,7 +228,7 @@ export class Utils {
             fs.unlinkSync(filePath);
             return true;
         } else {
-            return false;   
+            return false;
         }
     }
 

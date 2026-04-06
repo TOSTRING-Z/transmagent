@@ -59,13 +59,13 @@ class MainServer {
                 const chat = await this.mainWindow.session().tool_call.loadChat(data.chat_id);
                 if (chat) {
                     chatManager.loadFromChat(chat);
-                    this.mainWindow.window?.webContents.send('select-chat', chatManager.chat);
+                    this.mainWindow.window?.webContents.send('handleloadChat', chatManager.chat);
                 }
             }
             else {
                 // 创建新会话
                 this.mainWindow.window?.webContents.send('clear');
-                chatManager.init();
+                chatManager.initMessages();
                 if (data?.chat_name) {
                     chatManager.chat.name = data.chat_name;
                 }

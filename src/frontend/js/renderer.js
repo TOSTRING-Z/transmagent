@@ -29,6 +29,7 @@
     renameDialog: document.getElementById("renameDialog"),
     renameInput: document.getElementById("renameInput"),
     model_select: document.getElementById("ai-model"),
+    agentMode: document.getElementById("agentMode"),
     compress_box: document.getElementById("compress-context"),
     msg_count: document.getElementById("msg_count") || {
       innerText: "0"
@@ -813,7 +814,7 @@ $$
   });
 
   // main/history.ts
-  var new_item_template = `<div class="history-item" onclick="selectChat('@id')">
+  var new_item_template = `<div class="history-item" onclick="loadChat('@id')">
     <div class="history-text"></div>
     <div class="history-menu" onclick="showHistoryMenu(event, '@id')">
       <i class="fas fa-ellipsis-v"></i>
@@ -833,7 +834,7 @@ $$
     item.getElementsByClassName("history-text")[0].title = chat.name || "New Chat";
     item.id = chat.id;
     DOM.history_list.insertBefore(item, DOM.history_list.firstChild);
-    item.onclick = () => selectChat(chat.id);
+    item.onclick = () => loadChat(chat.id);
     const menu = item.querySelector(".history-menu");
     menu.onclick = (e) => showHistoryMenu(e, chat.id);
     const renameBtn = item.querySelector(".history-menu-item:nth-child(1)");
@@ -849,7 +850,8 @@ $$
   }
   function handleNewChat(chat) {
     addChatItem(chat);
-    initChat(chat);
+    updateChat(chat);
+    selectChat(chat.id);
   }
   function updateChat(chat) {
     if (!chat)
@@ -860,32 +862,28 @@ $$
     DOM.tokens.innerText = String(State.chat.tokens || 0);
     DOM.msg_count.innerText = String(State.chat.msg_count || 0);
     DOM.seconds.innerText = (State.chat.seconds || 0).toFixed(1);
-    DOM.version.innerText = State.chat.model;
+    DOM.version.innerText = State.chat.version || "deepseek-chat";
+    DOM.agentMode.innerText = State.chat.agentMode || "transagent";
     DOM.model_select.value = State.chat.model;
     DOM.compress_box.checked = State.chat.compress_context || false;
   }
-  function initChat(chat = {}) {
-    State.chat = chat;
-    toggleMode(State.chat.mode);
-    DOM.system_prompt.value = State.chat.system_prompt || "";
-    DOM.tokens.innerText = String(State.chat.tokens || 0);
-    DOM.msg_count.innerText = String(State.chat.msg_count || 0);
-    DOM.seconds.innerText = (State.chat.seconds || 0).toFixed(1);
-    DOM.version.innerText = State.chat.model;
-    DOM.model_select.value = State.chat.model;
-    DOM.compress_box.checked = State.chat.compress_context || false;
+  async function selectChat(chatId) {
     const items = DOM.history_list.getElementsByClassName("history-item");
     Array.from(items).forEach((item) => {
-      if (item.id == chat.id)
+      if (item.id == chatId)
         item.classList.add("active");
       else
         item.classList.remove("active");
     });
   }
-  async function selectChat(chatId) {
-    State.chat.id = chatId;
+  async function loadChat(chatId) {
     const chat = await window.electronAPI.loadChat(chatId);
-    initChat(chat);
+    updateChat(chat);
+    selectChat(chatId);
+  }
+  async function handleloadChat(chat) {
+    updateChat(chat);
+    selectChat(chat.id);
   }
   async function deleteChat(chatId) {
     if (confirm("Are you sure you want to delete this conversation?")) {
@@ -1011,7 +1009,7 @@ $$
     DOM.messages.innerHTML = "";
     DOM.pause.style.display = "none";
     DOM.pause.innerHTML = "";
-    initChat();
+    updateChat({});
     const optionDom = createElement(htmlContent);
     const optionCards = optionDom.querySelectorAll(".option-card");
     optionCards.forEach((card) => {
@@ -1340,7 +1338,7 @@ ${DOM.input.value}`;
     });
   });
   window.electronAPI.initInfo((data) => {
-    initChat(data);
+    updateChat(data);
     DOM.history_list.innerHTML = "";
     data.chats.forEach((chat) => addChatItem(chat));
   });
@@ -1473,13 +1471,13 @@ ${DOM.input.value}`;
   window.electronAPI.handleClear(() => handleClear());
   window.electronAPI.uploadProgress((info) => updateProgress(info));
   window.electronAPI.handleNewChat((chat) => handleNewChat(chat));
-  window.electronAPI.handleSelectChat((chat) => selectChat(chat.id));
-  window.electronAPI.handleSetChat(async (chat) => initChat(chat));
-  window.electronAPI.handleAutoRenameChat(async (data) => {
-    await window.electronAPI.renameChat({ id: State.chat.id, name: data.name });
+  window.electronAPI.handleSetChat(async (chat) => updateChat(chat));
+  window.electronAPI.handleloadChat(async (chat) => handleloadChat(chat));
+  window.electronAPI.handleRenameChat(async (data) => {
+    await window.electronAPI.renameChat({ id: data.id, name: data.name });
     const items = DOM.history_list.getElementsByClassName("history-item");
     Array.from(items).forEach((item) => {
-      if (item.id == State.chat.id)
+      if (item.id == data.id)
         item.getElementsByClassName("history-text")[0].innerText = data.name;
     });
   });
@@ -1488,7 +1486,7 @@ ${DOM.input.value}`;
   window.showConfig = showConfig;
   window.confirmRename = confirmRename;
   window.hideRenameDialog = hideRenameDialog;
-  window.selectChat = selectChat;
+  window.loadChat = loadChat;
   window.renameChat = renameChat;
   window.deleteChat = deleteChat;
   window.showHistoryMenu = showHistoryMenu;

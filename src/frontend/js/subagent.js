@@ -29,6 +29,7 @@
     renameDialog: document.getElementById("renameDialog"),
     renameInput: document.getElementById("renameInput"),
     model_select: document.getElementById("ai-model"),
+    agentMode: document.getElementById("agentMode"),
     compress_box: document.getElementById("compress-context"),
     msg_count: document.getElementById("msg_count") || {
       innerText: "0"

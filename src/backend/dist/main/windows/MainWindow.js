@@ -49,6 +49,7 @@ const CaptureMouse_1 = require("../../mouse/CaptureMouse");
 const Install_1 = require("../../core/Install");
 const MainServer_1 = require("../../server/MainServer");
 const SessionManager_1 = require("../../core/SessionManager");
+const public_1 = require("../../utils/public");
 class MainWindow extends BaseWindow_1.BaseWindow {
     funcItems;
     sessionManager;
@@ -81,6 +82,7 @@ class MainWindow extends BaseWindow_1.BaseWindow {
                 this.funcItems.react.baseagent.statu = true;
                 break;
         }
+        this.updateVersionsSubmenu();
     }
     destroy() {
         this.window?.close();
@@ -395,6 +397,7 @@ class MainWindow extends BaseWindow_1.BaseWindow {
         });
         electron_1.ipcMain.on('open-external', (_event, href) => electron_1.shell.openExternal(href));
         electron_1.ipcMain.handle('newChat', () => {
+            this.window?.webContents.send("clear");
             this.sessionManager.addSession();
             const chat = this.session().llmService.chatManager.chat;
             this.updateVersionsSubmenu();
@@ -409,7 +412,6 @@ class MainWindow extends BaseWindow_1.BaseWindow {
         electron_1.ipcMain.on('del-chat', (_event, id) => {
             this.session().tool_call.delHistory(id);
         });
-        electron_1.ipcMain.on('rename-chat', (_event, chat) => this.session().tool_call.renameHistory(chat));
         electron_1.ipcMain.handle('get-config-main', () => this.session().utils.getConfig());
         electron_1.ipcMain.handle('set-config-main', (_, config) => {
             let state = this.session().utils.setConfig(config);
@@ -571,7 +573,11 @@ class MainWindow extends BaseWindow_1.BaseWindow {
                 .map((tool) => ({ version: tool.version, show: tool.show }));
         }
         else {
-            versions = this.session().utils.getConfig("models")[this.sessionManager.getChat()?.model]["versions"];
+            const models = this.session().utils.getConfig("models");
+            const model = this.sessionManager.getChat()?.model;
+            if (!models[model])
+                return [];
+            versions = models[model]["versions"] || [];
         }
         this.funcItems.react.event();
         return versions.map((version) => {
@@ -720,17 +726,18 @@ class MainWindow extends BaseWindow_1.BaseWindow {
                             this.session().subAgent.subAgentWindow?.destroy();
                             this.session().tool_call.initVar();
                             const chat_id = this.sessionManager.getChat()?.id;
-                            this.session().llmService.chatManager.init();
+                            this.session().llmService.chatManager.initMessages();
                             this.sessionManager.setChat({ id: chat_id });
                             this.session().tool_call.changeMode();
                             this.updateVersionsSubmenu();
                             this.window?.webContents.send('handleSetChat', this.sessionManager.getChat());
+                            this.window?.webContents.send('handleRenameChat', this.sessionManager.getChat());
                         }
                     },
                     {
                         label: 'Save Conversation',
                         click: () => {
-                            const lastPath = path.join(globals_1.store.get('lastSavePath') || this.session().utils.getDefault("history/"), `messages_${this.sessionManager.getChat()?.name || this.session().utils.formatDate()}.json`);
+                            const lastPath = path.join(globals_1.store.get('lastSavePath') || this.session().utils.getDefault("history/"), `messages_${this.sessionManager.getChat()?.name || (0, public_1.formatDate)()}.json`);
                             electron_1.dialog.showSaveDialog(this.window, {
                                 defaultPath: lastPath,
                                 filters: [{ name: 'JSON File', extensions: ['json'] }, { name: 'All Files', extensions: ['*'] }]
@@ -756,7 +763,7 @@ class MainWindow extends BaseWindow_1.BaseWindow {
                                     this.session().tool_call.loadMessage(result.filePaths[0]);
                                     let id_exist = this.session().tool_call.setHistory();
                                     if (id_exist) {
-                                        this.window?.webContents.send('select-chat', this.sessionManager.getChat());
+                                        this.window?.webContents.send('handleloadChat', this.sessionManager.getChat());
                                     }
                                     else {
                                         this.window?.webContents.send('handleSetChat', this.sessionManager.getChat());

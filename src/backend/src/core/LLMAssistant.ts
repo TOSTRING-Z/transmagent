@@ -5,6 +5,7 @@ import { ToolCallAdapterFactory } from '../factories/AdapterFactory';
 import { Message, ToolInfo, AssistantMessage } from '../types';
 import { logger } from '../utils/logger';
 import { Utils } from '../utils/Utils';
+import { formatDate } from '../utils/public';
 
 /**
  * LLMAssistant - LLM对话辅助功能类
@@ -120,7 +121,7 @@ export class LLMAssistant {
 
     public async setChatName(_data: any = {}): Promise<void> {
         if (_data?.is_plugin) {
-            this.llmService.chatManager.chat.name = this.utils.formatDate();
+            this.llmService.chatManager.chat.name = formatDate();
             return;
         }
 
@@ -155,7 +156,7 @@ STRICT RULES:
             const adapter = ToolCallAdapterFactory.getAdapter(format);
             const rawContent = adapter.extractText(messageOutput);
             const chatName = rawContent.split("\n")[0].trim();
-            this.llmService.chatManager.chat.name = chatName || this.utils.formatDate();
+            this.llmService.chatManager.chat.name = chatName || formatDate();
         }
     }
 

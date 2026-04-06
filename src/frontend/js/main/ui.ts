@@ -1,7 +1,7 @@
 import { startAgentLoop } from './chat';
 import { DOM } from './globals';
 import { State } from './state';
-import { initChat } from './history';
+import { updateChat } from './history';
 import { createElement } from './utils';
 
 // UI Helper Functions
@@ -102,7 +102,7 @@ export function handleClear() {
   DOM.messages.innerHTML = "";
   DOM.pause.style.display = "none";
   DOM.pause.innerHTML = "";
-  initChat();
+  updateChat({});
 
   const optionDom = createElement(htmlContent);
   const optionCards = optionDom.querySelectorAll('.option-card');

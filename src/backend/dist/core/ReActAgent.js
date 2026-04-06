@@ -5,6 +5,7 @@ const logger_1 = require("../utils/logger");
 const globals_1 = require("../utils/globals");
 const LLMAssistant_1 = require("./LLMAssistant");
 const AdapterFactory_1 = require("../factories/AdapterFactory");
+const public_1 = require("../utils/public");
 var State;
 (function (State) {
     State["IDLE"] = "idle";
@@ -116,12 +117,12 @@ class ReActAgent {
                 if (output)
                     return output;
                 count++;
-                await this.utils.delay(2);
+                await (0, public_1.delay)(2);
             }
             catch (err) {
                 console.error("Retry Error:", err);
                 count++;
-                await this.utils.delay(2);
+                await (0, public_1.delay)(2);
             }
         }
         return null;
@@ -150,11 +151,11 @@ class ReActAgent {
         let baseResult = await this.retry(func, data);
         if (!baseResult)
             return null;
-        data.outputs.push(this.utils.copy(data.output));
+        data.outputs.push((0, public_1.copy)(data.output));
         data.output_format = data.output_template
             ? this.formatTemplate(data.output_template, data)
             : data.output;
-        data.output_formats.push(this.utils.copy(data.output_format));
+        data.output_formats.push((0, public_1.copy)(data.output_format));
         return baseResult;
     }
     async sendData(data) {
@@ -168,7 +169,7 @@ class ReActAgent {
         return true;
     }
     getDataDefault(cdata = {}) {
-        let data = this.utils.copy(cdata);
+        let data = (0, public_1.copy)(cdata);
         let defaults = {
             prompt: null,
             query: null,
@@ -200,7 +201,7 @@ class ReActAgent {
     newChat(id) {
         this.window?.webContents.send('clear');
         this.initVar();
-        this.llmService.chatManager.init(undefined, id);
+        this.llmService.chatManager.chat.id = id || (0, public_1.getSessionId)();
         this.setHistory(this.llmService.chatManager.chat);
         return this.llmService.chatManager.chat;
     }
@@ -274,7 +275,7 @@ class ReActAgent {
         }
     }
     getInfo(data) {
-        const output_format = this.utils.copy(data.output_format);
+        const output_format = (0, public_1.copy)(data.output_format);
         data.output_format = data.output_format?.replaceAll("`", "\\`");
         let infoTemplate = this.utils.getConfig("info_template");
         let info = this.formatTemplate(infoTemplate, { ...data, ...this.llmService.chatManager.chat });

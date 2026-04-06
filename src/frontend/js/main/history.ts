@@ -3,7 +3,7 @@ import { State } from './state';
 import { createElement } from './utils';
 import { toggleMode } from './ui';
 
-const new_item_template = `<div class="history-item" onclick="selectChat('@id')">
+const new_item_template = `<div class="history-item" onclick="loadChat('@id')">
     <div class="history-text"></div>
     <div class="history-menu" onclick="showHistoryMenu(event, '@id')">
       <i class="fas fa-ellipsis-v"></i>
@@ -25,7 +25,7 @@ export function addChatItem(chat: any) {
   item.id = chat.id;
   DOM.history_list.insertBefore(item, DOM.history_list.firstChild);
 
-  item.onclick = () => selectChat(chat.id);
+  item.onclick = () => loadChat(chat.id);
   const menu = item.querySelector('.history-menu') as HTMLElement;
   menu.onclick = (e) => showHistoryMenu(e, chat.id);
   const renameBtn = item.querySelector('.history-menu-item:nth-child(1)') as HTMLElement;
@@ -36,47 +36,45 @@ export function addChatItem(chat: any) {
 
 export function handleNewChat(chat: any) {
   addChatItem(chat);
-  initChat(chat);
+  updateChat(chat);
+  selectChat(chat.id);
 }
 
 export function updateChat(chat: any) {
   if (!chat) return;
-  
+
   // Update the main state
   State.chat = chat;
-  
+
   // Update UI elements to reflect the current chat state
   toggleMode(State.chat.mode);
   DOM.system_prompt.value = State.chat.system_prompt || "";
   DOM.tokens.innerText = String(State.chat.tokens || 0);
   DOM.msg_count.innerText = String(State.chat.msg_count || 0);
   DOM.seconds.innerText = (State.chat.seconds || 0).toFixed(1);
-  DOM.version.innerText = State.chat.model;
+  DOM.version.innerText = State.chat.version || "deepseek-chat";
+  DOM.agentMode.innerText = State.chat.agentMode || "transagent";
   DOM.model_select.value = State.chat.model;
   DOM.compress_box.checked = State.chat.compress_context || false;
 }
 
-export function initChat(chat: any = {}) {
-  State.chat = chat;
-  toggleMode(State.chat.mode);
-  DOM.system_prompt.value = State.chat.system_prompt || "";
-  DOM.tokens.innerText = String(State.chat.tokens || 0);
-  DOM.msg_count.innerText = String(State.chat.msg_count || 0);
-  DOM.seconds.innerText = (State.chat.seconds || 0).toFixed(1);
-  DOM.version.innerText = State.chat.model;
-  DOM.model_select.value = State.chat.model;
-  DOM.compress_box.checked = State.chat.compress_context || false;
+export async function selectChat(chatId: string) {
   const items = DOM.history_list.getElementsByClassName("history-item");
   Array.from(items).forEach((item: any) => {
-    if (item.id == chat.id) item.classList.add("active");
+    if (item.id == chatId) item.classList.add("active");
     else item.classList.remove("active");
   });
 }
 
-export async function selectChat(chatId: string) {
-  State.chat.id = chatId;
+export async function loadChat(chatId: string) {
   const chat = await window.electronAPI.loadChat(chatId);
-  initChat(chat);
+  updateChat(chat);
+  selectChat(chatId);
+}
+
+export async function handleloadChat(chat: any) {
+  updateChat(chat);
+  selectChat(chat.id);
 }
 
 export async function deleteChat(chatId: string) {

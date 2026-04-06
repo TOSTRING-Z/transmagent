@@ -6,6 +6,7 @@ import { LLMAssistant } from './LLMAssistant';
 import { LLMAdapterFactory, ToolCallAdapterFactory } from '../factories/AdapterFactory';
 import { BrowserWindow } from 'electron/main';
 import { Utils } from '../utils/Utils';
+import { copy, delay, getSessionId } from '../utils/public';
 
 export enum State {
     IDLE = 'idle',
@@ -129,11 +130,11 @@ export class ReActAgent {
                 if (output) return output;
 
                 count++;
-                await this.utils.delay(2);
+                await delay(2);
             } catch (err: any) {
                 console.error("Retry Error:", err);
                 count++;
-                await this.utils.delay(2);
+                await delay(2);
             }
         }
         return null;
@@ -171,13 +172,13 @@ export class ReActAgent {
 
         if (!baseResult) return null;
 
-        data.outputs.push(this.utils.copy(data.output));
+        data.outputs.push(copy(data.output));
 
         data.output_format = data.output_template
             ? this.formatTemplate(data.output_template, data)
             : data.output;
 
-        data.output_formats.push(this.utils.copy(data.output_format));
+        data.output_formats.push(copy(data.output_format));
         return baseResult;
     }
 
@@ -193,7 +194,7 @@ export class ReActAgent {
     }
 
     public getDataDefault(cdata: any = {}): any {
-        let data = this.utils.copy(cdata);
+        let data = copy(cdata);
         let defaults = {
             prompt: null,
             query: null,
@@ -226,7 +227,7 @@ export class ReActAgent {
     public newChat(id?: string): ChatState {
         this.window?.webContents.send('clear');
         this.initVar();
-        this.llmService.chatManager.init(undefined, id);
+        this.llmService.chatManager.chat.id = id || getSessionId();
         this.setHistory(this.llmService.chatManager.chat);
         return this.llmService.chatManager.chat;
     }
@@ -305,7 +306,7 @@ export class ReActAgent {
     }
 
     public getInfo(data: Record<string, any>): string {
-        const output_format = this.utils.copy(data.output_format);
+        const output_format = copy(data.output_format);
         data.output_format = data.output_format?.replaceAll("`", "\\`");
 
         let infoTemplate = this.utils.getConfig("info_template");

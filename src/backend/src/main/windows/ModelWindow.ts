@@ -1,6 +1,7 @@
 import { BrowserWindow, ipcMain } from 'electron';
 import { BaseWindow } from './BaseWindow';
 import { WindowManager } from './WindowManager';
+import { hashCode } from '../../utils/public';
 
 export class ModelWindow extends BaseWindow {
     constructor(windowManager: WindowManager) {
@@ -59,7 +60,7 @@ export class ModelWindow extends BaseWindow {
                         llm_params = version.llm_params;
                     }
                     models.push({
-                        id: this.utils().hashCode(`${name}-${version.version}`),
+                        id: hashCode(`${name}-${version.version}`),
                         name,
                         api_url: config_models[name].api_url,
                         api_key: config_models[name]?.api_key,
@@ -89,7 +90,7 @@ export class ModelWindow extends BaseWindow {
             // 先从旧位置移除（处理改名场景）
             for (const model_name in config_models) {
                 config_models[model_name].versions = config_models[model_name].versions.filter((v: any) => {
-                    return this.utils().hashCode(`${model_name}-${v.version}`) !== modelData.id;
+                    return hashCode(`${model_name}-${v.version}`) !== modelData.id;
                 });
                 if (config_models[model_name].versions.length === 0) delete config_models[model_name];
             }
@@ -132,7 +133,7 @@ export class ModelWindow extends BaseWindow {
 
             for (const name in config_models) {
                 config_models[name].versions = config_models[name].versions.filter((v: any) => {
-                    return this.utils().hashCode(`${name}-${v.version}`) !== id;
+                    return hashCode(`${name}-${v.version}`) !== id;
                 });
                 if (config_models[name].versions.length === 0) delete config_models[name];
             }

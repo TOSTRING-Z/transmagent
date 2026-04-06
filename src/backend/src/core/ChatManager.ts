@@ -5,7 +5,7 @@ import * as path from 'path';
 import { Message, ChatState, UserMessage, AssistantMessage, ToolMessage, LongTermMemory } from '../types';
 import { CHAT_CONST } from '../utils/globals';
 import { Utils } from '../utils/Utils';
-import { getSessionId } from '../utils/public';
+import { copy, getSessionId, parseJsonContent } from '../utils/public';
 
 export class ChatManager {
     public messages: Message[] = [];
@@ -18,7 +18,7 @@ export class ChatManager {
         this.utils = utils;
         this.chat = this.getChatInit(chatInitParams);
         this.uuid = this.getUUID();
-        this.init(messages);
+        this.initMessages(messages);
     }
 
     public getUUID(): string {
@@ -29,8 +29,7 @@ export class ChatManager {
         });
     }
 
-    public init(messages: Message[] = [], id?: string) {
-        this.chat = this.getChatInit({ id });
+    public initMessages(messages: Message[] = []) {
         this.messages = messages;
         this.tagSuccess = false;
         this.updateChat();
@@ -41,13 +40,13 @@ export class ChatManager {
     }
 
     public getMessages(all = true): Message[] {
-        if (all) return this.utils.copy(this.messages);
-        let msgs = this.utils.copy(this.messages.filter(message => !message?.del));
+        if (all) return copy(this.messages);
+        let msgs = copy(this.messages.filter(message => !message?.del));
         return msgs;
     }
 
     public compressContext(messages): Message[] {
-        let msgs = this.utils.copy(messages);
+        let msgs = copy(messages);
         const lastMessage = msgs[msgs.length - 1];
         if (this.chat.compress_context) {
             msgs = msgs.filter(message => {
@@ -241,7 +240,7 @@ export class ChatManager {
             if (!fs.existsSync(filePath)) {
                 return [];
             }
-            const data = this.utils.parseJsonContent(fs.readFileSync(filePath, "utf-8"));
+            const data = parseJsonContent(fs.readFileSync(filePath, "utf-8"));
             this.messages = data.messages;
             this.chat = this.getChatInit(data.chat as Partial<ChatState>);
             this.updateChat();
@@ -322,10 +321,10 @@ export class ChatManager {
 
     // 仅仅保留部分思考和调用工具名 (屏蔽过长内容节省 token)
     public delMessage(message: Message, truncateThinking = false): Message {
-        let message_copy = this.utils.copy(message);
+        let message_copy = copy(message);
         if (typeof message_copy.content !== 'string') return message_copy;
 
-        const content_parse = this.utils.parseJsonContent(message_copy.content);
+        const content_parse = parseJsonContent(message_copy.content);
         if (content_parse) {
             if (content_parse?.observation && message_copy.role === "user") {
                 message_copy.content = `Assistant called ${content_parse.tool_call} tool...[User deleted this record]`;

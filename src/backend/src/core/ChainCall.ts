@@ -5,6 +5,7 @@ import { LLMService } from './LLMService';
 import { PluginItem, Plugins } from './Plugins';
 import { Utils } from '../utils/Utils';
 import { BrowserWindow } from 'electron/main';
+import { copy } from '../utils/public';
 
 export class ChainCall extends ReActAgent {
     public plugins: Plugins;
@@ -32,7 +33,7 @@ export class ChainCall extends ReActAgent {
             return null;
         }
 
-        data.outputs.push(this.utils.copy(data.output));
+        data.outputs.push(copy(data.output));
 
         // 替换原有的 data.output_template.format(data)
         if (data.output_template) {
@@ -41,7 +42,7 @@ export class ChainCall extends ReActAgent {
             data.output_format = data.output;
         }
 
-        data.output_formats.push(this.utils.copy(data.output_format));
+        data.output_formats.push(copy(data.output_format));
 
         this.window?.webContents.send('streamData', { ...this.llmService.chatManager.chat, content: data.output_format, end: true, is_plugin: data.is_plugin, uuid: data.uuid });
     }
@@ -106,7 +107,7 @@ export class ChainCall extends ReActAgent {
             if (!currentChatName || currentChatName === CHAT_CONST.DEFAULT_NAME) {
                 this.setChatName(data).then(() => {
                     if (this.llmService.chatManager.chat.name && this.llmService.chatManager.chat.name !== CHAT_CONST.DEFAULT_NAME) {
-                        this.window?.webContents.send('handleAutoRenameChat', { ...this.llmService.chatManager.chat, uuid: data.uuid });
+                        this.window?.webContents.send('handleRenameChat', { ...this.llmService.chatManager.chat, uuid: data.uuid });
                     }
                 });
             }

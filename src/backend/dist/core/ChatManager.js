@@ -49,7 +49,7 @@ class ChatManager {
         this.utils = utils;
         this.chat = this.getChatInit(chatInitParams);
         this.uuid = this.getUUID();
-        this.init(messages);
+        this.initMessages(messages);
     }
     getUUID() {
         return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, function (c) {
@@ -58,8 +58,7 @@ class ChatManager {
             return v.toString(16);
         });
     }
-    init(messages = [], id) {
-        this.chat = this.getChatInit({ id });
+    initMessages(messages = []) {
         this.messages = messages;
         this.tagSuccess = false;
         this.updateChat();
@@ -69,12 +68,12 @@ class ChatManager {
     }
     getMessages(all = true) {
         if (all)
-            return this.utils.copy(this.messages);
-        let msgs = this.utils.copy(this.messages.filter(message => !message?.del));
+            return (0, public_1.copy)(this.messages);
+        let msgs = (0, public_1.copy)(this.messages.filter(message => !message?.del));
         return msgs;
     }
     compressContext(messages) {
-        let msgs = this.utils.copy(messages);
+        let msgs = (0, public_1.copy)(messages);
         const lastMessage = msgs[msgs.length - 1];
         if (this.chat.compress_context) {
             msgs = msgs.filter(message => {
@@ -253,7 +252,7 @@ class ChatManager {
             if (!fs.existsSync(filePath)) {
                 return [];
             }
-            const data = this.utils.parseJsonContent(fs.readFileSync(filePath, "utf-8"));
+            const data = (0, public_1.parseJsonContent)(fs.readFileSync(filePath, "utf-8"));
             this.messages = data.messages;
             this.chat = this.getChatInit(data.chat);
             this.updateChat();
@@ -339,10 +338,10 @@ class ChatManager {
     }
     // 仅仅保留部分思考和调用工具名 (屏蔽过长内容节省 token)
     delMessage(message, truncateThinking = false) {
-        let message_copy = this.utils.copy(message);
+        let message_copy = (0, public_1.copy)(message);
         if (typeof message_copy.content !== 'string')
             return message_copy;
-        const content_parse = this.utils.parseJsonContent(message_copy.content);
+        const content_parse = (0, public_1.parseJsonContent)(message_copy.content);
         if (content_parse) {
             if (content_parse?.observation && message_copy.role === "user") {
                 message_copy.content = `Assistant called ${content_parse.tool_call} tool...[User deleted this record]`;

@@ -4,6 +4,7 @@ exports.ChainCall = void 0;
 const ReActAgent_1 = require("./ReActAgent");
 const globals_1 = require("../utils/globals");
 const format_1 = require("../utils/format");
+const public_1 = require("../utils/public");
 class ChainCall extends ReActAgent_1.ReActAgent {
     plugins;
     constructor(plugins, llmService, window, utils) {
@@ -25,7 +26,7 @@ class ChainCall extends ReActAgent_1.ReActAgent {
         if (!data.output) {
             return null;
         }
-        data.outputs.push(this.utils.copy(data.output));
+        data.outputs.push((0, public_1.copy)(data.output));
         // 替换原有的 data.output_template.format(data)
         if (data.output_template) {
             data.output_format = (0, format_1.formatString)(data.output_template, data);
@@ -33,7 +34,7 @@ class ChainCall extends ReActAgent_1.ReActAgent {
         else {
             data.output_format = data.output;
         }
-        data.output_formats.push(this.utils.copy(data.output_format));
+        data.output_formats.push((0, public_1.copy)(data.output_format));
         this.window?.webContents.send('streamData', { ...this.llmService.chatManager.chat, content: data.output_format, end: true, is_plugin: data.is_plugin, uuid: data.uuid });
     }
     async step(data) {
@@ -86,7 +87,7 @@ class ChainCall extends ReActAgent_1.ReActAgent {
             if (!currentChatName || currentChatName === globals_1.CHAT_CONST.DEFAULT_NAME) {
                 this.setChatName(data).then(() => {
                     if (this.llmService.chatManager.chat.name && this.llmService.chatManager.chat.name !== globals_1.CHAT_CONST.DEFAULT_NAME) {
-                        this.window?.webContents.send('handleAutoRenameChat', { ...this.llmService.chatManager.chat, uuid: data.uuid });
+                        this.window?.webContents.send('handleRenameChat', { ...this.llmService.chatManager.chat, uuid: data.uuid });
                     }
                 });
             }

@@ -50,6 +50,7 @@ const ToolDSL_1 = require("../utils/ToolDSL");
 const logger_1 = require("../utils/logger");
 const WindowManager_1 = require("../main/windows/WindowManager");
 const LLMAssistant_1 = require("./LLMAssistant");
+const public_1 = require("../utils/public");
 const { all, any, not, always } = ToolDSL_1.ToolDSL;
 const { isSubagent, isMode, hasArg } = ToolDSL_1.Primitives;
 class ToolCall extends ReActAgent_1.ReActAgent {
@@ -86,11 +87,11 @@ class ToolCall extends ReActAgent_1.ReActAgent {
         env: true,
         skill: true,
         subagent: false,
-        agent_mode: "transagent",
+        agentMode: "transagent",
         agent_name: "TransMAgent",
     }) {
         super(llmService, window, utils);
-        this.llmService.chatManager.chat = llmService.chatManager.chat;
+        this.llmService = llmService;
         this.plugins = plugins;
         this.assistant = new LLMAssistant_1.LLMAssistant(llmService, plugins, utils);
         this.mcp_client = new McpClient_1.MCPClient(this);
@@ -115,7 +116,7 @@ class ToolCall extends ReActAgent_1.ReActAgent {
             system_arch: this.utils.getConfig("tool_call")?.system_arch || os.arch(),
             language: this.utils.getLanguage(),
             tmpdir: this.utils.getConfig("tool_call")?.tmpdir || os.tmpdir(),
-            time: this.utils.formatDate(),
+            time: (0, public_1.formatDate)(),
             mode: ReActAgent_1.Mode.ACT,
             mode_constraint: Prompts_1.MODE_CONSTRAINTS[ReActAgent_1.Mode.ACT],
             envs: null,
@@ -241,7 +242,7 @@ class ToolCall extends ReActAgent_1.ReActAgent {
         };
     }
     environmentUpdate(data) {
-        this.llmService.environment_details.time = this.utils.formatDate();
+        this.llmService.environment_details.time = (0, public_1.formatDate)();
         this.llmService.environment_details.language = data?.language || this.utils.getLanguage();
         const chatState = this.llmService.chatManager.chat;
         const envs = Object.keys(chatState.envs || {}).map(key => `- ${key}: ${chatState.envs[key]}`);
@@ -628,7 +629,7 @@ class ToolCall extends ReActAgent_1.ReActAgent {
             if (!currentChatName || currentChatName === globals_1.CHAT_CONST.DEFAULT_NAME) {
                 await this.setChatName(data).then(() => {
                     if (this.llmService.chatManager.chat.name && this.llmService.chatManager.chat.name !== globals_1.CHAT_CONST.DEFAULT_NAME) {
-                        this.window?.webContents.send('handleAutoRenameChat', { ...this.llmService.chatManager.chat, uuid: data.uuid });
+                        this.window?.webContents.send('handleRenameChat', { ...this.llmService.chatManager.chat, uuid: data.uuid });
                     }
                 });
             }

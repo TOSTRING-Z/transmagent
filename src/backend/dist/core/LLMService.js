@@ -13,10 +13,10 @@ class LLMService {
     adapter;
     utils;
     environment_details = {};
-    constructor(messages = [], window = null, utils) {
+    constructor(messages = [], window = null, utils, agentMode = "transagent") {
         this.window = window;
         this.utils = utils;
-        this.chatManager = new ChatManager_1.ChatManager(messages, {}, utils);
+        this.chatManager = new ChatManager_1.ChatManager(messages, { agentMode }, utils);
         this.adapter = AdapterFactory_1.LLMAdapterFactory.getAdapter("openai"); // 默认 API 适配器
     }
     stopLoop() {

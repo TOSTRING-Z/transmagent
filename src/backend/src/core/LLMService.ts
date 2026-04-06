@@ -3,7 +3,7 @@ import { logger } from '../utils/logger';
 
 import { LLMAdapterFactory } from '../factories/AdapterFactory';
 import { ILLMAdapter } from '../adapters/IAdapter';
-import { AssistantMessage, ChatRequestData, Message, MessageContent, UserMessage } from '../types';
+import { AgentMode, AssistantMessage, ChatRequestData, Message, MessageContent, UserMessage } from '../types';
 import { streamJSON, streamSse } from '../utils/stream';
 import { formatString } from '../utils/format'; // 原型扩展 format 的替代品
 import { BrowserWindow } from 'electron';
@@ -17,10 +17,10 @@ export class LLMService {
     public utils: Utils;
     public environment_details: any = {};
 
-    constructor(messages: Message[] = [], window: BrowserWindow | null = null, utils: Utils) {
+    constructor(messages: Message[] = [], window: BrowserWindow | null = null, utils: Utils, agentMode: AgentMode = "transagent") {
         this.window = window;
         this.utils = utils;
-        this.chatManager = new ChatManager(messages, {}, utils);
+        this.chatManager = new ChatManager(messages, { agentMode }, utils);
         this.adapter = LLMAdapterFactory.getAdapter("openai"); // 默认 API 适配器
     }
 

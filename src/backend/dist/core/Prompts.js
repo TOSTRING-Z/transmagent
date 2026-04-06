@@ -70,7 +70,7 @@ class Prompts {
         this.skillManager = new SkillManager_1.SkillManager();
     }
     getCliPrompt() {
-        if (this.toolCall.agentConfigs.agent_mode === "transagent") {
+        if (this.toolCall.agentConfigs.agentMode === "transagent") {
             try {
                 const cliPromptPath = this.toolCall.utils.getConfig("tool_call").cli_prompt || this.toolCall.utils.getDefault("prompts/cli_prompt.md");
                 if (fs.existsSync(cliPromptPath)) {
@@ -89,7 +89,7 @@ class Prompts {
     ;
     getExtraPrompt(extraPromptPath) {
         try {
-            extraPromptPath = extraPromptPath || this.toolCall.utils.getDefault(`prompts/${this.toolCall.agentConfigs.agent_mode}.md`);
+            extraPromptPath = extraPromptPath || this.toolCall.utils.getDefault(`prompts/${this.toolCall.agentConfigs.agentMode}.md`);
             if (fs.existsSync(extraPromptPath)) {
                 return fs.readFileSync(extraPromptPath, 'utf-8');
             }
@@ -119,12 +119,12 @@ class Prompts {
         const prompts = (() => {
             // 1. 提取核心状态标志，提升代码可读性，彻底消除三元表达式嵌套陷阱
             const isSubagent = !!this.toolCall.agentConfigs.subagent;
-            const isMultagent = this.toolCall.agentConfigs.agent_mode === "multagent";
+            const isMultagent = this.toolCall.agentConfigs.agentMode === "multagent";
             const hasTodolist = !!this.toolCall.agentConfigs.todolist;
             const hasEnv = !!this.toolCall.agentConfigs.env;
             const hasSkill = !!this.toolCall.agentConfigs.skill;
             const hasMemory = !isSubagent && this.toolCall.utils.getConfig('embedding')?.enabled;
-            const isTransagent = this.toolCall.agentConfigs.agent_mode === "transagent";
+            const isTransagent = this.toolCall.agentConfigs.agentMode === "transagent";
             const hasMcpServer = !!this.toolCall.agentConfigs.mcp_server;
             const usePromptFormat = this.toolCall.llmService.chatManager.chat.tool_format === 'prompt';
             // 2. 绝对安全的身份定义（避免由于配置丢失导致子代理越权的 Fallback 陷阱）

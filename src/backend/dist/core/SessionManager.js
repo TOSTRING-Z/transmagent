@@ -28,7 +28,7 @@ class SessionManager {
     /* 委托方法 */
     getAgentMode(sessionId) {
         const session = this.sessions.get(sessionId || this.activeSessionId);
-        return session.tool_call.agentConfigs.agent_mode;
+        return session.tool_call.agentConfigs.agentMode;
     }
     getChat(sessionId) {
         const session = this.sessions.get(sessionId || this.activeSessionId);
@@ -48,18 +48,23 @@ class SessionManager {
     /* 会话管理 */
     setActiveagentMode(agentMode) {
         globals_1.store.set('agentMode', agentMode);
-        const session = this.createSession();
-        if (this.activeSessionId)
-            this.sessions.set(this.activeSessionId, session);
     }
-    createSession() {
+    createSession(id) {
         let agentTools = {};
         let mcp_server = true;
         let skill = true;
         let agentMode = globals_1.store.get('agentMode', 'transagent');
+        if (id) {
+            const utilsTemp = new Utils_1.Utils('transagent');
+            const historyData = utilsTemp.getHistoryData();
+            const chat = historyData.data.find((item) => item.id === id);
+            if (chat?.agentMode) {
+                agentMode = chat.agentMode;
+            }
+        }
         const utils = new Utils_1.Utils(agentMode);
         const plugins = new Plugins_1.Plugins(utils);
-        const llmService = new LLMService_1.LLMService([], this.window, utils);
+        const llmService = new LLMService_1.LLMService([], this.window, utils, agentMode);
         const subAgent = new SubAgent_1.SubAgent(utils, llmService);
         if (agentMode === 'transagent' && utils.getConfig("tool_call")?.subagent) {
             agentTools = { "tool_manager": subAgent.getMainSubAgent()["tool_manager"] };
@@ -77,23 +82,21 @@ class SessionManager {
             env: true,
             skill: skill,
             subagent: false,
-            agent_mode: agentMode,
+            agentMode: agentMode,
             agent_name: "TransMAgent"
         });
         const chain_call = new ChainCall_1.ChainCall(plugins, llmService, this.window, utils);
         return { tool_call, chain_call, llmService, utils, plugins, subAgent };
     }
     addSession(id) {
-        const session = this.createSession();
+        const session = this.createSession(id);
         let sessionId;
         if (id) {
             sessionId = id;
         }
         else {
             sessionId = (0, public_1.getSessionId)();
-            this.window.webContents.send('clear');
-            session.tool_call.initVar();
-            session.llmService.chatManager.init(undefined, sessionId);
+            session.llmService.chatManager.chat.id = sessionId;
             const group_id = session.llmService.chatManager.chat.group_id;
             let uuid = session.tool_call.setUUID();
             this.window?.webContents.send('agentIdle', { group_id, uuid });

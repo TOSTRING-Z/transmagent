@@ -1,6 +1,6 @@
 import { ChatManager } from './ChatManager';
 import { ILLMAdapter } from '../adapters/IAdapter';
-import { ChatRequestData, Message } from '../types';
+import { AgentMode, ChatRequestData, Message } from '../types';
 import { BrowserWindow } from 'electron';
 import { Utils } from '../utils/Utils';
 export declare class LLMService {
@@ -10,7 +10,7 @@ export declare class LLMService {
     adapter: ILLMAdapter;
     utils: Utils;
     environment_details: any;
-    constructor(messages: Message[] | undefined, window: (BrowserWindow | null) | undefined, utils: Utils);
+    constructor(messages: Message[] | undefined, window: (BrowserWindow | null) | undefined, utils: Utils, agentMode?: AgentMode);
     stopLoop(): void;
     startLoop(): void;
     chatBase(data: ChatRequestData): Promise<Message | null>;

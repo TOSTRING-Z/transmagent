@@ -10,6 +10,7 @@ export interface ChatState {
     tokens: number;
     seconds: number;
     msg_count: number;
+    agentMode: "transagent" | "baseagent" | "multagent";
     envs: Record<string, any>;
     vars: Record<string, any>;
     model: string;

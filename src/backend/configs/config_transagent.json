@@ -49,7 +49,7 @@
     },
     "deepseek[openai]": {
       "api_url": "https://api.deepseek.com/",
-      "api_key": "",
+      "api_key": "sk-92f1044fa83a4eb9a26985e3fe2a7a24",
       "api_type": "openai",
       "versions": [
         {
@@ -173,7 +173,7 @@
   "tool_call": {
     "memory_length": 100,
     "long_memory_length": 200,
-    "max_tokens": 1e5,
+    "max_tokens": 100000,
     "mcp_timeout": 60,
     "extra_prompt": null,
     "cli_prompt": null,

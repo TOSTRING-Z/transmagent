@@ -37,6 +37,7 @@ exports.SubAgentWindow = void 0;
 const electron_1 = require("electron");
 const path = __importStar(require("path"));
 const ReActAgent_1 = require("../../core/ReActAgent");
+const public_1 = require("../../utils/public");
 class SubAgentWindow {
     agentToolName;
     agentTool;
@@ -108,14 +109,14 @@ class SubAgentWindow {
                         this.agentTool.tool_call.changeMode("auto");
                     }
                     if (this.llmService.utils.getConfig("tool_call")?.subagent_llm_init || this.windows.length > 1) {
-                        this.agentTool.tool_call.llmService.chatManager.init();
+                        this.agentTool.tool_call.llmService.chatManager.initMessages();
                     }
                     const mainChat = this.llmService.chatManager.chat;
                     this.agentTool.tool_call.llmService.chatManager.chat.tool_format = mainChat.tool_format;
                     this.agentTool.tool_call.llmService.startLoop();
                     let data = this.agentTool.tool_call.getDataDefault({ query, model: mainChat.model, version: mainChat.version });
                     data = await this.agentTool.tool_call.callReAct(data);
-                    const res_json = this.llmService.utils.parseJsonContent(data.output_format);
+                    const res_json = (0, public_1.parseJsonContent)(data.output_format);
                     resolve(res_json[0]?.content || data.output_format);
                 }
             });
@@ -133,7 +134,7 @@ class SubAgentWindow {
                 if (Object.prototype.hasOwnProperty.call(this.agentTools, name)) {
                     const agentTool = this.agentTools[name];
                     if (init)
-                        agentTool.tool_call.llmService.chatManager.init();
+                        agentTool.tool_call.llmService.chatManager.initMessages();
                     agentTool.tool_call.llmService.stopLoop();
                 }
             }

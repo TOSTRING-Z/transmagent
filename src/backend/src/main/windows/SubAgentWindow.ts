@@ -5,6 +5,7 @@ import { ToolCall } from '../../core/ToolCall';
 import { Mode } from '../../core/ReActAgent';
 import { AgentTool } from '../../core/SubAgent';
 import { LLMService } from '../../core/LLMService';
+import { parseJsonContent } from '../../utils/public';
 
 export class SubAgentWindow {
     public agentToolName?: string;
@@ -88,14 +89,14 @@ export class SubAgentWindow {
                     }
 
                     if (this.llmService.utils.getConfig("tool_call")?.subagent_llm_init || this.windows.length > 1) {
-                        this.agentTool.tool_call.llmService.chatManager.init();
+                        this.agentTool.tool_call.llmService.chatManager.initMessages();
                     }
                     const mainChat = this.llmService.chatManager.chat;
                     this.agentTool.tool_call.llmService.chatManager.chat.tool_format = mainChat.tool_format;
                     this.agentTool.tool_call.llmService.startLoop();
                     let data = this.agentTool.tool_call.getDataDefault({ query, model: mainChat.model, version: mainChat.version });
                     data = await this.agentTool.tool_call.callReAct(data);
-                    const res_json = this.llmService.utils.parseJsonContent(data.output_format);
+                    const res_json = parseJsonContent(data.output_format);
                     resolve(res_json[0]?.content || data.output_format);
                 }
             });
@@ -115,7 +116,7 @@ export class SubAgentWindow {
             for (const name in this.agentTools) {
                 if (Object.prototype.hasOwnProperty.call(this.agentTools, name)) {
                     const agentTool = this.agentTools[name];
-                    if (init) agentTool.tool_call.llmService.chatManager.init();
+                    if (init) agentTool.tool_call.llmService.chatManager.initMessages();
                     agentTool.tool_call.llmService.stopLoop();
                 }
             }

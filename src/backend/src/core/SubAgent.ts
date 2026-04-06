@@ -82,7 +82,7 @@ export class SubAgent {
 
         const tool_call = new ToolCall(
             this.plugins, normalizedTools, llmService, null, this.utils,
-            { agent_prompt, subagent: true, todolist, env, skill, mcp_server, agent_name: tool_name, agent_mode: store.get('agentMode', 'transagent') },
+            { agent_prompt, subagent: true, todolist, env, skill, mcp_server, agent_name: tool_name, agentMode: store.get('agentMode', 'transagent') },
         );
 
         this.agentTools[tool_name] = {

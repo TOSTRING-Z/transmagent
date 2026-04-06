@@ -8,7 +8,7 @@ export declare class ChatManager {
     utils: Utils;
     constructor(messages: Message[] | undefined, chatInitParams: Partial<ChatState> | undefined, utils: Utils);
     getUUID(): string;
-    init(messages?: Message[], id?: string): void;
+    initMessages(messages?: Message[]): void;
     updateChat(): void;
     getMessages(all?: boolean): Message[];
     compressContext(messages: any): Message[];

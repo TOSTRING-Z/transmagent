@@ -21,7 +21,7 @@ export interface AgentConfigs {
     env?: boolean;
     skill?: boolean;
     subagent?: boolean;
-    agent_mode: "transagent" | "multagent" | "baseagent";
+    agentMode: "transagent" | "multagent" | "baseagent";
     agent_name?: string;
     tool_format?: string;
 }

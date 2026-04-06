@@ -40,7 +40,7 @@ export class SessionManager {
 
     getAgentMode(sessionId?: string): AgentMode {
         const session: Session = this.sessions.get(sessionId || this.activeSessionId);
-        return session.tool_call.agentConfigs.agent_mode;
+        return session.tool_call.agentConfigs.agentMode;
     }
 
     getChat(sessionId?: string): ChatState | null {
@@ -64,20 +64,26 @@ export class SessionManager {
 
     setActiveagentMode(agentMode: AgentMode) {
         store.set('agentMode', agentMode);
-        const session = this.createSession();
-        if (this.activeSessionId)
-            this.sessions.set(this.activeSessionId, session);
     }
 
-    createSession() {
+    createSession(id?: string): Session {
         let agentTools = {};
         let mcp_server = true;
         let skill = true;
         let agentMode: AgentMode = store.get('agentMode', 'transagent');
 
+        if (id) {
+            const utilsTemp = new Utils('transagent');
+            const historyData = utilsTemp.getHistoryData();
+            const chat = historyData.data.find((item: any) => item.id === id);
+            if (chat?.agentMode) {
+                agentMode = chat.agentMode;
+            }
+        }
+
         const utils = new Utils(agentMode);
         const plugins = new Plugins(utils);
-        const llmService = new LLMService([], this.window, utils);
+        const llmService = new LLMService([], this.window, utils, agentMode);
         const subAgent = new SubAgent(utils, llmService);
 
         if (agentMode === 'transagent' && utils.getConfig("tool_call")?.subagent) {
@@ -98,24 +104,23 @@ export class SessionManager {
             env: true,
             skill: skill,
             subagent: false,
-            agent_mode: agentMode,
+            agentMode: agentMode,
             agent_name: "TransMAgent"
         });
 
         const chain_call = new ChainCall(plugins, llmService, this.window, utils);
+
         return { tool_call, chain_call, llmService, utils, plugins, subAgent };
     }
 
     addSession(id?: string) {
-        const session = this.createSession();
+        const session = this.createSession(id);
         let sessionId: string;
         if (id) {
             sessionId = id;
         } else {
             sessionId = getSessionId();
-            this.window.webContents.send('clear');
-            session.tool_call.initVar();
-            session.llmService.chatManager.init(undefined, sessionId);
+            session.llmService.chatManager.chat.id = sessionId;
             const group_id = session.llmService.chatManager.chat.group_id;
             let uuid = session.tool_call.setUUID();
             this.window?.webContents.send('agentIdle', { group_id, uuid });

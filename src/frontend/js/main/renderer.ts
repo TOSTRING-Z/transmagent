@@ -1,7 +1,7 @@
 import { DOM } from './globals';
 import { State, ChatState } from './state';
 import { init_size, autoResizeTextarea, handleClear, showLog, toggleMode, toggleSidebar, updateProgress, hideRenameDialog } from './ui';
-import { addChatItem, handleNewChat, selectChat, deleteChat, renameChat, confirmRename, showHistoryMenu, initChat, updateChat } from './history';
+import { addChatItem, handleNewChat, deleteChat, renameChat, confirmRename, showHistoryMenu, updateChat, loadChat, handleloadChat } from './history';
 import { initConfigEvents, showConfig, saveConfig, hideConfig } from './config';
 import { userData, infoData, streamData, startAgentLoop, toolData, enterEnd } from './chat';
 import { initMermaid } from './markdown';
@@ -155,7 +155,7 @@ window.electronAPI.handleDeleteMemory(({ context_ids, ids }) => {
 });
 
 window.electronAPI.initInfo((data) => {
-  initChat(data as ChatState);
+  updateChat(data as ChatState);
   DOM.history_list.innerHTML = ""; // Clear list before adding
   data.chats.forEach((chat: any) => addChatItem(chat));
 });
@@ -306,15 +306,15 @@ window.electronAPI.uploadProgress((info) => updateProgress(info));
 
 window.electronAPI.handleNewChat((chat) => handleNewChat(chat));
 
-window.electronAPI.handleSelectChat((chat) => selectChat(chat.id));
+window.electronAPI.handleSetChat(async (chat) => updateChat(chat));
 
-window.electronAPI.handleSetChat(async (chat) => initChat(chat));
+window.electronAPI.handleloadChat(async (chat) => handleloadChat(chat));
 
-window.electronAPI.handleAutoRenameChat(async (data) => {
-  await window.electronAPI.renameChat({ id: State.chat.id, name: data.name });
+window.electronAPI.handleRenameChat(async (data) => {
+  await window.electronAPI.renameChat({ id: data.id, name: data.name });
   const items = DOM.history_list.getElementsByClassName("history-item");
   Array.from(items).forEach((item: any) => {
-    if (item.id == State.chat.id)
+    if (item.id == data.id)
       (item.getElementsByClassName("history-text")[0] as HTMLElement).innerText = data.name;
   });
 });
@@ -325,7 +325,7 @@ window.electronAPI.handleAutoRenameChat(async (data) => {
 (window as any).showConfig = showConfig;
 (window as any).confirmRename = confirmRename;
 (window as any).hideRenameDialog = hideRenameDialog;
-(window as any).selectChat = selectChat;
+(window as any).loadChat = loadChat;
 (window as any).renameChat = renameChat;
 (window as any).deleteChat = deleteChat;
 (window as any).showHistoryMenu = showHistoryMenu;

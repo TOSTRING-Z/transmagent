@@ -35,11 +35,11 @@ export interface ElectronAPI {
   newChat: () => Promise<any>;
   handleNewChat: (callback: (chat: any) => void) => void;
   loadChat: (chatId: string) => Promise<any>;
-  handleSelectChat: (callback: (chat: any) => void) => void;
   handleSetChat: (callback: (chat: any) => void) => void;
+  handleloadChat: (callback: (chat: any) => void) => void;
   delChat: (chatId: string) => Promise<void>;
   renameChat: (data: { id: string; name: string }) => Promise<void>;
-  handleAutoRenameChat: (callback: (chat: any) => void) => void;
+  handleRenameChat: (callback: (chat: any) => void) => void;
   // subagent
   windowInfo: (callback: (data: any) => void) => void;
   minimizeWindow: (info: Record<string, any>) => void;

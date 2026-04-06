@@ -5,6 +5,7 @@ const LLMService_1 = require("./LLMService");
 const ReActAgent_1 = require("./ReActAgent");
 const AdapterFactory_1 = require("../factories/AdapterFactory");
 const logger_1 = require("../utils/logger");
+const public_1 = require("../utils/public");
 /**
  * LLMAssistant - LLM对话辅助功能类
  * 统一管理压缩对话、设置聊天名称、工具审计等LLM交互功能
@@ -99,7 +100,7 @@ class LLMAssistant {
     // ==================== 聊天命名功能 ====================
     async setChatName(_data = {}) {
         if (_data?.is_plugin) {
-            this.llmService.chatManager.chat.name = this.utils.formatDate();
+            this.llmService.chatManager.chat.name = (0, public_1.formatDate)();
             return;
         }
         const react_agent = this.createTempAgent();
@@ -128,7 +129,7 @@ STRICT RULES:
             const adapter = AdapterFactory_1.ToolCallAdapterFactory.getAdapter(format);
             const rawContent = adapter.extractText(messageOutput);
             const chatName = rawContent.split("\n")[0].trim();
-            this.llmService.chatManager.chat.name = chatName || this.utils.formatDate();
+            this.llmService.chatManager.chat.name = chatName || (0, public_1.formatDate)();
         }
     }
     // ==================== 工具审计功能 ====================

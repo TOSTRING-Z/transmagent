@@ -54,7 +54,7 @@ class SubAgent {
         llmService.chatManager.chat.id = null;
         llmService.chatManager.chat.name = tool_name;
         const normalizedTools = this.normalizeTools(tools);
-        const tool_call = new ToolCall_1.ToolCall(this.plugins, normalizedTools, llmService, null, this.utils, { agent_prompt, subagent: true, todolist, env, skill, mcp_server, agent_name: tool_name, agent_mode: globals_1.store.get('agentMode', 'transagent') });
+        const tool_call = new ToolCall_1.ToolCall(this.plugins, normalizedTools, llmService, null, this.utils, { agent_prompt, subagent: true, todolist, env, skill, mcp_server, agent_name: tool_name, agentMode: globals_1.store.get('agentMode', 'transagent') });
         this.agentTools[tool_name] = {
             tool_call,
             func: async ({ query }) => await this.query(query, tool_name),
