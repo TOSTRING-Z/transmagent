@@ -15,15 +15,16 @@ export interface Observation {
     subagent_tool?: boolean;
 }
 export interface AgentConfigs {
-    agent_prompt?: string | null;
-    mcp_server?: boolean;
+    agentPrompt?: string | null;
+    mcpTool?: boolean;
+    mcpPrompt?: boolean;
     todolist?: boolean;
     env?: boolean;
     skill?: boolean;
     subagent?: boolean;
     agentMode: "transagent" | "multagent" | "baseagent";
-    agent_name?: string;
-    tool_format?: "toolcalls" | "prompt";
+    agentName?: string;
+    toolFormat?: "toolcalls" | "prompt";
 }
 export interface EnvironmentDetails {
     system_platform: string;

@@ -22,8 +22,9 @@ export declare class SessionManager {
     private sessions;
     constructor(window: BrowserWindow);
     getAgentMode(sessionId?: string): AgentMode;
-    getChat(sessionId?: string): ChatState | null;
-    setChat(chat: Partial<ChatState>, sessionId?: string): void;
+    getChat(id?: string): ChatState | undefined;
+    setChat(chat: ChatState): void;
+    setSessionChat(chat: Partial<ChatState>, id?: string): void;
     setActiveagentMode(agentMode: AgentMode): void;
     createSession(id?: string, agentMode?: AgentMode): Session;
     updateSession(id?: string): string;

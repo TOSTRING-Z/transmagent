@@ -16,7 +16,8 @@ export interface SubAgentOptions {
     todolist?: boolean;
     env?: boolean;
     skill?: boolean;
-    mcp_server?: boolean;
+    mcpTool?: boolean;
+    mcpPrompt?: boolean;
 }
 export declare class SubAgent {
     utils: Utils;

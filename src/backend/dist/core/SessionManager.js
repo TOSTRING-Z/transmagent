@@ -30,12 +30,37 @@ class SessionManager {
         const session = this.sessions.get(sessionId || this.activeSessionId);
         return session.tool_call.agentConfigs.agentMode;
     }
-    getChat(sessionId) {
-        const session = this.sessions.get(sessionId || this.activeSessionId);
-        return session ? session.llmService.chatManager.chat : null;
+    getChat(id) {
+        if (id) {
+            // 检查当前会话列表中是否存在该ID
+            if (id in this.sessions) {
+                const session = this.sessions.get(id);
+                return session.llmService.chatManager.chat;
+            }
+            else {
+                // 读取本地文件
+                const chat = (0, public_1.getHistoryChat)(id);
+                return chat;
+            }
+        }
+        else {
+            const session = this.sessions.get(this.activeSessionId);
+            return session.llmService.chatManager.chat;
+        }
     }
-    setChat(chat, sessionId) {
-        const session = this.sessions.get(sessionId || this.activeSessionId);
+    setChat(chat) {
+        // 检查当前会话列表中是否存在该ID
+        if (chat.id in this.sessions) {
+            const session = this.sessions.get(chat.id);
+            session.llmService.chatManager.chat = chat;
+        }
+        else {
+            // 保存本地文件
+            (0, public_1.setHistory)(chat);
+        }
+    }
+    setSessionChat(chat, id) {
+        const session = this.sessions.get(id || this.activeSessionId);
         if (session) {
             Object.keys(chat).forEach(key => {
                 const value = chat[key];
@@ -66,7 +91,8 @@ class SessionManager {
     }
     createSession(id, agentMode) {
         let agentTools = {};
-        let mcp_server = true;
+        let mcpTool = false;
+        let mcpPrompt = false;
         let skill = true;
         if (!agentMode) {
             agentMode = globals_1.store.get('agentMode', 'transagent');
@@ -89,20 +115,21 @@ class SessionManager {
             agentTools = { "tool_manager": subAgent.getMainSubAgent()["tool_manager"] };
         }
         if (agentMode === 'multagent') {
-            mcp_server = false;
+            mcpTool = false;
             skill = false;
             agentTools = { ...subAgent.getAgentTools() };
         }
         agentTools["deep_researcher"] = subAgent.getMainSubAgent()["deep_researcher"];
         const tool_call = new ToolCall_1.ToolCall(plugins, agentTools, llmService, this.window, utils, {
-            agent_prompt: null,
-            mcp_server: mcp_server,
+            agentPrompt: null,
+            mcpTool: mcpTool,
+            mcpPrompt: mcpPrompt,
             todolist: true,
             env: true,
             skill: skill,
             subagent: false,
             agentMode: agentMode,
-            agent_name: "TransMAgent"
+            agentName: "TransMAgent"
         });
         const chain_call = new ChainCall_1.ChainCall(plugins, llmService, this.window, utils);
         return { tool_call, chain_call, llmService, utils, plugins, subAgent };

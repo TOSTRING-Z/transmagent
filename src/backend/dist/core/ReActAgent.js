@@ -94,18 +94,6 @@ class ReActAgent {
         this.utils.setHistoryData(history_data);
         this.utils.deleteFile(history_path);
     }
-    renameHistory(chat) {
-        if (this.llmService.chatManager.chat.id === chat.id) {
-            this.llmService.chatManager.chat.name = chat.name;
-        }
-        let history_data = this.utils.getHistoryData();
-        history_data.data = history_data.data.map((h) => {
-            if (h.id === chat.id)
-                h.name = chat.name;
-            return h;
-        });
-        this.utils.setHistoryData(history_data);
-    }
     async retry(func, data) {
         let retry_time = this.utils.getConfig("retry_time") || 3;
         let count = 0;

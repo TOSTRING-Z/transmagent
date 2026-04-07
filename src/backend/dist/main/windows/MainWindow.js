@@ -421,7 +421,7 @@ class MainWindow extends BaseWindow_1.BaseWindow {
         });
         electron_1.ipcMain.handle('envs', (_, data) => {
             if (data.type === "set") {
-                this.sessionManager.setChat({ envs: data.envs });
+                this.sessionManager.setSessionChat({ envs: data.envs });
                 this.session().tool_call.setHistory();
                 return true;
             }
@@ -433,7 +433,7 @@ class MainWindow extends BaseWindow_1.BaseWindow {
             if (data.type === "set") {
                 let vars = this.sessionManager.getChat()?.vars || {};
                 vars.tasks = data.tasks;
-                this.sessionManager.setChat({ vars });
+                this.sessionManager.setSessionChat({ vars });
                 this.session().tool_call.setHistory();
                 return true;
             }
@@ -442,11 +442,16 @@ class MainWindow extends BaseWindow_1.BaseWindow {
             }
         });
         electron_1.ipcMain.on('setChat', (_, chat) => {
-            this.sessionManager.setChat({ seconds: chat.seconds });
+            this.sessionManager.setSessionChat({ seconds: chat.seconds });
             if (chat.compress_context !== undefined) {
-                this.sessionManager.setChat({ compress_context: chat.compress_context });
+                this.sessionManager.setSessionChat({ compress_context: chat.compress_context });
             }
             this.session().tool_call.setHistory();
+        });
+        electron_1.ipcMain.on('renameChat', (_, chat) => {
+            const hintChat = this.sessionManager.getChat(chat.id);
+            if (hintChat)
+                this.sessionManager.setChat(hintChat);
         });
         electron_1.ipcMain.on('show-log', (_, data) => this.windowManager.alertWindow?.create(data));
     }
@@ -552,7 +557,7 @@ class MainWindow extends BaseWindow_1.BaseWindow {
             checked: this.sessionManager.getChat()?.model === _model,
             click: () => {
                 const modelConfig = this.session().utils.getConfig("models")[_model];
-                this.sessionManager.setChat({
+                this.sessionManager.setSessionChat({
                     model: _model,
                     is_plugin: _model === "plugins",
                     version: modelConfig?.versions[0].version,
@@ -586,7 +591,7 @@ class MainWindow extends BaseWindow_1.BaseWindow {
                 type: 'radio',
                 checked: this.sessionManager.getChat()?.version === _version,
                 click: () => {
-                    this.sessionManager.setChat({ version: _version });
+                    this.sessionManager.setSessionChat({ version: _version });
                     this.window?.webContents.send("handleSetChat", this.sessionManager.getChat());
                     if (this.session().tool_call.setHistory)
                         this.session().tool_call.setHistory();
@@ -609,7 +614,7 @@ class MainWindow extends BaseWindow_1.BaseWindow {
                         checked: this.sessionManager.getChat()?.tool_format === 'toolcalls',
                         label: 'ToolCalls (Native API)',
                         click: () => {
-                            this.sessionManager.setChat({ tool_format: 'toolcalls' });
+                            this.sessionManager.setSessionChat({ tool_format: 'toolcalls' });
                             let config = this.session().utils.getConfig();
                             config.default.tool_format = 'toolcalls';
                             this.session().utils.setConfig(config);
@@ -624,7 +629,7 @@ class MainWindow extends BaseWindow_1.BaseWindow {
                         checked: this.sessionManager.getChat()?.tool_format === 'prompt',
                         label: 'Prompt (Parse JSON)',
                         click: () => {
-                            this.sessionManager.setChat({ tool_format: 'prompt' });
+                            this.sessionManager.setSessionChat({ tool_format: 'prompt' });
                             let config = this.session().utils.getConfig();
                             config.default.tool_format = 'prompt';
                             this.session().utils.setConfig(config);
@@ -727,7 +732,7 @@ class MainWindow extends BaseWindow_1.BaseWindow {
                             this.session().tool_call.initVar();
                             const chat_id = this.sessionManager.getChat()?.id;
                             this.session().llmService.chatManager.initMessages();
-                            this.sessionManager.setChat({ id: chat_id });
+                            this.sessionManager.setSessionChat({ id: chat_id });
                             this.session().tool_call.changeMode();
                             this.updateVersionsSubmenu();
                             this.window?.webContents.send('handleSetChat', this.sessionManager.getChat());
@@ -824,7 +829,7 @@ class MainWindow extends BaseWindow_1.BaseWindow {
             }
             else {
                 const system_prompt = fs.readFileSync(filePath, 'utf-8');
-                this.sessionManager.setChat({ system_prompt });
+                this.sessionManager.setSessionChat({ system_prompt });
                 this.window?.webContents.send('prompt', system_prompt);
             }
             this.session().utils.setConfig(config);

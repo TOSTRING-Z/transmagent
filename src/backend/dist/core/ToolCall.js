@@ -80,14 +80,15 @@ class ToolCall extends ReActAgent_1.ReActAgent {
     llmAssistant;
     tool_schemas;
     constructor(plugins, agentTools = {}, llmService, window, utils, agentConfigs = {
-        agent_prompt: null,
-        mcp_server: true,
+        agentPrompt: null,
+        mcpTool: true,
+        mcpPrompt: true,
         todolist: true,
         env: true,
         skill: true,
         subagent: false,
         agentMode: "transagent",
-        agent_name: "TransMAgent",
+        agentName: "TransMAgent",
     }) {
         super(llmService, window, utils);
         this.llmService = llmService;
@@ -140,7 +141,7 @@ class ToolCall extends ReActAgent_1.ReActAgent {
         // 在这里声明每个工具在什么条件下允许被使用
         const TOOL_POLICY = {
             'update_env': all(hasArg('env'), not(isMode('PLAN'))),
-            'mcp_server': all(hasArg('mcp_server'), not(isMode('PLAN'))),
+            'mcpTool': all(hasArg('mcpTool'), not(isMode('PLAN'))),
             'add_subtasks': all(hasArg('todolist'), not(any(isMode('PLAN'), isMode('FLASH')))),
             'record_subtasks': all(hasArg('todolist'), not(any(isMode('PLAN'), isMode('FLASH')))),
             'context_retrieval': not(isSubagent),

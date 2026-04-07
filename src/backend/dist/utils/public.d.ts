@@ -1,3 +1,4 @@
+import { ChatState } from '../types';
 export declare const hashCode: (str: string) => string;
 export declare const extractJson: (text: string) => string | null;
 export declare const parseJsonContent: (content: string) => any;
@@ -14,3 +15,12 @@ export declare const getLanguage: () => string;
 export declare const formatDate: () => string;
 export declare const copy: <T>(data: T) => T;
 export declare const getSessionId: () => string;
+export declare const getDefaultConfig: (key?: string | null, config_name?: string | null) => any;
+export declare const getDefaultHistoryConfigPath: () => string;
+export declare const getDefaultHistoryPath: (id: string) => string | null;
+export declare const readJsonFile: (filePath: string) => any;
+export declare const writeFile: (filePath: string, data: string | object) => Promise<void>;
+export declare const getHistoryChat: (id: any) => ChatState | undefined;
+export declare const setHistory: (chat: any) => boolean;
+export declare const setHistoryChat: (chat: any) => boolean;
+export declare const setHistoryConfig: (chat: ChatState) => boolean;

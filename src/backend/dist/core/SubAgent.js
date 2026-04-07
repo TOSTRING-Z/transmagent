@@ -49,12 +49,12 @@ class SubAgent {
         return normalized;
     }
     addAgentTool(tool_name, query_prompt, agent_description, agent_prompt, tools, options = {}, mainSubAgent = false) {
-        const { todolist = true, env = true, skill = true, mcp_server = false } = options;
+        const { todolist = true, env = true, skill = true, mcpTool = false } = options;
         const llmService = new LLMService_1.LLMService(undefined, null, this.utils);
         llmService.chatManager.chat.id = null;
         llmService.chatManager.chat.name = tool_name;
         const normalizedTools = this.normalizeTools(tools);
-        const toolCall = new ToolCall_1.ToolCall(this.plugins, normalizedTools, llmService, null, this.utils, { agent_prompt, subagent: true, todolist, env, skill, mcp_server, agent_name: tool_name, agentMode: globals_1.store.get('agentMode', 'transagent') });
+        const toolCall = new ToolCall_1.ToolCall(this.plugins, normalizedTools, llmService, null, this.utils, { agentPrompt: agent_prompt, subagent: true, todolist, env, skill, mcpTool: mcpTool, agentName: tool_name, agentMode: globals_1.store.get('agentMode', 'transagent') });
         this.agentTools[tool_name] = {
             toolCall,
             func: async ({ query, toolCall }) => await this.query(query, tool_name, toolCall),
@@ -94,7 +94,7 @@ class SubAgent {
                     web_crawler_toolkit: this.plugins.getTool("web_crawler_toolkit"),
                     browser_client: this.plugins.getTool("browser_client"),
                 }),
-                options: { todolist: false, env: false, skill: false, mcp_server: false },
+                options: { todolist: false, env: false, skill: false, mcpTool: false, mcpPrompt: false },
                 isMain: false
             },
             {
@@ -103,7 +103,7 @@ class SubAgent {
                     web_crawler_toolkit: this.plugins.getTool("web_crawler_toolkit"),
                     url_summarizer: this.agentTools["url_summarizer"]
                 }),
-                options: { todolist: false, env: false, skill: false, mcp_server: false },
+                options: { todolist: false, env: false, skill: false, mcpTool: false, mcpPrompt: false },
                 isMain: false
             },
             {
@@ -112,7 +112,7 @@ class SubAgent {
                     error_solution_search: this.plugins.getTool("error_solution_search"),
                     web_searcher: this.agentTools["web_searcher"],
                 }),
-                options: { todolist: false, env: false, skill: false, mcp_server: false },
+                options: { todolist: false, env: false, skill: false, mcpTool: false, mcpPrompt: false },
                 isMain: false
             },
             {
@@ -125,7 +125,7 @@ class SubAgent {
                     replace_in_file: this.plugins.getTool("replace_in_file"),
                     image_vision: this.plugins.getTool("image_vision"),
                 }),
-                options: { todolist: false, env: true, skill: false, mcp_server: false },
+                options: { todolist: false, env: true, skill: false, mcpTool: false, mcpPrompt: false },
                 isMain: true
             },
             {
@@ -134,7 +134,7 @@ class SubAgent {
                     web_crawler_toolkit: this.plugins.getTool("web_crawler_toolkit"),
                     url_summarizer: this.agentTools["url_summarizer"]
                 }),
-                options: { todolist: false, env: false, skill: false, mcp_server: false },
+                options: { todolist: false, env: false, skill: false, mcpTool: false, mcpPrompt: false },
                 isMain: false
             },
             {
@@ -149,7 +149,7 @@ class SubAgent {
                     tool_documentation_collector: this.agentTools["tool_documentation_collector"],
                     error_solution_finder: this.agentTools["error_solution_finder"],
                 }),
-                options: { todolist: false, env: true, skill: false, mcp_server: false },
+                options: { todolist: false, env: true, skill: false, mcpTool: true, mcpPrompt: false },
                 isMain: true
             },
             {
@@ -157,7 +157,7 @@ class SubAgent {
                 getTools: () => this.normalizeTools({
                     read_tools_prompt: this.plugins.getTool("read_tools_prompt"),
                 }),
-                options: { todolist: true, env: true, skill: false, mcp_server: false },
+                options: { todolist: true, env: true, skill: false, mcpTool: false, mcpPrompt: false },
                 isMain: true
             },
             {
@@ -172,7 +172,7 @@ class SubAgent {
                     chart_plotter: this.agentTools["chart_plotter"],
                     web_searcher: this.agentTools["web_searcher"],
                 }),
-                options: { todolist: false, env: true, skill: false, mcp_server: false },
+                options: { todolist: false, env: true, skill: false, mcpTool: true, mcpPrompt: false },
                 isMain: true
             },
             {
@@ -183,7 +183,7 @@ class SubAgent {
                     browser_client: this.plugins.getTool("browser_client"),
                     url_summarizer: this.agentTools["url_summarizer"],
                 }),
-                options: { todolist: false, env: true, skill: false, mcp_server: false },
+                options: { todolist: false, env: true, skill: false, mcpTool: false, mcpPrompt: false },
                 isMain: true
             },
         ];

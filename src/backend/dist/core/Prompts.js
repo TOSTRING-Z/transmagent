@@ -125,17 +125,17 @@ class Prompts {
             const hasSkill = !!this.toolCall.agentConfigs.skill;
             const hasMemory = !isSubagent && this.toolCall.utils.getConfig('embedding')?.enabled;
             const isTransagent = this.toolCall.agentConfigs.agentMode === "transagent";
-            const hasMcpServer = !!this.toolCall.agentConfigs.mcp_server;
+            const hasMcpPrompt = !!this.toolCall.agentConfigs.mcpPrompt;
             const usePromptFormat = this.toolCall.llmService.chatManager.chat.tool_format === 'prompt';
             // 2. 绝对安全的身份定义
             let identityPrompt = "";
             if (isSubagent) {
-                identityPrompt = this.toolCall.agentConfigs.agent_prompt || `You are **${this.toolCall.agentConfigs.agent_name}**, a specialized execution sub-agent. Your sole purpose is to execute your assigned tasks efficiently and return the results without attempting to orchestrate other agents.`;
+                identityPrompt = this.toolCall.agentConfigs.agentPrompt || `You are **${this.toolCall.agentConfigs.agentName}**, a specialized execution sub-agent. Your sole purpose is to execute your assigned tasks efficiently and return the results without attempting to orchestrate other agents.`;
             }
             else {
                 identityPrompt = isMultagent
-                    ? `You are **${this.toolCall.agentConfigs.agent_name}**, an elite bioinformatics and workflow orchestration assistant. You coordinate specialized sub-agents to solve complex scientific and engineering problems.`
-                    : `You are **${this.toolCall.agentConfigs.agent_name}**, a versatile, high-efficiency AI assistant capable of solving complex user requests through strategic tool usage.`;
+                    ? `You are **${this.toolCall.agentConfigs.agentName}**, an elite bioinformatics and workflow orchestration assistant. You coordinate specialized sub-agents to solve complex scientific and engineering problems.`
+                    : `You are **${this.toolCall.agentConfigs.agentName}**, a versatile, high-efficiency AI assistant capable of solving complex user requests through strategic tool usage.`;
             }
             // 3. 构建完整的 Prompt 模板
             return `${identityPrompt}
@@ -293,7 +293,7 @@ ${(!isSubagent && isTransagent) ? `
 {cli_prompt}
 ` : ""}
 
-${hasMcpServer ? `
+${hasMcpPrompt ? `
 ## MCP Services
 **Note**: Use \`mcp_server\` to access these external tools.
 {mcp_prompt}

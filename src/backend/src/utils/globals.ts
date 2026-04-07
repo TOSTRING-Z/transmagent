@@ -1,7 +1,6 @@
 import * as fs from 'fs';
 import * as path from 'path';
 import * as os from 'os';
-import { Utils } from '../core/Utils';
 
 function createStore() {
     const configPath = path.join(os.homedir(), '.transmagent', 'story.json');

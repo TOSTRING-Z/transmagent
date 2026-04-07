@@ -30,15 +30,16 @@ export interface Observation {
 }
 
 export interface AgentConfigs {
-    agent_prompt?: string | null;
-    mcp_server?: boolean;
+    agentPrompt?: string | null;
+    mcpTool?: boolean;
+    mcpPrompt?: boolean;
     todolist?: boolean;
     env?: boolean;
     skill?: boolean;
     subagent?: boolean;
     agentMode: "transagent" | "multagent" | "baseagent";
-    agent_name?: string;
-    tool_format?: "toolcalls" | "prompt";
+    agentName?: string;
+    toolFormat?: "toolcalls" | "prompt";
 }
 
 export interface EnvironmentDetails {
@@ -88,14 +89,15 @@ export class ToolCall extends ReActAgent {
         window: BrowserWindow | null,
         utils: Utils,
         agentConfigs: AgentConfigs = {
-            agent_prompt: null,
-            mcp_server: true,
+            agentPrompt: null,
+            mcpTool: true,
+            mcpPrompt: true,
             todolist: true,
             env: true,
             skill: true,
             subagent: false,
             agentMode: "transagent",
-            agent_name: "TransMAgent",
+            agentName: "TransMAgent",
         },
     ) {
         super(llmService, window, utils);
@@ -157,7 +159,7 @@ export class ToolCall extends ReActAgent {
         // 在这里声明每个工具在什么条件下允许被使用
         const TOOL_POLICY = {
             'update_env': all(hasArg('env'), not(isMode('PLAN'))),
-            'mcp_server': all(hasArg('mcp_server'), not(isMode('PLAN'))),
+            'mcpTool': all(hasArg('mcpTool'), not(isMode('PLAN'))),
             'add_subtasks': all(hasArg('todolist'), not(any(isMode('PLAN'), isMode('FLASH')))),
             'record_subtasks': all(hasArg('todolist'), not(any(isMode('PLAN'), isMode('FLASH')))),
             'context_retrieval': not(isSubagent),

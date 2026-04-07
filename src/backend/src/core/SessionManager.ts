@@ -7,7 +7,7 @@ import { Plugins } from "./Plugins";
 import { Observation, ToolCall } from "./ToolCall";
 import { Utils } from "./Utils";
 import { SubAgent } from "./SubAgent";
-import { getSessionId } from "../utils/public";
+import { getHistoryChat, getSessionId, setHistory } from "../utils/public";
 import { State } from "./ReActAgent";
 
 export interface Session {
@@ -43,13 +43,37 @@ export class SessionManager {
         return session.tool_call.agentConfigs.agentMode;
     }
 
-    getChat(sessionId?: string): ChatState | null {
-        const session: Session = this.sessions.get(sessionId || this.activeSessionId);
-        return session ? session.llmService.chatManager.chat : null;
+    getChat(id?: string): ChatState | undefined {
+        if (id) {
+            // 检查当前会话列表中是否存在该ID
+            if (id in this.sessions) {
+                const session: Session = this.sessions.get(id);
+                return session.llmService.chatManager.chat
+            } else {
+                // 读取本地文件
+                const chat = getHistoryChat(id);
+                return chat;
+            }
+        }
+        else {
+            const session: Session = this.sessions.get(this.activeSessionId);
+            return session.llmService.chatManager.chat;
+        }
     }
 
-    setChat(chat: Partial<ChatState>, sessionId?: string) {
-        const session: Session = this.sessions.get(sessionId || this.activeSessionId);
+    setChat(chat: ChatState) {
+        // 检查当前会话列表中是否存在该ID
+        if (chat.id in this.sessions) {
+            const session: Session = this.sessions.get(chat.id);
+            session.llmService.chatManager.chat = chat;
+        } else {
+            // 保存本地文件
+            setHistory(chat);
+        }
+    }
+
+    setSessionChat(chat: Partial<ChatState>, id?: string) {
+        const session: Session = this.sessions.get(id || this.activeSessionId);
         if (session) {
             Object.keys(chat).forEach(key => {
                 const value = chat[key];
@@ -83,7 +107,8 @@ export class SessionManager {
 
     createSession(id?: string, agentMode?: AgentMode): Session {
         let agentTools = {};
-        let mcp_server = true;
+        let mcpTool = false;
+        let mcpPrompt = false;
         let skill = true;
 
         if (!agentMode) {
@@ -96,7 +121,7 @@ export class SessionManager {
                     agentMode = chat.agentMode;
                 }
             }
-        } else  {
+        } else {
 
         }
 
@@ -109,7 +134,7 @@ export class SessionManager {
             agentTools = { "tool_manager": subAgent.getMainSubAgent()["tool_manager"] };
         }
         if (agentMode === 'multagent') {
-            mcp_server = false;
+            mcpTool = false;
             skill = false;
             agentTools = { ...subAgent.getAgentTools() };
         }
@@ -117,14 +142,15 @@ export class SessionManager {
         agentTools["deep_researcher"] = subAgent.getMainSubAgent()["deep_researcher"];
 
         const tool_call = new ToolCall(plugins, agentTools, llmService, this.window, utils, {
-            agent_prompt: null,
-            mcp_server: mcp_server,
+            agentPrompt: null,
+            mcpTool: mcpTool,
+            mcpPrompt: mcpPrompt,
             todolist: true,
             env: true,
             skill: skill,
             subagent: false,
             agentMode: agentMode!,
-            agent_name: "TransMAgent"
+            agentName: "TransMAgent"
         });
 
         const chain_call = new ChainCall(plugins, llmService, this.window, utils);

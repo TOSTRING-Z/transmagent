@@ -1,8 +1,11 @@
-import * as fs from 'fs';
 import { logger } from './logger';
 import * as os from 'os';
 import * as path from 'path';
 import JSON5 from 'json5';
+import { ChatState } from '../types';
+import { formatString } from './format';
+import { sysConfig } from './globals';
+import { existsSync, mkdir, readFileSync, renameSync, writeFileSync } from 'fs';
 
 export const hashCode = (str: string): string => {
     let hash = 0;
@@ -91,8 +94,8 @@ export const getSystem = (name: string = "config_transagent.json"): string => {
 }
 
 export const getFile = (file_path: string): string | null => {
-    if (fs.existsSync(file_path)) {
-        return fs.readFileSync(file_path, 'utf-8');
+    if (existsSync(file_path)) {
+        return readFileSync(file_path, 'utf-8');
     }
     return null;
 }
@@ -186,3 +189,113 @@ export const copy = <T>(data: T): T => {
 export const getSessionId = (): string => {
     return `chat-${crypto.randomUUID()}`;
 }
+
+export const getDefaultConfig = (key: string | null = null, config_name: string | null = null): any => {
+
+    const defaultConfigPath = getDefault(sysConfig["transagent"]);
+
+    let defaultConfig = existsSync(defaultConfigPath) ? parseJsonContent(readFileSync(defaultConfigPath, 'utf-8')) : {};
+
+    if (key === "models" && defaultConfig["models"]) {
+        const models = defaultConfig["models"];
+        for (const mKey in models) {
+            if (Object.hasOwnProperty.call(models, mKey)) {
+                const versions = models[mKey].versions;
+                if (Array.isArray(versions)) {
+                    versions.forEach((version, i) => {
+                        defaultConfig["models"][mKey].versions[i] = typeof version === "string" ? { version: version } : version;
+                    });
+                }
+            }
+        }
+    }
+
+    if (key === null) return defaultConfig;
+
+    return defaultConfig[key];
+}
+
+export const getDefaultHistoryConfigPath = (): string => {
+    const historyPathTpl = getDefaultConfig("history_path");
+    const history_path = historyPathTpl ? formatString(historyPathTpl, process as any) : getDefault();
+    return path.join(history_path, 'history.json');
+}
+
+export const getDefaultHistoryPath = (id: string): string | null => {
+    const historyPathTpl = getDefaultConfig("history_path");
+    const history_path = historyPathTpl ? formatString(historyPathTpl, process as any) : getDefault();
+    const file = path.join(history_path, 'history', `${id}.json`);
+    return existsSync(file) ? file : null;
+}
+
+export const readJsonFile = (filePath: string) => {
+    return existsSync(filePath) ? parseJsonContent(readFileSync(filePath, 'utf-8')) : {};
+}
+
+export const writeFile = async (filePath: string, data: string | object) => {
+    // Creates the directory structure if it doesn't exist
+    mkdir(path.dirname(filePath), { recursive: true }, (err) => {
+        console.log(err?.message);
+    });
+    const tempFilePath = filePath + '.tmp';
+    const content = typeof (data) === "string" ? data : JSON.stringify(data, null, 2)
+    writeFileSync(tempFilePath, content);
+    renameSync(tempFilePath, filePath);
+}
+
+export const getHistoryChat = (id): ChatState | undefined => {
+    const historyPath = getDefaultHistoryPath(id);
+    if (historyPath) {
+        const data = readJsonFile(historyPath);
+        if (data?.chat) return data.chat;
+    }
+}
+
+export const setHistory = (chat): boolean => {
+    const configStatu = setHistoryConfig(chat);
+    const chatStatu = setHistoryChat(chat);
+    return configStatu && chatStatu;
+}
+
+export const setHistoryChat = (chat): boolean => {
+    try {
+        const historyPath = getDefaultHistoryPath(chat.id);
+        if (historyPath) {
+            const data = readJsonFile(historyPath);
+            if (data?.chat) {
+                writeFile(historyPath, chat);
+                return true
+            }
+            console.log("历史文件没有chat属性", historyPath)
+        }
+        console.log("历史文件不存在", historyPath)
+        return false;
+    } catch (error) {
+        console.log("历史文件保存报错：", error)
+        return false;
+    }
+}
+
+
+
+export const setHistoryConfig = (chat: ChatState): boolean => {
+    try {
+        const defaultHistoryConfigPath = getDefaultHistoryConfigPath();
+        const defaultHistoryConfigData = readJsonFile(defaultHistoryConfigPath);
+        let hintData = defaultHistoryConfigData.data.filter((h: any) => h.id === chat.id);
+        let idExist = hintData.length > 0;
+
+        if (!idExist) {
+            defaultHistoryConfigData.data.push(chat);
+        } else {
+            defaultHistoryConfigData.data = defaultHistoryConfigData.data.map((hChat: any) => hChat.id === chat.id ? chat : hChat);
+        }
+        writeFile(defaultHistoryConfigPath, defaultHistoryConfigData);
+        return idExist;
+    } catch (error) {
+        console.log("历史配置文件保存报错：", error)
+        return false;
+    }
+
+}
+
