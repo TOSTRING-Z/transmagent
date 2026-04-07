@@ -53,26 +53,26 @@ class MainServer {
     }
     async checkout(data) {
         try {
-            const chatManager = this.mainWindow.session().llmService.chatManager;
+            let chat;
             if (data?.chat_id) {
                 // 加载已有会话
-                const chat = await this.mainWindow.session().tool_call.loadChat(data.chat_id);
+                this.mainWindow.sessionManager.checkoutSession(data?.chat_id);
+                let chat = this.mainWindow.session().llmService.chatManager.chat;
+                this.mainWindow.updateVersionsSubmenu();
                 if (chat) {
-                    chatManager.loadFromChat(chat);
-                    this.mainWindow.window?.webContents.send('handleloadChat', chatManager.chat);
+                    this.mainWindow.session().llmService.chatManager.loadFromChat(chat);
+                    this.mainWindow.window?.webContents.send('handleloadChat', chat);
                 }
             }
             else {
                 // 创建新会话
-                this.mainWindow.window?.webContents.send('clear');
-                chatManager.initMessages();
-                if (data?.chat_name) {
-                    chatManager.chat.name = data.chat_name;
-                }
-                this.mainWindow.window?.webContents.send('newChat', chatManager.chat);
-                this.mainWindow.session().tool_call.setHistory();
+                this.mainWindow.sessionManager.updateSession();
+                this.mainWindow.updateVersionsSubmenu();
+                chat = this.mainWindow.session().llmService.chatManager.chat;
+                this.mainWindow.window?.webContents.send("clear");
+                this.mainWindow.window?.webContents.send('handleNewChat', chat);
             }
-            return { chat: chatManager.chat };
+            return { chat };
         }
         catch (error) {
             return { error: error.message };

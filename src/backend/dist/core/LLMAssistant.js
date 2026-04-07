@@ -168,10 +168,10 @@ STRICT RULES:
     }
     // ==================== 工具审计功能 ====================
     isToolRequireAudit(toolName, toolCall) {
-        return toolCall.getToolConfig(toolName)?.require_audit === true || toolName in toolCall.agentTools;
+        return toolCall.getToolConfig(toolName)?.require_audit === true || (toolCall.llmService.environment_details.mode !== ReActAgent_1.Mode.FLASH && toolName in toolCall.agentTools);
     }
     async auditToolCall(toolInfo, data, toolCall) {
-        if (!toolInfo.tool_call_name || !this.isToolRequireAudit(toolInfo.tool_call_name, toolCall) || !this.utils.getConfig("tool_call")?.llm_judge) {
+        if (toolCall.agentConfigs.agentMode !== "baseagent" || !toolInfo.tool_call_name || !this.isToolRequireAudit(toolInfo.tool_call_name, toolCall) || !this.utils.getConfig("tool_call")?.llm_judge) {
             return null;
         }
         logger_1.logger.log(`[Critic] 正在审查敏感工具调用: ${toolInfo.tool_call_name} (ID: ${toolInfo.tool_call_id})...`);

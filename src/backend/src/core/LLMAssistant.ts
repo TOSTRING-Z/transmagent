@@ -1,6 +1,6 @@
 import * as fs from 'fs/promises';
 import { LLMService } from './LLMService';
-import { ReActAgent } from './ReActAgent';
+import { Mode, ReActAgent } from './ReActAgent';
 import { Plugins } from './Plugins';
 import { ToolCallAdapterFactory } from '../factories/AdapterFactory';
 import { Message, ToolInfo, AssistantMessage } from '../types';
@@ -165,11 +165,11 @@ STRICT RULES:
     // ==================== 工具审计功能 ====================
 
     public isToolRequireAudit(toolName: string, toolCall: ToolCall): boolean {
-        return toolCall.getToolConfig(toolName)?.require_audit === true || toolName in toolCall.agentTools;
+        return toolCall.getToolConfig(toolName)?.require_audit === true || (toolCall.llmService.environment_details.mode !== Mode.FLASH && toolName in toolCall.agentTools);
     }
 
     public async auditToolCall(toolInfo: ToolInfo, data: Record<string, any>, toolCall: ToolCall): Promise<string | null> {
-        if (!toolInfo.tool_call_name || !this.isToolRequireAudit(toolInfo.tool_call_name, toolCall) || !this.utils.getConfig("tool_call")?.llm_judge) {
+        if (toolCall.agentConfigs.agentMode !== "baseagent" ||!toolInfo.tool_call_name || !this.isToolRequireAudit(toolInfo.tool_call_name, toolCall) || !this.utils.getConfig("tool_call")?.llm_judge) {
             return null;
         }
 

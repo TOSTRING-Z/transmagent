@@ -84,35 +84,32 @@ export class MainServer {
 
     async checkout(data: CheckoutRequest): Promise<ServerResult> {
         try {
-            const chatManager = this.mainWindow.session().llmService.chatManager;
-
+            let chat;
             if (data?.chat_id) {
                 // 加载已有会话
-                const chat = await this.mainWindow.session().tool_call.loadChat(data.chat_id);
+                this.mainWindow.sessionManager.checkoutSession(data?.chat_id);
+                let chat = this.mainWindow.session().llmService.chatManager.chat;
+                this.mainWindow.updateVersionsSubmenu();
                 if (chat) {
-                    chatManager.loadFromChat(chat);
+                    this.mainWindow.session().llmService.chatManager.loadFromChat(chat);
                     this.mainWindow.window?.webContents.send(
                         'handleloadChat',
-                        chatManager.chat
+                        chat
                     );
                 }
             } else {
                 // 创建新会话
-                this.mainWindow.window?.webContents.send('clear');
-                chatManager.initMessages();
-
-                if (data?.chat_name) {
-                    chatManager.chat.name = data.chat_name;
-                }
-
+                this.mainWindow.sessionManager.updateSession();
+                this.mainWindow.updateVersionsSubmenu();
+                chat = this.mainWindow.session().llmService.chatManager.chat;
+                this.mainWindow.window?.webContents.send("clear");
                 this.mainWindow.window?.webContents.send(
-                    'newChat',
-                    chatManager.chat
+                    'handleNewChat',
+                    chat
                 );
-                this.mainWindow.session().tool_call.setHistory();
             }
 
-            return { chat: chatManager.chat };
+            return { chat };
         } catch (error: any) {
             return { error: error.message };
         }

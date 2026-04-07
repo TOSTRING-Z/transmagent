@@ -374,7 +374,7 @@ class ToolCall extends ReActAgent_1.ReActAgent {
             let auditError = await this.llmAssistant.auditToolCall(toolInfo, data, this);
             if (auditError) {
                 this.llmService.chatManager.pushToolMessage({
-                    ...toolInfo, ...this.llmService.chatManager.chat, content: `User intercept:\n ${auditError}`, uuid: data.uuid
+                    ...toolInfo, ...this.llmService.chatManager.chat, content: `⚠️ **Security Intercept**: ${auditError}`, uuid: data.uuid
                 });
                 this.window?.webContents.send('streamData', {
                     ...this.llmService.chatManager.chat,

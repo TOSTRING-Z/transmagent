@@ -302,14 +302,14 @@ curl -X POST http://localhost:3005/chat/checkout \
 ```bash
 curl -X POST http://localhost:3005/chat/checkout \
   -H "Content-Type: application/json" \
-  -d '{"chat_id": "chat-ba0091e2-a942-425d-8783-115d82011781"}'
+  -d '{"chat_id": "chat-4000f45a-49e2-4478-82bf-09fc63e53493"}'
 ```
 
-### 切换模式
+### 切换模式 (auto/act/plan/flash)
 ```bash
 curl -X POST http://localhost:3005/chat/mode \
   -H "Content-Type: application/json" \
-  -d '{"mode": "auto/act/plan/flash"}'
+  -d '{"mode": "flash"}'
 ```
 
 ### 提交查询
