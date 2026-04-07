@@ -392,7 +392,7 @@ Provide a dense, structured summary in ${this.llmService.environment_details?.la
     // ==================== 记忆整理助手功能 ====================
     /**
      * 整理 memory.md 文件
-     * 在 callReAct 结束后自动调用，去除重复、合并同类、整理格式
+     * 在 callReAct 结束后自动调用，去除重复、合并同类、整理格式、清洗临时会话状态
      */
     async organizeMemory() {
         try {
@@ -414,7 +414,13 @@ Provide a dense, structured summary in ${this.llmService.environment_details?.la
             react_agent.llmService.chatManager.fixMessages();
             const query = `
 [SYSTEM OVERRIDE: MEMORY ORGANIZATION PROTOCOL]
-You are an expert Memory Curator. Your task is to organize and deduplicate memory content.
+You are an expert Memory Curator. Your task is to ORGANIZE, DEDUPLICATE, and PURGE memory content for long-term, CROSS-SESSION storage.
+
+# 🛡️ CORE PRINCIPLES (ZERO TOLERANCE):
+1. **PURGE TRANSIENT SESSION DATA (CRITICAL)**: This memory file will be loaded into entirely different future tasks. Therefore, you MUST COMPLETELY DELETE any information tied to a specific, temporary session. 
+   - ❌ **DELETE**: "Current Task Context", "Workflow Progress", "Subtask lists (e.g., ✅/⏳)", "Analysis Environment Variables", "Temporary paths (e.g., /tmp/...)", and specific analysis states belonging to a single run.
+2. **ORGANIZE ONLY, DO NOT MODIFY FACTS**: For the data that is kept, you must perfectly preserve the original facts, permanent file paths, and meanings. 
+3. **NO FABRICATION**: Do not invent new information. Your job is filtering and formatting, NOT creative writing.
 
 # MEMORY CONTENT TO ORGANIZE:
 \`\`\`markdown
@@ -422,11 +428,14 @@ ${currentContent}
 \`\`\`
 
 # ORGANIZATION RULES:
-1. REMOVE DUPLICATES: If similar entries exist, keep the most comprehensive one
-2. MERGE SIMILAR: Combine entries about the same topic
-3. CLEAN FORMAT: Ensure consistent timestamp format and bullet styles
-4. PRESERVE UNIQUE INFO: Don't lose any unique facts or preferences
-5. SORT BY TIME: Newer entries should come first
+1. **STRICT CATEGORY ALIGNMENT**: Every retained memory entry MUST strictly adhere to the \`[Category]\` structure.
+   - ✅ **ALLOWED CATEGORIES**: \`[Identity]\`, \`[Preferences]\`, \`[Permanent_Paths]\`, \`[Global_Configs]\`, \`[Milestones]\`.
+   - If an existing entry lacks a category but contains highly valuable permanent info, assign it to the most appropriate allowed category.
+   - Format example: \`- **[Permanent_Paths]**: BRCA data located at /data/tcga/...\`
+2. **FILTER & PURGE**: Aggressively remove any bullet point that tracks ongoing analysis, immediate task planning, or session-specific states. If a whole category (like "Workflow Planning") is transient, delete the entire category block.
+3. **FORMAT ALIGNMENT**: Unify the timestamp format (e.g., ### YYYY-MM-DD HH:mm:ss) and use standard markdown bullet lists.
+4. **SAFE DEDUPLICATION**: If EXACT duplicate entries exist, keep only one. 
+5. **CONSERVATIVE MERGING**: Group related permanent facts under the same Category block logically, but DO NOT overwrite or summarize away specific technical details (like exact file paths or tool parameters).
 
 # OUTPUT FORMAT (CRITICAL):
 - Return the organized memory content directly in raw markdown text.
@@ -437,7 +446,7 @@ ${currentContent}
                 query,
                 params: {
                     ...this.utils.getConfig("llm_params"),
-                    temperature: 0.2,
+                    temperature: 0.1, // 保持极低温度，确保规则严格执行，防止大模型发散
                     tool_choice: "none"
                 },
                 llm_conversation_mode: true,
@@ -453,7 +462,7 @@ ${currentContent}
                     .trim();
                 if (organizedContent && organizedContent !== currentContent) {
                     await fs.writeFile(memoryPath, organizedContent, 'utf8');
-                    logger_1.logger.log(`[MemoryOrganizer] Memory file organized successfully`);
+                    logger_1.logger.log(`[MemoryOrganizer] Memory file organized and purged successfully`);
                 }
             }
         }

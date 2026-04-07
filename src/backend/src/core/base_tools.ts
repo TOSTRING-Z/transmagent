@@ -267,11 +267,23 @@ export default function getBaseTools(): Record<string, any> {
             },
             getPrompt: () => ({
                 name: "write_important_memory",
-                description: "[CROSS-SESSION MEMORY] Proactively save high-value, permanent information that will be useful for FUTURE sessions (e.g., User Preferences, Secrets, Discovered Permanent Paths, Identity definitions). \n\nCRITICAL OVERRIDE: If the user explicitly says 'Remember X', saving 'X' IS YOUR PRIMARY TASK. You MUST invoke this tool to save it BEFORE you reply with a final conversational response. Do not just say 'I will remember', actually execute this tool.\n\nFormat: '[Category] Content'",
+                description: `[CROSS-SESSION MEMORY] Proactively save high-value, permanent information useful for completely different FUTURE sessions.
+
+CRITICAL OVERRIDE: If the user explicitly says 'Remember X', saving 'X' IS YOUR PRIMARY TASK. You MUST invoke this tool BEFORE replying. Do not just say 'I will remember'.
+
+⛔ ANTI-HALLUCINATION GUARDRAIL (STRICTLY FORBIDDEN):
+You MUST NOT save any transient session state. DO NOT save:
+1. Current Workflow Progress or Subtask lists (e.g., ✅/⏳).
+2. Temporary file paths (e.g., /tmp/...).
+3. Specific analysis states belonging to the current run.
+(Note: Use 'update_env' for sharing temporary session state, NOT this tool.)`,
                 parameters: {
                     type: "object",
                     properties: {
-                        content: { type: "string", description: "Content to write permanently into the cross-session memory." }
+                        content: {
+                            type: "string",
+                            description: "The permanent knowledge to archive. MUST follow this exact format: '[Category] Content'.\nAllowed Categories: [Identity], [Preferences], [Permanent_Paths] (e.g., /data/...), [Global_Configs], [Milestones].\nExample: '[Permanent_Paths] BRCA expression data is located at /data/tcga/brca.csv'"
+                        }
                     },
                     required: ["content"]
                 }
