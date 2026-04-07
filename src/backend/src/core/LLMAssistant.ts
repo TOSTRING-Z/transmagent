@@ -427,7 +427,7 @@ Provide a dense, structured summary in ${this.llmService.environment_details?.la
     public async organizeMemory(): Promise<void> {
         try {
             const memoryPath = this.utils.getDefault("memory.md");
-            
+
             // 读取现有记忆内容
             let currentContent = "";
             try {
@@ -461,9 +461,10 @@ ${currentContent}
 4. PRESERVE UNIQUE INFO: Don't lose any unique facts or preferences
 5. SORT BY TIME: Newer entries should come first
 
-# OUTPUT:
-Return the organized memory content in clean markdown format.
-Only output the organized memory, nothing else.
+# OUTPUT FORMAT (CRITICAL):
+- Return the organized memory content directly in raw markdown text.
+- **ABSOLUTELY DO NOT** wrap your response in \`\`\`markdown or \`\`\` code blocks.
+- Only output the raw organized memory, no conversational filler, no greetings.
 `.trim();
 
             const callData = react_agent.getDataDefault({
@@ -480,8 +481,14 @@ Only output the organized memory, nothing else.
             const messageOutput = await react_agent.llmCall(callData);
 
             if (messageOutput?.content && !this.llmService.stopFlag) {
-                const organizedContent = (messageOutput.content as string).trim();
-                
+                let organizedContent = (messageOutput.content as string).trim();
+
+                // 【防线兜底】：正则剥离大模型可能强行包裹的 markdown 代码块标记
+                organizedContent = organizedContent
+                    .replace(/^```[a-zA-Z]*\s*\n/i, '') // 移除开头的 ```markdown 
+                    .replace(/\n\s*```$/i, '')           // 移除结尾的 ```
+                    .trim();
+
                 if (organizedContent && organizedContent !== currentContent) {
                     await fs.writeFile(memoryPath, organizedContent, 'utf8');
                     logger.log(`[MemoryOrganizer] Memory file organized successfully`);
