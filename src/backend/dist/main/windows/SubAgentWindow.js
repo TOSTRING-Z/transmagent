@@ -44,20 +44,18 @@ class SubAgentWindow {
     agentTools;
     windows; // 支持多个子 Agent 窗口
     windowListeners;
-    llmService;
-    constructor(agentTools = {}, llmService) {
+    constructor(agentTools = {}) {
         this.agentTools = agentTools;
         this.windows = []; // 覆盖基类的 BrowserWindow | null
         this.windowListeners = new Map();
-        this.llmService = llmService;
     }
-    async query(query, agentToolName) {
-        return await this.create({ query, agentToolName });
+    async query(query, agentToolName, toolCall) {
+        return await this.create({ query, agentToolName, toolCall });
     }
     async create(params) {
         if (!params)
             return;
-        const { query, agentToolName } = params;
+        const { query, agentToolName, toolCall } = params;
         const win = new electron_1.BrowserWindow({
             width: 800 - Math.min(this.windows.length, 5) * 50,
             height: 800 - Math.min(this.windows.length, 5) * 50,
@@ -88,8 +86,8 @@ class SubAgentWindow {
             this.agentTool = this.agentTools[agentToolName];
             win.on('closed', () => {
                 if (this.agentTool) {
-                    this.agentTool.tool_call.changeWindow();
-                    this.agentTool.tool_call.llmService.stopLoop();
+                    this.agentTool.toolCall.changeWindow();
+                    this.agentTool.toolCall.llmService.stopLoop();
                     resolve("The user interrupted the task.");
                 }
             });
@@ -99,23 +97,23 @@ class SubAgentWindow {
                 win.focus();
                 win.webContents.send('windowInfo', { id: win.id, name: agentToolName });
                 if (this.agentTool) {
-                    this.agentTool.tool_call.changeWindow(win);
+                    this.agentTool.toolCall.changeWindow(win);
                     // 子代理模式同主代理模式一样（计划模式例外）
-                    if (this.llmService.environment_details.mode !== ReActAgent_1.Mode.PLAN) {
-                        this.agentTool.tool_call.changeMode(this.llmService.chatManager.chat.mode);
+                    if (toolCall.llmService.environment_details.mode !== ReActAgent_1.Mode.PLAN) {
+                        this.agentTool.toolCall.changeMode(toolCall.llmService.chatManager.chat.mode);
                     }
                     else {
                         // 计划模式下，子代理默认为自动模式
-                        this.agentTool.tool_call.changeMode("auto");
+                        this.agentTool.toolCall.changeMode("auto");
                     }
-                    if (this.llmService.utils.getConfig("tool_call")?.subagent_llm_init || this.windows.length > 1) {
-                        this.agentTool.tool_call.llmService.chatManager.initMessages();
+                    if (toolCall.llmService.utils.getConfig("toolCall")?.subagent_llm_init || this.windows.length > 1) {
+                        this.agentTool.toolCall.llmService.chatManager.initMessages();
                     }
-                    const mainChat = this.llmService.chatManager.chat;
-                    this.agentTool.tool_call.llmService.chatManager.chat.tool_format = mainChat.tool_format;
-                    this.agentTool.tool_call.llmService.startLoop();
-                    let data = this.agentTool.tool_call.getDataDefault({ query, model: mainChat.model, version: mainChat.version });
-                    data = await this.agentTool.tool_call.callReAct(data);
+                    const mainChat = toolCall.llmService.chatManager.chat;
+                    this.agentTool.toolCall.llmService.chatManager.chat.tool_format = mainChat.tool_format;
+                    this.agentTool.toolCall.llmService.startLoop();
+                    let data = this.agentTool.toolCall.getDataDefault({ query, model: mainChat.model, version: mainChat.version });
+                    data = await this.agentTool.toolCall.callReAct(data);
                     const res_json = (0, public_1.parseJsonContent)(data.output_format);
                     resolve(res_json[0]?.content || data.output_format);
                 }
@@ -134,8 +132,8 @@ class SubAgentWindow {
                 if (Object.prototype.hasOwnProperty.call(this.agentTools, name)) {
                     const agentTool = this.agentTools[name];
                     if (init)
-                        agentTool.tool_call.llmService.chatManager.initMessages();
-                    agentTool.tool_call.llmService.stopLoop();
+                        agentTool.toolCall.llmService.chatManager.initMessages();
+                    agentTool.toolCall.llmService.stopLoop();
                 }
             }
             windowsToClose.forEach(win => {

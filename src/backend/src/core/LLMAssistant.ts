@@ -1,3 +1,4 @@
+import * as fs from 'fs/promises';
 import { LLMService } from './LLMService';
 import { ReActAgent } from './ReActAgent';
 import { Plugins } from './Plugins';
@@ -414,6 +415,80 @@ Provide a dense, structured summary in ${this.llmService.environment_details?.la
             }
         } catch (error: any) {
             logger.warn(`[KVCacheSummary] Failed: ${error.message}`);
+        }
+    }
+
+    // ==================== 记忆整理助手功能 ====================
+
+    /**
+     * 整理 memory.md 文件
+     * 在 callReAct 结束后自动调用，去除重复、合并同类、整理格式
+     */
+    public async organizeMemory(): Promise<void> {
+        try {
+            const memoryPath = this.utils.getDefault("memory.md");
+            
+            // 读取现有记忆内容
+            let currentContent = "";
+            try {
+                currentContent = await fs.readFile(memoryPath, 'utf8');
+            } catch (e) {
+                // 文件不存在，无需整理
+                return;
+            }
+
+            if (!currentContent.trim()) {
+                return;
+            }
+
+            // 创建临时 Agent 进行记忆整理
+            const react_agent = this.createTempAgent();
+            react_agent.llmService.chatManager.fixMessages();
+
+            const query = `
+[SYSTEM OVERRIDE: MEMORY ORGANIZATION PROTOCOL]
+You are an expert Memory Curator. Your task is to organize and deduplicate memory content.
+
+# MEMORY CONTENT TO ORGANIZE:
+\`\`\`markdown
+${currentContent}
+\`\`\`
+
+# ORGANIZATION RULES:
+1. REMOVE DUPLICATES: If similar entries exist, keep the most comprehensive one
+2. MERGE SIMILAR: Combine entries about the same topic
+3. CLEAN FORMAT: Ensure consistent timestamp format and bullet styles
+4. PRESERVE UNIQUE INFO: Don't lose any unique facts or preferences
+5. SORT BY TIME: Newer entries should come first
+
+# OUTPUT:
+Return the organized memory content in clean markdown format.
+Only output the organized memory, nothing else.
+`.trim();
+
+            const callData = react_agent.getDataDefault({
+                query,
+                params: {
+                    ...this.utils.getConfig("llm_params"),
+                    temperature: 0.2,
+                    tool_choice: "none"
+                },
+                llm_conversation_mode: true,
+                output_format: null
+            });
+
+            const messageOutput = await react_agent.llmCall(callData);
+
+            if (messageOutput?.content && !this.llmService.stopFlag) {
+                const organizedContent = (messageOutput.content as string).trim();
+                
+                if (organizedContent && organizedContent !== currentContent) {
+                    await fs.writeFile(memoryPath, organizedContent, 'utf8');
+                    logger.log(`[MemoryOrganizer] Memory file organized successfully`);
+                }
+            }
+        } catch (error: any) {
+            logger.warn(`[MemoryOrganizer] Failed: ${error.message}`);
         }
     }
 }

@@ -31,5 +31,10 @@ export declare class LLMAssistant {
         reason: string | null;
     }>;
     kvCacheSummary(): Promise<void>;
+    /**
+     * 整理 memory.md 文件
+     * 在 callReAct 结束后自动调用，去除重复、合并同类、整理格式
+     */
+    organizeMemory(): Promise<void>;
 }
 export default LLMAssistant;

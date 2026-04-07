@@ -36,17 +36,16 @@ Object.defineProperty(exports, "__esModule", { value: true });
 exports.default = getBaseTools;
 const ReActAgent_1 = require("./ReActAgent");
 const utils = __importStar(require("../utils/public"));
-const WindowManager_1 = require("../main/windows/WindowManager");
-function getBaseTools(toolCallInstance) {
+function getBaseTools() {
     return {
         "update_env": {
-            func: async ({ key, value }) => {
+            func: async ({ key, value, toolCall }) => {
                 try {
                     if (!key || value === undefined) {
                         return { status: "error", message: "Both key and value parameters are required." };
                     }
                     // 主代理实例
-                    const chatState = WindowManager_1.WindowManager.instance.mainWindow.session().llmService.chatManager.chat;
+                    const chatState = toolCall.llmService.chatManager.chat;
                     // Ensure envs object exists
                     if (!chatState.envs) {
                         chatState.envs = {};
@@ -83,9 +82,9 @@ function getBaseTools(toolCallInstance) {
             })
         },
         "mcp_server": {
-            func: async ({ name, args }) => {
+            func: async ({ name, args, toolCall }) => {
                 try {
-                    return await toolCallInstance.mcp_client.callTool({ name, arguments: args });
+                    return await toolCall.mcp_client.callTool({ name, arguments: args });
                 }
                 catch (e) {
                     return { error: `MCP Call Failed: ${e.message}` };
@@ -105,8 +104,8 @@ function getBaseTools(toolCallInstance) {
             })
         },
         "ask_user": {
-            func: async ({ ask, options }) => {
-                toolCallInstance.state = ReActAgent_1.State.PAUSE;
+            func: async ({ ask, options, toolCall }) => {
+                toolCall.state = ReActAgent_1.State.PAUSE;
                 return { ask, options };
             },
             getPrompt: () => ({
@@ -130,9 +129,9 @@ function getBaseTools(toolCallInstance) {
             })
         },
         "context_retrieval": {
-            func: async ({ context_id }) => {
+            func: async ({ context_id, toolCall }) => {
                 // 修复：指向 ChatManager 获取历史记录
-                const history = toolCallInstance.llmService.chatManager.getMessages(true);
+                const history = toolCall.llmService.chatManager.getMessages(true);
                 const target = history.find(m => String(m.context_id) === String(context_id));
                 return target ? { role: target.role, content: target.content } : "Error: Context ID not found.";
             },
@@ -149,14 +148,14 @@ function getBaseTools(toolCallInstance) {
             })
         },
         "add_subtasks": {
-            func: async ({ task, subtasks, task_type = "standard", trigger_condition = null }) => {
+            func: async ({ task, subtasks, task_type = "standard", trigger_condition = null, toolCall }) => {
                 if (!task || !subtasks)
                     return { status: "error", message: "Missing 'task' or 'subtasks'." };
                 if (task_type === "recurring" && !trigger_condition) {
                     return { status: "error", message: "Recurring tasks MUST have a 'trigger_condition'." };
                 }
                 // 修复：指向 ChatManager 中的 vars
-                const chatVars = toolCallInstance.llmService.chatManager.chat.vars;
+                const chatVars = toolCall.llmService.chatManager.chat.vars;
                 chatVars.tasks = chatVars.tasks || {};
                 chatVars.subtask_id = chatVars.subtask_id ?? 100;
                 const subtaskList = (Array.isArray(subtasks) ? subtasks : [subtasks]).map(desc => ({
@@ -209,11 +208,11 @@ function getBaseTools(toolCallInstance) {
             })
         },
         "record_subtasks": {
-            func: async ({ subtask_ids, status = "completed", reflection }) => {
+            func: async ({ subtask_ids, status = "completed", reflection, toolCall }) => {
                 const ids = new Set((Array.isArray(subtask_ids) ? subtask_ids : [subtask_ids]).map(Number));
                 const now = new Date().toISOString();
                 // 修复：指向 ChatManager 中的 vars
-                const chatVars = toolCallInstance.llmService.chatManager.chat.vars;
+                const chatVars = toolCall.llmService.chatManager.chat.vars;
                 let updated = 0;
                 let recurringTasksToCheck = new Set();
                 Object.values(chatVars.tasks || {}).forEach((task) => {
@@ -257,9 +256,9 @@ function getBaseTools(toolCallInstance) {
             })
         },
         "search_long_term_memory": {
-            func: async ({ query, top_k = 5 }) => {
+            func: async ({ query, top_k = 5, toolCall }) => {
                 try {
-                    return await toolCallInstance.memory_manager.queryLongTermMemory(query, top_k);
+                    return await toolCall.memory_manager.queryLongTermMemory(query, top_k);
                 }
                 catch (e) {
                     return { error: `Memory retrieval failed: ${e.message}` };
@@ -279,10 +278,10 @@ function getBaseTools(toolCallInstance) {
             })
         },
         "write_important_memory": {
-            func: async ({ content }) => {
+            func: async ({ content, toolCall }) => {
                 if (!content || typeof content !== 'string')
                     return "Error: Content must be a non-empty string.";
-                return await toolCallInstance.memory_manager.appendImportantMemory(content, toolCallInstance.environment_details.time)
+                return await toolCall.memory_manager.appendImportantMemory(content, toolCall.llmService.environment_details.time)
                     ? "Success: Memory Archived"
                     : "Error: Write Failed";
             },

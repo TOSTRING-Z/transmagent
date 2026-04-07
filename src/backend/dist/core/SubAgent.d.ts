@@ -3,9 +3,10 @@ import { Utils } from "./Utils";
 import { ToolCall } from "./ToolCall";
 import { LLMService } from "./LLMService";
 export interface AgentTool {
-    tool_call: ToolCall;
+    toolCall: ToolCall;
     func: (params: {
         query: string;
+        toolCall: ToolCall;
     }) => Promise<any>;
     getPrompt: () => any;
     mainSubAgent: boolean;
@@ -26,7 +27,7 @@ export declare class SubAgent {
     subAgentWindow: SubAgentWindow;
     private plugins;
     constructor(utils: Utils, llmService: LLMService);
-    query(query: string, agentToolName: string): Promise<any>;
+    query(query: string, agentToolName: string, toolCall: ToolCall): Promise<any>;
     private normalizeTool;
     private normalizeTools;
     addAgentTool(tool_name: string, query_prompt: string, agent_description: string, agent_prompt: string, tools: Record<string, any>, options?: SubAgentOptions, mainSubAgent?: boolean): void;

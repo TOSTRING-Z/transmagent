@@ -38,7 +38,7 @@ export interface AgentConfigs {
     subagent?: boolean;
     agentMode: "transagent" | "multagent" | "baseagent";
     agent_name?: string;
-    tool_format?: string;
+    tool_format?: "toolcalls" | "prompt";
 }
 
 export interface EnvironmentDetails {
@@ -73,7 +73,6 @@ export class ToolCall extends ReActAgent {
     public memory_list: Message[] = [];
     public response_repetitions: (string | null)[] = [];
     public repetitions_delay_empty: number = 0;
-    public environment_details!: EnvironmentDetails;
     public toolInfos: ToolInfo[] = [];
     public currentToolInfo: ToolInfo | undefined; // 用于记录当前执行的工具，方便 callReAct 等外部调用读取状态
     public currentObservation: Observation | undefined;
@@ -108,7 +107,7 @@ export class ToolCall extends ReActAgent {
 
         this.initVar();
 
-        this.baseTools = getBaseTools(this);
+        this.baseTools = getBaseTools();
         this.agentTools = agentTools;
         this.tools = {};
 
@@ -700,6 +699,10 @@ export class ToolCall extends ReActAgent {
         if (this.state === State.FINAL || (this.state as State) === State.ERROR) {
             if (!this.agentConfigs.subagent) {
                 this.setHistory();
+                // 整理记忆文件
+                this.llmAssistant.organizeMemory().catch(err => {
+                    logger.warn(`[ToolCall] Memory organization failed: ${err}`);
+                });
             }
         }
 

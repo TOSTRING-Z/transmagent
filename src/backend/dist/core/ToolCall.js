@@ -72,7 +72,6 @@ class ToolCall extends ReActAgent_1.ReActAgent {
     memory_list = [];
     response_repetitions = [];
     repetitions_delay_empty = 0;
-    environment_details;
     toolInfos = [];
     currentToolInfo; // 用于记录当前执行的工具，方便 callReAct 等外部调用读取状态
     currentObservation;
@@ -97,7 +96,7 @@ class ToolCall extends ReActAgent_1.ReActAgent {
         this.mcp_client = new McpClient_1.MCPClient(this);
         this.agentConfigs = agentConfigs;
         this.initVar();
-        this.baseTools = (0, base_tools_1.default)(this);
+        this.baseTools = (0, base_tools_1.default)();
         this.agentTools = agentTools;
         this.tools = {};
         this.prompts = new Prompts_1.default(this);
@@ -639,6 +638,10 @@ class ToolCall extends ReActAgent_1.ReActAgent {
         if (this.state === ReActAgent_1.State.FINAL || this.state === ReActAgent_1.State.ERROR) {
             if (!this.agentConfigs.subagent) {
                 this.setHistory();
+                // 整理记忆文件
+                this.llmAssistant.organizeMemory().catch(err => {
+                    logger_1.logger.warn(`[ToolCall] Memory organization failed: ${err}`);
+                });
             }
         }
         if (!this.agentConfigs.subagent) {

@@ -96,7 +96,7 @@ export class MainWindow extends BaseWindow {
             setInterval(async () => {
                 if (this.session().tool_call && (this.session().tool_call.state === State.IDLE || this.session().tool_call.state === State.FINAL)) {
                     try {
-                        let time = this.session().tool_call.environment_details.time;
+                        let time = this.session().tool_call.llmService.environment_details.time;
                         let query = { query: `[${time}] This is a heartbeat timestamp. Please keep the system active.` };
                         this.sendQuery(query);
                     } catch (e: any) {

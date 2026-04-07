@@ -1,18 +1,18 @@
 import { BrowserWindow } from 'electron';
+import { ToolCall } from '../../core/ToolCall';
 import { AgentTool } from '../../core/SubAgent';
-import { LLMService } from '../../core/LLMService';
 export declare class SubAgentWindow {
     agentToolName?: string;
     agentTool?: AgentTool;
     agentTools: Record<string, AgentTool>;
     windows: BrowserWindow[];
     private windowListeners;
-    private llmService;
-    constructor(agentTools: Record<string, AgentTool> | undefined, llmService: LLMService);
-    query(query: string, agentToolName: string): Promise<any>;
+    constructor(agentTools?: Record<string, AgentTool>);
+    query(query: string, agentToolName: string, toolCall: ToolCall): Promise<any>;
     create(params?: {
         query: string;
         agentToolName: string;
+        toolCall: ToolCall;
     }): Promise<any>;
     destroy(init?: boolean): void;
     setup(): void;

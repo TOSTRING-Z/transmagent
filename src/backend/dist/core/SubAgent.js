@@ -23,11 +23,11 @@ class SubAgent {
         this.llmService = llmService;
         this.agentTools = {};
         this.plugins = new Plugins_1.Plugins(utils);
-        this.subAgentWindow = new SubAgentWindow_1.SubAgentWindow(this.agentTools, this.llmService);
+        this.subAgentWindow = new SubAgentWindow_1.SubAgentWindow(this.agentTools);
         this.toolInit();
     }
-    async query(query, agentToolName) {
-        return await this.subAgentWindow.create({ query, agentToolName });
+    async query(query, agentToolName, toolCall) {
+        return await this.subAgentWindow.create({ query, agentToolName, toolCall });
     }
     // 将工具统一为当前插件格式：{ func, getPrompt, extra? }
     normalizeTool(tool) {
@@ -54,10 +54,10 @@ class SubAgent {
         llmService.chatManager.chat.id = null;
         llmService.chatManager.chat.name = tool_name;
         const normalizedTools = this.normalizeTools(tools);
-        const tool_call = new ToolCall_1.ToolCall(this.plugins, normalizedTools, llmService, null, this.utils, { agent_prompt, subagent: true, todolist, env, skill, mcp_server, agent_name: tool_name, agentMode: globals_1.store.get('agentMode', 'transagent') });
+        const toolCall = new ToolCall_1.ToolCall(this.plugins, normalizedTools, llmService, null, this.utils, { agent_prompt, subagent: true, todolist, env, skill, mcp_server, agent_name: tool_name, agentMode: globals_1.store.get('agentMode', 'transagent') });
         this.agentTools[tool_name] = {
-            tool_call,
-            func: async ({ query }) => await this.query(query, tool_name),
+            toolCall,
+            func: async ({ query, toolCall }) => await this.query(query, tool_name, toolCall),
             getPrompt: () => ({
                 name: tool_name,
                 description: agent_description || "",

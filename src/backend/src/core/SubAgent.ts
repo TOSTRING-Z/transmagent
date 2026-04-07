@@ -5,11 +5,10 @@ import { Plugins } from "./Plugins";
 import path from "path";
 import { LLMService } from "./LLMService";
 import { store, sysConfig } from "../utils/globals";
-import { WindowManager } from "../main/windows/WindowManager";
 
 export interface AgentTool {
-    tool_call: ToolCall;
-    func: (params: { query: string }) => Promise<any>;
+    toolCall: ToolCall,
+    func: (params: { query: string, toolCall: ToolCall; }) => Promise<any>;
     getPrompt: () => any;
     mainSubAgent: boolean;
     extra?: any;
@@ -36,12 +35,12 @@ export class SubAgent {
         this.llmService = llmService;
         this.agentTools = {};
         this.plugins = new Plugins(utils);
-        this.subAgentWindow = new SubAgentWindow(this.agentTools, this.llmService);
+        this.subAgentWindow = new SubAgentWindow(this.agentTools);
         this.toolInit();
     }
 
-    public async query(query: string, agentToolName: string): Promise<any> {
-        return await this.subAgentWindow.create({ query, agentToolName });
+    public async query(query: string, agentToolName: string, toolCall: ToolCall): Promise<any> {
+        return await this.subAgentWindow.create({ query, agentToolName, toolCall });
     }
 
     // 将工具统一为当前插件格式：{ func, getPrompt, extra? }
@@ -80,14 +79,14 @@ export class SubAgent {
 
         const normalizedTools = this.normalizeTools(tools);
 
-        const tool_call = new ToolCall(
+        const toolCall = new ToolCall(
             this.plugins, normalizedTools, llmService, null, this.utils,
             { agent_prompt, subagent: true, todolist, env, skill, mcp_server, agent_name: tool_name, agentMode: store.get('agentMode', 'transagent') },
         );
 
         this.agentTools[tool_name] = {
-            tool_call,
-            func: async ({ query }: { query: string }) => await this.query(query, tool_name),
+            toolCall,
+            func: async ({ query, toolCall }: { query: string, toolCall: ToolCall }) => await this.query(query, tool_name, toolCall),
             getPrompt: () => ({
                 name: tool_name,
                 description: agent_description || "",

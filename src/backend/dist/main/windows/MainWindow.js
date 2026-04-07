@@ -116,7 +116,7 @@ class MainWindow extends BaseWindow_1.BaseWindow {
             setInterval(async () => {
                 if (this.session().tool_call && (this.session().tool_call.state === ReActAgent_1.State.IDLE || this.session().tool_call.state === ReActAgent_1.State.FINAL)) {
                     try {
-                        let time = this.session().tool_call.environment_details.time;
+                        let time = this.session().tool_call.llmService.environment_details.time;
                         let query = { query: `[${time}] This is a heartbeat timestamp. Please keep the system active.` };
                         this.sendQuery(query);
                     }

@@ -23,7 +23,7 @@ export interface AgentConfigs {
     subagent?: boolean;
     agentMode: "transagent" | "multagent" | "baseagent";
     agent_name?: string;
-    tool_format?: string;
+    tool_format?: "toolcalls" | "prompt";
 }
 export interface EnvironmentDetails {
     system_platform: string;
@@ -56,7 +56,6 @@ export declare class ToolCall extends ReActAgent {
     memory_list: Message[];
     response_repetitions: (string | null)[];
     repetitions_delay_empty: number;
-    environment_details: EnvironmentDetails;
     toolInfos: ToolInfo[];
     currentToolInfo: ToolInfo | undefined;
     currentObservation: Observation | undefined;
