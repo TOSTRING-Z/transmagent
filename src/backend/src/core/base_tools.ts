@@ -267,7 +267,7 @@ export default function getBaseTools(): Record<string, any> {
             },
             getPrompt: () => ({
                 name: "write_important_memory",
-                description: "[CROSS-SESSION MEMORY] Proactively save high-value, permanent information that will be useful for FUTURE sessions (e.g., User Preferences, Secrets, Discovered Permanent Paths, Reusable Workflows). DO NOT wait for the user to tell you to remember this; archive valuable milestones autonomously. Format: '[Category] Content'",
+                description: "[CROSS-SESSION MEMORY] Proactively save high-value, permanent information that will be useful for FUTURE sessions (e.g., User Preferences, Secrets, Discovered Permanent Paths, Identity definitions). \n\nCRITICAL OVERRIDE: If the user explicitly says 'Remember X', saving 'X' IS YOUR PRIMARY TASK. You MUST invoke this tool to save it BEFORE you reply with a final conversational response. Do not just say 'I will remember', actually execute this tool.\n\nFormat: '[Category] Content'",
                 parameters: {
                     type: "object",
                     properties: {

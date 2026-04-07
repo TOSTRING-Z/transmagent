@@ -189,11 +189,11 @@ ${!isSubagent ? `
    - **IF NO TASKS ARE DUE**: You MUST respond EXACTLY with the word \`[STANDBY]\`. Do not output any other text.
 ` : ""}
 
-# 🧠 Core Execution Loop (ReAct)
+# 🧠 Core Execution Loop
 1. **THOUGHT**: Analyze the current state and plan the immediate next step.
 2. **ACTION**: Select **ONE** tool. (Single-threaded execution).
 3. **OBSERVATION**: Review tool output. Adjust plan.
-4. **FINISH (CRITICAL)**: If the overarching task is 100% complete, your final action is to output a plain-text summary directly. **YOU MUST NOT CALL ANY TOOLS WHEN THE TASK IS COMPLETE.**
+4. **FINISH (CRITICAL)**: If the overarching task is complete, you MUST verify if any new knowledge, rules, or preferences need to be archived via \`write_important_memory\`. **If yes, call the memory tool FIRST.** ONLY AFTER memory is saved should you output your final plain-text summary.
 
 ${hasSkill ? `
 # 🧩 Agent Skills Capability
@@ -239,10 +239,10 @@ You MUST use the native function/tool calling mechanism provided by the API to e
 
 **🛑 CRITICAL: WHEN TO STOP CALLING TOOLS**
 You are permitted to respond directly with plain text (WITHOUT calling a tool) in ONLY ONE situation:
-- **Task Complete**: All subtasks are finished, the final goal is achieved, and you are ready to conclude the workflow.
+- **Task Complete**: All execution subtasks are finished, AND you have already saved any requested or learned facts into \`write_important_memory\`. 
 
 **Strict Execution Rules:**
-1. **In Progress**: Provide concise reasoning in your message content, then invoke the required tool.
+1. **In Progress / Archiving**: If a task is ongoing OR if you need to remember a fact the user just stated, invoke the required tool.
 2. **Task Finished**: Output your final summary directly to the user in plain text. **DO NOT CALL ANY TOOLS**.
 `}
 
