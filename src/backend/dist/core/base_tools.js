@@ -64,7 +64,7 @@ function getBaseTools() {
             },
             getPrompt: () => ({
                 name: "update_env",
-                description: "Writes or updates a variable in the SHARED global memory.",
+                description: "[IN-SESSION STATE] Writes or updates a variable in the CURRENT session's shared environment. CRITICAL: Use this to share file paths, IDs, and temporary states with other sub-agents during this specific conversation.",
                 parameters: {
                     type: "object",
                     properties: {
@@ -137,11 +137,11 @@ function getBaseTools() {
             },
             getPrompt: () => ({
                 name: "context_retrieval",
-                description: "Fetch raw details of a specific past interaction using its ID. Use Case: Checking specific code snippets or parameters from previous turns.",
+                description: "[IN-SESSION MEMORY] Fetch raw details of a specific past interaction within the CURRENT session. Use Case: When you see a Context ID in the '# 🗃️ Session Memory' block and need to recall its full logs, code snippets, or precise paths.",
                 parameters: {
                     type: "object",
                     properties: {
-                        context_id: { type: "integer", description: "The ID from the Context List." }
+                        context_id: { type: "integer", description: "The Context ID extracted from the '# 🗃️ Session Memory' block at the top of the chat." }
                     },
                     required: ["context_id"]
                 }
@@ -194,7 +194,7 @@ function getBaseTools() {
             },
             getPrompt: () => ({
                 name: "add_subtasks",
-                description: "Break down complex goals into tracking units. Strategy: Create 'Substantive Milestones', not atomic actions.",
+                description: "[IN-SESSION WORKFLOW] Break down complex goals into tracking units for the CURRENT session. Strategy: Create 'Substantive Milestones', not atomic actions.",
                 parameters: {
                     type: "object",
                     properties: {
@@ -243,7 +243,7 @@ function getBaseTools() {
             },
             getPrompt: () => ({
                 name: "record_subtasks",
-                description: "Checkpoint progress and save execution state. Mandatory: Call this immediately after finishing a subtask.",
+                description: "[IN-SESSION WORKFLOW] Checkpoint progress and save execution state for the CURRENT session. Mandatory: Call this immediately after finishing a subtask.",
                 parameters: {
                     type: "object",
                     properties: {
@@ -266,11 +266,11 @@ function getBaseTools() {
             },
             getPrompt: () => ({
                 name: "search_long_term_memory",
-                description: "Retrieve historical knowledge from database. Trigger: When context is missing or referencing past projects.",
+                description: "[CROSS-SESSION MEMORY] Retrieve historical knowledge from the persistent database across past sessions. Trigger: Call this BEFORE acting if the user refers to past projects, old tasks, or global configurations established in previous conversations.",
                 parameters: {
                     type: "object",
                     properties: {
-                        query: { type: "string", description: "Semantic search string." },
+                        query: { type: "string", description: "Semantic search string representing the historical context you are looking for." },
                         top_k: { type: "integer", description: "Number of top results to return. Default: 5" }
                     },
                     required: ["query"]
@@ -287,11 +287,11 @@ function getBaseTools() {
             },
             getPrompt: () => ({
                 name: "write_important_memory",
-                description: "Save high-value, permanent user context (Preferences, Secrets, Milestones). Format: '[Category] Content'",
+                description: "[CROSS-SESSION MEMORY] Proactively save high-value, permanent information that will be useful for FUTURE sessions (e.g., User Preferences, Secrets, Discovered Permanent Paths, Reusable Workflows). DO NOT wait for the user to tell you to remember this; archive valuable milestones autonomously. Format: '[Category] Content'",
                 parameters: {
                     type: "object",
                     properties: {
-                        content: { type: "string", description: "Content to write into memory." }
+                        content: { type: "string", description: "Content to write permanently into the cross-session memory." }
                     },
                     required: ["content"]
                 }
