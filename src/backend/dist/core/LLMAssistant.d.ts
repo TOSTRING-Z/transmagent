@@ -2,6 +2,7 @@ import { LLMService } from './LLMService';
 import { Plugins } from './Plugins';
 import { ToolInfo } from '../types';
 import { Utils } from './Utils';
+import { ToolCall } from './ToolCall';
 /**
  * LLMAssistant - LLM对话辅助功能类
  * 统一管理压缩对话、设置聊天名称、工具审计等LLM交互功能
@@ -23,9 +24,8 @@ export declare class LLMAssistant {
         group_id: string;
     }): Promise<string | null>;
     setChatName(_data?: any): Promise<void>;
-    isToolRequireAudit(toolName: string): boolean;
-    getToolConfig(toolName: string): any;
-    auditToolCall(toolInfo: ToolInfo, data: Record<string, any>): Promise<string | null>;
+    isToolRequireAudit(toolName: string, toolCall: ToolCall): boolean;
+    auditToolCall(toolInfo: ToolInfo, data: Record<string, any>, toolCall: ToolCall): Promise<string | null>;
     checkConsoleOutput(consoleOutput: string, executionTimeMs?: number): Promise<{
         shouldInterrupt: boolean;
         reason: string | null;

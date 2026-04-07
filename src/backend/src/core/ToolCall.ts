@@ -139,24 +139,12 @@ export class ToolCall extends ReActAgent {
     }
 
     /**
-     * 获取工具配置（委托给 LLMAssistant）
+     * 获取工具配置
      */
     public getToolConfig(toolName: string): any {
-        return this.llmAssistant.getToolConfig(toolName);
-    }
-
-    /**
-     * 检查工具是否需要审计（委托给 LLMAssistant）
-     */
-    public isToolRequireAudit(toolName: string): boolean {
-        return this.llmAssistant.isToolRequireAudit(toolName);
-    }
-
-    /**
-     * AI 审查者逻辑 (LLM-as-a-Judge) - 委托给 LLMAssistant
-     */
-    public async auditToolCall(toolInfo: ToolInfo, data: Record<string, any>): Promise<string | null> {
-        return this.llmAssistant.auditToolCall(toolInfo, data);
+        if (!this.plugins) return null;
+        const tool = this.plugins.getTool(toolName);
+        return (tool && typeof tool === 'object') ? tool : null;
     }
 
     public loadMessage(filePath: string, id?: string) {
@@ -416,7 +404,7 @@ export class ToolCall extends ReActAgent {
             }
 
             // [2. 触发 AI 审查者 (Critic)]
-            let auditError = await this.auditToolCall(toolInfo, data);
+            let auditError = await this.llmAssistant.auditToolCall(toolInfo, data, this);
             if (auditError) {
                 this.llmService.chatManager.pushToolMessage({
                     ...toolInfo, ...this.llmService.chatManager.chat, content: `User intercept:\n ${auditError}`, uuid: data.uuid
@@ -573,7 +561,7 @@ export class ToolCall extends ReActAgent {
                 };
             } else {
                 const will_tool = this.tools[toolInfo.tool_call_name as string].func;
-                const response = await will_tool({...toolInfo?.params, toolCall: this});
+                const response = await will_tool({ ...toolInfo?.params, toolCall: this });
                 let result: string;
                 if (response?.subagent_tool) {
                     result = response.content;

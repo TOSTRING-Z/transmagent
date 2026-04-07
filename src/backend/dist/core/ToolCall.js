@@ -123,22 +123,13 @@ class ToolCall extends ReActAgent_1.ReActAgent {
         };
     }
     /**
-     * 获取工具配置（委托给 LLMAssistant）
+     * 获取工具配置
      */
     getToolConfig(toolName) {
-        return this.llmAssistant.getToolConfig(toolName);
-    }
-    /**
-     * 检查工具是否需要审计（委托给 LLMAssistant）
-     */
-    isToolRequireAudit(toolName) {
-        return this.llmAssistant.isToolRequireAudit(toolName);
-    }
-    /**
-     * AI 审查者逻辑 (LLM-as-a-Judge) - 委托给 LLMAssistant
-     */
-    async auditToolCall(toolInfo, data) {
-        return this.llmAssistant.auditToolCall(toolInfo, data);
+        if (!this.plugins)
+            return null;
+        const tool = this.plugins.getTool(toolName);
+        return (tool && typeof tool === 'object') ? tool : null;
     }
     loadMessage(filePath, id) {
         super.loadMessage(filePath, id);
@@ -380,7 +371,7 @@ class ToolCall extends ReActAgent_1.ReActAgent {
                 continue; // 当前工具执行失败，继续尝试数组中的下一个工具
             }
             // [2. 触发 AI 审查者 (Critic)]
-            let auditError = await this.auditToolCall(toolInfo, data);
+            let auditError = await this.llmAssistant.auditToolCall(toolInfo, data, this);
             if (auditError) {
                 this.llmService.chatManager.pushToolMessage({
                     ...toolInfo, ...this.llmService.chatManager.chat, content: `User intercept:\n ${auditError}`, uuid: data.uuid

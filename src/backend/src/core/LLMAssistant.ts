@@ -7,6 +7,7 @@ import { Message, ToolInfo, AssistantMessage } from '../types';
 import { logger } from '../utils/logger';
 import { Utils } from './Utils';
 import { formatDate } from '../utils/public';
+import { ToolCall } from './ToolCall';
 
 /**
  * LLMAssistant - LLM对话辅助功能类
@@ -163,18 +164,12 @@ STRICT RULES:
 
     // ==================== 工具审计功能 ====================
 
-    public isToolRequireAudit(toolName: string): boolean {
-        return this.getToolConfig(toolName)?.require_audit === true;
+    public isToolRequireAudit(toolName: string, toolCall: ToolCall): boolean {
+        return toolCall.getToolConfig(toolName)?.require_audit === true || toolName in toolCall.agentTools;
     }
 
-    public getToolConfig(toolName: string): any {
-        if (!this.plugins) return null;
-        const tool = this.plugins.getTool(toolName);
-        return (tool && typeof tool === 'object') ? tool : null;
-    }
-
-    public async auditToolCall(toolInfo: ToolInfo, data: Record<string, any>): Promise<string | null> {
-        if (!toolInfo.tool_call_name || !this.isToolRequireAudit(toolInfo.tool_call_name) || !this.utils.getConfig("tool_call")?.llm_judge) {
+    public async auditToolCall(toolInfo: ToolInfo, data: Record<string, any>, toolCall: ToolCall): Promise<string | null> {
+        if (!toolInfo.tool_call_name || !this.isToolRequireAudit(toolInfo.tool_call_name, toolCall) || !this.utils.getConfig("tool_call")?.llm_judge) {
             return null;
         }
 

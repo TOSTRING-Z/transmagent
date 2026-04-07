@@ -66,17 +66,9 @@ export declare class ToolCall extends ReActAgent {
     constructor(plugins: Plugins, agentTools: Record<string, any> | undefined, llmService: LLMService, window: BrowserWindow | null, utils: Utils, agentConfigs?: AgentConfigs);
     initVar(): void;
     /**
-     * 获取工具配置（委托给 LLMAssistant）
+     * 获取工具配置
      */
     getToolConfig(toolName: string): any;
-    /**
-     * 检查工具是否需要审计（委托给 LLMAssistant）
-     */
-    isToolRequireAudit(toolName: string): boolean;
-    /**
-     * AI 审查者逻辑 (LLM-as-a-Judge) - 委托给 LLMAssistant
-     */
-    auditToolCall(toolInfo: ToolInfo, data: Record<string, any>): Promise<string | null>;
     loadMessage(filePath: string, id?: string): void;
     getToolsPrompt(): any;
     saveLongTermMemory(user_content: string, final_answer: string): Promise<void>;
