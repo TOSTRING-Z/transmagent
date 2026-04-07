@@ -169,7 +169,7 @@ STRICT RULES:
     }
 
     public async auditToolCall(toolInfo: ToolInfo, data: Record<string, any>, toolCall: ToolCall): Promise<string | null> {
-        if (toolCall.agentConfigs.agentMode !== "baseagent" ||!toolInfo.tool_call_name || !this.isToolRequireAudit(toolInfo.tool_call_name, toolCall) || !this.utils.getConfig("tool_call")?.llm_judge) {
+        if (toolCall.agentConfigs.agentMode === "baseagent" || !toolInfo.tool_call_name || !this.isToolRequireAudit(toolInfo.tool_call_name, toolCall) || !this.utils.getConfig("tool_call")?.llm_judge) {
             return null;
         }
 
