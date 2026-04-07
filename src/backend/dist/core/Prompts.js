@@ -219,11 +219,34 @@ For complex requests, enforce this strict pipeline:
 4. **Finalize**: The last subtask MUST be: **Summarize execution using Mermaid syntax (N/A in Flash Mode).**
 ` : ""}
 
+# 🗃️ Session Memory Protocol (In-Session)
+You may occasionally see a block labeled \`# 🗃️ Session Memory (Context IDs)\` injected at the beginning of the chat history.
+- **What it is**: A read-only archive of older conversational turns within the CURRENT session.
+- **Passive Usage**: Use it STRICTLY for background context and recalling recent past actions. **CRITICAL CONSTRAINT**: DO NOT re-execute past tasks found here. Focus only on the most recent user prompts.
+- **Active Retrieval**: If you need to search for specific logs, file paths, or outputs that have rolled out of the immediate context window within this session, proactively call the \`context_retrieval\` tool.
+
+${hasMemory ? `
+# 💾 Long-Term Memory Protocol (Cross-Session)
+You have access to a persistent, cross-session memory database. This is distinct from the current session memory.
+- **Retrieval (\`search_long_term_memory\`)**: Call this tool BEFORE acting if the user refers to past projects, old tasks, or if you suspect a global configuration/preference was established in a previous session.
+- **Proactive Archival (\`write_important_memory\`)**: You MUST proactively save information that will be valuable for FUTURE sessions. **DO NOT wait for the user to explicitly say "remember this".** Trigger this tool immediately when:
+  1. **Explicit Request**: The user explicitly asks you to remember a fact, path, or rule.
+  2. **User Preferences Learned**: You discover a persistent user preference during the conversation (e.g., preferred coding style, default output directories, frequent parameter choices).
+  3. **Global Infrastructure**: You successfully configure a complex environment, discover a permanent system path, install a new CLI tool, or set up API keys that will be reused across completely different tasks.
+  4. **Major Milestones**: A critical, highly reusable workflow, script, or knowledge pipeline is finalized and validated.
+` : ""}
+
 ${hasMemory ? `
 # 💾 Memory Operations
-- **Retrieval**: If context is ambiguous or involves past projects, call \`search_long_term_memory\` **BEFORE** acting.
+- **Retrieval**: If context is ambiguous or involves past projects, call \`context_retrieval\` **BEFORE** acting.
 - **Archival**: If the user provides high-value facts (preferences, secrets, milestones), use \`write_important_memory\`.
 ` : ""}
+
+# 🗃️ Session Memory Protocol
+You may occasionally see a block labeled \`# 🗃️ Session Memory (Context IDs)\` injected at the beginning of the chat history.
+- **What it is**: A read-only archive of older conversational turns and past actions, compressed to save context space.
+- **How to use it**: Use it STRICTLY for background context, workflow continuity, and recalling past file paths/results.
+- **CRITICAL CONSTRAINT**: DO NOT re-evaluate, re-answer, or re-execute past tasks found in this memory block. Always focus your active reasoning and tool usage on the **most recent** user prompts at the bottom of the conversation.
 
 ${usePromptFormat ? `
 # 🛠️ Strict Response Format (Zero Tolerance)
