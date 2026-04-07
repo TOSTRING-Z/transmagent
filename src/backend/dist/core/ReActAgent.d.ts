@@ -2,7 +2,7 @@ import { LLMService } from './LLMService';
 import { ChatState, AssistantMessage } from '../types';
 import { LLMAssistant } from './LLMAssistant';
 import { BrowserWindow } from 'electron/main';
-import { Utils } from '../utils/Utils';
+import { Utils } from './Utils';
 export declare enum State {
     IDLE = "idle",
     RUNNING = "running",

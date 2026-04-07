@@ -2,7 +2,7 @@ import { ChatManager } from './ChatManager';
 import { ILLMAdapter } from '../adapters/IAdapter';
 import { AgentMode, ChatRequestData, Message } from '../types';
 import { BrowserWindow } from 'electron';
-import { Utils } from '../utils/Utils';
+import { Utils } from './Utils';
 export declare class LLMService {
     window: BrowserWindow | null;
     chatManager: ChatManager;

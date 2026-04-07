@@ -7,7 +7,7 @@ import { AgentMode, AssistantMessage, ChatRequestData, Message, MessageContent, 
 import { streamJSON, streamSse } from '../utils/stream';
 import { formatString } from '../utils/format'; // 原型扩展 format 的替代品
 import { BrowserWindow } from 'electron';
-import { Utils } from '../utils/Utils';
+import { Utils } from './Utils';
 
 export class LLMService {
     public window: BrowserWindow | null;

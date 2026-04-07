@@ -4,7 +4,7 @@ import { Plugins } from './Plugins';
 import { ToolCallAdapterFactory } from '../factories/AdapterFactory';
 import { Message, ToolInfo, AssistantMessage } from '../types';
 import { logger } from '../utils/logger';
-import { Utils } from '../utils/Utils';
+import { Utils } from './Utils';
 import { formatDate } from '../utils/public';
 
 /**

@@ -1,4 +1,4 @@
-import { Utils } from '../utils/Utils';
+import { Utils } from './Utils';
 export interface PluginItem {
     func: (...args: any[]) => any;
     extra?: any;

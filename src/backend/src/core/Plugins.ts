@@ -1,7 +1,7 @@
 import * as fs from 'fs';
 import * as path from 'path';
 import { logger } from '../utils/logger';
-import { Utils } from '../utils/Utils';
+import { Utils } from './Utils';
 
 export interface PluginItem {
     func: (...args: any[]) => any;

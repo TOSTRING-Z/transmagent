@@ -3,7 +3,7 @@ import { CHAT_CONST } from '../utils/globals';
 import { formatString } from '../utils/format';
 import { LLMService } from './LLMService';
 import { PluginItem, Plugins } from './Plugins';
-import { Utils } from '../utils/Utils';
+import { Utils } from './Utils';
 import { BrowserWindow } from 'electron/main';
 import { copy } from '../utils/public';
 

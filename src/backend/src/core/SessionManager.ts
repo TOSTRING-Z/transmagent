@@ -5,7 +5,7 @@ import { ChainCall } from "./ChainCall";
 import { LLMService } from "./LLMService";
 import { Plugins } from "./Plugins";
 import { Observation, ToolCall } from "./ToolCall";
-import { Utils } from "../utils/Utils";
+import { Utils } from "./Utils";
 import { SubAgent } from "./SubAgent";
 import { getSessionId } from "../utils/public";
 import { State } from "./ReActAgent";
@@ -31,7 +31,7 @@ export class SessionManager {
             SessionManager.instance = this;
             this.window = window;
             this.sessions = new Map<string, Session>();
-            this.addSession();
+            this.updateSession();
         }
         return SessionManager.instance;
     }
@@ -64,24 +64,44 @@ export class SessionManager {
 
     setActiveagentMode(agentMode: AgentMode) {
         store.set('agentMode', agentMode);
+        // 替换当前会话
+        const session = this.createSession(this.activeSessionId, agentMode);
+        this.activeSessionId = this.activeSessionId;
+        this.activeSession = session;
+        this.sessions.set(this.activeSessionId, session);
+        // 加载历史消息
+        const history_path = this.activeSession.utils.getHistoryPath(this.activeSessionId);
+        this.activeSession.tool_call.loadMessage(history_path);
+        // 更新模式
+        this.activeSession.llmService.chatManager.chat.agentMode = agentMode;
+        // 通知前端更新
+        const group_id = this.activeSession.llmService.chatManager.chat.group_id;
+        let uuid = this.activeSession.tool_call.setUUID();
+        this.window?.webContents.send('handleSetChat', this.activeSession.llmService.chatManager.chat);
+        this.window?.webContents.send('agentIdle', { group_id, uuid });
+
     }
 
-    createSession(id?: string): Session {
+    createSession(id?: string, agentMode?: AgentMode): Session {
         let agentTools = {};
         let mcp_server = true;
         let skill = true;
-        let agentMode: AgentMode = store.get('agentMode', 'transagent');
 
-        if (id) {
-            const utilsTemp = new Utils('transagent');
-            const historyData = utilsTemp.getHistoryData();
-            const chat = historyData.data.find((item: any) => item.id === id);
-            if (chat?.agentMode) {
-                agentMode = chat.agentMode;
+        if (!agentMode) {
+            agentMode = store.get('agentMode', 'transagent');
+            if (id) {
+                const utilsTemp = new Utils('transagent');
+                const historyData = utilsTemp.getHistoryData();
+                const chat = historyData.data.find((item: any) => item.id === id);
+                if (chat?.agentMode) {
+                    agentMode = chat.agentMode;
+                }
             }
+        } else  {
+
         }
 
-        const utils = new Utils(agentMode);
+        const utils = new Utils(agentMode!);
         const plugins = new Plugins(utils);
         const llmService = new LLMService([], this.window, utils, agentMode);
         const subAgent = new SubAgent(utils, llmService);
@@ -104,7 +124,7 @@ export class SessionManager {
             env: true,
             skill: skill,
             subagent: false,
-            agentMode: agentMode,
+            agentMode: agentMode!,
             agent_name: "TransMAgent"
         });
 
@@ -113,7 +133,7 @@ export class SessionManager {
         return { tool_call, chain_call, llmService, utils, plugins, subAgent };
     }
 
-    addSession(id?: string) {
+    updateSession(id?: string) {
         const session = this.createSession(id);
         let sessionId: string;
         if (id) {
@@ -150,7 +170,7 @@ export class SessionManager {
                 this.window?.webContents.send('agentIdle', { group_id, uuid });
             }
         } else {
-            this.addSession(id);
+            this.updateSession(id);
             this.activeSession.tool_call.loadChat(id);
             const group_id = this.activeSession.llmService.chatManager.chat.group_id;
             let uuid = this.activeSession.tool_call.setUUID();

@@ -1,5 +1,5 @@
 import { Message, ChatState } from '../types';
-import { Utils } from '../utils/Utils';
+import { Utils } from './Utils';
 export declare class ChatManager {
     messages: Message[];
     chat: ChatState;

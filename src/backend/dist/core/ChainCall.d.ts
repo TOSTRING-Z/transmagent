@@ -1,7 +1,7 @@
 import { ReActAgent } from './ReActAgent';
 import { LLMService } from './LLMService';
 import { Plugins } from './Plugins';
-import { Utils } from '../utils/Utils';
+import { Utils } from './Utils';
 import { BrowserWindow } from 'electron/main';
 export declare class ChainCall extends ReActAgent {
     plugins: Plugins;

@@ -4,7 +4,7 @@ import { logger } from '../utils/logger';
 import * as path from 'path';
 import { Message, ChatState, UserMessage, AssistantMessage, ToolMessage, LongTermMemory } from '../types';
 import { CHAT_CONST } from '../utils/globals';
-import { Utils } from '../utils/Utils';
+import { Utils } from './Utils';
 import { copy, getSessionId, parseJsonContent } from '../utils/public';
 
 export class ChatManager {
@@ -359,12 +359,12 @@ export class ChatManager {
     public getMemory(): Message[] {
         let messages = this.getMessages(false);
         messages = this.compressContext(messages);
-        
+
         // 截取最近记忆
         if (messages.length > this.chat.memory_length) {
             let startIdx = this.getStartIdx();
             let longStartIdx = Math.max(startIdx - this.chat.long_memory_length, 0);
-            
+
             // 直接映射为 Markdown 格式的字符串
             let longMessagesStr = messages
                 .slice(longStartIdx, startIdx)
@@ -380,7 +380,7 @@ export class ChatManager {
                 role: "user",
                 content: "# 🗃️ Session Memory (Context IDs)\n\n" + longMessagesStr,
             }
-            
+
             messages = messages.slice(startIdx, messages.length);
             // 在前面添加一条 user 消息
             messages.unshift(userMessage);

@@ -1,7 +1,7 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.BaseWindow = void 0;
-const Utils_1 = require("../../utils/Utils");
+const Utils_1 = require("../../core/Utils");
 const globals_1 = require("../../utils/globals");
 class BaseWindow {
     windowManager;

@@ -1,12 +1,11 @@
 import * as fs from 'fs';
-import { logger } from './logger';
+import { logger } from '../utils/logger';
 import * as os from 'os';
 import * as path from 'path';
-import JSON5 from 'json5';
-import { formatString } from './format';
-import { store, sysConfig } from './globals';
+import { formatString } from '../utils/format';
+import { sysConfig } from '../utils/globals';
 import { AgentMode } from '../types';
-import { parseJsonContent } from './public';
+import { parseJsonContent } from '../utils/public';
 
 // 定义允许用户覆盖的白名单字段
 const OVERRIDABLE_KEYS = ['plugins', 'mcp_server', 'tool_call'];
@@ -64,11 +63,11 @@ export class Utils {
 
     public getConfig(key: string | null = null, config_name: string | null = null): any {
 
-        const sysConfigFilePath = this.getSystem();
+        const defaultConfigPath = this.getDefault(sysConfig["transagent"]);
         const configFilePath = this.getDefault(config_name || sysConfig[this.agentMode]);
 
         // 1. 加载两个配置源
-        let defaultConfig = fs.existsSync(sysConfigFilePath) ? parseJsonContent(fs.readFileSync(sysConfigFilePath, 'utf-8')) : {};
+        let defaultConfig = fs.existsSync(defaultConfigPath) ? parseJsonContent(fs.readFileSync(defaultConfigPath, 'utf-8')) : {};
         let userConfig = fs.existsSync(configFilePath) ? parseJsonContent(fs.readFileSync(configFilePath, 'utf-8')) : {};
 
         // 2. 构造最终配置
@@ -107,12 +106,12 @@ export class Utils {
     }
 
     public setConfig(config: any): boolean {
-        const sysConfigFilePath = this.getSystem();
+        const defaultConfigPath = this.getDefault(sysConfig["transagent"]);
         const userConfigPath = this.getDefault(sysConfig[this.agentMode]);
 
         // 1. 读取现有的默认系统配置（作为基准，避免覆盖时丢失其他未传入的系统字段）
-        let sysConfigData = fs.existsSync(sysConfigFilePath)
-            ? parseJsonContent(fs.readFileSync(sysConfigFilePath, 'utf-8'))
+        let sysConfigData = fs.existsSync(defaultConfigPath)
+            ? parseJsonContent(fs.readFileSync(defaultConfigPath, 'utf-8'))
             : {};
 
         // 2. 准备用于保存的特定模式配置
@@ -134,7 +133,7 @@ export class Utils {
         fs.writeFileSync(userConfigPath, JSON.stringify(userConfigToSave, null, 2));
 
         // 写入全局默认配置（非白名单字段，如 models）
-        fs.writeFileSync(sysConfigFilePath, JSON.stringify(sysConfigData, null, 2));
+        fs.writeFileSync(defaultConfigPath, JSON.stringify(sysConfigData, null, 2));
 
         return true;
     }

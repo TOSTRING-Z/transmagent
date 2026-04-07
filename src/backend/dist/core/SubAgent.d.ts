@@ -1,5 +1,5 @@
 import { SubAgentWindow } from "../main/windows/SubAgentWindow";
-import { Utils } from "../utils/Utils";
+import { Utils } from "./Utils";
 import { ToolCall } from "./ToolCall";
 import { LLMService } from "./LLMService";
 export interface AgentTool {

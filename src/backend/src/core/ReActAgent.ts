@@ -5,7 +5,7 @@ import { ChatState, AssistantMessage, Message } from '../types';
 import { LLMAssistant } from './LLMAssistant';
 import { LLMAdapterFactory, ToolCallAdapterFactory } from '../factories/AdapterFactory';
 import { BrowserWindow } from 'electron/main';
-import { Utils } from '../utils/Utils';
+import { Utils } from './Utils';
 import { copy, delay, getSessionId } from '../utils/public';
 
 export enum State {

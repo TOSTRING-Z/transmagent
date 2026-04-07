@@ -6,7 +6,7 @@ import Prompts from './Prompts';
 import MemoryManager from '../data/MemoryManager';
 import { Plugins } from './Plugins';
 import { LLMAssistant } from './LLMAssistant';
-import { Utils } from '../utils/Utils';
+import { Utils } from './Utils';
 import { BrowserWindow } from 'electron/main';
 export interface Observation {
     result: string;

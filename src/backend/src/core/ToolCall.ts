@@ -15,7 +15,7 @@ import { ToolDSL, Primitives } from "../utils/ToolDSL";
 import { logger } from '../utils/logger';
 import { WindowManager } from '../main/windows/WindowManager';
 import { LLMAssistant } from './LLMAssistant';
-import { Utils } from '../utils/Utils';
+import { Utils } from './Utils';
 import { Browser } from 'puppeteer';
 import { BrowserWindow } from 'electron/main';
 import { formatDate } from '../utils/public';

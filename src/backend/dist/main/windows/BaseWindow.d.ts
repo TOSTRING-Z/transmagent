@@ -1,6 +1,6 @@
 import { BrowserWindow } from 'electron';
 import { WindowManager } from './WindowManager';
-import { Utils } from '../../utils/Utils';
+import { Utils } from '../../core/Utils';
 export declare abstract class BaseWindow {
     windowManager: WindowManager;
     window: BrowserWindow | null;

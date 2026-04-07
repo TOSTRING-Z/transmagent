@@ -4,7 +4,7 @@ import { ChainCall } from "./ChainCall";
 import { LLMService } from "./LLMService";
 import { Plugins } from "./Plugins";
 import { ToolCall } from "./ToolCall";
-import { Utils } from "../utils/Utils";
+import { Utils } from "./Utils";
 import { SubAgent } from "./SubAgent";
 export interface Session {
     tool_call: ToolCall;
@@ -25,8 +25,8 @@ export declare class SessionManager {
     getChat(sessionId?: string): ChatState | null;
     setChat(chat: Partial<ChatState>, sessionId?: string): void;
     setActiveagentMode(agentMode: AgentMode): void;
-    createSession(id?: string): Session;
-    addSession(id?: string): string;
+    createSession(id?: string, agentMode?: AgentMode): Session;
+    updateSession(id?: string): string;
     checkoutSession(id: string): string;
     getSession(id?: string): Session | null;
     getActiveSession(): Session;

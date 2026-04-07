@@ -394,7 +394,7 @@ export class MainWindow extends BaseWindow {
 
         ipcMain.handle('newChat', () => {
             this.window?.webContents.send("clear");
-            this.sessionManager.addSession();
+            this.sessionManager.updateSession();
             const chat = this.session().llmService.chatManager.chat;
             this.updateVersionsSubmenu();
             return chat;

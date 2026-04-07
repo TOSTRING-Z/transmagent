@@ -398,7 +398,7 @@ class MainWindow extends BaseWindow_1.BaseWindow {
         electron_1.ipcMain.on('open-external', (_event, href) => electron_1.shell.openExternal(href));
         electron_1.ipcMain.handle('newChat', () => {
             this.window?.webContents.send("clear");
-            this.sessionManager.addSession();
+            this.sessionManager.updateSession();
             const chat = this.session().llmService.chatManager.chat;
             this.updateVersionsSubmenu();
             return chat;
