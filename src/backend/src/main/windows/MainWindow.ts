@@ -452,8 +452,10 @@ export class MainWindow extends BaseWindow {
 
         ipcMain.on('renameChat', (_, chat) => {
             const hintChat = this.sessionManager.getChat(chat.id);
-            if (hintChat)
+            if (hintChat) {
+                hintChat.name = chat.name || "None";
                 this.sessionManager.setChat(hintChat);
+            }
         });
 
         ipcMain.on('show-log', (_, data) => this.windowManager.alertWindow?.create(data));

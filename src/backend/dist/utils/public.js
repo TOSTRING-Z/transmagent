@@ -227,7 +227,7 @@ const getSessionId = () => {
     return `chat-${crypto.randomUUID()}`;
 };
 exports.getSessionId = getSessionId;
-const getDefaultConfig = (key = null, config_name = null) => {
+const getDefaultConfig = (key = null) => {
     const defaultConfigPath = (0, exports.getDefault)(globals_1.sysConfig["transagent"]);
     let defaultConfig = (0, fs_1.existsSync)(defaultConfigPath) ? (0, exports.parseJsonContent)((0, fs_1.readFileSync)(defaultConfigPath, 'utf-8')) : {};
     if (key === "models" && defaultConfig["models"]) {
@@ -297,6 +297,7 @@ const setHistoryChat = (chat) => {
         if (historyPath) {
             const data = (0, exports.readJsonFile)(historyPath);
             if (data?.chat) {
+                data.chat = chat;
                 (0, exports.writeFile)(historyPath, chat);
                 return true;
             }

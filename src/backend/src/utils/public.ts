@@ -190,7 +190,7 @@ export const getSessionId = (): string => {
     return `chat-${crypto.randomUUID()}`;
 }
 
-export const getDefaultConfig = (key: string | null = null, config_name: string | null = null): any => {
+export const getDefaultConfig = (key: string | null = null): any => {
 
     const defaultConfigPath = getDefault(sysConfig["transagent"]);
 
@@ -263,6 +263,7 @@ export const setHistoryChat = (chat): boolean => {
         if (historyPath) {
             const data = readJsonFile(historyPath);
             if (data?.chat) {
+                data.chat = chat;
                 writeFile(historyPath, chat);
                 return true
             }

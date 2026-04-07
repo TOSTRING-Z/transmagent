@@ -450,8 +450,10 @@ class MainWindow extends BaseWindow_1.BaseWindow {
         });
         electron_1.ipcMain.on('renameChat', (_, chat) => {
             const hintChat = this.sessionManager.getChat(chat.id);
-            if (hintChat)
+            if (hintChat) {
+                hintChat.name = chat.name || "None";
                 this.sessionManager.setChat(hintChat);
+            }
         });
         electron_1.ipcMain.on('show-log', (_, data) => this.windowManager.alertWindow?.create(data));
     }
