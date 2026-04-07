@@ -777,19 +777,19 @@ class MainWindow extends BaseWindow_1.BaseWindow {
                     {
                         label: 'Open Memory',
                         click: () => {
-                            const memoryPath = path.join(this.session().utils.getDefault(), 'memory.md');
+                            const memoryPath = this.session().utils.getDefault('memory.md');
                             if (!fs.existsSync(memoryPath))
                                 fs.writeFileSync(memoryPath, '');
-                            electron_1.shell.openPath(memoryPath).catch(err => WindowManager_1.WindowManager.instance.alertWindow.show('error', `Failed to open :${memoryPath}`));
+                            WindowManager_1.WindowManager.instance.codeWindow.openFile(memoryPath);
                         }
                     },
                     {
                         label: 'Open Extra Prompt',
                         click: () => {
-                            const promptPath = path.join(this.session().utils.getDefault(), globals_1.extraPrompt[this.sessionManager.getAgentMode()]);
+                            const promptPath = this.session().utils.getDefault(globals_1.extraPrompt[this.sessionManager.getAgentMode()]);
                             if (!fs.existsSync(promptPath))
                                 fs.writeFileSync(promptPath, '');
-                            electron_1.shell.openPath(promptPath).catch(err => WindowManager_1.WindowManager.instance.alertWindow.show('error', `Failed to open :${promptPath}`));
+                            WindowManager_1.WindowManager.instance.codeWindow.openFile(promptPath);
                         }
                     },
                     {
@@ -798,7 +798,7 @@ class MainWindow extends BaseWindow_1.BaseWindow {
                             const promptPath = this.session().utils.getConfig("tool_call").cli_prompt || this.session().utils.getDefault("prompts/cli_prompt.md");
                             if (!fs.existsSync(promptPath))
                                 fs.writeFileSync(promptPath, '');
-                            electron_1.shell.openPath(promptPath).catch(err => WindowManager_1.WindowManager.instance.alertWindow.show('error', `Failed to open :${promptPath}`));
+                            WindowManager_1.WindowManager.instance.codeWindow.openFile(promptPath);
                         }
                     },
                     { type: 'separator' },

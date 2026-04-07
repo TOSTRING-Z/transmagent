@@ -79,7 +79,6 @@ export class SessionManager {
         let uuid = this.activeSession.tool_call.setUUID();
         this.window?.webContents.send('handleSetChat', this.activeSession.llmService.chatManager.chat);
         this.window?.webContents.send('agentIdle', { group_id, uuid });
-
     }
 
     createSession(id?: string, agentMode?: AgentMode): Session {

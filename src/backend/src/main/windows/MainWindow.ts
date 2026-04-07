@@ -782,17 +782,17 @@ export class MainWindow extends BaseWindow {
                     {
                         label: 'Open Memory',
                         click: () => {
-                            const memoryPath = path.join(this.session().utils.getDefault(), 'memory.md');
+                            const memoryPath = this.session().utils.getDefault('memory.md');
                             if (!fs.existsSync(memoryPath)) fs.writeFileSync(memoryPath, '');
-                            shell.openPath(memoryPath).catch(err => WindowManager.instance.alertWindow.show('error', `Failed to open :${memoryPath}`));
+                            WindowManager.instance.codeWindow.openFile(memoryPath);
                         }
                     },
                     {
                         label: 'Open Extra Prompt',
                         click: () => {
-                            const promptPath = path.join(this.session().utils.getDefault(), extraPrompt[this.sessionManager.getAgentMode()]);
+                            const promptPath = this.session().utils.getDefault(extraPrompt[this.sessionManager.getAgentMode()]);
                             if (!fs.existsSync(promptPath)) fs.writeFileSync(promptPath, '');
-                            shell.openPath(promptPath).catch(err => WindowManager.instance.alertWindow.show('error', `Failed to open :${promptPath}`));
+                            WindowManager.instance.codeWindow.openFile(promptPath);
                         }
                     },
                     {
@@ -800,7 +800,7 @@ export class MainWindow extends BaseWindow {
                         click: () => {
                             const promptPath = this.session().utils.getConfig("tool_call").cli_prompt || this.session().utils.getDefault("prompts/cli_prompt.md");
                             if (!fs.existsSync(promptPath)) fs.writeFileSync(promptPath, '');
-                            shell.openPath(promptPath).catch(err => WindowManager.instance.alertWindow.show('error', `Failed to open :${promptPath}`));
+                            WindowManager.instance.codeWindow.openFile(promptPath);
                         }
                     },
                     { type: 'separator' },
