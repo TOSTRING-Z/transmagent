@@ -359,25 +359,29 @@ export class ChatManager {
     public getMemory(): Message[] {
         let messages = this.getMessages(false);
         messages = this.compressContext(messages);
+        
         // 截取最近记忆
         if (messages.length > this.chat.memory_length) {
-            let messages_list: LongTermMemory[] = [];
             let startIdx = this.getStartIdx();
             let longStartIdx = Math.max(startIdx - this.chat.long_memory_length, 0);
-            messages_list = messages.slice(longStartIdx, startIdx).filter(message => message.role !== "tool").map(message => {
-                const message_copy = this.delMessage(message, message?.del);
-                return {
-                    role: message_copy.role,
-                    content: message_copy.content,
-                    context_id: message_copy.context_id,
-                };
-            }) as LongTermMemory[];
-            let longMessages = JSON.stringify(messages_list, null, 2);
+            
+            // 直接映射为 Markdown 格式的字符串
+            let longMessagesStr = messages
+                .slice(longStartIdx, startIdx)
+                .filter(message => message.role !== "tool")
+                .map(message => {
+                    const message_copy = this.delMessage(message, message?.del);
+                    // 使用 Markdown 格式：加粗角色名和 ID，正文跟在后面
+                    return `**[${message_copy.role.toUpperCase()}]** (Context ID: ${message_copy.context_id})\n${message_copy.content}`;
+                })
+                .join("\n\n---\n\n"); // 使用分割线区分每一条消息
+
             let userMessage: UserMessage = {
                 role: "user",
-                content: "# 🗃️ Session Memory (Context IDs)\n" + longMessages,
+                content: "# 🗃️ Session Memory (Context IDs)\n\n" + longMessagesStr,
             }
-            messages = messages.slice(startIdx, messages.length)
+            
+            messages = messages.slice(startIdx, messages.length);
             // 在前面添加一条 user 消息
             messages.unshift(userMessage);
         }

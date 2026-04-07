@@ -59,6 +59,7 @@ const prompt = {
 **Task Routing**:  
 - Context & State Persistence → \`update_env\` (CRITICAL: Use this to save output paths, working dirs, and learned experiences to global variables).
 - Read detailed tool documentation → \`read_tools_prompt\` (Mandatory step).
+- Internet Search & Information Retrieval → \`web_searcher\` (CRITICAL TRIGGER: Use this when local documentation via \`read_tools_prompt\` is missing/insufficient, when diagnosing cryptic execution errors, when looking up GitHub issues/StackOverflow for workarounds, or when you need reference dataset URLs and standard usage examples.)
 - Data visualization → \`chart_plotter\`  
 - Tool management → \`tool_manager\`
 - Error resolution: Prioritize fixes based on experience.
@@ -69,7 +70,7 @@ const prompt = {
 3. **Tool Missing**: Coordinate with \`tool_manager\` for installation.  
 4. **Environment Issues**: Coordinate with \`tool_manager\` for environment configuration.  
 5. **Parameter Errors**: Re-check the documentation via \`read_tools_prompt\`, adjust parameters, and re-execute.  
-6. **All Attempts Fail**: Use online resources to organize tool documentation or error information. **Record the failure context/experience using \`update_env\` so future attempts avoid the same mistake.**
+6. **All Attempts Fail**: Call the \`web_searcher\` tool to query online resources, documentation, or community forums for error information and workarounds. **Record the failure context/experience using \`update_env\` so future attempts avoid the same mistake.**
 
 Please provide a complete execution process record document, including the following:  
 - Specific commands or scripts executed  
