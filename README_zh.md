@@ -312,6 +312,13 @@ curl -X POST http://localhost:3005/chat/mode \
   -d '{"mode": "flash"}'
 ```
 
+### 切换 Agent 模式 (transagent/baseagent/multagent)
+```bash
+curl -X POST http://localhost:3005/chat/agent_mode \
+  -H "Content-Type: application/json" \
+  -d '{"agent_mode": "transagent"}'
+```
+
 ### 提交查询
 ```bash
 curl -X POST http://localhost:3005/chat/completions \

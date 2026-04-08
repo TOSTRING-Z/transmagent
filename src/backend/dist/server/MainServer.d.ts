@@ -13,6 +13,9 @@ interface CheckoutRequest {
 interface ModeRequest {
     mode?: string;
 }
+interface AgentModeRequest {
+    agent_mode?: string;
+}
 interface ServerResult<T = any> {
     error?: string;
     [key: string]: T | string | undefined;
@@ -24,5 +27,6 @@ export declare class MainServer {
     mode(data: ModeRequest): Promise<ServerResult>;
     list(): Promise<ServerResult>;
     checkout(data: CheckoutRequest): Promise<ServerResult>;
+    agent_mode(data: AgentModeRequest): Promise<ServerResult>;
 }
 export {};

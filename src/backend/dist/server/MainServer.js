@@ -78,6 +78,17 @@ class MainServer {
             return { error: error.message };
         }
     }
+    async agent_mode(data) {
+        try {
+            if (data.agent_mode) {
+                this.mainWindow.setActiveAgent(data.agent_mode);
+            }
+            return { agent_mode: this.mainWindow.sessionManager.getAgentMode() };
+        }
+        catch (error) {
+            return { error: error.message };
+        }
+    }
 }
 exports.MainServer = MainServer;
 //# sourceMappingURL=MainServer.js.map

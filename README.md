@@ -308,6 +308,13 @@ curl -X POST http://localhost:3005/chat/mode \
   -d '{"mode": "auto/act/plan/flash"}'
 ```
 
+### Switch Agent Mode (transagent/baseagent/multagent)
+```bash
+curl -X POST http://localhost:3005/chat/agent_mode \
+  -H "Content-Type: application/json" \
+  -d '{"agent_mode": "transagent/baseagent/multagent"}'
+```
+
 ### Submit Query
 ```bash
 curl -X POST http://localhost:3005/chat/completions \

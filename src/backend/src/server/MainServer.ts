@@ -14,6 +14,10 @@ interface ModeRequest {
     mode?: string;
 }
 
+interface AgentModeRequest {
+    agent_mode?: string;
+}
+
 interface ServerResult<T = any> {
     error?: string;
     [key: string]: T | string | undefined;
@@ -110,6 +114,17 @@ export class MainServer {
             }
 
             return { chat };
+        } catch (error: any) {
+            return { error: error.message };
+        }
+    }
+
+    async agent_mode(data: AgentModeRequest): Promise<ServerResult> {
+        try {
+            if (data.agent_mode) {
+                this.mainWindow.setActiveAgent(data.agent_mode as any);
+            }
+            return { agent_mode: this.mainWindow.sessionManager.getAgentMode() };
         } catch (error: any) {
             return { error: error.message };
         }
