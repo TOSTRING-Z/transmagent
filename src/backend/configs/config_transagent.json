@@ -101,7 +101,10 @@
       "require_confirmation": true,
       "confirmation_message": "⚠️ 警告：即将执行Python代码。这可能会执行任意代码，存在安全风险。是否继续？"
     },
-    "search_files": {
+    "find_files": {
+      "enabled": true
+    },
+    "grep_files": {
       "enabled": true
     },
     "list_dir": {
