@@ -6,19 +6,13 @@ const fs_1 = require("fs");
 function getPrompt() {
     return {
         name: "read_tools_prompt",
-        description: "Retrieve the `tool core description file` content, MCP tools, and active Agent Skills. Optionally filter by specific tool names or skill names.",
+        description: "Retrieve all available bash tools, MCP tools, and Agent Skills to build a complete workflow architecture.",
         parameters: {
             type: "object",
             properties: {
-                tool_names: {
-                    type: "array",
-                    items: { type: "string" },
-                    description: "Optional list of specific tool names to retrieve. If empty or omitted, returns all tools."
-                },
-                skill_names: {
-                    type: "array",
-                    items: { type: "string" },
-                    description: "Optional list of specific skill names to retrieve. If empty or omitted, returns all active skills."
+                query: {
+                    type: "string",
+                    description: "Optional keyword to filter tools. If omitted, returns the full catalog."
                 }
             },
             required: []
@@ -27,89 +21,55 @@ function getPrompt() {
 }
 function main() {
     return async (params) => {
-        const tool_names = params?.tool_names || [];
-        const skill_names = params?.skill_names || [];
+        const query = (params?.query || "").toLowerCase().trim();
         const toolCall = params.toolCall;
-        // --- 1. 处理 Skill 筛选逻辑 ---
+        // --- 1. 获取所有 Skill ---
         const skillManager = toolCall.prompts.skillManager;
-        let relevantSkills = skillManager.findRelevantSkills();
-        // 如果传入了特定的 skill_names，则过滤出匹配的技能
-        if (skill_names.length > 0) {
-            relevantSkills = relevantSkills.filter(skill => skill_names.includes(skill.name));
-        }
-        const matchedSkills = relevantSkills.length > 0
-            ? skillManager.getSkillPrompt(relevantSkills)
-            : `No matching skills found for: ${skill_names.join(', ') || 'all'}.`;
-        // --- 2. 处理 Tool 逻辑 ---
+        const allSkills = skillManager.findRelevantSkills();
+        let matchedSkills = skillManager.getSkillPrompt(allSkills);
+        // --- 2. 获取所有 MCP 工具 ---
         const mcp_client = toolCall.mcp_client;
         await mcp_client.initMcp();
-        const mcp_prompt = mcp_client.mcpPrompt;
         const mcp_tool_prompts = mcp_client.toolPrompts;
+        const mcp_full_prompt = mcp_client.mcpPrompt;
+        // --- 3. 获取 Bash 工具 (cli_prompt.md) ---
         const prompt_file = toolCall.utils.getConfig("tool_call").cli_prompt || toolCall.utils.getDefault("prompts/cli_prompt.md");
         if (!(0, fs_1.existsSync)(prompt_file)) {
             return {
                 skills: matchedSkills,
-                error: "The tool core description file does not exist"
+                error: "The tool core description file (bash tools) does not exist at the configured path."
             };
         }
         const fileContent = (0, fs_1.readFileSync)(prompt_file, 'utf-8');
-        // 如果没有传入特定的工具名，直接返回完整的工具内容 + 筛选后的 Skills
-        if (tool_names.length === 0) {
+        // --- 4. 逻辑判断：如果 query 为空，直接返回全量内容 ---
+        if (!query) {
             return {
+                notice: "Returning full tool catalog for workflow planning.",
                 skills: matchedSkills,
                 bash_tools: fileContent,
-                mcp_tools: mcp_prompt
+                mcp_tools: mcp_full_prompt
             };
         }
-        // --- 逐行解析提取指定 Bash 工具逻辑 ---
-        const lines = fileContent.split('\n');
-        let extractedTools = [];
-        let currentToolName = null;
-        let currentToolLines = [];
-        const toolStartRegex = /^- ([a-zA-Z0-9_-]+):/;
-        for (let i = 0; i < lines.length; i++) {
-            const line = lines[i];
-            const trimmedLine = line.trim();
-            const match = line.match(toolStartRegex);
-            if (match && !line.startsWith('   - ') && !line.startsWith('    - ')) {
-                if (currentToolName && tool_names.includes(currentToolName)) {
-                    extractedTools.push(currentToolLines.join('\n').trim());
-                }
-                currentToolName = match[1];
-                currentToolLines = [line];
-            }
-            else if (currentToolName) {
-                currentToolLines.push(line);
-                if (trimmedLine === '***') {
-                    if (tool_names.includes(currentToolName)) {
-                        extractedTools.push(currentToolLines.join('\n').trim());
-                    }
-                    currentToolName = null;
-                    currentToolLines = [];
-                }
-            }
-        }
-        if (currentToolName && tool_names.includes(currentToolName)) {
-            extractedTools.push(currentToolLines.join('\n').trim());
-        }
-        const matchedBashTools = extractedTools.length > 0
-            ? extractedTools.join('\n\n')
-            : `No matching bash tools found for: ${tool_names.join(', ')}.`;
-        // --- 提取指定的 MCP 工具逻辑 ---
-        const extractedMcpTools = [];
-        for (const name of tool_names) {
-            if (mcp_tool_prompts[name]) {
-                extractedMcpTools.push(mcp_tool_prompts[name]);
-            }
-        }
-        const matchedMcpTools = extractedMcpTools.length > 0
-            ? extractedMcpTools.join('\n\n---\n\n')
-            : `No matching MCP tools found for: ${tool_names.join(', ')}.`;
-        // 返回整合后的结果
+        // --- 5. 如果确实需要检索 (模糊匹配逻辑) ---
+        const keywords = query.split(/\s+/);
+        const matches = (text) => keywords.some(k => text.toLowerCase().includes(k));
+        // 过滤 Skills
+        const filteredSkills = allSkills.filter(s => matches(s.name) || (s.description && matches(s.description)));
+        // 过滤 MCP
+        const filteredMcp = Object.keys(mcp_tool_prompts)
+            .filter(name => matches(name) || matches(mcp_tool_prompts[name]))
+            .map(name => mcp_tool_prompts[name])
+            .join('\n\n---\n\n');
+        // 过滤 Bash (简单块提取)
+        const bashBlocks = fileContent.split('***');
+        const filteredBash = bashBlocks
+            .filter(block => matches(block))
+            .join('\n***\n');
         return {
-            skills: matchedSkills,
-            bash_tools: matchedBashTools,
-            mcp_tools: matchedMcpTools
+            search_query: query,
+            skills: skillManager.getSkillPrompt(filteredSkills),
+            bash_tools: filteredBash || "No matching bash tools found.",
+            mcp_tools: filteredMcp || "No matching MCP tools found."
         };
     };
 }

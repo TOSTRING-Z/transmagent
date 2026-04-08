@@ -1,7 +1,6 @@
 import { ToolCall } from "../core/ToolCall";
 export interface ReadToolsParams {
-    tool_names?: string[];
-    skill_names?: string[];
+    query?: string;
     toolCall: ToolCall;
 }
 export declare function getPrompt(): {
@@ -10,18 +9,8 @@ export declare function getPrompt(): {
     parameters: {
         type: string;
         properties: {
-            tool_names: {
+            query: {
                 type: string;
-                items: {
-                    type: string;
-                };
-                description: string;
-            };
-            skill_names: {
-                type: string;
-                items: {
-                    type: string;
-                };
                 description: string;
             };
         };
