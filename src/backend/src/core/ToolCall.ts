@@ -182,7 +182,8 @@ export class ToolCall extends ReActAgent {
                     const query = `[SYSTEM HEARTBEAT @ ${time}] Evaluate your recurring tasks. If a task's trigger_condition is met, initiate the next cycle. If NO tasks are due, respond EXACTLY with [STANDBY].`;
 
                     logger.log(`[Heartbeat] Triggering ReAct loop at ${time}`);
-                    const data = this.getDataDefault({query});
+                    const data = this.getDataDefault({ query });
+                    data.uuid = this.llmService.chatManager.uuid;
                     this.callReAct(data, false);
                 } catch (e: any) {
                     console.error("[Heartbeat] Execution failed:", e);
