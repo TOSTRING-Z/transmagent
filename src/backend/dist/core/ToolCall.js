@@ -141,7 +141,7 @@ class ToolCall extends ReActAgent_1.ReActAgent {
         // 在这里声明每个工具在什么条件下允许被使用
         const TOOL_POLICY = {
             'update_env': all(hasArg('env'), not(isMode('PLAN'))),
-            'mcpTool': all(hasArg('mcpTool'), not(isMode('PLAN'))),
+            'mcp_server': all(hasArg('mcpTool'), not(isMode('PLAN'))),
             'add_subtasks': all(hasArg('todolist'), not(any(isMode('PLAN'), isMode('FLASH')))),
             'record_subtasks': all(hasArg('todolist'), not(any(isMode('PLAN'), isMode('FLASH')))),
             'context_retrieval': not(isSubagent),

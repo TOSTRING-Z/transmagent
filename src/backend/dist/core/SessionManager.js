@@ -91,8 +91,8 @@ class SessionManager {
     }
     createSession(id, agentMode) {
         let agentTools = {};
-        let mcpTool = false;
-        let mcpPrompt = false;
+        let mcpTool = true;
+        let mcpPrompt = true;
         let skill = true;
         if (!agentMode) {
             agentMode = globals_1.store.get('agentMode', 'transagent');
@@ -116,6 +116,7 @@ class SessionManager {
         }
         if (agentMode === 'multagent') {
             mcpTool = false;
+            mcpPrompt = false;
             skill = false;
             agentTools = { ...subAgent.getAgentTools() };
         }

@@ -288,6 +288,8 @@ export async function enterEnd(messageSystem: HTMLElement, chunk: any = null) {
 
 export function addRunning(messageSystem: HTMLElement) {
   DOM.submit.classList.add("running");
+  const message_actions = messageSystem.getElementsByClassName("message-actions")[0] as HTMLElement;
+  message_actions.classList.remove("active");
   const thinking = messageSystem?.getElementsByClassName("thinking")[0];
   thinking.classList.remove('hidden');
   const btn = messageSystem?.getElementsByClassName("btn")[0];

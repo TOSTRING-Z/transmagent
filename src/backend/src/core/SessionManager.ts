@@ -107,8 +107,8 @@ export class SessionManager {
 
     createSession(id?: string, agentMode?: AgentMode): Session {
         let agentTools = {};
-        let mcpTool = false;
-        let mcpPrompt = false;
+        let mcpTool = true;
+        let mcpPrompt = true;
         let skill = true;
 
         if (!agentMode) {
@@ -135,6 +135,7 @@ export class SessionManager {
         }
         if (agentMode === 'multagent') {
             mcpTool = false;
+            mcpPrompt = false;
             skill = false;
             agentTools = { ...subAgent.getAgentTools() };
         }
