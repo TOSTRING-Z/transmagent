@@ -21,7 +21,6 @@ export declare class MainWindow extends BaseWindow {
     setActiveAgent(activeAgent: AgentMode): void;
     destroy(): void;
     restart(window: BrowserWindow | null): void;
-    setupHeartbeat(): void;
     serverInit(): void;
     create(): void;
     agentLoop(data: any): Promise<void>;

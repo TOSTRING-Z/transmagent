@@ -16,9 +16,8 @@ import { logger } from '../utils/logger';
 import { WindowManager } from '../main/windows/WindowManager';
 import { LLMAssistant } from './LLMAssistant';
 import { Utils } from './Utils';
-import { Browser } from 'puppeteer';
 import { BrowserWindow } from 'electron/main';
-import { formatDate } from '../utils/public';
+import { formatDate, getDefaultConfig } from '../utils/public';
 const { all, any, not, always } = ToolDSL;
 const { isSubagent, isMode, hasArg } = Primitives;
 
@@ -140,6 +139,24 @@ export class ToolCall extends ReActAgent {
         };
     }
 
+    public setupHeartbeat() {
+        const heartbeat = getDefaultConfig("heartbeat");
+        if (heartbeat && heartbeat.enabled) {
+            logger.log(`[Heartbeat] Service started. Interval: ${heartbeat.interval}s`);
+            setInterval(async () => {
+                if (this.state === State.IDLE || this.state === State.FINAL) {
+                    try {
+                        let time = this.llmService.environment_details.time;
+                        let query = { query: `[${time}] This is a heartbeat prompt. Please keep the system active.` };
+                        this.callReAct({query});
+                    } catch (e: any) {
+                        console.error("[Heartbeat] Execution failed:", e);
+                    }
+                }
+            }, heartbeat.interval * 1000);
+        }
+    }
+
     /**
      * 获取工具配置
      */
@@ -233,7 +250,6 @@ export class ToolCall extends ReActAgent {
             console.error("Error saving memory", e);
         }
     }
-
 
     public memoryUpdate(data: Record<string, any>) {
         this.system_prompt = async () => {

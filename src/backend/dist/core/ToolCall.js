@@ -123,6 +123,24 @@ class ToolCall extends ReActAgent_1.ReActAgent {
             todolist: null,
         };
     }
+    setupHeartbeat() {
+        const heartbeat = (0, public_1.getDefaultConfig)("heartbeat");
+        if (heartbeat && heartbeat.enabled) {
+            logger_1.logger.log(`[Heartbeat] Service started. Interval: ${heartbeat.interval}s`);
+            setInterval(async () => {
+                if (this.state === ReActAgent_1.State.IDLE || this.state === ReActAgent_1.State.FINAL) {
+                    try {
+                        let time = this.llmService.environment_details.time;
+                        let query = { query: `[${time}] This is a heartbeat prompt. Please keep the system active.` };
+                        this.callReAct({ query });
+                    }
+                    catch (e) {
+                        console.error("[Heartbeat] Execution failed:", e);
+                    }
+                }
+            }, heartbeat.interval * 1000);
+        }
+    }
     /**
      * 获取工具配置
      */

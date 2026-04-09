@@ -66,6 +66,7 @@ export declare class ToolCall extends ReActAgent {
     tool_schemas?: any[];
     constructor(plugins: Plugins, agentTools: Record<string, any> | undefined, llmService: LLMService, window: BrowserWindow | null, utils: Utils, agentConfigs?: AgentConfigs);
     initVar(): void;
+    setupHeartbeat(): void;
     /**
      * 获取工具配置
      */

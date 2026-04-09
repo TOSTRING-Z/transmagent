@@ -89,24 +89,6 @@ export class MainWindow extends BaseWindow {
         }).catch(err => console.error('Restart prompt failed:', err));
     }
 
-    public setupHeartbeat() {
-        const heartbeat = this.session().utils.getConfig("heartbeat");
-        if (heartbeat && heartbeat.enabled) {
-            logger.log(`[Heartbeat] Service started. Interval: ${heartbeat.interval}s`);
-            setInterval(async () => {
-                if (this.session().tool_call && (this.session().tool_call.state === State.IDLE || this.session().tool_call.state === State.FINAL)) {
-                    try {
-                        let time = this.session().tool_call.llmService.environment_details.time;
-                        let query = { query: `[${time}] This is a heartbeat timestamp. Please keep the system active.` };
-                        this.sendQuery(query);
-                    } catch (e: any) {
-                        console.error("[Heartbeat] Execution failed:", e);
-                    }
-                }
-            }, heartbeat.interval * 1000);
-        }
-    }
-
     public serverInit() {
 
         this.main_server = new MainServer(this);
@@ -152,7 +134,6 @@ export class MainWindow extends BaseWindow {
         this.window?.webContents.on('did-finish-load', () => {
             this.initFuncItems();
             this.initInfo();
-            this.setupHeartbeat();
         });
     }
 
