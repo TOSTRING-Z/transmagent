@@ -236,7 +236,10 @@ class ToolCall extends ReActAgent_1.ReActAgent {
         this.llmService.environment_details.time = (0, public_1.formatDate)();
         this.llmService.environment_details.language = data?.language || this.utils.getLanguage();
         const chatState = this.llmService.chatManager.chat;
-        const envs = Object.keys(chatState.envs || {}).map(key => `- ${key}: ${chatState.envs[key]}`);
+        const envs = Object.keys(chatState.envs || {}).map(key => {
+            const env = chatState.envs[key];
+            return `- ${key}: [${env._meta.agent} / ${env._meta.timestamp}] ${env.value}`;
+        });
         const todolist = Object.keys(chatState.vars.tasks || {}).map(task_id => {
             const taskObj = chatState.vars.tasks[task_id];
             const subtasks = taskObj.subtasks.map((sub) => `  - subtask id: ${sub.id}, description: ${sub.description}, status: ${sub.status}`);

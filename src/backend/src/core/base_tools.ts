@@ -1,48 +1,10 @@
 import { State } from "./ReActAgent";
-import * as utils from '../utils/public';
 import { ToolCall } from "./ToolCall";
-
-// ============================================================================
-// 重试熔断配置 (Retry Circuit Breaker Configuration)
-// ============================================================================
-const RETRY_CONFIG = {
-    maxRetries: 3,                    // 单任务最大重试次数
-    maxTotalRetries: 10,               // 会话内最大总重试次数
-    backoffMultiplier: 1.5,           // 退避倍数
-    circuitBreakerThreshold: 3,       // 连续失败触发熔断的次数
-};
-
-// 全局重试计数器（由后端管理，避免 LLM 幻觉时间戳）
-let globalRetryCounter = {
-    sessionTotal: 0,
-    consecutiveFailures: 0,
-};
-
-export function resetRetryCounter() {
-    globalRetryCounter = { sessionTotal: 0, consecutiveFailures: 0 };
-}
-
-export function getRetryState() {
-    return { ...globalRetryCounter, maxRetries: RETRY_CONFIG };
-}
-
-function incrementRetry(success: boolean) {
-    if (success) {
-        globalRetryCounter.consecutiveFailures = 0;
-    } else {
-        globalRetryCounter.sessionTotal++;
-        globalRetryCounter.consecutiveFailures++;
-    }
-}
-
-export function shouldCircuitBreak(): boolean {
-    return globalRetryCounter.consecutiveFailures >= RETRY_CONFIG.circuitBreakerThreshold;
-}
 
 export default function getBaseTools(): Record<string, any> {
     return {
         // ====================================================================
-        // 核心修复 #2: update_env - 时间戳后端自动化
+        // update_env - 时间戳后端自动化
         // ====================================================================
         "update_env": {
             func: async ({ key, value, toolCall }: { key: string, value: any, toolCall: ToolCall }) => {
@@ -57,9 +19,6 @@ export default function getBaseTools(): Record<string, any> {
                         chatState.envs = {};
                     }
 
-                    // ====================================================================
-                    // 关键优化：后端自动追加元数据，LLM 无需拼装格式
-                    // ====================================================================
                     const metadata = {
                         agent: toolCall.agentConfigs?.agentName || 'unknown',
                         timestamp: toolCall.llmService.environment_details?.time || new Date().toISOString(),
@@ -74,7 +33,6 @@ export default function getBaseTools(): Record<string, any> {
                         status: "success",
                         key: key,
                         message: `Environment variable '${key}' has been successfully updated.`,
-                        // 返回完整记录供调试（可选）
                         recorded: {
                             ...metadata,
                             key,
@@ -110,7 +68,6 @@ export default function getBaseTools(): Record<string, any> {
                 try {
                     return await toolCall.mcp_client.callTool({ name, arguments: args });
                 } catch (e: any) {
-                    incrementRetry(false);
                     return { error: `MCP Call Failed: ${e.message}` };
                 }
             },
@@ -174,15 +131,39 @@ export default function getBaseTools(): Record<string, any> {
         },
 
         "add_subtasks": {
-            func: async ({ task, subtasks, task_type = "standard", trigger_condition = null, toolCall }: { task: string, subtasks: string | string[], task_type?: string, trigger_condition?: string | null, toolCall: ToolCall }) => {
-                if (!task || !subtasks) return { status: "error", message: "Missing 'task' or 'subtasks'." };
-                if (task_type === "recurring" && !trigger_condition) {
-                    return { status: "error", message: "Recurring tasks MUST have a 'trigger_condition'." };
-                }
-
+            func: async ({ task_id, task, subtasks, task_type = "standard", trigger_condition = null, update_mode = "append", toolCall }: { task_id?: string, task?: string, subtasks: string | string[], task_type?: string, trigger_condition?: string | null, update_mode?: string, toolCall: any }) => {
                 const chatVars = toolCall.llmService.chatManager.chat.vars;
                 chatVars.tasks = chatVars.tasks || {};
                 chatVars.subtask_id = chatVars.subtask_id ?? 100;
+                chatVars.task_id_counter = chatVars.task_id_counter ?? 1;
+
+                if (!subtasks || subtasks.length === 0) return { status: "error", message: "Missing 'subtasks'." };
+                if (task_type === "recurring" && !trigger_condition) return { status: "error", message: "Recurring tasks MUST have a 'trigger_condition'." };
+
+                let targetTaskId: string | undefined = task_id;
+                const isUpdate = targetTaskId ? !!chatVars.tasks[targetTaskId] : false;
+
+                if (!isUpdate) {
+                    if (!task) return { status: "error", message: "Creating a new task requires a 'task' title." };
+                    targetTaskId = `T-${chatVars.task_id_counter++}`;
+                    chatVars.tasks[targetTaskId] = {
+                        id: targetTaskId,
+                        task_title: task,
+                        type: task_type,
+                        trigger_condition: trigger_condition || null,
+                        subtasks: [],
+                        created_at: new Date().toISOString(),
+                        last_completed_at: null,
+                        execution_count: 0,
+                        cycle_status: "active"
+                    };
+                }
+
+                const targetTask = chatVars.tasks[targetTaskId!];
+
+                if (update_mode === "replace_pending") {
+                    targetTask.subtasks = targetTask.subtasks.filter((s: any) => s.status !== "pending");
+                }
 
                 const subtaskList = (Array.isArray(subtasks) ? subtasks : [subtasks]).map(desc => ({
                     id: chatVars.subtask_id++,
@@ -192,101 +173,83 @@ export default function getBaseTools(): Record<string, any> {
                     created_at: new Date().toISOString()
                 }));
 
-                const taskId = utils.hashCode(task);
-                const isUpdate = !!chatVars.tasks[taskId];
+                targetTask.subtasks.push(...subtaskList);
 
-                if (isUpdate) {
-                    chatVars.tasks[taskId].subtasks.push(...subtaskList);
-                    if (task_type === "recurring") {
-                        chatVars.tasks[taskId].type = "recurring";
-                        chatVars.tasks[taskId].trigger_condition = trigger_condition;
-                    }
-                } else {
-                    chatVars.tasks[taskId] = {
-                        task,
-                        type: task_type,
-                        trigger_condition: trigger_condition || null,
-                        subtasks: subtaskList,
-                        created_at: new Date().toISOString(),
-                        last_completed_at: null,
-                        execution_count: 0,
-                        cycle_status: "active"
-                    };
+                if (isUpdate && task_type === "recurring") {
+                    targetTask.type = "recurring";
+                    targetTask.trigger_condition = trigger_condition;
                 }
 
-                return { 
-                    status: "success", 
-                    message: `Task '${task}' created/updated.`,
-                    task_id: taskId,
-                    subtasks: subtaskList.map(s => ({ id: s.id, description: s.description }))
+                return {
+                    status: "success",
+                    message: isUpdate ? `Task [${targetTaskId}] updated.` : `New task created with ID [${targetTaskId}].`,
+                    task_id: targetTaskId,
+                    subtasks_added: subtaskList.map(s => ({ id: s.id, description: s.description }))
                 };
             },
             getPrompt: () => ({
                 name: "add_subtasks",
-                description: "[IN-SESSION WORKFLOW] Break down complex goals into tracking units for the CURRENT session. Strategy: Create 'Substantive Milestones', not atomic actions.",
+                description: "[IN-SESSION WORKFLOW] Break down complex goals or REPLAN. Use 'task_id' to update an existing workflow. Use 'update_mode=replace_pending' if you need to scrap old unexecuted ideas and pivot to a new plan.",
                 parameters: {
                     type: "object",
                     properties: {
-                        task: { type: "string", description: "Main objective title." },
+                        task_id: { type: "string", description: "Optional. Provide this to UPDATE an existing task (e.g., 'T-1')." },
+                        task: { type: "string", description: "Main objective title (Required only if creating a NEW task)." },
                         subtasks: {
                             type: "array",
                             items: { type: "string" },
-                            description: "List of milestones. Each should be a substantial step, NOT an atomic action."
+                            description: "List of milestones."
                         },
-                        task_type: { 
-                            type: "string", 
-                            enum: ["standard", "recurring"], 
-                            description: "Type of task. Default: standard" 
-                        },
-                        trigger_condition: {
+                        update_mode: {
                             type: "string",
-                            description: "Required if recurring, e.g., 'Every 1 hour'."
-                        }
+                            enum: ["append", "replace_pending"],
+                            description: "Default 'append'. Use 'replace_pending' to delete current 'pending' subtasks and replace them with this new list (crucial for replanning when encountering dead ends)."
+                        },
+                        task_type: { type: "string", enum: ["standard", "recurring"], description: "Type of task." },
+                        trigger_condition: { type: "string", description: "Required if recurring." }
                     },
-                    required: ["task", "subtasks"]
+                    required: ["subtasks"]
                 }
             })
         },
 
         "record_subtasks": {
-            func: async ({ subtask_ids, status, reflection, toolCall }: { subtask_ids: number[], status: string, reflection?: string, toolCall: ToolCall }) => {
+            func: async ({ subtask_ids, status, reflection, toolCall }: { subtask_ids: number[], status: string, reflection?: string, toolCall: any }) => {
                 const chatVars = toolCall.llmService.chatManager.chat.vars;
                 const ids = new Set(subtask_ids);
-                let updated = 0;
+                let updatedCount = 0;
+                let skippedCount = 0;
                 const now = new Date().toISOString();
 
                 let recurringTasksToCheck = new Set<any>();
+                let remainingPendingCount = 0;
 
                 Object.values(chatVars.tasks || {}).forEach((task: any) => {
                     let taskModified = false;
                     task.subtasks.forEach((sub: any) => {
                         if (ids.has(Number(sub.id))) {
+                            if (sub.status === "completed" && status !== "completed") {
+                                skippedCount++;
+                                return;
+                            }
                             sub.status = status;
-                            sub.reflection = reflection || sub.reflection;
+                            if (reflection) sub.reflection = reflection;
                             sub.updated_at = now;
-                            updated++;
+                            updatedCount++;
                             taskModified = true;
                         }
+                        if (sub.status === "pending") remainingPendingCount++;
                     });
                     if (taskModified && task.type === "recurring") recurringTasksToCheck.add(task);
                 });
 
-                if (updated === 0) return { status: "warning", message: "No matching subtask IDs found." };
-
-                // ====================================================================
-                // 关键修复 #3: 熔断机制 - 连续失败时阻止继续重试
-                // ====================================================================
-                if (status === "failed") {
-                    incrementRetry(false);
-                    if (shouldCircuitBreak()) {
-                        return { 
-                            status: "circuit_break", 
-                            message: `⚠️ CIRCUIT BREAKER TRIGGERED: ${RETRY_CONFIG.circuitBreakerThreshold} consecutive failures detected. Execution halted.`,
-                            retry_state: getRetryState()
-                        };
-                    }
-                } else {
-                    incrementRetry(true);
+                if (updatedCount === 0) {
+                    return {
+                        status: "warning",
+                        message: skippedCount > 0
+                            ? `Update skipped: The specified subtasks were already marked as 'completed'.`
+                            : `No matching subtask IDs found. Are you sure you provided the correct IDs?`
+                    };
                 }
 
                 recurringTasksToCheck.forEach((task: any) => {
@@ -300,21 +263,21 @@ export default function getBaseTools(): Record<string, any> {
 
                 return {
                     status: "success",
-                    message: `Marked ${updated} steps as ${status}.`,
-                    retry_state: getRetryState()
+                    message: `Successfully marked ${updatedCount} steps as '${status}'.`,
+                    remaining_pending_tasks: remainingPendingCount
                 };
             },
             getPrompt: () => ({
                 name: "record_subtasks",
-                description: "[IN-SESSION WORKFLOW] Checkpoint progress and save execution state for the CURRENT session. Mandatory: Call this immediately after finishing a subtask.\n\n⚠️ IMPORTANT: The system tracks retry attempts internally. If you see a 'circuit_break' status, you MUST halt execution and report the block.",
+                description: "[IN-SESSION WORKFLOW] Checkpoint progress and save execution state. Mandatory: Call this immediately after finishing a subtask.",
                 parameters: {
                     type: "object",
                     properties: {
                         subtask_ids: { type: "array", items: { type: "integer" }, description: "IDs to update." },
                         status: { type: "string", enum: ["completed", "failed", "in_progress"], description: "Status of the subtask." },
-                        reflection: { type: "string", description: "Result summary or metric data." },
+                        reflection: { type: "string", description: "Result summary, key paths found, or error details." },
                     },
-                    required: ["subtask_ids"]
+                    required: ["subtask_ids", "status"]
                 }
             })
         },
