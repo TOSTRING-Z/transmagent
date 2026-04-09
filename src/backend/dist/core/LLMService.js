@@ -5,7 +5,7 @@ const ChatManager_1 = require("./ChatManager");
 const logger_1 = require("../utils/logger");
 const AdapterFactory_1 = require("../factories/AdapterFactory");
 const stream_1 = require("../utils/stream");
-const format_1 = require("../utils/format"); // 原型扩展 format 的替代品
+const format_1 = require("../utils/format");
 class LLMService {
     window;
     chatManager;
@@ -17,7 +17,7 @@ class LLMService {
         this.window = window;
         this.utils = utils;
         this.chatManager = new ChatManager_1.ChatManager(messages, { agentMode }, utils);
-        this.adapter = AdapterFactory_1.LLMAdapterFactory.getAdapter("openai"); // 默认 API 适配器
+        this.adapter = AdapterFactory_1.LLMAdapterFactory.getAdapter("openai");
     }
     stopLoop() {
         this.stopFlag = true;
@@ -31,7 +31,7 @@ class LLMService {
         try {
             // 1. 根据 api_type 获取 API 通信适配器
             this.adapter = AdapterFactory_1.LLMAdapterFactory.getAdapter(data.api_type);
-            // 3. 构建消息上下文记录
+            // 2. 构建消息上下文记录
             let messagesList = [];
             if (data.system_prompt) {
                 messagesList.push({ role: "system", content: data.system_prompt, show: true, react: false });
@@ -52,20 +52,20 @@ class LLMService {
                 messagesList.push(messageInput);
             }
             let messageOutput = { role: 'assistant', content: '', group_id: this.chatManager.chat.group_id, show: true, react: false };
-            // 4. 构建 HTTP 发送载荷
+            // 3. 构建 HTTP 发送载荷
             const formattedMessages = this.adapter.formatMessages(messagesList, data);
             const body = this.adapter.buildPayload(data, formattedMessages);
             const headers = this.adapter.buildHeaders(data);
             if (this.stopFlag) {
                 return null;
             }
-            // 5. 发起请求
+            // 4. 发起请求
             const resp = await fetch(new URL(data.api_url), {
                 method: "POST",
                 headers: headers,
                 body: JSON.stringify(body),
             });
-            // 6. 流式与非流式分流处理
+            // 5. 流式与非流式分流处理
             let status;
             if (resp.ok) {
                 if (body?.stream) {
@@ -91,7 +91,7 @@ class LLMService {
             if (this.stopFlag) {
                 return null;
             }
-            // 7. 处理并序列化 Tool Calls
+            // 6. 处理并序列化 Tool Calls
             data.output = messageOutput.content;
             if (data.end && data?.llm_conversation_mode) {
                 const finalResponseText = data.output_template ? (0, format_1.formatString)(data.output_template, { ...data }) : data.output;
@@ -125,11 +125,17 @@ class LLMService {
             streamRes = (0, stream_1.streamJSON)(resp);
         }
         let final_tokens = 0;
+        let finish_reason = undefined;
         let chunk;
         for await (chunk of streamRes) {
             if (this.stopFlag)
                 return false;
-            const { content, reasoning_content, tool_calls, tokens, is_incremental_tokens } = adapter.parseStreamChunk(chunk);
+            const parsedChunk = adapter.parseStreamChunk(chunk);
+            const { content, reasoning_content, tool_calls, tokens, is_incremental_tokens, finish_reason: chunkFinishReason } = parsedChunk;
+            // 捕获截断原因
+            if (chunkFinishReason) {
+                finish_reason = chunkFinishReason;
+            }
             // 组装文本内容
             if (content) {
                 messageOutput.content += content;
@@ -138,13 +144,12 @@ class LLMService {
             if (reasoning_content) {
                 messageOutput.reasoning_content = (messageOutput.reasoning_content || "") + reasoning_content;
             }
-            // 组装并拼凑碎片的 Tool Calls (统一处理 OpenAI 和 Anthropic 格式)
+            // 组装并拼凑碎片的 Tool Calls
             if (tool_calls) {
                 if (!messageOutput.tool_calls)
                     messageOutput.tool_calls = [];
                 for (const tc of tool_calls) {
                     if (tc.index !== undefined) {
-                        // OpenAI 格式
                         if (!messageOutput.tool_calls[tc.index]) {
                             messageOutput.tool_calls[tc.index] = {
                                 id: tc.id,
@@ -158,7 +163,6 @@ class LLMService {
                         }
                     }
                     else {
-                        // Anthropic 格式或其他直接返回的格式
                         messageOutput.tool_calls.push(tc);
                     }
                 }
@@ -183,9 +187,19 @@ class LLMService {
             }
         }
         this.chatManager.chat.tokens = final_tokens;
-        // index可能大于0
-        if (messageOutput.tool_calls)
+        if (messageOutput.tool_calls) {
             messageOutput.tool_calls = messageOutput.tool_calls.filter(Boolean);
+        }
+        // ========== 截断检测与自动续传机制 (Max: 3) ==========
+        if ((finish_reason === "length" || finish_reason === "max_tokens" || finish_reason === "stop_sequence") && messageOutput.content) {
+            const systemMsg = data.system_prompt ? [{ role: "system", content: data.system_prompt }] : [];
+            const memory = this.chatManager.getMemory();
+            const allMessages = [...systemMsg, ...memory];
+            const formattedMessages = adapter.formatMessages(allMessages, data);
+            const body = adapter.buildPayload(data, formattedMessages);
+            const headers = adapter.buildHeaders(data);
+            await adapter.truncatedResponse(body, headers, this.window, this.chatManager, messageOutput, data);
+        }
         return true;
     }
     async handleNormal(resp, adapter, headers, body, data, messageOutput) {
@@ -221,7 +235,7 @@ class LLMService {
             });
         }
         // ========== 截断检测与自动续传机制 (Max: 3) ==========
-        if (finish_reason === "length" && data.output) {
+        if ((finish_reason === "length" || finish_reason === "max_tokens" || finish_reason === "stop_sequence") && data.output) {
             await adapter.truncatedResponse(body, headers, this.window, this.chatManager, messageOutput, data);
         }
         return true;

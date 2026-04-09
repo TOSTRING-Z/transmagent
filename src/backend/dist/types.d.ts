@@ -144,4 +144,5 @@ export interface StreamChunkResult {
     tool_calls?: ToolCall[];
     tokens?: number;
     is_incremental_tokens?: boolean;
+    finish_reason?: string;
 }

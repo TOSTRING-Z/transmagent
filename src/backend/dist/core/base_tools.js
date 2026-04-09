@@ -90,7 +90,7 @@ function getBaseTools() {
                     // 关键优化：后端自动追加元数据，LLM 无需拼装格式
                     // ====================================================================
                     const metadata = {
-                        agent: toolCall.agentConfigs?.name || 'unknown',
+                        agent: toolCall.agentConfigs?.agentName || 'unknown',
                         timestamp: toolCall.llmService.environment_details?.time || new Date().toISOString(),
                     };
                     chatState.envs[key] = {

@@ -95,6 +95,7 @@ class OpenAIAdapter {
         let reasoning_content = "";
         let tool_calls = undefined;
         let tokens = undefined;
+        let finish_reason = undefined;
         if (chunk.message?.content) {
             content = chunk.message.content;
         }
@@ -112,6 +113,16 @@ class OpenAIAdapter {
                 }
             }
         }
+        // 解析 stop_reason / finish_reason（用于判断是否被 max_tokens 截断）
+        if (chunk.choices?.[0]?.stop_reason) {
+            finish_reason = chunk.choices[0].stop_reason;
+        }
+        else if (chunk.choices?.[0]?.finish_reason) {
+            finish_reason = chunk.choices[0].finish_reason;
+        }
+        else if (chunk.delta?.stop_reason) {
+            finish_reason = chunk.delta.stop_reason;
+        }
         // 兼容不同的 token 统计返回格式
         if (chunk.usage?.total_tokens) {
             tokens = chunk.usage.total_tokens;
@@ -119,7 +130,7 @@ class OpenAIAdapter {
         else if (chunk.prompt_eval_count !== undefined) {
             tokens = chunk.prompt_eval_count + (chunk.eval_count || 0);
         }
-        return { content, reasoning_content, tool_calls, tokens };
+        return { content, reasoning_content, tool_calls, tokens, finish_reason };
     }
     parseResponse(respJson) {
         let content = "";

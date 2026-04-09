@@ -99,6 +99,7 @@ export class OpenAIAdapter implements ILLMAdapter {
         let reasoning_content = "";
         let tool_calls: any[] | undefined = undefined;
         let tokens: number | undefined = undefined;
+        let finish_reason: string | undefined = undefined;
 
         if (chunk.message?.content) {
             content = chunk.message.content;
@@ -116,6 +117,15 @@ export class OpenAIAdapter implements ILLMAdapter {
             }
         }
 
+        // 解析 stop_reason / finish_reason（用于判断是否被 max_tokens 截断）
+        if (chunk.choices?.[0]?.stop_reason) {
+            finish_reason = chunk.choices[0].stop_reason;
+        } else if (chunk.choices?.[0]?.finish_reason) {
+            finish_reason = chunk.choices[0].finish_reason;
+        } else if (chunk.delta?.stop_reason) {
+            finish_reason = chunk.delta.stop_reason;
+        }
+
         // 兼容不同的 token 统计返回格式
         if (chunk.usage?.total_tokens) {
             tokens = chunk.usage.total_tokens;
@@ -123,7 +133,7 @@ export class OpenAIAdapter implements ILLMAdapter {
             tokens = chunk.prompt_eval_count + (chunk.eval_count || 0);
         }
 
-        return { content, reasoning_content, tool_calls, tokens };
+        return { content, reasoning_content, tool_calls, tokens, finish_reason };
     }
 
     public parseResponse(respJson: any): any {

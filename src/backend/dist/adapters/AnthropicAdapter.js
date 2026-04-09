@@ -144,6 +144,7 @@ class AnthropicAdapter {
         let tool_calls = undefined;
         let tokens = undefined;
         let is_incremental_tokens;
+        let finish_reason = undefined;
         if (chunk.type === "content_block_start") {
             // 工具调用开始
             if (chunk.content_block?.type === "tool_use") {
@@ -167,16 +168,28 @@ class AnthropicAdapter {
                     }];
             }
         }
-        else if (chunk.type === "message_delta" && chunk.usage?.output_tokens) {
-            is_incremental_tokens = true;
-            tokens = chunk.usage.output_tokens;
+        else if (chunk.type === "message_delta") {
+            // Anthropic 的截断原因在 message_delta 中
+            if (chunk.delta?.stop_reason) {
+                finish_reason = chunk.delta.stop_reason;
+            }
+            if (chunk.usage?.output_tokens) {
+                is_incremental_tokens = true;
+                tokens = chunk.usage.output_tokens;
+            }
+        }
+        else if (chunk.type === "message_stop") {
+            // message_stop 前可能携带最终 stop_reason
+            if (chunk.stop_reason) {
+                finish_reason = chunk.stop_reason;
+            }
         }
         else if (chunk.type === "message_start" && chunk.message?.usage) {
             is_incremental_tokens = false;
             const usage = chunk.message.usage;
             tokens = (usage?.cache_creation_input_tokens || usage?.cache_read_input_tokens) + usage.input_tokens;
         }
-        return { content, reasoning_content, tool_calls, tokens, is_incremental_tokens };
+        return { content, reasoning_content, tool_calls, tokens, is_incremental_tokens, finish_reason };
     }
     parseResponse(respJson) {
         let content = "";

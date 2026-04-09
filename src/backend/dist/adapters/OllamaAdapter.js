@@ -136,6 +136,7 @@ class OllamaAdapter {
         let content = "";
         let reasoning_content = "";
         let tokens = undefined;
+        let finish_reason = undefined;
         // Ollama 流式响应格式
         if (chunk.message?.content) {
             content = chunk.message.content;
@@ -144,11 +145,20 @@ class OllamaAdapter {
         if (chunk.message?.reasoning) {
             reasoning_content = chunk.message.reasoning;
         }
+        // Ollama 的截断原因在 done=true 时通过 done_reason 体现
+        if (chunk.done) {
+            if (chunk.done_reason === "context_length_exceeded" || chunk.done_reason === "length") {
+                finish_reason = "length";
+            }
+            else {
+                finish_reason = "stop";
+            }
+        }
         // token 统计
         if (chunk.prompt_eval_count !== undefined) {
             tokens = chunk.prompt_eval_count + (chunk.eval_count || 0);
         }
-        return { content, reasoning_content, tokens };
+        return { content, reasoning_content, tokens, finish_reason };
     }
     parseResponse(respJson) {
         let content = "";

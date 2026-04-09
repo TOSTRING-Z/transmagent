@@ -178,4 +178,5 @@ export interface StreamChunkResult {
     tool_calls?: ToolCall[];
     tokens?: number;
     is_incremental_tokens?: boolean;
+    finish_reason?: string;  // 截断原因：'stop' | 'length' | 'max_tokens' 等
 }
