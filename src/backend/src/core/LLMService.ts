@@ -145,7 +145,9 @@ export class LLMService {
 
         let final_tokens = 0;
 
-        for await (const chunk of streamRes) {
+        let chunk: any;
+
+        for await (chunk of streamRes) {
             if (this.stopFlag) return false;
 
             const { content, reasoning_content, tool_calls, tokens, is_incremental_tokens } = adapter.parseStreamChunk(chunk);

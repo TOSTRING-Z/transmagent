@@ -67,9 +67,7 @@ export async function selectChat(chatId: string) {
 }
 
 export async function loadChat(chatId: string) {
-  const chat = await window.electronAPI.loadChat(chatId);
-  updateChat(chat);
-  selectChat(chatId);
+  window.electronAPI.loadChat(chatId);
 }
 
 export async function handleloadChat(chat: any) {

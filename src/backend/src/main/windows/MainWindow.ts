@@ -393,18 +393,27 @@ export class MainWindow extends BaseWindow {
         ipcMain.on('open-external', (_event, href) => shell.openExternal(href));
 
         ipcMain.handle('newChat', () => {
-            this.window?.webContents.send("clear");
             this.sessionManager.updateSession();
-            const chat = this.session().llmService.chatManager.chat;
             this.updateVersionsSubmenu();
-            return chat;
+            const chat = this.session().llmService.chatManager.chat;
+            this.window?.webContents.send("clear");
+            this.window?.webContents.send(
+                'handleNewChat',
+                chat
+            );
         });
 
         ipcMain.handle('loadChat', (_event, id) => {
             this.sessionManager.checkoutSession(id);
             const chat = this.session().llmService.chatManager.chat;
+            if (chat) {
+                this.session().llmService.chatManager.loadFromChat(chat);
+                this.window?.webContents.send(
+                    'handleloadChat',
+                    chat
+                );
+            }
             this.updateVersionsSubmenu();
-            return chat;
         });
 
         ipcMain.on('delChat', (_event, id) => {

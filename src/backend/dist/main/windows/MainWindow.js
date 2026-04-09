@@ -397,17 +397,20 @@ class MainWindow extends BaseWindow_1.BaseWindow {
         });
         electron_1.ipcMain.on('open-external', (_event, href) => electron_1.shell.openExternal(href));
         electron_1.ipcMain.handle('newChat', () => {
-            this.window?.webContents.send("clear");
             this.sessionManager.updateSession();
-            const chat = this.session().llmService.chatManager.chat;
             this.updateVersionsSubmenu();
-            return chat;
+            const chat = this.session().llmService.chatManager.chat;
+            this.window?.webContents.send("clear");
+            this.window?.webContents.send('handleNewChat', chat);
         });
         electron_1.ipcMain.handle('loadChat', (_event, id) => {
             this.sessionManager.checkoutSession(id);
             const chat = this.session().llmService.chatManager.chat;
+            if (chat) {
+                this.session().llmService.chatManager.loadFromChat(chat);
+                this.window?.webContents.send('handleloadChat', chat);
+            }
             this.updateVersionsSubmenu();
-            return chat;
         });
         electron_1.ipcMain.on('delChat', (_event, id) => {
             this.sessionManager.delChat(id);

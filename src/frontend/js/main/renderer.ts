@@ -103,8 +103,7 @@ document.addEventListener("DOMContentLoaded", () => {
   if (configBtn) configBtn.addEventListener('click', showConfig);
 
   DOM.btn_new_chat.addEventListener("click", async () => {
-    const chat = await window.electronAPI.newChat();
-    handleNewChat(chat);
+    window.electronAPI.newChat();
   });
 
   // Rename Dialog
