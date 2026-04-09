@@ -141,6 +141,7 @@ class ReActAgent {
     getDataDefault(cdata = {}) {
         let data = (0, public_1.copy)(cdata);
         let defaults = {
+            uuid: null,
             prompt: null,
             query: null,
             img_url: null,

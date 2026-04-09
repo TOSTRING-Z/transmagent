@@ -151,38 +151,39 @@ export class ToolCall extends ReActAgent {
             this.heartbeatIntervalId = null;
             logger.log("[Heartbeat] Existing heartbeat interval cleared");
         }
-        
+
         const heartbeat = getDefaultConfig("heartbeat");
         const interval = heartbeat?.interval || 60; // 默认60秒
-        
+
         logger.log(`[Heartbeat] Heartbeat service initialized. Interval: ${interval}s`);
-        
+
         this.heartbeatIntervalId = setInterval(async () => {
-            // 每次心跳触发时，重新检查是否应该执行
             let hasRecurringTasks = false;
             try {
                 const chatVars = this.llmService.chatManager.chat.vars;
                 if (chatVars && chatVars.tasks) {
-                    const tasks = chatVars.tasks;
-                    for (const taskId in tasks) {
-                        if (tasks[taskId].type === "recurring" && tasks[taskId].cycle_status === "active") {
-                            hasRecurringTasks = true;
-                            break;
-                        }
-                    }
+                    // 优化：只要存在 recurring 任务，不论它是 active 还是 wait，都必须保持心跳
+                    // 否则任务一旦完成一次，心跳就死了，永远无法触发下一轮
+                    hasRecurringTasks = Object.values(chatVars.tasks).some(
+                        (task: any) => task.type === "recurring"
+                    );
                 }
             } catch (e) {
                 logger.error("[Heartbeat] Error checking recurring tasks:", e);
             }
-            
-            // 如果有循环任务，强制开启心跳
+
             const shouldEnableHeartbeat = hasRecurringTasks || (heartbeat && heartbeat.enabled);
-            
+
+            // 确保代理当前处于空闲状态，避免打断正在执行的任务
             if ((this.state === State.IDLE || this.state === State.FINAL) && shouldEnableHeartbeat) {
                 try {
-                    let time = this.llmService.environment_details.time;
-                    let query = { query: `[${time}] This is a heartbeat prompt. Please keep the system active.` };
-                    this.callReAct({query});
+                    const time = this.llmService.environment_details.time || new Date().toISOString();
+                    // 优化：极具针对性的唤醒提示词，直接命令代理去检查时间差
+                    const query = `[SYSTEM HEARTBEAT @ ${time}] Evaluate your recurring tasks. If a task's trigger_condition is met, initiate the next cycle. If NO tasks are due, respond EXACTLY with [STANDBY].`;
+
+                    logger.log(`[Heartbeat] Triggering ReAct loop at ${time}`);
+                    const data = this.getDataDefault({query});
+                    this.callReAct(data, false);
                 } catch (e: any) {
                     console.error("[Heartbeat] Execution failed:", e);
                 }
@@ -673,8 +674,8 @@ export class ToolCall extends ReActAgent {
         }
     }
 
-    public async callReAct(data: Record<string, any>): Promise<any> {
-        this.setUUID(data);
+    public async callReAct(data: Record<string, any>, setUUID: boolean = true): Promise<any> {
+        if (setUUID) this.setUUID(data);
         if (this.state === State.PAUSE) {
             data.role = "tool";
             let context_id = `${this.llmService.chatManager.chat.group_id}${this.llmService.chatManager.chat.step - 1}`

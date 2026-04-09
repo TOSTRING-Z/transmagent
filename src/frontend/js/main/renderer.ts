@@ -27,6 +27,15 @@ document.addEventListener("DOMContentLoaded", () => {
   // Window Resize
   window.addEventListener("resize", () => init_size());
 
+  // Fix: 窗口重新获得焦点时，恢复输入框焦点并重新计算布局
+  window.addEventListener("focus", () => {
+    if (DOM.input) {
+      DOM.input.focus();
+    }
+    init_size();
+    autoResizeTextarea(DOM.input);
+  });
+
   // Scroll Top
   DOM.top_div.addEventListener("mouseenter", () => {
     State.scroll_top.info = false;

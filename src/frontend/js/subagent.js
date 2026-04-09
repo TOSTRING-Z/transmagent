@@ -620,6 +620,8 @@ $$
   }
   function addRunning(messageSystem) {
     DOM.submit.classList.add("running");
+    const message_actions = messageSystem.getElementsByClassName("message-actions")[0];
+    message_actions.classList.remove("active");
     const thinking = messageSystem?.getElementsByClassName("thinking")[0];
     thinking.classList.remove("hidden");
     const btn = messageSystem?.getElementsByClassName("btn")[0];

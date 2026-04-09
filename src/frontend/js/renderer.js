@@ -623,6 +623,8 @@ $$
   }
   function addRunning(messageSystem) {
     DOM.submit.classList.add("running");
+    const message_actions = messageSystem.getElementsByClassName("message-actions")[0];
+    message_actions.classList.remove("active");
     const thinking = messageSystem?.getElementsByClassName("thinking")[0];
     thinking.classList.remove("hidden");
     const btn = messageSystem?.getElementsByClassName("btn")[0];
@@ -877,9 +879,7 @@ $$
     });
   }
   async function loadChat(chatId) {
-    const chat = await window.electronAPI.loadChat(chatId);
-    updateChat(chat);
-    selectChat(chatId);
+    window.electronAPI.loadChat(chatId);
   }
   async function handleloadChat(chat) {
     updateChat(chat);
@@ -953,14 +953,14 @@ $$
     if (!textarea)
       return;
     textarea.style.height = "auto";
-    const input_h = DOM.input ? DOM.input.clientHeight : 40;
     const minHeight = 40;
     const maxHeight = minHeight * 3;
     const scrollHeight = textarea.scrollHeight;
     const newHeight = Math.max(minHeight, Math.min(scrollHeight, maxHeight));
     textarea.style.height = newHeight + "px";
     if (DOM.top_div && DOM.bottom_div) {
-      DOM.top_div.style.height = window.innerHeight - DOM.bottom_div.clientHeight + "px";
+      const bottomHeight = DOM.bottom_div.clientHeight;
+      DOM.top_div.style.height = window.innerHeight - bottomHeight + "px";
     }
   }
   function init_size() {
@@ -1223,6 +1223,13 @@ ${DOM.input.value}`;
       resizeObserver.observe(DOM.bottom_div);
     }
     window.addEventListener("resize", () => init_size());
+    window.addEventListener("focus", () => {
+      if (DOM.input) {
+        DOM.input.focus();
+      }
+      init_size();
+      autoResizeTextarea(DOM.input);
+    });
     DOM.top_div.addEventListener("mouseenter", () => {
       State.scroll_top.info = false;
       State.scroll_top.data = false;
@@ -1287,8 +1294,7 @@ ${DOM.input.value}`;
     if (configBtn)
       configBtn.addEventListener("click", showConfig);
     DOM.btn_new_chat.addEventListener("click", async () => {
-      const chat = await window.electronAPI.newChat();
-      handleNewChat(chat);
+      window.electronAPI.newChat();
     });
     const confirmRenameBtn = document.getElementById("confirmRename");
     if (confirmRenameBtn)

@@ -153,6 +153,7 @@ function getBaseTools() {
                     };
                 }
                 const targetTask = chatVars.tasks[targetTaskId];
+                // 替换旧的 pending 任务，用于开启新一轮循环或重新规划
                 if (update_mode === "replace_pending") {
                     targetTask.subtasks = targetTask.subtasks.filter((s) => s.status !== "pending");
                 }
@@ -164,20 +165,28 @@ function getBaseTools() {
                     created_at: new Date().toISOString()
                 }));
                 targetTask.subtasks.push(...subtaskList);
-                if (isUpdate && task_type === "recurring") {
-                    targetTask.type = "recurring";
-                    targetTask.trigger_condition = trigger_condition;
+                // 如果在更新循环任务，自动唤醒该任务进入 active 状态
+                if (isUpdate && targetTask.type === "recurring") {
+                    targetTask.cycle_status = "active";
+                    // 如果更改了触发条件，顺便更新
+                    if (trigger_condition)
+                        targetTask.trigger_condition = trigger_condition;
+                }
+                // 确保能正确调用 setupHeartbeat (取决于你的架构，通常 toolCall.agent 或传入的回调)
+                // 注意：如果 toolCall 没有直接挂载 setupHeartbeat，请修改为正确的引用路径
+                if (task_type === "recurring" && typeof toolCall.agent?.setupHeartbeat === 'function') {
+                    toolCall.agent.setupHeartbeat();
                 }
                 return {
                     status: "success",
-                    message: isUpdate ? `Task [${targetTaskId}] updated.` : `New task created with ID [${targetTaskId}].`,
+                    message: isUpdate ? `Task [${targetTaskId}] updated and awakened for new cycle.` : `New recurring task created with ID [${targetTaskId}].`,
                     task_id: targetTaskId,
                     subtasks_added: subtaskList.map(s => ({ id: s.id, description: s.description }))
                 };
             },
             getPrompt: () => ({
                 name: "add_subtasks",
-                description: "[IN-SESSION WORKFLOW] Break down complex goals or REPLAN. Use 'task_id' to update an existing workflow. Use 'update_mode=replace_pending' if you need to scrap old unexecuted ideas and pivot to a new plan.",
+                description: "[IN-SESSION WORKFLOW & CRON REGISTRY] Break down complex goals, REPLAN, or register PERIODIC/SCHEDULED tasks.\n\nCRITICAL: To monitor something or run periodically (e.g., 'every 5 mins'), use task_type='recurring' and set trigger_condition. DO NOT write Bash loops.\nWhen [SYSTEM HEARTBEAT] triggers you, use update_mode='replace_pending' and pass this task_id to inject the subtasks for the NEXT cycle.",
                 parameters: {
                     type: "object",
                     properties: {
@@ -186,15 +195,15 @@ function getBaseTools() {
                         subtasks: {
                             type: "array",
                             items: { type: "string" },
-                            description: "List of milestones."
+                            description: "List of actionable milestones for the current cycle."
                         },
                         update_mode: {
                             type: "string",
                             enum: ["append", "replace_pending"],
-                            description: "Default 'append'. Use 'replace_pending' to delete current 'pending' subtasks and replace them with this new list (crucial for replanning when encountering dead ends)."
+                            description: "Default 'append'. Use 'replace_pending' to clear old pending steps and inject steps for a NEW recurring cycle."
                         },
                         task_type: { type: "string", enum: ["standard", "recurring"], description: "Type of task." },
-                        trigger_condition: { type: "string", description: "Required if recurring." }
+                        trigger_condition: { type: "string", description: "Required if recurring (e.g., 'Every 5 minutes')." }
                     },
                     required: ["subtasks"]
                 }

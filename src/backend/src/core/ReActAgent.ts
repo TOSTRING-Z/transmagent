@@ -163,6 +163,7 @@ export class ReActAgent {
     public getDataDefault(cdata: any = {}): any {
         let data = copy(cdata);
         let defaults = {
+            uuid: null,
             prompt: null,
             query: null,
             img_url: null,

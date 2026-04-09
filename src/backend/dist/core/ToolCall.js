@@ -105,6 +105,8 @@ class ToolCall extends ReActAgent_1.ReActAgent {
         this.task_prompt = (toolsData) => this.prompts.getSystemPrompts(toolsData);
         this.env_prompt = this.prompts.getEnvPrompts();
         this.todolist_prompt = this.prompts.getTodoListPrompt();
+        // 启动心跳服务
+        this.setupHeartbeat();
     }
     initVar() {
         this.state = ReActAgent_1.State.IDLE;
@@ -123,23 +125,46 @@ class ToolCall extends ReActAgent_1.ReActAgent {
             todolist: null,
         };
     }
+    heartbeatIntervalId = null;
     setupHeartbeat() {
-        const heartbeat = (0, public_1.getDefaultConfig)("heartbeat");
-        if (heartbeat && heartbeat.enabled) {
-            logger_1.logger.log(`[Heartbeat] Service started. Interval: ${heartbeat.interval}s`);
-            setInterval(async () => {
-                if (this.state === ReActAgent_1.State.IDLE || this.state === ReActAgent_1.State.FINAL) {
-                    try {
-                        let time = this.llmService.environment_details.time;
-                        let query = { query: `[${time}] This is a heartbeat prompt. Please keep the system active.` };
-                        this.callReAct({ query });
-                    }
-                    catch (e) {
-                        console.error("[Heartbeat] Execution failed:", e);
-                    }
-                }
-            }, heartbeat.interval * 1000);
+        // 清除现有的心跳定时器
+        if (this.heartbeatIntervalId) {
+            clearInterval(this.heartbeatIntervalId);
+            this.heartbeatIntervalId = null;
+            logger_1.logger.log("[Heartbeat] Existing heartbeat interval cleared");
         }
+        const heartbeat = (0, public_1.getDefaultConfig)("heartbeat");
+        const interval = heartbeat?.interval || 60; // 默认60秒
+        logger_1.logger.log(`[Heartbeat] Heartbeat service initialized. Interval: ${interval}s`);
+        this.heartbeatIntervalId = setInterval(async () => {
+            let hasRecurringTasks = false;
+            try {
+                const chatVars = this.llmService.chatManager.chat.vars;
+                if (chatVars && chatVars.tasks) {
+                    // 优化：只要存在 recurring 任务，不论它是 active 还是 wait，都必须保持心跳
+                    // 否则任务一旦完成一次，心跳就死了，永远无法触发下一轮
+                    hasRecurringTasks = Object.values(chatVars.tasks).some((task) => task.type === "recurring");
+                }
+            }
+            catch (e) {
+                logger_1.logger.error("[Heartbeat] Error checking recurring tasks:", e);
+            }
+            const shouldEnableHeartbeat = hasRecurringTasks || (heartbeat && heartbeat.enabled);
+            // 确保代理当前处于空闲状态，避免打断正在执行的任务
+            if ((this.state === ReActAgent_1.State.IDLE || this.state === ReActAgent_1.State.FINAL) && shouldEnableHeartbeat) {
+                try {
+                    const time = this.llmService.environment_details.time || new Date().toISOString();
+                    // 优化：极具针对性的唤醒提示词，直接命令代理去检查时间差
+                    const query = `[SYSTEM HEARTBEAT @ ${time}] Evaluate your recurring tasks. If a task's trigger_condition is met, initiate the next cycle. If NO tasks are due, respond EXACTLY with [STANDBY].`;
+                    logger_1.logger.log(`[Heartbeat] Triggering ReAct loop at ${time}`);
+                    const data = this.getDataDefault({ query });
+                    this.callReAct(data, false);
+                }
+                catch (e) {
+                    console.error("[Heartbeat] Execution failed:", e);
+                }
+            }
+        }, interval * 1000);
     }
     /**
      * 获取工具配置
@@ -590,8 +615,9 @@ class ToolCall extends ReActAgent_1.ReActAgent {
             this.window?.webContents.send('infoData', { ...this.llmService.chatManager.chat, content: this.getInfo({ output_format: observation.result }), uuid: data.uuid });
         }
     }
-    async callReAct(data) {
-        this.setUUID(data);
+    async callReAct(data, setUUID = true) {
+        if (setUUID)
+            this.setUUID(data);
         if (this.state === ReActAgent_1.State.PAUSE) {
             data.role = "tool";
             let context_id = `${this.llmService.chatManager.chat.group_id}${this.llmService.chatManager.chat.step - 1}`;

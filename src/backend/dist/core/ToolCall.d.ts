@@ -66,6 +66,7 @@ export declare class ToolCall extends ReActAgent {
     tool_schemas?: any[];
     constructor(plugins: Plugins, agentTools: Record<string, any> | undefined, llmService: LLMService, window: BrowserWindow | null, utils: Utils, agentConfigs?: AgentConfigs);
     initVar(): void;
+    private heartbeatIntervalId;
     setupHeartbeat(): void;
     /**
      * 获取工具配置
@@ -89,5 +90,5 @@ export declare class ToolCall extends ReActAgent {
     getToolInfos(data: Record<string, any>, assistantMessage: AssistantMessage): Promise<ToolInfo[]>;
     act(toolInfo: ToolInfo): Promise<Observation>;
     private handleToolObservation;
-    callReAct(data: Record<string, any>): Promise<any>;
+    callReAct(data: Record<string, any>, setUUID?: boolean): Promise<any>;
 }

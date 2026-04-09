@@ -37,19 +37,18 @@ export function toggleMode(mode: string, send = false) {
 export function autoResizeTextarea(textarea: HTMLTextAreaElement) {
   if (!textarea) return;
   textarea.style.height = 'auto';
-  const input_h = DOM.input ? DOM.input.clientHeight : 40;
-  // We need to store original height somewhere if we want strict adherence to old code,
-  // but let's approximate minHeight as 40px or current clientHeight if not resized.
-  // A safer bet is 40px base.
+  // 修复: 使用更稳定的最小高度计算方式
   const minHeight = 40;
   const maxHeight = minHeight * 3;
 
   const scrollHeight = textarea.scrollHeight;
+  // 使用 scrollHeight 作为基准，避免 clientHeight 为 0 的问题
   const newHeight = Math.max(minHeight, Math.min(scrollHeight, maxHeight));
   textarea.style.height = newHeight + "px";
 
   if (DOM.top_div && DOM.bottom_div) {
-    DOM.top_div.style.height = (window.innerHeight - DOM.bottom_div.clientHeight) + "px";
+    const bottomHeight = DOM.bottom_div.clientHeight;
+    DOM.top_div.style.height = (window.innerHeight - bottomHeight) + "px";
   }
 }
 
