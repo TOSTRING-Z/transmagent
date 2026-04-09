@@ -24,6 +24,7 @@ export declare class SessionManager {
     getAgentMode(sessionId?: string): AgentMode;
     getChat(id?: string): ChatState | undefined;
     setChat(chat: ChatState): void;
+    delChat(id: string): void;
     setSessionChat(chat: Partial<ChatState>, id?: string): void;
     setActiveagentMode(agentMode: AgentMode): void;
     createSession(id?: string, agentMode?: AgentMode): Session;

@@ -228,15 +228,6 @@ class Utils {
             return (0, public_1.parseJsonContent)(data) || { data: [] };
         }
     }
-    deleteFile(filePath) {
-        if (fs.existsSync(filePath)) {
-            fs.unlinkSync(filePath);
-            return true;
-        }
-        else {
-            return false;
-        }
-    }
     setHistoryData(historyData) {
         const historyConfigPath = this.getHistoryConfigPath();
         // 先复杂一份临时文件，写入完成后再覆盖原文件，避免写入过程中程序异常导致数据损坏

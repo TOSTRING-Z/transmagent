@@ -7,7 +7,7 @@ import { Plugins } from "./Plugins";
 import { Observation, ToolCall } from "./ToolCall";
 import { Utils } from "./Utils";
 import { SubAgent } from "./SubAgent";
-import { getHistoryChat, getSessionId, setHistory } from "../utils/public";
+import { delHistoryChat, getHistoryChat, getSessionId, setHistory } from "../utils/public";
 import { State } from "./ReActAgent";
 
 export interface Session {
@@ -70,6 +70,15 @@ export class SessionManager {
             // 保存本地文件
             setHistory(chat);
         }
+    }
+
+    delChat (id: string) {
+        // 检查当前会话列表中是否存在该ID
+        if (id in this.sessions) {
+            this.sessions.delete(id);
+        }
+        // 移除本地文件
+        delHistoryChat(id);
     }
 
     setSessionChat(chat: Partial<ChatState>, id?: string) {

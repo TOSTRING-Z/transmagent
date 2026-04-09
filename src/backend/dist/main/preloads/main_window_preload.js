@@ -7,7 +7,7 @@ electron_1.contextBridge.exposeInMainWorld('electronAPI', {
     openExternal: (href) => electron_1.ipcRenderer.send('open-external', href),
     stopMessage: () => electron_1.ipcRenderer.send('stopMessage'),
     renameChat: (data) => electron_1.ipcRenderer.send('renameChat', data),
-    delChat: (id) => electron_1.ipcRenderer.send('del-chat', id),
+    delChat: (id) => electron_1.ipcRenderer.send('delChat', id),
     setChat: (chat) => electron_1.ipcRenderer.send('setChat', chat),
     showLog: (data) => electron_1.ipcRenderer.send('show-log', data),
     startAgentLoop: (callback) => electron_1.ipcRenderer.on('startAgentLoop', (_event, data) => callback(data)),

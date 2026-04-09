@@ -249,11 +249,12 @@ class ChatManager {
     }
     loadMessages(filePath) {
         try {
+            logger_1.logger.log("loading messages...", filePath);
             if (!fs.existsSync(filePath)) {
                 return [];
             }
             const data = (0, public_1.parseJsonContent)(fs.readFileSync(filePath, "utf-8"));
-            this.messages = data.messages;
+            this.messages = data?.messages || [];
             this.chat = this.getChatInit(data.chat);
             this.updateChat();
             return this.messages.filter(message => message.show);

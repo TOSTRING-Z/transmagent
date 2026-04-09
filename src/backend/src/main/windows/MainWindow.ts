@@ -407,8 +407,8 @@ export class MainWindow extends BaseWindow {
             return chat;
         });
 
-        ipcMain.on('del-chat', (_event, id) => {
-            this.session().tool_call.delHistory(id);
+        ipcMain.on('delChat', (_event, id) => {
+            this.sessionManager.delChat(id);
         });
 
         ipcMain.handle('get-config-main', () => this.session().utils.getConfig());

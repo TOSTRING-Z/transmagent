@@ -6,7 +6,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
   openExternal: (href: string) => ipcRenderer.send('open-external', href),
   stopMessage: () => ipcRenderer.send('stopMessage'),
   renameChat: (data: Record<string, any>) => ipcRenderer.send('renameChat', data),
-  delChat: (id: any) => ipcRenderer.send('del-chat', id),
+  delChat: (id: any) => ipcRenderer.send('delChat', id),
   setChat: (chat: any) => ipcRenderer.send('setChat', chat),
   showLog: (data: Record<string, any>) => ipcRenderer.send('show-log', data),
   startAgentLoop: (callback: (data: Record<string, any>) => void) => ipcRenderer.on('startAgentLoop', (_event, data) => callback(data)),

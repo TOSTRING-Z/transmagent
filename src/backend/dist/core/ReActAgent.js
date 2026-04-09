@@ -72,27 +72,9 @@ class ReActAgent {
                 chat.tokens = 0;
             if (chat.seconds == null)
                 chat.seconds = 0;
-            let history_data = this.utils.getHistoryData();
-            let history_exist = history_data.data.filter((h) => h.id === chat.id);
-            let id_exist = history_exist.length > 0;
-            if (!id_exist) {
-                history_data.data.push(chat);
-            }
-            else {
-                history_data.data = history_data.data.map((h) => h.id === chat.id ? chat : h);
-            }
-            this.utils.setHistoryData(history_data);
-            const history_path = this.utils.getHistoryPath(chat.id);
-            this.llmService.chatManager.saveMessages(history_path);
-            return id_exist;
+            const setStatu = (0, public_1.setHistory)(chat, this.llmService.chatManager.messages);
+            return setStatu;
         }
-    }
-    delHistory(id) {
-        let history_data = this.utils.getHistoryData();
-        history_data.data = history_data.data.filter((h) => h.id !== id);
-        const history_path = this.utils.getHistoryPath(id);
-        this.utils.setHistoryData(history_data);
-        this.utils.deleteFile(history_path);
     }
     async retry(func, data) {
         let retry_time = this.utils.getConfig("retry_time") || 3;

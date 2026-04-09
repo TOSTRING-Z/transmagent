@@ -409,8 +409,8 @@ class MainWindow extends BaseWindow_1.BaseWindow {
             this.updateVersionsSubmenu();
             return chat;
         });
-        electron_1.ipcMain.on('del-chat', (_event, id) => {
-            this.session().tool_call.delHistory(id);
+        electron_1.ipcMain.on('delChat', (_event, id) => {
+            this.sessionManager.delChat(id);
         });
         electron_1.ipcMain.handle('get-config-main', () => this.session().utils.getConfig());
         electron_1.ipcMain.handle('set-config-main', (_, config) => {

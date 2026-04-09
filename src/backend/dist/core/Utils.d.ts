@@ -17,7 +17,6 @@ export declare class Utils {
     };
     getLanguage(): string;
     getHistoryData(): any;
-    deleteFile(filePath: string): boolean;
     setHistoryData(historyData: any): boolean;
     getHistoryConfigPath(): string;
     getHistoryPath(id: string): string;

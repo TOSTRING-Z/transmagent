@@ -6,7 +6,7 @@ import { LLMAssistant } from './LLMAssistant';
 import { LLMAdapterFactory, ToolCallAdapterFactory } from '../factories/AdapterFactory';
 import { BrowserWindow } from 'electron/main';
 import { Utils } from './Utils';
-import { copy, delay, getSessionId } from '../utils/public';
+import { copy, delay, getSessionId, setHistory } from '../utils/public';
 
 export enum State {
     IDLE = 'idle',
@@ -80,30 +80,9 @@ export class ReActAgent {
         if (chat.id) {
             if (chat.tokens == null) chat.tokens = 0;
             if (chat.seconds == null) chat.seconds = 0;
-
-            let history_data = this.utils.getHistoryData();
-            let history_exist = history_data.data.filter((h: any) => h.id === chat!.id);
-            let id_exist = history_exist.length > 0;
-
-            if (!id_exist) {
-                history_data.data.push(chat);
-            } else {
-                history_data.data = history_data.data.map((h: any) => h.id === chat.id ? chat : h);
-            }
-
-            this.utils.setHistoryData(history_data);
-            const history_path = this.utils.getHistoryPath(chat.id);
-            this.llmService.chatManager.saveMessages(history_path);
-            return id_exist;
+            const setStatu = setHistory(chat, this.llmService.chatManager.messages);
+            return setStatu;
         }
-    }
-
-    public delHistory(id: string) {
-        let history_data = this.utils.getHistoryData();
-        history_data.data = history_data.data.filter((h: any) => h.id !== id);
-        const history_path = this.utils.getHistoryPath(id);
-        this.utils.setHistoryData(history_data);
-        this.utils.deleteFile(history_path);
     }
 
     public async retry(func: (data: Record<string, any>) => Promise<any>, data: any): Promise<any> {

@@ -33,29 +33,80 @@ var __importStar = (this && this.__importStar) || (function () {
     };
 })();
 Object.defineProperty(exports, "__esModule", { value: true });
+exports.resetRetryCounter = resetRetryCounter;
+exports.getRetryState = getRetryState;
+exports.shouldCircuitBreak = shouldCircuitBreak;
 exports.default = getBaseTools;
 const ReActAgent_1 = require("./ReActAgent");
 const utils = __importStar(require("../utils/public"));
+// ============================================================================
+// 重试熔断配置 (Retry Circuit Breaker Configuration)
+// ============================================================================
+const RETRY_CONFIG = {
+    maxRetries: 3, // 单任务最大重试次数
+    maxTotalRetries: 10, // 会话内最大总重试次数
+    backoffMultiplier: 1.5, // 退避倍数
+    circuitBreakerThreshold: 3, // 连续失败触发熔断的次数
+};
+// 全局重试计数器（由后端管理，避免 LLM 幻觉时间戳）
+let globalRetryCounter = {
+    sessionTotal: 0,
+    consecutiveFailures: 0,
+};
+function resetRetryCounter() {
+    globalRetryCounter = { sessionTotal: 0, consecutiveFailures: 0 };
+}
+function getRetryState() {
+    return { ...globalRetryCounter, maxRetries: RETRY_CONFIG };
+}
+function incrementRetry(success) {
+    if (success) {
+        globalRetryCounter.consecutiveFailures = 0;
+    }
+    else {
+        globalRetryCounter.sessionTotal++;
+        globalRetryCounter.consecutiveFailures++;
+    }
+}
+function shouldCircuitBreak() {
+    return globalRetryCounter.consecutiveFailures >= RETRY_CONFIG.circuitBreakerThreshold;
+}
 function getBaseTools() {
     return {
+        // ====================================================================
+        // 核心修复 #2: update_env - 时间戳后端自动化
+        // ====================================================================
         "update_env": {
             func: async ({ key, value, toolCall }) => {
                 try {
                     if (!key || value === undefined) {
                         return { status: "error", message: "Both key and value parameters are required." };
                     }
-                    // 主代理实例
                     const chatState = toolCall.llmService.chatManager.chat;
-                    // Ensure envs object exists
                     if (!chatState.envs) {
                         chatState.envs = {};
                     }
-                    // Write or update the environment variable
-                    chatState.envs[key] = `${value}`;
+                    // ====================================================================
+                    // 关键优化：后端自动追加元数据，LLM 无需拼装格式
+                    // ====================================================================
+                    const metadata = {
+                        agent: toolCall.agentConfigs?.name || 'unknown',
+                        timestamp: toolCall.llmService.environment_details?.time || new Date().toISOString(),
+                    };
+                    chatState.envs[key] = {
+                        value: `${value}`,
+                        _meta: metadata, // 后端存储元数据，不污染 value
+                    };
                     return {
                         status: "success",
                         key: key,
-                        message: `Environment variable '${key}' has been successfully updated.`
+                        message: `Environment variable '${key}' has been successfully updated.`,
+                        // 返回完整记录供调试（可选）
+                        recorded: {
+                            ...metadata,
+                            key,
+                            preview: String(value).substring(0, 100) + (String(value).length > 100 ? '...' : '')
+                        }
                     };
                 }
                 catch (e) {
@@ -74,7 +125,7 @@ function getBaseTools() {
                         },
                         value: {
                             type: "string",
-                            description: "The value to store. STRICT FORMAT REQUIRED: You MUST prefix the actual value with your agent name and the current time in this exact format: `[agent_name/time] actual_value`. Example: `[task_executor/14:30:00] /path/to/clean_data.csv`."
+                            description: "The value to store. Simply provide the actual value - the system will automatically append metadata (agent name, timestamp) in the backend."
                         }
                     },
                     required: ["key", "value"]
@@ -87,6 +138,7 @@ function getBaseTools() {
                     return await toolCall.mcp_client.callTool({ name, arguments: args });
                 }
                 catch (e) {
+                    incrementRetry(false);
                     return { error: `MCP Call Failed: ${e.message}` };
                 }
             },
@@ -130,14 +182,13 @@ function getBaseTools() {
         },
         "context_retrieval": {
             func: async ({ context_id, toolCall }) => {
-                // 修复：指向 ChatManager 获取历史记录
                 const history = toolCall.llmService.chatManager.getMessages(true);
                 const target = history.find(m => String(m.context_id) === String(context_id));
                 return target ? { role: target.role, content: target.content } : "Error: Context ID not found.";
             },
             getPrompt: () => ({
                 name: "context_retrieval",
-                description: "[IN-SESSION MEMORY] Fetch raw details of a specific past interaction within the CURRENT session. Use Case: When you see a Context ID in the '# 🗃️ Session Memory' block and need to recall its full logs, code snippets, or precise paths.",
+                description: "[IN-SESSION MEMORY] Fetch raw details of a specific past interaction within the CURRENT session. Use Case: When you see a Context ID in the '# 🗃️ Session Memory' block at the top of the chat.",
                 parameters: {
                     type: "object",
                     properties: {
@@ -154,7 +205,6 @@ function getBaseTools() {
                 if (task_type === "recurring" && !trigger_condition) {
                     return { status: "error", message: "Recurring tasks MUST have a 'trigger_condition'." };
                 }
-                // 修复：指向 ChatManager 中的 vars
                 const chatVars = toolCall.llmService.chatManager.chat.vars;
                 chatVars.tasks = chatVars.tasks || {};
                 chatVars.subtask_id = chatVars.subtask_id ?? 100;
@@ -176,20 +226,21 @@ function getBaseTools() {
                 }
                 else {
                     chatVars.tasks[taskId] = {
-                        task_id: taskId,
-                        title: task,
+                        task,
                         type: task_type,
-                        trigger_condition,
+                        trigger_condition: trigger_condition || null,
                         subtasks: subtaskList,
                         created_at: new Date().toISOString(),
+                        last_completed_at: null,
                         execution_count: 0,
-                        last_triggered: null
+                        cycle_status: "active"
                     };
                 }
                 return {
                     status: "success",
-                    message: `${isUpdate ? "Updated" : "Created"} task '${task}' with ${subtaskList.length} subtasks.`,
-                    data: { task_id: taskId, subtask_ids: subtaskList.map((t) => t.id) }
+                    message: `Task '${task}' created/updated.`,
+                    task_id: taskId,
+                    subtasks: subtaskList.map(s => ({ id: s.id, description: s.description }))
                 };
             },
             getPrompt: () => ({
@@ -199,21 +250,31 @@ function getBaseTools() {
                     type: "object",
                     properties: {
                         task: { type: "string", description: "Main objective title." },
-                        subtasks: { type: "array", items: { type: "string" }, description: "List of milestones." },
-                        task_type: { type: "string", enum: ["standard", "recurring"], description: "Type of task." },
-                        trigger_condition: { type: "string", description: "Required if recurring, e.g., 'Every 1 hour'." }
+                        subtasks: {
+                            type: "array",
+                            items: { type: "string" },
+                            description: "List of milestones. Each should be a substantial step, NOT an atomic action."
+                        },
+                        task_type: {
+                            type: "string",
+                            enum: ["standard", "recurring"],
+                            description: "Type of task. Default: standard"
+                        },
+                        trigger_condition: {
+                            type: "string",
+                            description: "Required if recurring, e.g., 'Every 1 hour'."
+                        }
                     },
                     required: ["task", "subtasks"]
                 }
             })
         },
         "record_subtasks": {
-            func: async ({ subtask_ids, status = "completed", reflection, toolCall }) => {
-                const ids = new Set((Array.isArray(subtask_ids) ? subtask_ids : [subtask_ids]).map(Number));
-                const now = new Date().toISOString();
-                // 修复：指向 ChatManager 中的 vars
+            func: async ({ subtask_ids, status, reflection, toolCall }) => {
                 const chatVars = toolCall.llmService.chatManager.chat.vars;
+                const ids = new Set(subtask_ids);
                 let updated = 0;
+                const now = new Date().toISOString();
                 let recurringTasksToCheck = new Set();
                 Object.values(chatVars.tasks || {}).forEach((task) => {
                     let taskModified = false;
@@ -231,6 +292,22 @@ function getBaseTools() {
                 });
                 if (updated === 0)
                     return { status: "warning", message: "No matching subtask IDs found." };
+                // ====================================================================
+                // 关键修复 #3: 熔断机制 - 连续失败时阻止继续重试
+                // ====================================================================
+                if (status === "failed") {
+                    incrementRetry(false);
+                    if (shouldCircuitBreak()) {
+                        return {
+                            status: "circuit_break",
+                            message: `⚠️ CIRCUIT BREAKER TRIGGERED: ${RETRY_CONFIG.circuitBreakerThreshold} consecutive failures detected. Execution halted.`,
+                            retry_state: getRetryState()
+                        };
+                    }
+                }
+                else {
+                    incrementRetry(true);
+                }
                 recurringTasksToCheck.forEach((task) => {
                     const allDone = task.subtasks.every((s) => ["completed", "failed"].includes(s.status));
                     if (allDone) {
@@ -239,11 +316,15 @@ function getBaseTools() {
                         task.cycle_status = "cycle_wait";
                     }
                 });
-                return `Marked ${updated} steps as ${status}.`;
+                return {
+                    status: "success",
+                    message: `Marked ${updated} steps as ${status}.`,
+                    retry_state: getRetryState()
+                };
             },
             getPrompt: () => ({
                 name: "record_subtasks",
-                description: "[IN-SESSION WORKFLOW] Checkpoint progress and save execution state for the CURRENT session. Mandatory: Call this immediately after finishing a subtask.",
+                description: "[IN-SESSION WORKFLOW] Checkpoint progress and save execution state for the CURRENT session. Mandatory: Call this immediately after finishing a subtask.\n\n⚠️ IMPORTANT: The system tracks retry attempts internally. If you see a 'circuit_break' status, you MUST halt execution and report the block.",
                 parameters: {
                     type: "object",
                     properties: {

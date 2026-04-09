@@ -59,6 +59,14 @@ class SessionManager {
             (0, public_1.setHistory)(chat);
         }
     }
+    delChat(id) {
+        // 检查当前会话列表中是否存在该ID
+        if (id in this.sessions) {
+            this.sessions.delete(id);
+        }
+        // 移除本地文件
+        (0, public_1.delHistoryChat)(id);
+    }
     setSessionChat(chat, id) {
         const session = this.sessions.get(id || this.activeSessionId);
         if (session) {

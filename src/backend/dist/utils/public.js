@@ -36,7 +36,7 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
     return (mod && mod.__esModule) ? mod : { "default": mod };
 };
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.setHistoryConfig = exports.setHistoryChat = exports.setHistory = exports.getHistoryChat = exports.writeFile = exports.readJsonFile = exports.getDefaultHistoryPath = exports.getDefaultHistoryConfigPath = exports.getDefaultConfig = exports.getSessionId = exports.copy = exports.formatDate = exports.getLanguage = exports.mergeConfigEnhanced = exports.getFile = exports.getSystem = exports.getDefault = exports.delay = exports.parseJsonContent = exports.extractJson = exports.hashCode = void 0;
+exports.setHistoryConfigChat = exports.setHistoryChat = exports.setHistoryMessages = exports.setHistory = exports.getHistoryMessages = exports.getHistoryChat = exports.delHistoryChat = exports.deleteFile = exports.writeFile = exports.readJsonFile = exports.getDefaultHistoryPath = exports.getDefaultHistoryConfigPath = exports.getDefaultConfig = exports.getSessionId = exports.copy = exports.formatDate = exports.getLanguage = exports.mergeConfigEnhanced = exports.getFile = exports.getSystem = exports.getDefault = exports.delay = exports.parseJsonContent = exports.extractJson = exports.hashCode = void 0;
 const logger_1 = require("./logger");
 const os = __importStar(require("os"));
 const path = __importStar(require("path"));
@@ -258,7 +258,7 @@ const getDefaultHistoryPath = (id) => {
     const historyPathTpl = (0, exports.getDefaultConfig)("history_path");
     const history_path = historyPathTpl ? (0, format_1.formatString)(historyPathTpl, process) : (0, exports.getDefault)();
     const file = path.join(history_path, 'history', `${id}.json`);
-    return (0, fs_1.existsSync)(file) ? file : null;
+    return file;
 };
 exports.getDefaultHistoryPath = getDefaultHistoryPath;
 const readJsonFile = (filePath) => {
@@ -266,45 +266,83 @@ const readJsonFile = (filePath) => {
 };
 exports.readJsonFile = readJsonFile;
 const writeFile = async (filePath, data) => {
-    // Creates the directory structure if it doesn't exist
-    (0, fs_1.mkdir)(path.dirname(filePath), { recursive: true }, (err) => {
-        console.log(err?.message);
-    });
+    (0, fs_1.mkdirSync)(path.dirname(filePath), { recursive: true });
     const tempFilePath = filePath + '.tmp';
     const content = typeof (data) === "string" ? data : JSON.stringify(data, null, 2);
     (0, fs_1.writeFileSync)(tempFilePath, content);
     (0, fs_1.renameSync)(tempFilePath, filePath);
 };
 exports.writeFile = writeFile;
-const getHistoryChat = (id) => {
-    const historyPath = (0, exports.getDefaultHistoryPath)(id);
-    if (historyPath) {
-        const data = (0, exports.readJsonFile)(historyPath);
-        if (data?.chat)
-            return data.chat;
+const deleteFile = (filePath) => {
+    if ((0, fs_1.existsSync)(filePath)) {
+        (0, fs_1.unlinkSync)(filePath);
+        return true;
+    }
+    else {
+        return false;
     }
 };
+exports.deleteFile = deleteFile;
+const delHistoryChat = (id) => {
+    const defaultHistoryConfigPath = (0, exports.getDefaultHistoryConfigPath)();
+    const defaultHistoryConfig = (0, exports.readJsonFile)(defaultHistoryConfigPath);
+    defaultHistoryConfig.data = defaultHistoryConfig.data.filter((h) => h.id !== id);
+    const historyPath = (0, exports.getDefaultHistoryPath)(id);
+    (0, exports.writeFile)(defaultHistoryConfigPath, defaultHistoryConfig);
+    (0, exports.deleteFile)(historyPath);
+};
+exports.delHistoryChat = delHistoryChat;
+const getHistoryChat = (id) => {
+    const historyPath = (0, exports.getDefaultHistoryPath)(id);
+    const data = (0, exports.readJsonFile)(historyPath);
+    if (data?.chat)
+        return data.chat;
+};
 exports.getHistoryChat = getHistoryChat;
-const setHistory = (chat) => {
-    const configStatu = (0, exports.setHistoryConfig)(chat);
-    const chatStatu = (0, exports.setHistoryChat)(chat);
-    return configStatu && chatStatu;
+const getHistoryMessages = (id) => {
+    const historyPath = (0, exports.getDefaultHistoryPath)(id);
+    const data = (0, exports.readJsonFile)(historyPath);
+    if (data?.messages)
+        return data.messages;
+};
+exports.getHistoryMessages = getHistoryMessages;
+const setHistory = (chat, messages = undefined) => {
+    if (chat?.id) {
+        const configStatu = (0, exports.setHistoryConfigChat)(chat);
+        const chatStatu = (0, exports.setHistoryChat)(chat);
+        let messagesStatu = true;
+        if (messages) {
+            messagesStatu = (0, exports.setHistoryMessages)(chat.id, messages);
+        }
+        return configStatu && chatStatu && messagesStatu;
+    }
+    return false;
 };
 exports.setHistory = setHistory;
+const setHistoryMessages = (chatId, messages) => {
+    try {
+        const historyPath = (0, exports.getDefaultHistoryPath)(chatId);
+        const data = (0, exports.readJsonFile)(historyPath);
+        data.messages = messages;
+        (0, exports.writeFile)(historyPath, data);
+        return true;
+    }
+    catch (error) {
+        console.log("历史文件保存报错：", error);
+        return false;
+    }
+};
+exports.setHistoryMessages = setHistoryMessages;
 const setHistoryChat = (chat) => {
     try {
         const historyPath = (0, exports.getDefaultHistoryPath)(chat.id);
-        if (historyPath) {
-            const data = (0, exports.readJsonFile)(historyPath);
-            if (data?.chat) {
-                data.chat = chat;
-                (0, exports.writeFile)(historyPath, chat);
-                return true;
-            }
-            console.log("历史文件没有chat属性", historyPath);
+        if (!(0, fs_1.existsSync)(path.dirname(historyPath))) {
+            (0, fs_1.mkdirSync)(path.dirname(historyPath), { recursive: true });
         }
-        console.log("历史文件不存在", historyPath);
-        return false;
+        const data = (0, exports.readJsonFile)(historyPath);
+        data.chat = chat;
+        (0, exports.writeFile)(historyPath, data);
+        return true;
     }
     catch (error) {
         console.log("历史文件保存报错：", error);
@@ -312,7 +350,7 @@ const setHistoryChat = (chat) => {
     }
 };
 exports.setHistoryChat = setHistoryChat;
-const setHistoryConfig = (chat) => {
+const setHistoryConfigChat = (chat) => {
     try {
         const defaultHistoryConfigPath = (0, exports.getDefaultHistoryConfigPath)();
         const defaultHistoryConfigData = (0, exports.readJsonFile)(defaultHistoryConfigPath);
@@ -332,5 +370,5 @@ const setHistoryConfig = (chat) => {
         return false;
     }
 };
-exports.setHistoryConfig = setHistoryConfig;
+exports.setHistoryConfigChat = setHistoryConfigChat;
 //# sourceMappingURL=public.js.map
