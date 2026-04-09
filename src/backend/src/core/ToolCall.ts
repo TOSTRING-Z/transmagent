@@ -118,6 +118,9 @@ export class ToolCall extends ReActAgent {
         this.task_prompt = (toolsData) => this.prompts.getSystemPrompts(toolsData);
         this.env_prompt = this.prompts.getEnvPrompts();
         this.todolist_prompt = this.prompts.getTodoListPrompt();
+
+        // 启动心跳服务
+        this.setupHeartbeat();
     }
 
     public initVar() {
@@ -139,22 +142,52 @@ export class ToolCall extends ReActAgent {
         };
     }
 
+    private heartbeatIntervalId: NodeJS.Timeout | null = null;
+
     public setupHeartbeat() {
+        // 清除现有的心跳定时器
+        if (this.heartbeatIntervalId) {
+            clearInterval(this.heartbeatIntervalId);
+            this.heartbeatIntervalId = null;
+            logger.log("[Heartbeat] Existing heartbeat interval cleared");
+        }
+        
         const heartbeat = getDefaultConfig("heartbeat");
-        if (heartbeat && heartbeat.enabled) {
-            logger.log(`[Heartbeat] Service started. Interval: ${heartbeat.interval}s`);
-            setInterval(async () => {
-                if (this.state === State.IDLE || this.state === State.FINAL) {
-                    try {
-                        let time = this.llmService.environment_details.time;
-                        let query = { query: `[${time}] This is a heartbeat prompt. Please keep the system active.` };
-                        this.callReAct({query});
-                    } catch (e: any) {
-                        console.error("[Heartbeat] Execution failed:", e);
+        const interval = heartbeat?.interval || 60; // 默认60秒
+        
+        logger.log(`[Heartbeat] Heartbeat service initialized. Interval: ${interval}s`);
+        
+        this.heartbeatIntervalId = setInterval(async () => {
+            // 每次心跳触发时，重新检查是否应该执行
+            let hasRecurringTasks = false;
+            try {
+                const chatVars = this.llmService.chatManager.chat.vars;
+                if (chatVars && chatVars.tasks) {
+                    const tasks = chatVars.tasks;
+                    for (const taskId in tasks) {
+                        if (tasks[taskId].type === "recurring" && tasks[taskId].cycle_status === "active") {
+                            hasRecurringTasks = true;
+                            break;
+                        }
                     }
                 }
-            }, heartbeat.interval * 1000);
-        }
+            } catch (e) {
+                logger.error("[Heartbeat] Error checking recurring tasks:", e);
+            }
+            
+            // 如果有循环任务，强制开启心跳
+            const shouldEnableHeartbeat = hasRecurringTasks || (heartbeat && heartbeat.enabled);
+            
+            if ((this.state === State.IDLE || this.state === State.FINAL) && shouldEnableHeartbeat) {
+                try {
+                    let time = this.llmService.environment_details.time;
+                    let query = { query: `[${time}] This is a heartbeat prompt. Please keep the system active.` };
+                    this.callReAct({query});
+                } catch (e: any) {
+                    console.error("[Heartbeat] Execution failed:", e);
+                }
+            }
+        }, interval * 1000);
     }
 
     /**

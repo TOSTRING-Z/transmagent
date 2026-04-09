@@ -180,6 +180,11 @@ export default function getBaseTools(): Record<string, any> {
                     targetTask.trigger_condition = trigger_condition;
                 }
 
+                // 如果添加了循环任务，重新设置心跳检查
+                if (task_type === "recurring") {
+                    toolCall.setupHeartbeat();
+                }
+
                 return {
                     status: "success",
                     message: isUpdate ? `Task [${targetTaskId}] updated.` : `New task created with ID [${targetTaskId}].`,
