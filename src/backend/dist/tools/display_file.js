@@ -277,12 +277,13 @@ class DisplayFile {
         return `![${path.basename(filePath)}](${absolutePath})`;
     }
     _handleTextStream(filePath, { startLine, endLine, maxLineLength }, type = 'text') {
-        return new Promise((resolve) => {
+        return new Promise((resolve, reject) => {
             const fileStream = fs.createReadStream(filePath, { encoding: 'utf8' });
             const rl = readline.createInterface({ input: fileStream, crlfDelay: Infinity });
             const lines = [];
             let lineIdx = 0;
             let isTruncated = false;
+            let streamError = null;
             rl.on('line', (line) => {
                 lineIdx++;
                 if (lineIdx < startLine)
@@ -300,14 +301,24 @@ class DisplayFile {
             });
             rl.on('close', () => {
                 fileStream.destroy();
+                if (streamError) {
+                    reject(streamError);
+                    return;
+                }
                 let content = lines.join('\n');
                 if (isTruncated) {
                     content += '\n\n...[File output truncated by line limit]';
                 }
                 resolve(type === 'markdown' ? content : `\`\`\`text\n${content}\n\`\`\``);
             });
+            rl.on('error', (err) => {
+                streamError = err;
+                fileStream.destroy();
+            });
             fileStream.on('error', (err) => {
-                resolve(`Error reading file stream: ${err.message}`);
+                streamError = err;
+                rl.close();
+                fileStream.destroy();
             });
         });
     }
@@ -370,7 +381,8 @@ class DisplayFile {
             }
         }
         catch (err) {
-            // 捕获可能的流关闭异常
+            // 捕获可能的流关闭异常，重新抛出以便上层处理
+            throw new Error(`CSV Read Error: ${err.message}`);
         }
         finally {
             rl.close();
