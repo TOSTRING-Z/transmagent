@@ -36,7 +36,7 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
     return (mod && mod.__esModule) ? mod : { "default": mod };
 };
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.setHistoryConfigChat = exports.setHistoryChat = exports.setHistoryMessages = exports.setHistory = exports.getHistoryMessages = exports.getHistoryChat = exports.delHistoryChat = exports.deleteFile = exports.writeFile = exports.readJsonFile = exports.getDefaultHistoryPath = exports.getDefaultHistoryConfigPath = exports.getDefaultConfig = exports.getSessionId = exports.copy = exports.formatDate = exports.getLanguage = exports.mergeConfigEnhanced = exports.getFile = exports.getSystem = exports.getDefault = exports.delay = exports.parseJsonContent = exports.extractJson = exports.hashCode = void 0;
+exports.isSilentMode = exports.setDefaultConfig = exports.setHistoryConfigChat = exports.setHistoryChat = exports.setHistoryMessages = exports.setHistory = exports.getHistoryMessages = exports.getHistoryChat = exports.delHistoryChat = exports.deleteFile = exports.writeFile = exports.readJsonFile = exports.getDefaultHistoryPath = exports.getDefaultHistoryConfigPath = exports.getDefaultConfig = exports.getSessionId = exports.copy = exports.formatDate = exports.getLanguage = exports.mergeConfigEnhanced = exports.getFile = exports.getSystem = exports.getDefault = exports.delay = exports.parseJsonContent = exports.extractJson = exports.hashCode = void 0;
 const logger_1 = require("./logger");
 const os = __importStar(require("os"));
 const path = __importStar(require("path"));
@@ -371,4 +371,33 @@ const setHistoryConfigChat = (chat) => {
     }
 };
 exports.setHistoryConfigChat = setHistoryConfigChat;
+const setDefaultConfig = (config, configName = "config_transagent.json") => {
+    try {
+        const configPath = (0, exports.getSystem)(configName);
+        const existingConfig = (0, exports.readJsonFile)(configPath);
+        const mergedConfig = { ...existingConfig, ...config };
+        (0, exports.writeFile)(configPath, mergedConfig);
+        return true;
+    }
+    catch (error) {
+        console.log("默认配置文件保存报错：", error);
+        return false;
+    }
+};
+exports.setDefaultConfig = setDefaultConfig;
+/**
+ * 检查静默模式是否启用
+ * @returns boolean - 静默模式状态，默认返回 false
+ */
+const isSilentMode = () => {
+    try {
+        const funcStatus = (0, exports.getDefaultConfig)("func_status");
+        return !!(funcStatus?.silent);
+    }
+    catch (error) {
+        logger_1.logger.log("检查静默模式失败:", error);
+        return false;
+    }
+};
+exports.isSilentMode = isSilentMode;
 //# sourceMappingURL=public.js.map

@@ -727,7 +727,7 @@ export class ToolCall extends ReActAgent {
             this.window?.webContents.send('userData', { ...this.llmService.chatManager.chat, content: data.query, uuid: data.uuid });
         }
 
-        this.window?.webContents.send('agentRunning', { group_id: this.llmService.chatManager.chat.group_id, uuid: data.uuid });
+        this.window?.webContents.send('agentRunning', { ...this.llmService.chatManager.chat, uuid: data.uuid });
 
         this.state = State.IDLE;
         let tool_call = this.utils.getConfig("tool_call");

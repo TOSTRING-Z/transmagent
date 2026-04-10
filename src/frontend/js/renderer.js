@@ -345,6 +345,128 @@ $$
     }
   };
 
+  // main/history.ts
+  var new_item_template = `<div class="history-item" onclick="loadChat('@id')">
+    <div class="history-status"></div>
+    <div class="history-text"></div>
+    <div class="history-menu" onclick="showHistoryMenu(event, '@id')">
+      <i class="fas fa-ellipsis-v"></i>
+      <div class="history-menu-dropdown">
+        <div class="history-menu-item" onclick="renameChat('@id')">
+          <i class="fas fa-edit"></i> Rename
+        </div>
+        <div class="history-menu-item" onclick="deleteChat('@id')">
+          <i class="fas fa-trash"></i> Delete
+        </div>
+      </div>
+    </div>
+  </div>`;
+  function addChatItem(chat) {
+    const item = createElement(new_item_template.replace(/@id/g, chat.id));
+    item.getElementsByClassName("history-text")[0].innerText = chat.name || "New Chat";
+    item.getElementsByClassName("history-text")[0].title = chat.name || "New Chat";
+    item.id = chat.id;
+    DOM.history_list.insertBefore(item, DOM.history_list.firstChild);
+    item.onclick = () => loadChat(chat.id);
+    const menu = item.querySelector(".history-menu");
+    menu.onclick = (e) => showHistoryMenu(e, chat.id);
+    const renameBtn = item.querySelector(".history-menu-item:nth-child(1)");
+    renameBtn.onclick = (e) => {
+      e.stopPropagation();
+      renameChat(chat.id);
+    };
+    const deleteBtn = item.querySelector(".history-menu-item:nth-child(2)");
+    deleteBtn.onclick = (e) => {
+      e.stopPropagation();
+      deleteChat(chat.id);
+    };
+  }
+  function handleNewChat(chat) {
+    addChatItem(chat);
+    updateChat(chat);
+    selectChat(chat.id);
+  }
+  function updateChat(chat) {
+    if (!chat)
+      return;
+    State.chat = chat;
+    toggleMode(State.chat.mode);
+    DOM.system_prompt.value = State.chat.system_prompt || "";
+    DOM.tokens.innerText = String(State.chat.tokens || 0);
+    DOM.msg_count.innerText = String(State.chat.msg_count || 0);
+    DOM.seconds.innerText = (State.chat.seconds || 0).toFixed(1);
+    DOM.version.innerText = State.chat.version || "deepseek-chat";
+    DOM.agentMode.innerText = State.chat.agentMode || "transagent";
+    DOM.model_select.value = State.chat.model;
+    DOM.compress_box.checked = State.chat.compress_context || false;
+  }
+  async function selectChat(chatId) {
+    const items = DOM.history_list.getElementsByClassName("history-item");
+    Array.from(items).forEach((item) => {
+      if (item.id == chatId)
+        item.classList.add("active");
+      else
+        item.classList.remove("active");
+    });
+  }
+  async function loadChat(chatId) {
+    window.electronAPI.loadChat(chatId);
+  }
+  async function handleloadChat(chat) {
+    updateChat(chat);
+    selectChat(chat.id);
+  }
+  async function deleteChat(chatId) {
+    if (confirm("Are you sure you want to delete this conversation?")) {
+      await window.electronAPI.delChat(chatId);
+      const items = DOM.history_list.getElementsByClassName("history-item");
+      Array.from(items).forEach((item) => {
+        if (item.id == chatId)
+          item.remove();
+      });
+    }
+  }
+  function showHistoryMenu(event, chatId) {
+    event.stopPropagation();
+    const menus = document.querySelectorAll(".history-menu-dropdown");
+    menus.forEach((menu2) => menu2.style.display = "none");
+    const target = event.currentTarget;
+    const menu = target.querySelector(".history-menu-dropdown");
+    menu.style.display = "block";
+    State.chat.id = chatId;
+  }
+  function renameChat(chatId) {
+    State.chat.id = chatId;
+    DOM.renameDialog.style.display = "flex";
+    DOM.renameInput.focus();
+  }
+  async function confirmRename() {
+    const newName = DOM.renameInput.value.trim();
+    if (newName && State.chat.id) {
+      await window.electronAPI.renameChat({ id: State.chat.id, name: newName });
+      const items = DOM.history_list.getElementsByClassName("history-item");
+      Array.from(items).forEach((item) => {
+        if (item.id == State.chat.id)
+          item.getElementsByClassName("history-text")[0].innerText = newName;
+      });
+    }
+    DOM.renameDialog.style.display = "none";
+    DOM.renameInput.value = "";
+  }
+  function setHistoryRunning(groupId) {
+    const item = document.getElementById(groupId);
+    if (item) {
+      item.classList.add("running");
+    }
+  }
+  function setHistoryCompleted(groupId) {
+    const item = document.getElementById(groupId);
+    if (item) {
+      item.classList.remove("running");
+      item.classList.add("completed");
+    }
+  }
+
   // main/chat.ts
   var user_message_template = `<div class="relative space-y-2 space-x-2" data-role="user" data-id="">
   <div class="flex flex-row-reverse w-full">
@@ -524,8 +646,6 @@ $$
           "message": compression_content
         }, "system");
         addRunning(messageSystem);
-        const thinking = messageSystem.getElementsByClassName("thinking")[0];
-        thinking.remove();
         const message_content = messageSystem.getElementsByClassName("message")[0];
         menuEvent(messageSystem, message_content, false);
         message_element.parentElement.insertBefore(messageSystem, message_element.nextSibling);
@@ -614,6 +734,8 @@ $$
       const message_content = messageSystem.getElementsByClassName("message")[0];
       const thinking = messageSystem?.getElementsByClassName("thinking")[0];
       thinking.classList.add("hidden");
+      if (chunk?.id)
+        setHistoryCompleted(chunk.id);
       if (!messageSystem.dataset?.event_stop) {
         messageSystem.dataset.event_stop = "true";
         menuEvent(messageSystem, message_content.dataset.content, chunk?.is_plugin);
@@ -625,10 +747,15 @@ $$
     DOM.submit.classList.add("running");
     const message_actions = messageSystem.getElementsByClassName("message-actions")[0];
     message_actions.classList.remove("active");
+  }
+  function addThinking(messageSystem) {
     const thinking = messageSystem?.getElementsByClassName("thinking")[0];
     thinking.classList.remove("hidden");
     const btn = messageSystem?.getElementsByClassName("btn")[0];
     messageSystem.dataset.event_stop = "false";
+    const groupId = messageSystem.dataset.id;
+    if (groupId)
+      setHistoryRunning(groupId);
     btn?.addEventListener("click", async () => {
       await window.electronAPI.stopMessage();
       enterEnd(messageSystem);
@@ -792,136 +919,30 @@ $$
   }
   window.electronAPI.setUUID((uuid) => State.uuid = uuid);
   window.electronAPI.agentRunning((data) => {
-    if (data.group_id && data.uuid && State.uuid !== data.uuid) {
+    if (data.group_id && data.uuid && State.uuid !== data.uuid)
       return;
-    }
+    if (data?.id)
+      setHistoryRunning(data.id);
     const messageSystems = document.querySelectorAll(`[data-id='${data.group_id}']`);
     const messageSystem = messageSystems[1];
     if (messageSystem) {
       addRunning(messageSystem);
+      addThinking(messageSystem);
     }
   });
   window.electronAPI.agentIdle((data) => {
-    if (!data.group_id) {
+    if (!data?.group_id)
       DOM.submit.classList.remove("running");
-    }
-    if (data.group_id && data.uuid && State.uuid !== data.uuid) {
+    if (data?.group_id && data.uuid && State.uuid !== data.uuid)
       return;
-    }
+    if (data?.id)
+      setHistoryCompleted(data.id);
     const messageSystems = document.querySelectorAll(`[data-id='${data.group_id}']`);
     const messageSystem = messageSystems[1];
     if (messageSystem) {
       enterEnd(messageSystem);
     }
   });
-
-  // main/history.ts
-  var new_item_template = `<div class="history-item" onclick="loadChat('@id')">
-    <div class="history-text"></div>
-    <div class="history-menu" onclick="showHistoryMenu(event, '@id')">
-      <i class="fas fa-ellipsis-v"></i>
-      <div class="history-menu-dropdown">
-        <div class="history-menu-item" onclick="renameChat('@id')">
-          <i class="fas fa-edit"></i> Rename
-        </div>
-        <div class="history-menu-item" onclick="deleteChat('@id')">
-          <i class="fas fa-trash"></i> Delete
-        </div>
-      </div>
-    </div>
-  </div>`;
-  function addChatItem(chat) {
-    const item = createElement(new_item_template.replace(/@id/g, chat.id));
-    item.getElementsByClassName("history-text")[0].innerText = chat.name || "New Chat";
-    item.getElementsByClassName("history-text")[0].title = chat.name || "New Chat";
-    item.id = chat.id;
-    DOM.history_list.insertBefore(item, DOM.history_list.firstChild);
-    item.onclick = () => loadChat(chat.id);
-    const menu = item.querySelector(".history-menu");
-    menu.onclick = (e) => showHistoryMenu(e, chat.id);
-    const renameBtn = item.querySelector(".history-menu-item:nth-child(1)");
-    renameBtn.onclick = (e) => {
-      e.stopPropagation();
-      renameChat(chat.id);
-    };
-    const deleteBtn = item.querySelector(".history-menu-item:nth-child(2)");
-    deleteBtn.onclick = (e) => {
-      e.stopPropagation();
-      deleteChat(chat.id);
-    };
-  }
-  function handleNewChat(chat) {
-    addChatItem(chat);
-    updateChat(chat);
-    selectChat(chat.id);
-  }
-  function updateChat(chat) {
-    if (!chat)
-      return;
-    State.chat = chat;
-    toggleMode(State.chat.mode);
-    DOM.system_prompt.value = State.chat.system_prompt || "";
-    DOM.tokens.innerText = String(State.chat.tokens || 0);
-    DOM.msg_count.innerText = String(State.chat.msg_count || 0);
-    DOM.seconds.innerText = (State.chat.seconds || 0).toFixed(1);
-    DOM.version.innerText = State.chat.version || "deepseek-chat";
-    DOM.agentMode.innerText = State.chat.agentMode || "transagent";
-    DOM.model_select.value = State.chat.model;
-    DOM.compress_box.checked = State.chat.compress_context || false;
-  }
-  async function selectChat(chatId) {
-    const items = DOM.history_list.getElementsByClassName("history-item");
-    Array.from(items).forEach((item) => {
-      if (item.id == chatId)
-        item.classList.add("active");
-      else
-        item.classList.remove("active");
-    });
-  }
-  async function loadChat(chatId) {
-    window.electronAPI.loadChat(chatId);
-  }
-  async function handleloadChat(chat) {
-    updateChat(chat);
-    selectChat(chat.id);
-  }
-  async function deleteChat(chatId) {
-    if (confirm("Are you sure you want to delete this conversation?")) {
-      await window.electronAPI.delChat(chatId);
-      const items = DOM.history_list.getElementsByClassName("history-item");
-      Array.from(items).forEach((item) => {
-        if (item.id == chatId)
-          item.remove();
-      });
-    }
-  }
-  function showHistoryMenu(event, chatId) {
-    event.stopPropagation();
-    const menus = document.querySelectorAll(".history-menu-dropdown");
-    menus.forEach((menu2) => menu2.style.display = "none");
-    const target = event.currentTarget;
-    const menu = target.querySelector(".history-menu-dropdown");
-    menu.style.display = "block";
-    State.chat.id = chatId;
-  }
-  function renameChat(chatId) {
-    State.chat.id = chatId;
-    DOM.renameDialog.style.display = "flex";
-    DOM.renameInput.focus();
-  }
-  async function confirmRename() {
-    const newName = DOM.renameInput.value.trim();
-    if (newName && State.chat.id) {
-      await window.electronAPI.renameChat({ id: State.chat.id, name: newName });
-      const items = DOM.history_list.getElementsByClassName("history-item");
-      Array.from(items).forEach((item) => {
-        if (item.id == State.chat.id)
-          item.getElementsByClassName("history-text")[0].innerText = newName;
-      });
-    }
-    DOM.renameDialog.style.display = "none";
-    DOM.renameInput.value = "";
-  }
 
   // main/ui.ts
   function showLog(type, content) {

@@ -129,5 +129,6 @@ export function setHistoryCompleted(groupId: string) {
   const item = document.getElementById(groupId);
   if (item) {
     item.classList.remove('running');
+    item.classList.add('completed');
   }
 }

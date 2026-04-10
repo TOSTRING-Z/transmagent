@@ -72,7 +72,7 @@ export class SessionManager {
         }
     }
 
-    delChat (id: string) {
+    delChat(id: string) {
         // 检查当前会话列表中是否存在该ID
         if (id in this.sessions) {
             this.sessions.delete(id);
@@ -103,15 +103,15 @@ export class SessionManager {
         this.activeSession = session;
         this.sessions.set(this.activeSessionId, session);
         // 加载历史消息
-        const history_path = this.activeSession.utils.getHistoryPath(this.activeSessionId);
-        this.activeSession.tool_call.loadMessage(history_path);
+        const history_path = session.utils.getHistoryPath(this.activeSessionId);
+        session.tool_call.loadMessage(history_path);
         // 更新模式
-        this.activeSession.llmService.chatManager.chat.agentMode = agentMode;
+        session.llmService.chatManager.chat.agentMode = agentMode;
         // 通知前端更新
-        const group_id = this.activeSession.llmService.chatManager.chat.group_id;
-        let uuid = this.activeSession.tool_call.setUUID();
-        this.window?.webContents.send('handleSetChat', this.activeSession.llmService.chatManager.chat);
-        this.window?.webContents.send('agentIdle', { group_id, uuid });
+        const uuid = session.tool_call.setUUID();
+        const chat = session.llmService.chatManager.chat;
+        this.window?.webContents.send('handleSetChat', chat);
+        this.window?.webContents.send('agentIdle', { ...chat, uuid });
     }
 
     createSession(id?: string, agentMode?: AgentMode): Session {
@@ -176,9 +176,9 @@ export class SessionManager {
         } else {
             sessionId = getSessionId();
             session.llmService.chatManager.chat.id = sessionId;
-            const group_id = session.llmService.chatManager.chat.group_id;
-            let uuid = session.tool_call.setUUID();
-            this.window?.webContents.send('agentIdle', { group_id, uuid });
+            const uuid = session.tool_call.setUUID();
+            const chat = session.llmService.chatManager.chat;
+            this.window?.webContents.send('agentIdle', { ...chat, uuid });
         }
         this.activeSessionId = sessionId;
         this.activeSession = session;
@@ -192,23 +192,23 @@ export class SessionManager {
             this.activeSession = this.sessions.get(id);
             this.activeSession.tool_call.loadChat(id);
             const state = this.activeSession.tool_call.state;
-            const group_id = this.activeSession.llmService.chatManager.chat.group_id;
-            let uuid = this.activeSession.tool_call.setUUID();
+            const chat = this.activeSession.llmService.chatManager.chat;
+            const uuid = this.activeSession.tool_call.setUUID();
             if (state === State.RUNNING) {
-                this.window.webContents.send('agentRunning', { group_id, uuid });
+                this.window.webContents.send('agentRunning', { ...chat, uuid });
             } else if (state === State.PAUSE) {
                 const toolInfo = this.activeSession.tool_call.currentToolInfo;
                 const observation = this.activeSession.tool_call.currentObservation;
                 const { options } = observation as Observation;
                 this.window?.webContents.send('handleOptions', { ...this.activeSession.llmService.chatManager.chat, ...toolInfo, options: options, uuid: uuid });
             } else {
-                this.window?.webContents.send('agentIdle', { group_id, uuid });
+                this.window?.webContents.send('agentIdle', { ...chat, uuid });
             }
         } else {
             this.updateSession(id);
             this.activeSession.tool_call.loadChat(id);
             const group_id = this.activeSession.llmService.chatManager.chat.group_id;
-            let uuid = this.activeSession.tool_call.setUUID();
+            const uuid = this.activeSession.tool_call.setUUID();
             this.window?.webContents.send('agentIdle', { group_id, uuid });
         }
         return this.activeSessionId;

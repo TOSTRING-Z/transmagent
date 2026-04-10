@@ -42,6 +42,7 @@ const os = __importStar(require("os"));
 const electron_1 = require("electron");
 const ssh2_1 = require("ssh2");
 const logger_1 = require("../utils/logger");
+const public_1 = require("../utils/public");
 // --- 辅助函数 ---
 function threshold(data, max_lines = 40, max_chars_per_line = 200) {
     if (!data)
@@ -135,26 +136,35 @@ function main(initialParams = {}) {
         if (params.bashrc) {
             finalCode = `source ${params.bashrc};\n${code}`;
         }
+        // 检查静默模式：静默模式下不创建窗口，除非 params.show 为 true
+        const silentMode = (0, public_1.isSilentMode)();
+        const shouldShowWindow = params.show && !silentMode;
         let terminalWindow = null;
         try {
-            terminalWindow = new electron_1.BrowserWindow({
-                width: 800,
-                height: 600,
-                frame: false,
-                transparent: true,
-                resizable: true,
-                show: false,
-                webPreferences: {
-                    nodeIntegration: true,
-                    contextIsolation: false
-                }
-            });
-            terminalWindow.loadFile('src/frontend/terminal.html');
-            terminalWindow.once('ready-to-show', () => {
-                if (params.show && terminalWindow && !terminalWindow.isDestroyed()) {
-                    terminalWindow.show();
-                }
-            });
+            // 仅在需要显示窗口时创建终端窗口
+            if (shouldShowWindow) {
+                terminalWindow = new electron_1.BrowserWindow({
+                    width: 800,
+                    height: 600,
+                    frame: false,
+                    transparent: true,
+                    resizable: true,
+                    show: false,
+                    webPreferences: {
+                        nodeIntegration: true,
+                        contextIsolation: false
+                    }
+                });
+                terminalWindow.loadFile('src/frontend/terminal.html');
+                terminalWindow.once('ready-to-show', () => {
+                    if (params.show && terminalWindow && !terminalWindow.isDestroyed()) {
+                        terminalWindow.show();
+                    }
+                });
+            }
+            else {
+                logger_1.logger.log('[CliExecute] Running in silent mode - terminal window hidden');
+            }
             // 注意：这里移除了原本在外层的 closed 监听，统一放入 Promise 内部处理，方便回收进程
         }
         catch (error) {
@@ -253,16 +263,18 @@ function main(initialParams = {}) {
             };
             electron_1.ipcMain.on('minimize-window', handleMinimize);
             electron_1.ipcMain.once('close-window', handleCloseWindow);
-            // 监听窗口被原生 X 按钮关闭的情况
-            terminalWindow?.on('closed', () => {
-                terminalWindow = null;
-                if (!isResolved) {
-                    isInterrupted = true;
-                    if (killProcess)
-                        killProcess(true);
-                    finish({ success: false, error: 'Terminal window closed by user' });
-                }
-            });
+            // 监听窗口被原生 X 按钮关闭的情况（仅在窗口存在时注册）
+            if (terminalWindow) {
+                terminalWindow.on('closed', () => {
+                    terminalWindow = null;
+                    if (!isResolved) {
+                        isInterrupted = true;
+                        if (killProcess)
+                            killProcess(true);
+                        finish({ success: false, error: 'Terminal window closed by user' });
+                    }
+                });
+            }
             // ================= 控制台输出循环监测逻辑 =================
             let llmAssistant = toolCall.llmAssistant;
             let monitorIntervalId = null;

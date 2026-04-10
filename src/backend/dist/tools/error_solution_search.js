@@ -38,6 +38,7 @@ exports.getPrompt = getPrompt;
 const puppeteer = __importStar(require("puppeteer"));
 const logger_1 = require("../utils/logger");
 const WindowManager_1 = require("../main/windows/WindowManager");
+const public_1 = require("../utils/public");
 class ErrorSolutionFinder {
     errorKeywords;
     constructor() {
@@ -142,9 +143,10 @@ class ErrorSolutionFinder {
     }
     async crawlStackOverflow(searchQuery, maxResults = 5) {
         let browser = null;
+        const silentMode = (0, public_1.isSilentMode)();
         try {
             browser = await puppeteer.launch({
-                headless: false,
+                headless: silentMode, // 静默模式下使用 headless 模式
                 devtools: false,
                 args: [
                     '--no-sandbox',

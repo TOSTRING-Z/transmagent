@@ -182,6 +182,14 @@ class MainWindow extends BaseWindow_1.BaseWindow {
                 event: () => { },
                 click: () => { this.funcItems.del.statu = !this.funcItems.del.statu; }
             },
+            silent: {
+                statu: this.session().utils.getConfig("func_status")?.silent || false,
+                event: () => { },
+                click: () => {
+                    this.funcItems.silent.statu = !this.funcItems.silent.statu;
+                    this.saveFuncStatus();
+                }
+            },
             react: {
                 statu: this.session().utils.getConfig("func_status")?.react || true,
                 event: () => { },
@@ -513,6 +521,20 @@ class MainWindow extends BaseWindow_1.BaseWindow {
         this.funcItems.text.event = this.getTextEvent(this.funcItems.text);
         this.funcItems.react.event = this.getReactEvent(this.funcItems.react);
     }
+    /**
+     * 保存功能状态到配置文件
+     */
+    saveFuncStatus() {
+        const funcStatus = {
+            clip: this.funcItems.clip.statu,
+            markdown: this.funcItems.markdown.statu,
+            text: this.funcItems.text.statu,
+            del: this.funcItems.del.statu,
+            react: this.funcItems.react.statu,
+            silent: this.funcItems.silent.statu
+        };
+        (0, public_1.setDefaultConfig)({ func_status: funcStatus });
+    }
     initInfo() {
         const filePath = this.session().utils.getConfig("prompt");
         let prompt = "";
@@ -685,6 +707,8 @@ class MainWindow extends BaseWindow_1.BaseWindow {
                     { click: this.funcItems.text.click, label: 'Text Formatting', type: 'checkbox', checked: this.funcItems.text.statu },
                     { click: this.funcItems.clip.click, label: 'Copy Tool', type: 'checkbox', checked: this.funcItems.clip.statu },
                     { click: this.funcItems.del.click, label: 'Delete Mode', type: 'checkbox', checked: this.funcItems.del.statu },
+                    { type: 'separator' },
+                    { click: this.funcItems.silent.click, label: 'Silent Mode', type: 'checkbox', checked: this.funcItems.silent.statu },
                 ]
             },
             {

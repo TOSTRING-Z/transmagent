@@ -41,6 +41,7 @@ const fs_1 = require("fs");
 const path = __importStar(require("path"));
 const electron_1 = require("electron");
 const logger_1 = require("../utils/logger");
+const public_1 = require("../utils/public");
 function main(params) {
     return async ({ code }) => {
         const timestamp = Date.now();
@@ -56,25 +57,33 @@ function main(params) {
         let terminalWindow = null;
         let child = null;
         let isInterrupted = false; // 用于标记是否被用户主动中断
-        // 创建终端窗口
-        terminalWindow = new electron_1.BrowserWindow({
-            width: 800,
-            height: 600,
-            frame: false,
-            transparent: true,
-            show: false,
-            resizable: true,
-            webPreferences: {
-                nodeIntegration: true,
-                contextIsolation: false
-            }
-        });
-        terminalWindow.loadFile('src/frontend/terminal.html');
-        terminalWindow.once('ready-to-show', () => {
-            if (params?.show && terminalWindow) {
-                terminalWindow.show();
-            }
-        });
+        // 检查静默模式：静默模式下不创建窗口，除非 params.show 为 true
+        const silentMode = (0, public_1.isSilentMode)();
+        const shouldShowWindow = params?.show && !silentMode;
+        // 仅在需要显示窗口时创建终端窗口
+        if (shouldShowWindow) {
+            terminalWindow = new electron_1.BrowserWindow({
+                width: 800,
+                height: 600,
+                frame: false,
+                transparent: true,
+                show: false,
+                resizable: true,
+                webPreferences: {
+                    nodeIntegration: true,
+                    contextIsolation: false
+                }
+            });
+            terminalWindow.loadFile('src/frontend/terminal.html');
+            terminalWindow.once('ready-to-show', () => {
+                if (params?.show && terminalWindow) {
+                    terminalWindow.show();
+                }
+            });
+        }
+        else {
+            logger_1.logger.log('[PythonExecute] Running in silent mode - terminal window hidden');
+        }
         return new Promise((resolve) => {
             let isResolved = false;
             let errorMsg = "";
@@ -193,17 +202,20 @@ function main(params) {
             child.on('close', (exitCode) => {
                 finish(exitCode);
             });
-            terminalWindow?.on('closed', () => {
-                terminalWindow = null;
-                // 如果窗口被用户直接通过UI关闭(如点击原生 X 按钮)，强制中断
-                if (!isResolved) {
-                    isInterrupted = true;
-                    if (child && !child.killed) {
-                        child.kill('SIGKILL');
+            // 仅在窗口存在时注册 closed 事件
+            if (terminalWindow) {
+                terminalWindow.on('closed', () => {
+                    terminalWindow = null;
+                    // 如果窗口被用户直接通过UI关闭(如点击原生 X 按钮)，强制中断
+                    if (!isResolved) {
+                        isInterrupted = true;
+                        if (child && !child.killed) {
+                            child.kill('SIGKILL');
+                        }
+                        finish(null);
                     }
-                    finish(null);
-                }
-            });
+                });
+            }
         });
     };
 }

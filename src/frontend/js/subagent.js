@@ -337,6 +337,21 @@ $$
   marked.use(globalThis.markedKatex({ nonStandard: true, async: true }));
   marked.use({ walkTokens, renderer, async: true, extensions: [thinkExtension] });
 
+  // main/history.ts
+  function setHistoryRunning(groupId) {
+    const item = document.getElementById(groupId);
+    if (item) {
+      item.classList.add("running");
+    }
+  }
+  function setHistoryCompleted(groupId) {
+    const item = document.getElementById(groupId);
+    if (item) {
+      item.classList.remove("running");
+      item.classList.add("completed");
+    }
+  }
+
   // main/ui.ts
   function showLog(type, content) {
     window.electronAPI.showLog({ type, content });
@@ -521,8 +536,6 @@ $$
           "message": compression_content
         }, "system");
         addRunning(messageSystem);
-        const thinking = messageSystem.getElementsByClassName("thinking")[0];
-        thinking.remove();
         const message_content = messageSystem.getElementsByClassName("message")[0];
         menuEvent(messageSystem, message_content, false);
         message_element.parentElement.insertBefore(messageSystem, message_element.nextSibling);
@@ -611,6 +624,8 @@ $$
       const message_content = messageSystem.getElementsByClassName("message")[0];
       const thinking = messageSystem?.getElementsByClassName("thinking")[0];
       thinking.classList.add("hidden");
+      if (chunk?.id)
+        setHistoryCompleted(chunk.id);
       if (!messageSystem.dataset?.event_stop) {
         messageSystem.dataset.event_stop = "true";
         menuEvent(messageSystem, message_content.dataset.content, chunk?.is_plugin);
@@ -622,10 +637,15 @@ $$
     DOM.submit.classList.add("running");
     const message_actions = messageSystem.getElementsByClassName("message-actions")[0];
     message_actions.classList.remove("active");
+  }
+  function addThinking(messageSystem) {
     const thinking = messageSystem?.getElementsByClassName("thinking")[0];
     thinking.classList.remove("hidden");
     const btn = messageSystem?.getElementsByClassName("btn")[0];
     messageSystem.dataset.event_stop = "false";
+    const groupId = messageSystem.dataset.id;
+    if (groupId)
+      setHistoryRunning(groupId);
     btn?.addEventListener("click", async () => {
       await window.electronAPI.stopMessage();
       enterEnd(messageSystem);
@@ -778,22 +798,24 @@ $$
   }
   window.electronAPI.setUUID((uuid) => State.uuid = uuid);
   window.electronAPI.agentRunning((data) => {
-    if (data.group_id && data.uuid && State.uuid !== data.uuid) {
+    if (data.group_id && data.uuid && State.uuid !== data.uuid)
       return;
-    }
+    if (data?.id)
+      setHistoryRunning(data.id);
     const messageSystems = document.querySelectorAll(`[data-id='${data.group_id}']`);
     const messageSystem = messageSystems[1];
     if (messageSystem) {
       addRunning(messageSystem);
+      addThinking(messageSystem);
     }
   });
   window.electronAPI.agentIdle((data) => {
-    if (!data.group_id) {
+    if (!data?.group_id)
       DOM.submit.classList.remove("running");
-    }
-    if (data.group_id && data.uuid && State.uuid !== data.uuid) {
+    if (data?.group_id && data.uuid && State.uuid !== data.uuid)
       return;
-    }
+    if (data?.id)
+      setHistoryCompleted(data.id);
     const messageSystems = document.querySelectorAll(`[data-id='${data.group_id}']`);
     const messageSystem = messageSystems[1];
     if (messageSystem) {

@@ -664,7 +664,7 @@ class ToolCall extends ReActAgent_1.ReActAgent {
             this.llmService.chatManager.pushUserMessage({ ...this.llmService.chatManager.chat, content: data.query, uuid: data.uuid });
             this.window?.webContents.send('userData', { ...this.llmService.chatManager.chat, content: data.query, uuid: data.uuid });
         }
-        this.window?.webContents.send('agentRunning', { group_id: this.llmService.chatManager.chat.group_id, uuid: data.uuid });
+        this.window?.webContents.send('agentRunning', { ...this.llmService.chatManager.chat, uuid: data.uuid });
         this.state = ReActAgent_1.State.IDLE;
         let tool_call = this.utils.getConfig("tool_call");
         this.llmService.chatManager.chat.seconds = 0;

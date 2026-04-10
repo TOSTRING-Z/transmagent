@@ -56,12 +56,20 @@ class SubAgentWindow {
         if (!params)
             return;
         const { query, agentToolName, toolCall } = params;
+        // 检查静默模式
+        const silentMode = (0, public_1.isSilentMode)();
+        // 静默模式下不创建窗口，直接执行子代理任务
+        if (silentMode) {
+            console.log('[SubAgentWindow] Running in silent mode - executing agent without window');
+            return this.executeInSilentMode(query, agentToolName, toolCall);
+        }
         const win = new electron_1.BrowserWindow({
             width: 800 - Math.min(this.windows.length, 5) * 50,
             height: 800 - Math.min(this.windows.length, 5) * 50,
             frame: false,
             transparent: false,
             resizable: true,
+            show: false, // 先隐藏窗口，等加载完成再显示
             webPreferences: {
                 preload: path.join(__dirname, '../preloads/subagent_window_preload.js'),
             },
@@ -143,6 +151,49 @@ class SubAgentWindow {
             });
             this.windows.length = 0;
             this.windowListeners.clear();
+        }
+    }
+    /**
+     * 静默模式下执行子代理任务（不创建窗口）
+     */
+    async executeInSilentMode(query, agentToolName, toolCall) {
+        try {
+            console.log(`[SubAgentWindow-Silent] Executing ${agentToolName} with query: ${query}`);
+            this.agentToolName = agentToolName;
+            this.agentTool = this.agentTools[agentToolName];
+            if (!this.agentTool) {
+                throw new Error(`Agent tool ${agentToolName} not found`);
+            }
+            // 子代理模式同主代理模式一样（计划模式例外）
+            if (toolCall.llmService.environment_details.mode !== ReActAgent_1.Mode.PLAN) {
+                this.agentTool.toolCall.changeMode(toolCall.llmService.chatManager.chat.mode);
+            }
+            else {
+                // 计划模式下，子代理默认为自动模式
+                this.agentTool.toolCall.changeMode("auto");
+            }
+            // 初始化消息（仅在首次或需要时）
+            if (toolCall.llmService.utils.getConfig("toolCall")?.subagent_llm_init) {
+                this.agentTool.toolCall.llmService.chatManager.initMessages();
+            }
+            const mainChat = toolCall.llmService.chatManager.chat;
+            this.agentTool.toolCall.llmService.chatManager.chat.tool_format = mainChat.tool_format;
+            this.agentTool.toolCall.llmService.startLoop();
+            let data = this.agentTool.toolCall.getDataDefault({ query, model: mainChat.model, version: mainChat.version });
+            data = await this.agentTool.toolCall.callReAct(data);
+            const res_json = (0, public_1.parseJsonContent)(data.output_format);
+            return {
+                content: res_json[0]?.content || data.output_format,
+                subagent_tool: true
+            };
+        }
+        catch (error) {
+            console.error(`[SubAgentWindow-Silent] Error: ${error.message}`);
+            return {
+                content: `Error executing subagent: ${error.message}`,
+                subagent_tool: true,
+                error: true
+            };
         }
     }
     setup() {

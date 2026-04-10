@@ -10,6 +10,7 @@ const logger_1 = require("../utils/logger");
 const puppeteer_1 = __importDefault(require("puppeteer"));
 const global_agent_1 = __importDefault(require("global-agent"));
 const ToolCall_1 = require("../core/ToolCall");
+const public_1 = require("../utils/public");
 // --- 初始化全局代理 (必须在所有HTTP请求之前) ---
 function bootstrapGlobalProxy() {
     // 从环境变量获取代理地址
@@ -59,14 +60,16 @@ class BrowserController {
             return { success: true, message: '浏览器已经打开' };
         }
         try {
-            logger_1.logger.log('正在启动浏览器...');
+            // 检查静默模式
+            const silentMode = (0, public_1.isSilentMode)();
+            logger_1.logger.log(silentMode ? '正在启动浏览器（静默模式）...' : '正在启动浏览器...');
             // 获取代理参数
             const proxyArgs = getChromeProxyArgs();
             if (proxyArgs.length > 0) {
                 logger_1.logger.log(`使用浏览器代理: ${proxyArgs.join(', ')}`);
             }
             this.browser = await puppeteer_1.default.launch({
-                headless: false,
+                headless: silentMode, // 静默模式下使用 headless 模式
                 devtools: false,
                 args: [
                     '--no-sandbox',

@@ -32,6 +32,10 @@ export declare class MainWindow extends BaseWindow {
     private getTextEvent;
     private getReactEvent;
     private initFuncItems;
+    /**
+     * 保存功能状态到配置文件
+     */
+    private saveFuncStatus;
     private initInfo;
     updateVersionsSubmenu(): void;
     private getModelsSubmenu;

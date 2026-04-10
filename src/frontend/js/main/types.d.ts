@@ -20,8 +20,8 @@ export interface ElectronAPI {
   toolData: (callback: (chunk: any) => void) => void;
   infoData: (callback: (info: any) => void) => void;
   userData: (callback: (data: any) => void) => void;
-  agentRunning: (callback: (data: { group_id?: string; uuid?: string }) => void) => void;
-  agentIdle: (callback: (data: { group_id?: string; uuid?: string }) => void) => void;
+  agentRunning: (callback: (data: any) => void) => void;
+  agentIdle: (callback: (data: any) => void) => void;
   stopMessage: () => Promise<void>;
   startAgentLoop: (callback: (data: any) => void) => void;
   agentLoop: (data: any) => void;

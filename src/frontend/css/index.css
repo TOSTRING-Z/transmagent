@@ -308,8 +308,15 @@ body {
   animation: pulse-green 1.5s infinite;
 }
 
-/* Move text to make room for indicator */
-.history-item.running .history-text {
+/* Completed state - blue (static, no pulse) */
+.history-item.completed .history-status {
+  background-color: #3b82f6;
+  opacity: 1;
+}
+
+/* Move text to make room for indicator - applies to both running and completed */
+.history-item.running .history-text,
+.history-item.completed .history-text {
   margin-left: 16px;
 }
 

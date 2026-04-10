@@ -15,5 +15,9 @@ export declare class SubAgentWindow {
         toolCall: ToolCall;
     }): Promise<any>;
     destroy(init?: boolean): void;
+    /**
+     * 静默模式下执行子代理任务（不创建窗口）
+     */
+    private executeInSilentMode;
     setup(): void;
 }

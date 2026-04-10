@@ -189,8 +189,6 @@ export async function compressionGroupMessage(group_id: string) {
         "message": compression_content
       }, "system");
       addRunning(messageSystem);
-      const thinking = messageSystem.getElementsByClassName("thinking")[0];
-      thinking.remove();
       const message_content = messageSystem.getElementsByClassName('message')[0] as HTMLElement;
       menuEvent(messageSystem, message_content, false);
       message_element.parentElement.insertBefore(messageSystem, message_element.nextSibling);
@@ -279,9 +277,7 @@ export async function enterEnd(messageSystem: HTMLElement, chunk: any = null) {
     const message_content = messageSystem.getElementsByClassName('message')[0] as HTMLElement;
     const thinking = messageSystem?.getElementsByClassName("thinking")[0];
     thinking.classList.add('hidden');
-    // Set history item to completed (blue)
-    const groupId = messageSystem.dataset.id;
-    if (groupId) setHistoryCompleted(groupId);
+    if (chunk?.id) setHistoryCompleted(chunk.id);
     if (!messageSystem.dataset?.event_stop) {
       messageSystem.dataset.event_stop = "true";
       menuEvent(messageSystem, message_content.dataset.content as any, chunk?.is_plugin);
@@ -294,6 +290,9 @@ export function addRunning(messageSystem: HTMLElement) {
   DOM.submit.classList.add("running");
   const message_actions = messageSystem.getElementsByClassName("message-actions")[0] as HTMLElement;
   message_actions.classList.remove("active");
+}
+
+export function addThinking(messageSystem: HTMLElement) {
   const thinking = messageSystem?.getElementsByClassName("thinking")[0];
   thinking.classList.remove('hidden');
   const btn = messageSystem?.getElementsByClassName("btn")[0];
@@ -306,6 +305,7 @@ export function addRunning(messageSystem: HTMLElement) {
     enterEnd(messageSystem);
   });
 }
+
 
 // Main Chat Functions
 
@@ -477,23 +477,20 @@ export async function startAgentLoop(data: any) {
 window.electronAPI.setUUID((uuid: string) => State.uuid = uuid);
 
 window.electronAPI.agentRunning((data) => {
-  if (data.group_id && data.uuid && State.uuid !== data.uuid) {
-    return;
-  }
+  if (data.group_id && data.uuid && State.uuid !== data.uuid) return;
+  if (data?.id) setHistoryRunning(data.id);
   const messageSystems = document.querySelectorAll(`[data-id='${data.group_id}']`);
   const messageSystem = messageSystems[1] as HTMLElement;
   if (messageSystem) {
     addRunning(messageSystem);
+    addThinking(messageSystem);
   }
 })
 
 window.electronAPI.agentIdle((data) => {
-  if (!data.group_id) {
-    DOM.submit.classList.remove("running");
-  }
-  if (data.group_id &&data.uuid && State.uuid !== data.uuid) {
-    return;
-  }
+  if (!data?.group_id) DOM.submit.classList.remove("running");
+  if (data?.group_id && data.uuid && State.uuid !== data.uuid) return;
+  if (data?.id) setHistoryCompleted(data.id);
   const messageSystems = document.querySelectorAll(`[data-id='${data.group_id}']`);
   const messageSystem = messageSystems[1] as HTMLElement;
   if (messageSystem) {

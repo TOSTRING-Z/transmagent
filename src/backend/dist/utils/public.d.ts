@@ -28,3 +28,9 @@ export declare const setHistory: (chat: any, messages?: Message[] | undefined) =
 export declare const setHistoryMessages: (chatId: any, messages: any) => boolean;
 export declare const setHistoryChat: (chat: any) => boolean;
 export declare const setHistoryConfigChat: (chat: ChatState) => boolean;
+export declare const setDefaultConfig: (config: Record<string, any>, configName?: string) => boolean;
+/**
+ * 检查静默模式是否启用
+ * @returns boolean - 静默模式状态，默认返回 false
+ */
+export declare const isSilentMode: () => boolean;
