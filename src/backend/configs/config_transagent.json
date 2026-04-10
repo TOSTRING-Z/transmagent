@@ -51,7 +51,7 @@
     },
     "deepseek[openai]": {
       "api_url": "https://api.deepseek.com/",
-      "api_key": "sk-92f1044fa83a4eb9a26985e3fe2a7a24",
+      "api_key": "",
       "api_type": "openai",
       "versions": [
         {
@@ -201,7 +201,7 @@
       "enabled": true
     },
     "llm_params": {
-      "stream": false
+      "stream": true
     }
   },
   "code": {

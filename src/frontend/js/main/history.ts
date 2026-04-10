@@ -121,6 +121,7 @@ export async function confirmRename() {
 export function setHistoryRunning(groupId: string) {
   const item = document.getElementById(groupId);
   if (item) {
+    item.classList.remove('completed');
     item.classList.add('running');
   }
 }
