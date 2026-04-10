@@ -780,6 +780,7 @@ export class ToolCall extends ReActAgent {
         }
 
         if (!this.agentConfigs.subagent) {
+            // chat.id存在时会添加蓝色完成标志 （仅允许callReAct循环完成添加）
             this.window?.webContents.send('agentIdle', { ...this.llmService.chatManager.chat, uuid: data.uuid });
             this.sendData(data);
         }

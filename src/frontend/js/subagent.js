@@ -347,6 +347,7 @@ $$
   function setHistoryCompleted(groupId) {
     const item = document.getElementById(groupId);
     if (item) {
+      item.classList.remove("running");
       item.classList.add("completed");
     }
   }
@@ -807,10 +808,10 @@ $$
     }
   });
   window.electronAPI.agentIdle((data) => {
-    if (!data?.group_id)
-      DOM.submit.classList.remove("running");
     if (data?.id)
       setHistoryCompleted(data.id);
+    if (!data?.group_id)
+      DOM.submit.classList.remove("running");
     if (data?.group_id && data.uuid && State.uuid !== data.uuid)
       return;
     const messageSystems = document.querySelectorAll(`[data-id='${data.group_id}']`);
