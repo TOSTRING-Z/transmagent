@@ -610,34 +610,63 @@ export class ToolCall extends ReActAgent {
 
     public async act(toolInfo: ToolInfo): Promise<Observation> {
         let observation: Observation;
+        let checkInterval: NodeJS.Timeout | null = null;
+
         try {
             if (!this.tool_schemas || !this.tool_schemas.map(tool => tool.name).includes(toolInfo.tool_call_name)) {
-                observation = {
-                    result: "Tool does not exist."
-                };
-            } else {
-                const will_tool = this.tools[toolInfo.tool_call_name as string].func;
-                const response = await will_tool({ ...toolInfo?.params, toolCall: this });
-                let result: string;
-                if (response?.subagent_tool) {
-                    result = response.content;
-                } else {
-                    result = typeof response === 'string' ? response : JSON.stringify(response, null, 2);
-                }
-                observation = {
-                    result: result,
-                    ask: response?.ask,
-                    options: response?.options,
-                    subagent_tool: response?.subagent_tool
-                };
+                return { result: "Tool does not exist." };
             }
-        } catch (error: any) {
-            console.error(error);
+
+            const will_tool = this.tools[toolInfo.tool_call_name as string].func;
+
+            const stopWatcher = new Promise<never>((_, reject) => {
+                // 这里正常赋值给 checkInterval
+                checkInterval = setInterval(() => {
+                    if (this.llmService.stopFlag) {
+                        if (checkInterval) clearInterval(checkInterval);
+                        reject(new Error("INTERRUPTED_BY_USER"));
+                    }
+                }, 300);
+            });
+
+            // 2. 包装工具的执行
+            const executePromise = will_tool({ ...toolInfo?.params, toolCall: this }).then(res => {
+                // 防御性检查：即使执行完了，如果此时标记为停止，也按中断处理
+                if (this.llmService.stopFlag) throw new Error("INTERRUPTED_BY_USER");
+                return res;
+            });
+
+            // 3. 竞速：谁先完成/报错，就返回谁的结果
+            const response = await Promise.race([executePromise, stopWatcher]) as any;
+
+            let result: string;
+            if (response?.subagent_tool) {
+                result = response.content;
+            } else {
+                result = typeof response === 'string' ? response : JSON.stringify(response, null, 2);
+            }
+
             observation = {
-                result: `Tool has been executed with error: ${error.message}`
+                result: result,
+                ask: response?.ask,
+                options: response?.options,
+                subagent_tool: response?.subagent_tool
             };
+
+        } catch (error: any) {
+            if (error.message === "INTERRUPTED_BY_USER") {
+                console.log(`[ToolCall] Tool execution ${toolInfo.tool_call_name} was forcefully interrupted.`);
+                observation = { result: "Execution stopped by user." };
+            } else {
+                console.error(error);
+                observation = { result: `Tool has been executed with error: ${error.message}` };
+            }
+        } finally {
+            // 重要：无论工具是正常执行完还是被强制中断，都必须清理定时器防止内存泄漏
+            if (checkInterval) clearInterval(checkInterval);
         }
-        this.currentObservation = observation; // 更新当前状态引用，供 callReAct 等外部断点恢复使用
+
+        this.currentObservation = observation;
         return observation;
     }
 
