@@ -332,3 +332,30 @@ export const setHistoryConfigChat = (chat: ChatState): boolean => {
     }
 }
 
+export const setDefaultConfig = (config: Record<string, any>, configName: string = "config_transagent.json"): boolean => {
+    try {
+        const configPath = getSystem(configName);
+        const existingConfig = readJsonFile(configPath);
+        const mergedConfig = { ...existingConfig, ...config };
+        writeFile(configPath, mergedConfig);
+        return true;
+    } catch (error) {
+        console.log("默认配置文件保存报错：", error);
+        return false;
+    }
+}
+
+/**
+ * 检查静默模式是否启用
+ * @returns boolean - 静默模式状态，默认返回 false
+ */
+export const isSilentMode = (): boolean => {
+    try {
+        const funcStatus = getDefaultConfig("func_status");
+        return !!(funcStatus?.silent);
+    } catch (error) {
+        logger.log("检查静默模式失败:", error);
+        return false;
+    }
+}
+
