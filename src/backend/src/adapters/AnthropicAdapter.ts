@@ -174,6 +174,9 @@ export class AnthropicAdapter implements ILLMAdapter {
         } else if (chunk.type === "content_block_delta") {
             if (chunk.delta?.type === "text_delta") {
                 content = chunk.delta.text;
+            } else if (chunk.delta?.type === "thinking_delta") {
+                // thinking 内容流式下发
+                reasoning_content = chunk.delta.thinking || chunk.delta.thought || "";
             } else if (chunk.delta?.type === "input_json_delta") {
                 // 工具调用的参数流式下发
                 tool_calls = [{
