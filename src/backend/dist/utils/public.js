@@ -353,16 +353,20 @@ exports.setHistoryChat = setHistoryChat;
 const setHistoryConfigChat = (chat) => {
     try {
         const defaultHistoryConfigPath = (0, exports.getDefaultHistoryConfigPath)();
-        const defaultHistoryConfigData = (0, exports.readJsonFile)(defaultHistoryConfigPath);
-        let hintData = defaultHistoryConfigData.data.filter((h) => h.id === chat.id);
+        let defaultHistoryConfig = (0, exports.readJsonFile)(defaultHistoryConfigPath);
+        if (!defaultHistoryConfig?.data) {
+            defaultHistoryConfig.data = [];
+        }
+        let hintData = defaultHistoryConfig.data.filter((h) => h.id === chat.id);
         let idExist = hintData.length > 0;
         if (!idExist) {
-            defaultHistoryConfigData.data.push(chat);
+            defaultHistoryConfig.data.push(chat);
         }
         else {
-            defaultHistoryConfigData.data = defaultHistoryConfigData.data.map((hChat) => hChat.id === chat.id ? chat : hChat);
+            defaultHistoryConfig.data = defaultHistoryConfig.data.map((hChat) => hChat.id === chat.id ? chat : hChat);
         }
-        (0, exports.writeFile)(defaultHistoryConfigPath, defaultHistoryConfigData);
+        (0, exports.writeFile)(defaultHistoryConfigPath, defaultHistoryConfig);
+        console.log("历史配置文件保存成功：", chat.id);
         return idExist;
     }
     catch (error) {

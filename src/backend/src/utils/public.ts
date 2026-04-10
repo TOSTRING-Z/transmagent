@@ -315,16 +315,20 @@ export const setHistoryChat = (chat): boolean => {
 export const setHistoryConfigChat = (chat: ChatState): boolean => {
     try {
         const defaultHistoryConfigPath = getDefaultHistoryConfigPath();
-        const defaultHistoryConfigData = readJsonFile(defaultHistoryConfigPath);
-        let hintData = defaultHistoryConfigData.data.filter((h: any) => h.id === chat.id);
+        let defaultHistoryConfig = readJsonFile(defaultHistoryConfigPath)
+        if (!defaultHistoryConfig?.data) {
+            defaultHistoryConfig.data = [];
+        }
+        let hintData = defaultHistoryConfig.data.filter((h: any) => h.id === chat.id);
         let idExist = hintData.length > 0;
 
         if (!idExist) {
-            defaultHistoryConfigData.data.push(chat);
+            defaultHistoryConfig.data.push(chat);
         } else {
-            defaultHistoryConfigData.data = defaultHistoryConfigData.data.map((hChat: any) => hChat.id === chat.id ? chat : hChat);
+            defaultHistoryConfig.data = defaultHistoryConfig.data.map((hChat: any) => hChat.id === chat.id ? chat : hChat);
         }
-        writeFile(defaultHistoryConfigPath, defaultHistoryConfigData);
+        writeFile(defaultHistoryConfigPath, defaultHistoryConfig);
+        console.log("历史配置文件保存成功：", chat.id);
         return idExist;
     } catch (error) {
         console.log("历史配置文件保存报错：", error)
