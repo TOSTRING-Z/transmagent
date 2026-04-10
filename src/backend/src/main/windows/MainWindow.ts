@@ -16,7 +16,7 @@ import { install } from '../../core/Install';
 import { MainServer } from '../../server/MainServer';
 import { Session, SessionManager } from '../../core/SessionManager';
 import { AgentMode } from '../../types';
-import { formatDate } from '../../utils/public';
+import { formatDate, setDefaultConfig } from '../../utils/public';
 
 // 定义 FuncItems 结构以启用严格模式
 interface FuncItemNode {
@@ -174,6 +174,14 @@ export class MainWindow extends BaseWindow {
                 statu: this.session().utils.getConfig("func_status")?.del || false,
                 event: () => { },
                 click: () => { this.funcItems.del.statu = !this.funcItems.del.statu; }
+            },
+            silent: {
+                statu: this.session().utils.getConfig("func_status")?.silent || false,
+                event: () => { },
+                click: () => {
+                    this.funcItems.silent.statu = !this.funcItems.silent.statu;
+                    this.saveFuncStatus();
+                }
             },
             react: {
                 statu: this.session().utils.getConfig("func_status")?.react || true,
@@ -529,6 +537,21 @@ export class MainWindow extends BaseWindow {
         this.funcItems.react.event = this.getReactEvent(this.funcItems.react);
     }
 
+    /**
+     * 保存功能状态到配置文件
+     */
+    private saveFuncStatus(): void {
+        const funcStatus = {
+            clip: this.funcItems.clip.statu,
+            markdown: this.funcItems.markdown.statu,
+            text: this.funcItems.text.statu,
+            del: this.funcItems.del.statu,
+            react: this.funcItems.react.statu,
+            silent: this.funcItems.silent.statu
+        };
+        setDefaultConfig({ func_status: funcStatus });
+    }
+
     private initInfo() {
         const filePath = this.session().utils.getConfig("prompt");
         let prompt = "";
@@ -700,6 +723,8 @@ export class MainWindow extends BaseWindow {
                     { click: this.funcItems.text.click, label: 'Text Formatting', type: 'checkbox', checked: this.funcItems.text.statu },
                     { click: this.funcItems.clip.click, label: 'Copy Tool', type: 'checkbox', checked: this.funcItems.clip.statu },
                     { click: this.funcItems.del.click, label: 'Delete Mode', type: 'checkbox', checked: this.funcItems.del.statu },
+                    { type: 'separator' },
+                    { click: this.funcItems.silent.click, label: 'Silent Mode', type: 'checkbox', checked: this.funcItems.silent.statu },
                 ]
             },
             {

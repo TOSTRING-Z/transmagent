@@ -5,6 +5,7 @@ import * as path from 'path';
 import { BrowserWindow, ipcMain, IpcMainEvent } from 'electron';
 import { logger } from '../utils/logger';
 import { ToolCall } from '../core/ToolCall';
+import { isSilentMode } from '../utils/public';
 
 // 定义传入参数的接口
 export interface PythonExecuteParams {
@@ -44,27 +45,35 @@ export function main(params: PythonExecuteParams) {
         let child: ChildProcessWithoutNullStreams | null = null;
         let isInterrupted = false; // 用于标记是否被用户主动中断
 
-        // 创建终端窗口
-        terminalWindow = new BrowserWindow({
-            width: 800,
-            height: 600,
-            frame: false,
-            transparent: true,
-            show: false,
-            resizable: true,
-            webPreferences: {
-                nodeIntegration: true,
-                contextIsolation: false
-            }
-        });
+        // 检查静默模式：静默模式下不创建窗口，除非 params.show 为 true
+        const silentMode = isSilentMode();
+        const shouldShowWindow = params?.show && !silentMode;
 
-        terminalWindow.loadFile('src/frontend/terminal.html');
+        // 仅在需要显示窗口时创建终端窗口
+        if (shouldShowWindow) {
+            terminalWindow = new BrowserWindow({
+                width: 800,
+                height: 600,
+                frame: false,
+                transparent: true,
+                show: false,
+                resizable: true,
+                webPreferences: {
+                    nodeIntegration: true,
+                    contextIsolation: false
+                }
+            });
 
-        terminalWindow.once('ready-to-show', () => {
-            if (params?.show && terminalWindow) {
-                terminalWindow.show();
-            }
-        });
+            terminalWindow.loadFile('src/frontend/terminal.html');
+
+            terminalWindow.once('ready-to-show', () => {
+                if (params?.show && terminalWindow) {
+                    terminalWindow.show();
+                }
+            });
+        } else {
+            logger.log('[PythonExecute] Running in silent mode - terminal window hidden');
+        }
 
         return new Promise((resolve) => {
             let isResolved = false;
@@ -203,17 +212,20 @@ export function main(params: PythonExecuteParams) {
                 finish(exitCode); 
             });
 
-            terminalWindow?.on('closed', () => {
-                terminalWindow = null;
-                // 如果窗口被用户直接通过UI关闭(如点击原生 X 按钮)，强制中断
-                if (!isResolved) {
-                    isInterrupted = true;
-                    if (child && !child.killed) {
-                        child.kill('SIGKILL');
+            // 仅在窗口存在时注册 closed 事件
+            if (terminalWindow) {
+                terminalWindow.on('closed', () => {
+                    terminalWindow = null;
+                    // 如果窗口被用户直接通过UI关闭(如点击原生 X 按钮)，强制中断
+                    if (!isResolved) {
+                        isInterrupted = true;
+                        if (child && !child.killed) {
+                            child.kill('SIGKILL');
+                        }
+                        finish(null);
                     }
-                    finish(null);
-                }
-            });
+                });
+            }
         });
     };
 }

@@ -2,6 +2,7 @@ import * as puppeteer from 'puppeteer';
 import { logger } from '../utils/logger';
 import { WindowManager } from '../main/windows/WindowManager';
 import { ToolCall } from '../core/ToolCall';
+import { isSilentMode } from '../utils/public';
 
 // --- 类型定义 ---
 export interface ErrorSolutionParams {
@@ -169,9 +170,10 @@ class ErrorSolutionFinder {
 
     async crawlStackOverflow(searchQuery: string, maxResults = 5): Promise<RawSolution[]> {
         let browser: puppeteer.Browser | null = null;
+        const silentMode = isSilentMode();
         try {
             browser = await puppeteer.launch({
-                headless: false,
+                headless: silentMode, // 静默模式下使用 headless 模式
                 devtools: false,
                 args: [
                     '--no-sandbox',

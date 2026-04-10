@@ -8,6 +8,7 @@ import puppeteer, {
 } from 'puppeteer';
 import globalAgent from 'global-agent';
 import { ToolCall } from '../core/ToolCall';
+import { isSilentMode } from '../utils/public';
 
 // --- 初始化全局代理 (必须在所有HTTP请求之前) ---
 function bootstrapGlobalProxy(): void {
@@ -162,7 +163,9 @@ class BrowserController {
         }
 
         try {
-            logger.log('正在启动浏览器...');
+            // 检查静默模式
+            const silentMode = isSilentMode();
+            logger.log(silentMode ? '正在启动浏览器（静默模式）...' : '正在启动浏览器...');
 
             // 获取代理参数
             const proxyArgs = getChromeProxyArgs();
@@ -171,7 +174,7 @@ class BrowserController {
             }
 
             this.browser = await puppeteer.launch({
-                headless: false,
+                headless: silentMode, // 静默模式下使用 headless 模式
                 devtools: false,
                 args: [
                     '--no-sandbox',
