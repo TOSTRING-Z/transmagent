@@ -487,9 +487,10 @@ window.electronAPI.agentRunning((data) => {
 })
 
 window.electronAPI.agentIdle((data) => {
-  // 所有会话
-  if (!data?.group_id) DOM.submit.classList.remove("running");
+  // 所有会话 (存在chat.id时添加蓝色完成标志)
   if (data?.id) setHistoryCompleted(data.id);
+  // 否则仅移除运行动画
+  if (!data?.group_id) DOM.submit.classList.remove("running");
   // 当前会话
   if (data?.group_id && data.uuid && State.uuid !== data.uuid) return;
   const messageSystems = document.querySelectorAll(`[data-id='${data.group_id}']`);

@@ -309,9 +309,8 @@ body {
 }
 
 /* Completed state - blue (static, no pulse) */
-.history-item.running.completed .history-status {
+.history-item.completed .history-status {
   background-color: #3b82f6;
-  animation: none;
   opacity: 1;
 }
 
