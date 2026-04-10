@@ -186,7 +186,7 @@ function getBaseTools() {
             },
             getPrompt: () => ({
                 name: "add_subtasks",
-                description: "[IN-SESSION WORKFLOW & CRON REGISTRY] Break down complex goals, REPLAN, or register PERIODIC/SCHEDULED tasks.\n\nCRITICAL: To monitor something or run periodically (e.g., 'every 5 mins'), use task_type='recurring' and set trigger_condition. DO NOT write Bash loops.\nWhen [SYSTEM HEARTBEAT] triggers you, use update_mode='replace_pending' and pass this task_id to inject the subtasks for the NEXT cycle.",
+                description: "[IN-SESSION WORKFLOW & CRON REGISTRY] Break down complex goals, REPLAN, or register PERIODIC/SCHEDULED tasks.\n\nCRITICAL: To monitor something or run periodically (e.g., 'every 5 mins'), use task_type='recurring' and set trigger_condition. DO NOT write Bash loops.\nWhen an explicit 'heartbeat prompt' triggers you, use update_mode='replace_pending' and pass this task_id to inject the subtasks for the NEXT cycle.",
                 parameters: {
                     type: "object",
                     properties: {
