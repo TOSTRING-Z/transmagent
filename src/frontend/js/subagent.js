@@ -341,6 +341,7 @@ $$
   function setHistoryRunning(groupId) {
     const item = document.getElementById(groupId);
     if (item) {
+      item.classList.remove("completed");
       item.classList.add("running");
     }
   }
