@@ -6,6 +6,9 @@
 ```bash
 # Build with Clash Proxy (Building takes approximately 1 hour; downloading the pre-built image is recommended)
 * linux
+export https_proxy="http://127.0.0.1:7890"
+export http_proxy="http://127.0.0.1:7890"
+
 docker build \
   --add-host=host.docker.internal:host-gateway \
   --build-arg HTTP_PROXY=http://host.docker.internal:7890 \
@@ -13,6 +16,9 @@ docker build \
   -t biotools:latest .
 
 * windows
+$env:https_proxy = "http://127.0.0.1:7890"
+$env:http_proxy = "http://127.0.0.1:7890"
+
 docker build `
   --add-host=host.docker.internal:host-gateway `
   --build-arg HTTP_PROXY=http://host.docker.internal:7890 `
@@ -73,6 +79,16 @@ docker run -it --name biotools \
 -v /data/zgr/transagent/biotools/data:/data:ro \
 -v /data/zgr/transagent/biotools/mcp_server/server.py:/app/server.py:ro \
 -v /data/zgr/transagent/biotools/mcp_server/cli_prompt.md:/app/cli_prompt.md:ro \
+biotools
+
+# window
+docker run -it --name biotools `
+-p 3001:3001 `
+-p 3002:22 `
+-v C:/Users/Administrator/Desktop/Document/transagent/biotools/tmp:/tmp `
+-v C:/Users/Administrator/Desktop/Document/transagent/biotools/data:/data `
+-v C:/Users/Administrator/Desktop/Document/transagent/biotools/mcp_server/server.py:/app/server.py `
+-v C:/Users/Administrator/Desktop/Document/transagent/biotools/mcp_server/cli_prompt.md:/app/cli_prompt.md `
 biotools
 
 # window (only read)

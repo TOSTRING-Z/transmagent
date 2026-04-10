@@ -201,7 +201,7 @@
       "enabled": true
     },
     "llm_params": {
-      "stream": false
+      "stream": true
     }
   },
   "code": {
