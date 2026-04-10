@@ -4,6 +4,7 @@ import { createElement } from './utils';
 import { toggleMode } from './ui';
 
 const new_item_template = `<div class="history-item" onclick="loadChat('@id')">
+    <div class="history-status"></div>
     <div class="history-text"></div>
     <div class="history-menu" onclick="showHistoryMenu(event, '@id')">
       <i class="fas fa-ellipsis-v"></i>
@@ -114,4 +115,19 @@ export async function confirmRename() {
   }
   DOM.renameDialog.style.display = 'none';
   DOM.renameInput.value = '';
+}
+
+// Status indicator functions for running sessions
+export function setHistoryRunning(groupId: string) {
+  const item = document.getElementById(groupId);
+  if (item) {
+    item.classList.add('running');
+  }
+}
+
+export function setHistoryCompleted(groupId: string) {
+  const item = document.getElementById(groupId);
+  if (item) {
+    item.classList.remove('running');
+  }
 }

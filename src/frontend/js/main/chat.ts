@@ -3,6 +3,7 @@ import { State } from './state';
 import { createElement, getIcon } from './utils';
 import { marked } from './markdown';
 import { showLog } from './ui';
+import { setHistoryRunning, setHistoryCompleted } from './history';
 
 // Templates
 const user_message_template = `<div class="relative space-y-2 space-x-2" data-role="user" data-id="">
@@ -278,6 +279,9 @@ export async function enterEnd(messageSystem: HTMLElement, chunk: any = null) {
     const message_content = messageSystem.getElementsByClassName('message')[0] as HTMLElement;
     const thinking = messageSystem?.getElementsByClassName("thinking")[0];
     thinking.classList.add('hidden');
+    // Set history item to completed (blue)
+    const groupId = messageSystem.dataset.id;
+    if (groupId) setHistoryCompleted(groupId);
     if (!messageSystem.dataset?.event_stop) {
       messageSystem.dataset.event_stop = "true";
       menuEvent(messageSystem, message_content.dataset.content as any, chunk?.is_plugin);
@@ -294,6 +298,9 @@ export function addRunning(messageSystem: HTMLElement) {
   thinking.classList.remove('hidden');
   const btn = messageSystem?.getElementsByClassName("btn")[0];
   messageSystem.dataset.event_stop = "false";
+  // Set history item to running (green)
+  const groupId = messageSystem.dataset.id;
+  if (groupId) setHistoryRunning(groupId);
   btn?.addEventListener("click", async () => {
     await window.electronAPI.stopMessage();
     enterEnd(messageSystem);

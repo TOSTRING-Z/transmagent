@@ -288,6 +288,40 @@ body {
 }
 
 
+/* History item status indicator - hidden by default */
+.history-status {
+  position: absolute;
+  left: 8px;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  opacity: 0;
+  transition: opacity 0.3s ease;
+}
+
+/* Running state - green with pulse animation */
+.history-item.running .history-status {
+  background-color: #22c55e;
+  opacity: 1;
+  animation: pulse-green 1.5s infinite;
+}
+
+/* Move text to make room for indicator */
+.history-item.running .history-text {
+  margin-left: 16px;
+}
+
+@keyframes pulse-green {
+  0%, 100% {
+    box-shadow: 0 0 0 0 rgba(34, 197, 94, 0.4);
+  }
+  50% {
+    box-shadow: 0 0 0 4px rgba(34, 197, 94, 0);
+  }
+}
+
 /* Chat container */
 .container-fluid {
   display: flex;
