@@ -277,7 +277,6 @@ export async function enterEnd(messageSystem: HTMLElement, chunk: any = null) {
     const message_content = messageSystem.getElementsByClassName('message')[0] as HTMLElement;
     const thinking = messageSystem?.getElementsByClassName("thinking")[0];
     thinking.classList.add('hidden');
-    if (chunk?.id) setHistoryCompleted(chunk.id);
     if (!messageSystem.dataset?.event_stop) {
       messageSystem.dataset.event_stop = "true";
       menuEvent(messageSystem, message_content.dataset.content as any, chunk?.is_plugin);
@@ -488,9 +487,11 @@ window.electronAPI.agentRunning((data) => {
 })
 
 window.electronAPI.agentIdle((data) => {
+  // 所有会话
   if (!data?.group_id) DOM.submit.classList.remove("running");
-  if (data?.group_id && data.uuid && State.uuid !== data.uuid) return;
   if (data?.id) setHistoryCompleted(data.id);
+  // 当前会话
+  if (data?.group_id && data.uuid && State.uuid !== data.uuid) return;
   const messageSystems = document.querySelectorAll(`[data-id='${data.group_id}']`);
   const messageSystem = messageSystems[1] as HTMLElement;
   if (messageSystem) {

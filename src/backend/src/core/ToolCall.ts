@@ -780,6 +780,7 @@ export class ToolCall extends ReActAgent {
         }
 
         if (!this.agentConfigs.subagent) {
+            this.window?.webContents.send('agentIdle', { ...this.llmService.chatManager.chat, uuid: data.uuid });
             this.sendData(data);
         }
         return data;

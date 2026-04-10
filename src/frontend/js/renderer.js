@@ -734,8 +734,6 @@ $$
       const message_content = messageSystem.getElementsByClassName("message")[0];
       const thinking = messageSystem?.getElementsByClassName("thinking")[0];
       thinking.classList.add("hidden");
-      if (chunk?.id)
-        setHistoryCompleted(chunk.id);
       if (!messageSystem.dataset?.event_stop) {
         messageSystem.dataset.event_stop = "true";
         menuEvent(messageSystem, message_content.dataset.content, chunk?.is_plugin);
@@ -933,10 +931,10 @@ $$
   window.electronAPI.agentIdle((data) => {
     if (!data?.group_id)
       DOM.submit.classList.remove("running");
-    if (data?.group_id && data.uuid && State.uuid !== data.uuid)
-      return;
     if (data?.id)
       setHistoryCompleted(data.id);
+    if (data?.group_id && data.uuid && State.uuid !== data.uuid)
+      return;
     const messageSystems = document.querySelectorAll(`[data-id='${data.group_id}']`);
     const messageSystem = messageSystems[1];
     if (messageSystem) {

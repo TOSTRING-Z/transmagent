@@ -709,6 +709,7 @@ class ToolCall extends ReActAgent_1.ReActAgent {
             }
         }
         if (!this.agentConfigs.subagent) {
+            this.window?.webContents.send('agentIdle', { ...this.llmService.chatManager.chat, uuid: data.uuid });
             this.sendData(data);
         }
         return data;
