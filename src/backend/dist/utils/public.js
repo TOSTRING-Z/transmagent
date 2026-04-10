@@ -371,9 +371,9 @@ const setHistoryConfigChat = (chat) => {
     }
 };
 exports.setHistoryConfigChat = setHistoryConfigChat;
-const setDefaultConfig = (config, configName = "config_transagent.json") => {
+const setDefaultConfig = (config, configName = globals_1.sysConfig["transagent"]) => {
     try {
-        const configPath = (0, exports.getSystem)(configName);
+        const configPath = (0, exports.getDefault)(configName);
         const existingConfig = (0, exports.readJsonFile)(configPath);
         const mergedConfig = { ...existingConfig, ...config };
         (0, exports.writeFile)(configPath, mergedConfig);

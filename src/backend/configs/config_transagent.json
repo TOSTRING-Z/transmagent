@@ -20,10 +20,12 @@
     "port": 3005
   },
   "func_status": {
-    "react": true,
     "clip": false,
+    "markdown": false,
     "text": false,
-    "del": false
+    "del": false,
+    "react": true,
+    "silent": false
   },
   "default": {
     "model": "deepseek[openai]",

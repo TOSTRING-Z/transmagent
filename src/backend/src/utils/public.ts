@@ -332,9 +332,9 @@ export const setHistoryConfigChat = (chat: ChatState): boolean => {
     }
 }
 
-export const setDefaultConfig = (config: Record<string, any>, configName: string = "config_transagent.json"): boolean => {
+export const setDefaultConfig = (config: Record<string, any>, configName: string = sysConfig["transagent"]): boolean => {
     try {
-        const configPath = getSystem(configName);
+        const configPath = getDefault(configName);
         const existingConfig = readJsonFile(configPath);
         const mergedConfig = { ...existingConfig, ...config };
         writeFile(configPath, mergedConfig);
