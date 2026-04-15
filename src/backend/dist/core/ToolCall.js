@@ -204,9 +204,17 @@ class ToolCall extends ReActAgent_1.ReActAgent {
         else if (this.agentConfigs.subagent) {
             this.tools = { ...this.agentTools, ...this.baseTools };
         }
+        let agentConfigs = { ...this.agentConfigs };
+        const toolCallConfig = this.utils.getConfig("tool_call");
+        if (!toolCallConfig.todolist_message) {
+            agentConfigs.todolist = false;
+        }
+        if (!toolCallConfig.env_message) {
+            agentConfigs.env = false;
+        }
         // 2. 组装上下文 (供 DSL 校验使用)
         const context = {
-            args: this.agentConfigs || {},
+            args: agentConfigs || {},
             env: this.llmService.environment_details || {},
             modes: ReActAgent_1.Mode || {},
             isSubagent: !!this.agentConfigs?.subagent,
