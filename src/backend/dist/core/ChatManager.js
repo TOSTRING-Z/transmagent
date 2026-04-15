@@ -112,11 +112,11 @@ class ChatManager {
         this.pushMessage(assistantMsg, msg.uuid);
     }
     pushAssistantMessage(msg) {
-        const assistantMsg = { role: "assistant", content: msg.content, group_id: msg.group_id, context_id: msg.context_id, show: true, react: false };
+        const assistantMsg = { role: "assistant", content: msg.content, group_id: msg.group_id, context_id: msg.context_id, show: true, react: false, del: !!msg?.del };
         this.pushMessage(assistantMsg, msg.uuid);
     }
     pushToolMessage(msg) {
-        const toolMsg = { role: "tool", content: msg.content, tool_call_id: msg.tool_call_id, tool_call_name: msg.tool_call_name, group_id: msg.group_id, context_id: msg.context_id, show: true, react: true };
+        const toolMsg = { role: "tool", content: msg.content, tool_call_id: msg.tool_call_id, tool_call_name: msg.tool_call_name, group_id: msg.group_id, context_id: msg.context_id, show: true, react: true, del: !!msg?.del };
         this.pushMessage(toolMsg, msg.uuid);
     }
     popMessage(group_id, context_id) {

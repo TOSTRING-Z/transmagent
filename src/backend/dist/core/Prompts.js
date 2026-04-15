@@ -347,7 +347,8 @@ ${(!isSubagent && hasMemory) ? `
 ---
 ### ⚡ SYSTEM STATE SNAPSHOT
 - **Time**: {time}
-- **Env**: {system_platform}/{system_arch} | **Lang**: {language}
+- **Env**: {system_platform}/{system_arch} 
+- **Target Response Language**: **{language}** (CRITICAL: All conversational output MUST be translated into this language)
 - **CWD**: \`{tmpdir}\`
 
 ### 🛠️ MODE: **{mode}**

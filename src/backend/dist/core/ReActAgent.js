@@ -223,21 +223,25 @@ class ReActAgent {
                     this.window?.webContents.send('infoData', { ...chat, ...message, content: `Step ${i}, group_id: ${message.group_id}, context_id: ${message.context_id}, Output:\n\n\`\`\`json\n${content_format}\n\`\`\`\n\n` });
                 }
                 if (message.role === "assistant") {
-                    if (message.react) {
-                        try {
-                            const adapter = AdapterFactory_1.ToolCallAdapterFactory.getAdapter(this.llmService.chatManager.chat.tool_format);
-                            const toolInfos = adapter.getToolInfos(message);
+                    try {
+                        const tool_format = this.llmService.chatManager.chat.tool_format;
+                        const adapter = AdapterFactory_1.ToolCallAdapterFactory.getAdapter(tool_format);
+                        const toolInfos = adapter.getToolInfos(message);
+                        // 对于 tool_format="prompt" 模式，无论 react 是否为 true，都需要通过 adapter 解析
+                        // 因为 prompt 模式的 content 可能包含 <thinking> 标签和 JSON tool call
+                        if (message.react || tool_format === "prompt") {
                             const toolInfo = toolInfos[0] || { content: message.content, reasoning_content: message.reasoning_content || null, tool: null, params: {} };
                             let toolInfoStr = JSON.stringify(toolInfo, null, 2).replaceAll("`", "\\`");
                             this.window?.webContents.send('infoData', { ...chat, ...message, content: `Step ${i}, group_id: ${message.group_id}, context_id: ${message.context_id}, Output:\n\n\`\`\`json\n${toolInfoStr}\n\`\`\`` });
                             this.window?.webContents.send('streamData', { ...chat, ...message, content: `\n\n${message.content}`, end: true });
                         }
-                        catch (e) {
-                            this.window?.webContents.send('streamData', { ...chat, ...message, content: null, end: true });
+                        else {
+                            // 非 react 模式且非 prompt 模式，直接输出内容
+                            this.window?.webContents.send('streamData', { ...chat, ...message, content: `\n\n${message.content}`, end: true });
                         }
                     }
-                    else {
-                        this.window?.webContents.send('streamData', { ...chat, ...message, content: `\n\n${message.content}`, end: true });
+                    catch (e) {
+                        this.window?.webContents.send('streamData', { ...chat, ...message, content: null, end: true });
                     }
                 }
             });
