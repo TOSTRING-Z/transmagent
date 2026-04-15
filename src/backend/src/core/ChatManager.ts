@@ -155,7 +155,7 @@ export class ChatManager {
     }
 
     public fixMessages() {
-        if (!this.messages || this.messages.length === 0) return;
+        if (!this.messages || this.messages.length === 0 || this.chat.tool_format === "prompt") return;
 
         const lastMessage: Message = this.messages[this.messages.length - 1];
 

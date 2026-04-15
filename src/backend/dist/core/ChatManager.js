@@ -176,7 +176,7 @@ class ChatManager {
         };
     }
     fixMessages() {
-        if (!this.messages || this.messages.length === 0)
+        if (!this.messages || this.messages.length === 0 || this.chat.tool_format === "prompt")
             return;
         const lastMessage = this.messages[this.messages.length - 1];
         // 1. 如果最后一条是 user 消息，直接弹出
