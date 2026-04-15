@@ -56,7 +56,7 @@ async function executeRemoteCommand(cmd: string, toolCall: ToolCall): Promise<st
     });
 }
 
-export function mainFindFiles() {
+export function main() {
     return async ({ dir_path, file_pattern, toolCall }: FindFilesParams): Promise<string[] | string> => {
         const MAX_FILES = 200;
         const sshConfig = toolCall.utils.getSshConfig();
@@ -116,7 +116,7 @@ export function mainFindFiles() {
     };
 }
 
-export function getFindFilesPrompt() {
+export function getPrompt() {
     return {
         "name": "find_files",
         "description": "Find file paths in a directory using a glob pattern. Use this to explore directory structures or find specific files before reading them. Returns up to 200 relative paths.",

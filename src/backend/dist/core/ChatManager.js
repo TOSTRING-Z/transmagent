@@ -208,7 +208,8 @@ class ChatManager {
                         tool_call_name: call.function?.name,
                         group_id: assistantMsg.group_id,
                         context_id: assistantMsg.context_id,
-                        uuid: this.uuid
+                        uuid: this.uuid,
+                        del: assistantMsg.del
                     });
                 }
             }
@@ -217,7 +218,8 @@ class ChatManager {
                 content: "The user interrupted the task.",
                 group_id: assistantMsg.group_id,
                 context_id: assistantMsg.context_id,
-                uuid: this.uuid
+                uuid: this.uuid,
+                del: assistantMsg.del
             });
         }
     }

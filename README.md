@@ -315,6 +315,20 @@ curl -X POST http://localhost:3005/chat/agent_mode \
   -d '{"agent_mode": "transagent/baseagent/multagent"}'
 ```
 
+### Switch Model
+```bash
+curl -X POST http://localhost:3005/chat/model \
+  -H "Content-Type: application/json" \
+  -d '{"model": "runapi"}'
+```
+
+### Switch Tool Format (toolcalls/prompt)
+```bash
+curl -X POST http://localhost:3005/chat/tool_format \
+  -H "Content-Type: application/json" \
+  -d '{"tool_format": "toolcalls"}'
+```
+
 ### Submit Query
 ```bash
 curl -X POST http://localhost:3005/chat/completions \

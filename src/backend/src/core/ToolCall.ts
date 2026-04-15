@@ -429,12 +429,13 @@ export class ToolCall extends ReActAgent {
         const hasTool = this.toolInfos.some(t => t.tool_call_name);
         const isThinkingOnly = this.toolInfos.length === 1 && !this.toolInfos[0].tool_call_name;
 
-        if (hasTool || isThinkingOnly) {
+        if (hasTool) {
             this.llmService.chatManager.pushAssistantMessageWithToolCalls({ ...this.llmService.chatManager.chat, ...messageOutput, uuid: data.uuid });
         }
 
         // 纯思考结束流程
         if (isThinkingOnly) {
+            this.llmService.chatManager.pushAssistantMessage({ ...this.llmService.chatManager.chat, ...messageOutput, uuid: data.uuid });
             this.window?.webContents.send('streamData', { ...this.llmService.chatManager.chat, uuid: data.uuid, end: true });
             this.state = State.FINAL;
             return;

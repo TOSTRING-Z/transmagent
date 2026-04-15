@@ -13,8 +13,14 @@ interface CheckoutRequest {
 interface ModeRequest {
     mode?: string;
 }
+interface ModelRequest {
+    model?: string;
+}
 interface AgentModeRequest {
     agent_mode?: string;
+}
+interface ToolFormatRequest {
+    tool_format?: string;
 }
 interface ServerResult<T = any> {
     error?: string;
@@ -25,8 +31,10 @@ export declare class MainServer {
     constructor(mainWindow: MainWindow);
     completions(data: CompletionsRequest): Promise<ServerResult>;
     mode(data: ModeRequest): Promise<ServerResult>;
+    model(data: ModelRequest): Promise<ServerResult>;
     list(): Promise<ServerResult>;
     checkout(data: CheckoutRequest): Promise<ServerResult>;
     agent_mode(data: AgentModeRequest): Promise<ServerResult>;
+    tool_format(data: ToolFormatRequest): Promise<ServerResult>;
 }
 export {};

@@ -33,8 +33,8 @@ var __importStar = (this && this.__importStar) || (function () {
     };
 })();
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.mainGrepFiles = mainGrepFiles;
-exports.getGrepFilesPrompt = getGrepFilesPrompt;
+exports.main = main;
+exports.getPrompt = getPrompt;
 const fs = __importStar(require("fs"));
 const path = __importStar(require("path"));
 const readline = __importStar(require("readline"));
@@ -119,7 +119,7 @@ function isTextFile(filePath) {
         }
     }
 }
-function mainGrepFiles() {
+function main() {
     return async ({ target_files, regex, timeout_ms = 20000, toolCall }) => {
         const MAX_RESULTS = 100;
         const validFiles = target_files.filter(f => !f.includes('... (truncated'));
@@ -234,7 +234,7 @@ function mainGrepFiles() {
         }
     };
 }
-function getGrepFilesPrompt() {
+function getPrompt() {
     return {
         "name": "grep_files",
         "description": "Search for regex matches within a SPECIFIC list of files. Use this after using find_files. It reads the files line-by-line and returns the matches with context.",

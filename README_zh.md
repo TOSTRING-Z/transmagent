@@ -319,6 +319,20 @@ curl -X POST http://localhost:3005/chat/agent_mode \
   -d '{"agent_mode": "transagent"}'
 ```
 
+### 切换模型
+```bash
+curl -X POST http://localhost:3005/chat/model \
+  -H "Content-Type: application/json" \
+  -d '{"model": "runapi"}'
+```
+
+### 切换工具格式 (toolcalls/prompt)
+```bash
+curl -X POST http://localhost:3005/chat/tool_format \
+  -H "Content-Type: application/json" \
+  -d '{"tool_format": "toolcalls"}'
+```
+
 ### 提交查询
 ```bash
 curl -X POST http://localhost:3005/chat/completions \

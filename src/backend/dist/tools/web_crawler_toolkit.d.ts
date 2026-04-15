@@ -76,7 +76,7 @@ export declare class WebCrawlerToolkit {
         content?: string;
         error?: string;
     }>;
-    checkStatus(url: string, timeout?: number): Promise<any>;
+    checkStatus(url: string, timeoutMs?: number): Promise<any>;
 }
 export declare function main(params?: any): (args: ActionArgs) => Promise<any>;
 export declare function getPrompt(): {

@@ -392,11 +392,12 @@ class ToolCall extends ReActAgent_1.ReActAgent {
         // 2. 先把包含所有 tool_calls 的助手消息压入历史记录 (只压一次！)
         const hasTool = this.toolInfos.some(t => t.tool_call_name);
         const isThinkingOnly = this.toolInfos.length === 1 && !this.toolInfos[0].tool_call_name;
-        if (hasTool || isThinkingOnly) {
+        if (hasTool) {
             this.llmService.chatManager.pushAssistantMessageWithToolCalls({ ...this.llmService.chatManager.chat, ...messageOutput, uuid: data.uuid });
         }
         // 纯思考结束流程
         if (isThinkingOnly) {
+            this.llmService.chatManager.pushAssistantMessage({ ...this.llmService.chatManager.chat, ...messageOutput, uuid: data.uuid });
             this.window?.webContents.send('streamData', { ...this.llmService.chatManager.chat, uuid: data.uuid, end: true });
             this.state = ReActAgent_1.State.FINAL;
             return;

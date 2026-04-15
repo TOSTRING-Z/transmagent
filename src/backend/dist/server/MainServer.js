@@ -42,6 +42,30 @@ class MainServer {
             return { error: error.message };
         }
     }
+    async model(data) {
+        try {
+            if (data.model) {
+                const modelConfig = this.mainWindow.session().utils.getConfig("models")[data.model];
+                if (!modelConfig) {
+                    return { error: `Model '${data.model}' not found` };
+                }
+                this.mainWindow.sessionManager.setSessionChat({
+                    model: data.model,
+                    is_plugin: data.model === "plugins",
+                    version: modelConfig?.versions[0].version,
+                });
+                this.mainWindow.updateVersionsSubmenu();
+                this.mainWindow.window?.webContents.send('handleSetChat', this.mainWindow.sessionManager.getChat());
+                if (this.mainWindow.session().tool_call.setHistory) {
+                    this.mainWindow.session().tool_call.setHistory();
+                }
+            }
+            return { model: this.mainWindow.sessionManager.getChat()?.model };
+        }
+        catch (error) {
+            return { error: error.message };
+        }
+    }
     async list() {
         try {
             const history_data = this.mainWindow.session().utils.getHistoryData();
@@ -84,6 +108,24 @@ class MainServer {
                 this.mainWindow.setActiveAgent(data.agent_mode);
             }
             return { agent_mode: this.mainWindow.sessionManager.getAgentMode() };
+        }
+        catch (error) {
+            return { error: error.message };
+        }
+    }
+    async tool_format(data) {
+        try {
+            if (data.tool_format && (data.tool_format === 'toolcalls' || data.tool_format === 'prompt')) {
+                this.mainWindow.sessionManager.setSessionChat({
+                    tool_format: data.tool_format,
+                });
+                this.mainWindow.updateVersionsSubmenu();
+                this.mainWindow.window?.webContents.send('handleSetChat', this.mainWindow.sessionManager.getChat());
+                if (this.mainWindow.session().tool_call.setHistory) {
+                    this.mainWindow.session().tool_call.setHistory();
+                }
+            }
+            return { tool_format: this.mainWindow.sessionManager.getChat()?.tool_format };
         }
         catch (error) {
             return { error: error.message };

@@ -100,7 +100,7 @@ function isTextFile(filePath: string): boolean {
     }
 }
 
-export function mainGrepFiles() {
+export function main() {
     return async ({ target_files, regex, timeout_ms = 20000, toolCall }: GrepFilesParams): Promise<SearchResult[] | string> => {
         const MAX_RESULTS = 100;
         const validFiles = target_files.filter(f => !f.includes('... (truncated'));
@@ -222,7 +222,7 @@ export function mainGrepFiles() {
     };
 }
 
-export function getGrepFilesPrompt() {
+export function getPrompt() {
     return {
         "name": "grep_files",
         "description": "Search for regex matches within a SPECIFIC list of files. Use this after using find_files. It reads the files line-by-line and returns the matches with context.",

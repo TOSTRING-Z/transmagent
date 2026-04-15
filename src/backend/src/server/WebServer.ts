@@ -54,6 +54,14 @@ export class WebServer extends EventEmitter {
             this.sendProcessingResponse(res, { method: 'mode', data: req.body });
         });
 
+        this.app.post('/chat/model', (req: Request, res: Response) => {
+            this.sendProcessingResponse(res, { method: 'model', data: req.body });
+        });
+
+        this.app.post('/chat/tool_format', (req: Request, res: Response) => {
+            this.sendProcessingResponse(res, { method: 'tool_format', data: req.body });
+        });
+
         this.app.post('/chat/agent_mode', (req: Request, res: Response) => {
             this.sendProcessingResponse(res, { method: 'agent_mode', data: req.body });
         });

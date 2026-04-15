@@ -33,8 +33,8 @@ var __importStar = (this && this.__importStar) || (function () {
     };
 })();
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.mainFindFiles = mainFindFiles;
-exports.getFindFilesPrompt = getFindFilesPrompt;
+exports.main = main;
+exports.getPrompt = getPrompt;
 const path = __importStar(require("path"));
 const fs = __importStar(require("fs"));
 const ssh2_1 = require("ssh2");
@@ -79,7 +79,7 @@ async function executeRemoteCommand(cmd, toolCall) {
         conn.connect({ ...sshConfig, readyTimeout: 20000 });
     });
 }
-function mainFindFiles() {
+function main() {
     return async ({ dir_path, file_pattern, toolCall }) => {
         const MAX_FILES = 200;
         const sshConfig = toolCall.utils.getSshConfig();
@@ -131,7 +131,7 @@ function mainFindFiles() {
         }
     };
 }
-function getFindFilesPrompt() {
+function getPrompt() {
     return {
         "name": "find_files",
         "description": "Find file paths in a directory using a glob pattern. Use this to explore directory structures or find specific files before reading them. Returns up to 200 relative paths.",

@@ -39,11 +39,11 @@ Object.defineProperty(exports, "__esModule", { value: true });
 exports.WebCrawlerToolkit = exports.ContentFetcher = exports.BaiduSearch = exports.DuckDuckGoSearch = exports.BaseSearch = exports.TTLCache = void 0;
 exports.main = main;
 exports.getPrompt = getPrompt;
+const http = __importStar(require("http"));
 const https = __importStar(require("https"));
 const url_1 = require("url");
 const node_html_parser_1 = require("node-html-parser");
 const cheerio = __importStar(require("cheerio"));
-const https_proxy_agent_1 = require("https-proxy-agent");
 const logger_1 = require("../utils/logger");
 const global_agent_1 = __importDefault(require("global-agent"));
 // --- 初始化全局代理 (必须在所有HTTP请求之前) ---
@@ -65,18 +65,7 @@ try {
     bootstrapGlobalProxy();
 }
 catch (e) {
-    logger_1.logger.warn('Global proxy bootstrap failed, falling back to per-request agent');
-}
-// --- 代理配置工具函数 ---
-function getProxyAgent() {
-    const proxyUrl = process.env.https_proxy || process.env.HTTPS_PROXY ||
-        process.env.http_proxy || process.env.HTTP_PROXY ||
-        process.env.ALL_PROXY;
-    if (proxyUrl) {
-        logger_1.logger.log(`Using proxy agent: ${proxyUrl}`);
-        return new https_proxy_agent_1.HttpsProxyAgent(proxyUrl);
-    }
-    return undefined;
+    logger_1.logger.warn('Global proxy bootstrap failed, falling back to direct connection');
 }
 // --- 缓存实现 ---
 class TTLCache {
@@ -190,9 +179,8 @@ class DuckDuckGoSearch extends BaseSearch {
     async _callDuckDuckGoAPI(query) {
         const endpoint = 'https://api.duckduckgo.com/';
         const params = new URLSearchParams({ q: query, format: 'json', no_html: '1', skip_disambig: '1' });
-        const agent = getProxyAgent();
         return new Promise((resolve, reject) => {
-            const req = https.get(`${endpoint}?${params}`, { agent }, (res) => {
+            const req = https.get(`${endpoint}?${params}`, (res) => {
                 let data = '';
                 res.on('data', chunk => data += chunk);
                 res.on('end', () => {
@@ -222,15 +210,13 @@ class DuckDuckGoSearch extends BaseSearch {
     async _callDuckDuckGoHTML(query) {
         const endpoint = 'https://html.duckduckgo.com/html/';
         const postData = new URLSearchParams({ q: query, kl: 'us-en', df: 'y' });
-        const agent = getProxyAgent();
         const options = {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/x-www-form-urlencoded',
                 'Content-Length': Buffer.byteLength(postData.toString()),
                 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64)'
-            },
-            agent
+            }
         };
         return new Promise((resolve, reject) => {
             const req = https.request(endpoint, options, (res) => {
@@ -303,7 +289,6 @@ class BaiduSearch extends BaseSearch {
     }
     async _scrapeBaidu(query) {
         const url = `https://www.baidu.com/s?wd=${encodeURIComponent(query)}&rn=${this.topk + 10}`;
-        const agent = getProxyAgent();
         return new Promise((resolve, reject) => {
             const options = {
                 headers: {
@@ -311,8 +296,7 @@ class BaiduSearch extends BaseSearch {
                     'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8',
                     'Accept-Language': 'zh-CN,zh;q=0.9',
                     'Cookie': 'BAIDUID=8DFE41315570D0E79793132B401314B9:FG=1;'
-                },
-                agent
+                }
             };
             https.get(url, options, (res) => {
                 let html = '';
@@ -361,8 +345,9 @@ class ContentFetcher {
         if (cached)
             return cached;
         return new Promise((resolve) => {
-            const agent = getProxyAgent();
-            https.get(url, { agent }, (res) => {
+            const parsedUrl = new url_1.URL(url);
+            const requestModule = parsedUrl.protocol === 'http:' ? http : https;
+            requestModule.get(url, (res) => {
                 let html = '';
                 res.on('data', chunk => html += chunk);
                 res.on('end', () => {
@@ -471,38 +456,49 @@ class WebCrawlerToolkit {
         const [webSuccess, webContent] = await this.fetcher.fetch(url, maxLength);
         return webSuccess ? { type: 'text', content: webContent } : { error: webContent };
     }
-    async checkStatus(url, timeout = 5000) {
-        try {
-            new url_1.URL(url);
-            const controller = new AbortController();
-            const timeoutId = setTimeout(() => controller.abort(), timeout);
-            const proxyUrl = process.env.https_proxy || process.env.HTTPS_PROXY ||
-                process.env.http_proxy || process.env.HTTP_PROXY;
-            const fetchOptions = { method: 'HEAD', signal: controller.signal };
-            if (proxyUrl) {
-                fetchOptions['agent'] = new https_proxy_agent_1.HttpsProxyAgent(proxyUrl);
+    async checkStatus(url, timeoutMs = 5000) {
+        return new Promise((resolve) => {
+            try {
+                const parsedUrl = new url_1.URL(url);
+                // 根据协议自动选择 http 或 https 模块
+                const requestModule = parsedUrl.protocol === 'http:' ? http : https;
+                const options = {
+                    method: 'HEAD',
+                    timeout: timeoutMs
+                };
+                const req = requestModule.request(url, options, (res) => {
+                    const isAccessible = res.statusCode ? (res.statusCode >= 200 && res.statusCode < 400) : false;
+                    resolve({
+                        accessible: isAccessible,
+                        status: res.statusCode,
+                        url
+                    });
+                });
+                req.on('timeout', () => {
+                    req.destroy();
+                    resolve({ accessible: false, error: 'Timeout', status: 'timeout' });
+                });
+                req.on('error', (error) => {
+                    resolve({ accessible: false, error: error.message, status: 'error' });
+                });
+                req.end();
             }
-            const response = await fetch(url, fetchOptions);
-            clearTimeout(timeoutId);
-            return { accessible: response.ok, status: response.status, url: response.url };
-        }
-        catch (error) {
-            return { accessible: false, error: error.message, status: 'error' };
-        }
+            catch (error) {
+                resolve({ accessible: false, error: error.message, status: 'error' });
+            }
+        });
     }
 }
 exports.WebCrawlerToolkit = WebCrawlerToolkit;
 // --- 模块级状态与入口函数 ---
 let globalToolkitInstance = null;
 let globalLastSearchResults = null;
-// 参数中不再需要 searcher_type
 function main(params = {}) {
     return async (args) => {
         try {
             if (!globalToolkitInstance) {
                 globalToolkitInstance = new WebCrawlerToolkit({
                     topk: args.topk || 10,
-                    // 如果未来还需要配置全局超时或代理，可以从 params 中提取传递给 searcherOptions
                     searcherOptions: params.searcherOptions || {}
                 });
                 globalLastSearchResults = null;

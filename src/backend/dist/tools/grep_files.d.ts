@@ -11,8 +11,8 @@ export interface SearchResult {
     context: string;
     line: number;
 }
-export declare function mainGrepFiles(): ({ target_files, regex, timeout_ms, toolCall }: GrepFilesParams) => Promise<SearchResult[] | string>;
-export declare function getGrepFilesPrompt(): {
+export declare function main(): ({ target_files, regex, timeout_ms, toolCall }: GrepFilesParams) => Promise<SearchResult[] | string>;
+export declare function getPrompt(): {
     name: string;
     description: string;
     parameters: {

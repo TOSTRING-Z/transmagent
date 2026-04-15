@@ -69,7 +69,7 @@ class LLMService {
             let status;
             if (resp.ok) {
                 if (body?.stream) {
-                    status = await this.handleStream(resp, this.adapter, data, messageOutput);
+                    status = await this.handleStream(resp, this.adapter, headers, body, data, messageOutput);
                 }
                 else {
                     status = await this.handleNormal(resp, this.adapter, headers, body, data, messageOutput);
@@ -115,7 +115,7 @@ class LLMService {
             return null;
         }
     }
-    async handleStream(resp, adapter, data, messageOutput) {
+    async handleStream(resp, adapter, headers, body, data, messageOutput) {
         const contentType = resp.headers.get('content-type');
         let streamRes;
         if (contentType && contentType.includes('text/event-stream')) {
@@ -191,13 +191,7 @@ class LLMService {
             messageOutput.tool_calls = messageOutput.tool_calls.filter(Boolean);
         }
         // ========== 截断检测与自动续传机制 (Max: 3) ==========
-        if ((finish_reason === "length" || finish_reason === "max_tokens" || finish_reason === "stop_sequence") && messageOutput.content) {
-            const systemMsg = data.system_prompt ? [{ role: "system", content: data.system_prompt }] : [];
-            const memory = this.chatManager.getMemory();
-            const allMessages = [...systemMsg, ...memory];
-            const formattedMessages = adapter.formatMessages(allMessages, data);
-            const body = adapter.buildPayload(data, formattedMessages);
-            const headers = adapter.buildHeaders(data);
+        if (finish_reason === "length" || finish_reason === "max_tokens" || finish_reason === "stop_sequence") {
             await adapter.truncatedResponse(body, headers, this.window, this.chatManager, messageOutput, data);
         }
         return true;

@@ -32,6 +32,12 @@ class WebServer extends events_1.EventEmitter {
         this.app.post('/chat/mode', (req, res) => {
             this.sendProcessingResponse(res, { method: 'mode', data: req.body });
         });
+        this.app.post('/chat/model', (req, res) => {
+            this.sendProcessingResponse(res, { method: 'model', data: req.body });
+        });
+        this.app.post('/chat/tool_format', (req, res) => {
+            this.sendProcessingResponse(res, { method: 'tool_format', data: req.body });
+        });
         this.app.post('/chat/agent_mode', (req, res) => {
             this.sendProcessingResponse(res, { method: 'agent_mode', data: req.body });
         });

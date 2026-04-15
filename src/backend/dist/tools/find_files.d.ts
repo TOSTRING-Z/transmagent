@@ -4,8 +4,8 @@ export interface FindFilesParams {
     file_pattern: string;
     toolCall: ToolCall;
 }
-export declare function mainFindFiles(): ({ dir_path, file_pattern, toolCall }: FindFilesParams) => Promise<string[] | string>;
-export declare function getFindFilesPrompt(): {
+export declare function main(): ({ dir_path, file_pattern, toolCall }: FindFilesParams) => Promise<string[] | string>;
+export declare function getPrompt(): {
     name: string;
     description: string;
     parameters: {
