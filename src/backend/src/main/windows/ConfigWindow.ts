@@ -54,7 +54,6 @@ export class ConfigWindow extends BaseWindow {
         ipcMain.handle('set-config', (_, config) => {
             let state = this.utils().setConfig(config);
             this.windowManager.mainWindow.updateVersionsSubmenu();
-            const plugins = new Plugins(this.utils());
             
             this.windowManager.alertWindow?.show("success", "config saved, restart to apply");
             this.windowManager.mainWindow.restart(this.windowManager.mainWindow.window);

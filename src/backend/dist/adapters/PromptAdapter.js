@@ -78,9 +78,9 @@ class PromptToolCallAdapter {
         const contentStr = message.content || "";
         let reasoningContent = message.reasoning_content || this.extractReasoning(contentStr);
         try {
-            // 2. 核心防御：在解析前，先剥离模型可能产生的首尾“废话”
             const pureJsonStr = utils.extractJson(contentStr);
             if (pureJsonStr) {
+                // 1. 成功提取到括号内容，尝试解析
                 let aiResponse = utils.parseJsonContent(pureJsonStr);
                 if (!aiResponse) {
                     aiResponse = json5_1.default.parse(pureJsonStr);
@@ -96,14 +96,18 @@ class PromptToolCallAdapter {
                         reasoning_content: reasoningContent || null,
                         content: call.content || "",
                         tool_call_name: call?.tool || null,
-                        tool_call_id: call?.id || `call_${Date.now()}_${i}`, // 提供更可靠的伪 ID
+                        tool_call_id: call?.id || `call_${Date.now()}_${i}`,
                         params: call?.params || {},
                         error: null
                     });
                 }
             }
+            else if (this.isIntendedToolCall(contentStr)) {
+                // 2. 【核心新增】提取为空，但内容具有强烈的工具调用意图（格式损坏的 JSON）
+                toolInfos.push(this.createErrorToolInfo(reasoningContent, contentStr, "Detected an attempt to call a tool, but the JSON format is strictly invalid or corrupted. Please output strictly valid JSON."));
+            }
             else {
-                // 如果找不到任何类 JSON 结构，视为纯文本闲聊
+                // 3. 确实没有任何工具调用意图，视为纯文本闲聊
                 toolInfos.push({
                     reasoning_content: reasoningContent || null,
                     content: contentStr,
@@ -115,7 +119,7 @@ class PromptToolCallAdapter {
             }
         }
         catch (error) {
-            // 3. 降级处理：找到了括号但格式彻底损坏
+            // 解析时报错（找到了 JSON 结构但 JSON5 也救不回来）
             toolInfos.push(this.createErrorToolInfo(reasoningContent, contentStr, error.message));
         }
         if (toolInfos.length === 0) {
@@ -139,6 +143,18 @@ class PromptToolCallAdapter {
             }
         }
         return "";
+    }
+    /**
+     * 【核心新增】判断字符串是否具有“工具调用”的意图
+     * 即使格式损坏（如缺失引号、括号不匹配），只要符合关键特征即可判定
+     */
+    isIntendedToolCall(text) {
+        // 特征 1：存在对象或数组的起始符号
+        const hasJsonContainer = /\{|\[/.test(text);
+        // 特征 2：存在核心工具调用的 key，如 tool:, params: (支持单双引号或无引号，支持任意空格)
+        const hasToolKeys = /["']?(tool|params)["']?\s*:/i.test(text);
+        // 只要同时满足存在容器符号和特征 key，就认为模型试图调用工具
+        return hasJsonContainer && hasToolKeys;
     }
     /**
      * 统一构造错误状态的 ToolInfo

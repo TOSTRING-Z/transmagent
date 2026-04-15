@@ -3,7 +3,6 @@ Object.defineProperty(exports, "__esModule", { value: true });
 exports.ConfigWindow = void 0;
 const electron_1 = require("electron");
 const BaseWindow_1 = require("./BaseWindow");
-const Plugins_1 = require("../../core/Plugins");
 class ConfigWindow extends BaseWindow_1.BaseWindow {
     constructor(windowManager) {
         super(windowManager);
@@ -47,7 +46,6 @@ class ConfigWindow extends BaseWindow_1.BaseWindow {
         electron_1.ipcMain.handle('set-config', (_, config) => {
             let state = this.utils().setConfig(config);
             this.windowManager.mainWindow.updateVersionsSubmenu();
-            const plugins = new Plugins_1.Plugins(this.utils());
             this.windowManager.alertWindow?.show("success", "config saved, restart to apply");
             this.windowManager.mainWindow.restart(this.windowManager.mainWindow.window);
             return state;

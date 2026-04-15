@@ -125,27 +125,30 @@ class Utils {
     setConfig(config) {
         const defaultConfigPath = this.getDefault(globals_1.sysConfig["transagent"]);
         const userConfigPath = this.getDefault(globals_1.sysConfig[this.agentMode]);
-        // 1. 读取现有的默认系统配置（作为基准，避免覆盖时丢失其他未传入的系统字段）
+        const isSameFile = defaultConfigPath === userConfigPath;
+        // 读取现有的默认系统配置
         let sysConfigData = fs.existsSync(defaultConfigPath)
             ? (0, public_1.parseJsonContent)(fs.readFileSync(defaultConfigPath, 'utf-8'))
             : {};
-        // 2. 准备用于保存的特定模式配置
+        // 如果是同一个文件，直接合并所有字段
+        if (isSameFile) {
+            for (const key in config) {
+                sysConfigData[key] = config[key];
+            }
+            fs.writeFileSync(defaultConfigPath, JSON.stringify(sysConfigData, null, 2));
+            return true;
+        }
+        // 不同文件时，按原有逻辑拆分
         const userConfigToSave = {};
-        // 3. 遍历传入的 config，进行拆分分发
         for (const key in config) {
             if (OVERRIDABLE_KEYS.includes(key)) {
-                // 白名单内的字段，归入特定模式的配置文件
                 userConfigToSave[key] = config[key];
             }
             else {
-                // 白名单外的字段，直接覆盖/更新到全局的系统配置文件
                 sysConfigData[key] = config[key];
             }
         }
-        // 4. 分别写入两个文件
-        // 写入特定模式配置（白名单字段）
         fs.writeFileSync(userConfigPath, JSON.stringify(userConfigToSave, null, 2));
-        // 写入全局默认配置（非白名单字段，如 models）
         fs.writeFileSync(defaultConfigPath, JSON.stringify(sysConfigData, null, 2));
         return true;
     }
