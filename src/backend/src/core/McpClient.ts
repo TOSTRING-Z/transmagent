@@ -20,7 +20,13 @@ class MCPClient {
     private static instance: MCPClient | null = null;
     
     public clients: Record<string, Client> = {};
-    public tools: Record<string, string> = {}; // toolName -> clientName
+    
+    // [核心重构]: 路由映射表
+    // 严格映射: "serverName:toolName" -> { serverName, actualToolName }
+    public fqnRoutingMap: Record<string, { serverName: string, actualToolName: string }> = {}; 
+    // 降级映射 (兼容旧调用或无前缀调用): "toolName" -> "serverName"
+    public fallbackToolMap: Record<string, string> = {}; 
+    
     public toolPrompts: Record<string, string> = {};
     public mcpPrompt: string = "";
     public isInitialized: boolean = false;
@@ -35,7 +41,7 @@ class MCPClient {
     }
 
     /**
-     * 连接 Transport 层
+     * 连接 Transport 层 (保持原有逻辑)
      */
     private async connectTransport(name: string, config: McpConfig) {
         if (this.clients[name]) return;
@@ -44,11 +50,9 @@ class MCPClient {
         try {
             if (config.url) {
                 const url = new URL(config.url);
-                // 核心修改：使用 StreamableHTTPClientTransport 替代 SSE
                 if (config.use_http) {
                     transport = new StreamableHTTPClientTransport(url);
                 } else {
-                    // 如果 URL 存在但未指定 useHttp，默认使用 stdio 代理或保持原逻辑
                     transport = new StdioClientTransport({
                         command: "npx",
                         args: ["-y", "@modelcontextprotocol/server-http", config.url]
@@ -65,7 +69,7 @@ class MCPClient {
 
             const client = new Client(
                 { name, version: "1.0.0" },
-                { capabilities: {} } // 保持空对象以符合最新 SDK 客户端定义
+                { capabilities: {} } 
             );
 
             await client.connect(transport);
@@ -76,32 +80,56 @@ class MCPClient {
     }
 
     /**
-     * 调用工具
+     * [核心重构]: 智能路由调用
      */
     async callTool(params: { name: string; arguments?: Record<string, any> }) {
-        const clientName = this.tools[params.name];
-        const client = this.clients[clientName];
+        const requestedName = params.name.trim();
+        let targetServerName: string | undefined;
+        let targetToolName: string = requestedName;
 
-        if (!client) throw new Error(`MCP tool "${params.name}" not found.`);
+        // 1. 尝试 FQN (全限定名) 精准匹配 (e.g., "biotools:get_mean_express_data")
+        if (this.fqnRoutingMap[requestedName]) {
+            const route = this.fqnRoutingMap[requestedName];
+            targetServerName = route.serverName;
+            targetToolName = route.actualToolName;
+        } 
+        // 2. 动态解析未注册但带有 ':' 的调用 (防御模型自行组合)
+        else if (requestedName.includes(':')) {
+            const parts = requestedName.split(':');
+            const possibleServer = parts[0];
+            if (this.clients[possibleServer]) {
+                targetServerName = possibleServer;
+                targetToolName = parts.slice(1).join(':'); // 提取 ':' 后面的所有内容
+            }
+        }
+
+        // 3. 降级处理：无前缀的裸工具名
+        if (!targetServerName) {
+            targetServerName = this.fallbackToolMap[requestedName];
+            if (!targetServerName) {
+                throw new Error(`[MCP Router] Tool "${requestedName}" not found. No matching namespace or tool name.`);
+            }
+            console.warn(`[MCP Router] Missing namespace for tool "${requestedName}". Routed to "${targetServerName}" via fallback.`);
+        }
+
+        const client = this.clients[targetServerName];
+        if (!client) throw new Error(`[MCP Router] Server "${targetServerName}" is disconnected or invalid.`);
 
         const timeout = (this.toolcall?.utils.getConfig("tool_call")?.mcp_timeout || 600) * 1000;
         
+        // 使用剥离前缀后的真实工具名请求底层 MCP Server
         return await client.callTool(
-            params, 
+            { name: targetToolName, arguments: params.arguments }, 
             CallToolResultSchema, 
             { timeout }
         );
     }
 
-    /**
-     * 初始化
-     */
     async initMcp() {
         if (this.isInitialized) return;
 
         const configs: Record<string, McpConfig> = this.toolcall?.utils.getConfig("mcp_server") || {};
         
-        // 并发初始化所有 client 提升速度
         await Promise.all(
             Object.entries(configs).map(async ([name, config]) => {
                 if (!config.disabled) {
@@ -116,11 +144,13 @@ class MCPClient {
         }
     }
 
-    /**
-     * 刷新并汇总所有工具的 Prompt 描述
-     */
     async refreshPrompts() {
         const segments: string[] = [];
+        // 清理旧的路由映射，防止热重载时数据污染
+        this.fqnRoutingMap = {};
+        this.fallbackToolMap = {};
+        this.toolPrompts = {};
+
         for (const [name, client] of Object.entries(this.clients)) {
             const segment = await this.generateServerPrompt(name, client);
             if (segment) segments.push(segment);
@@ -128,6 +158,9 @@ class MCPClient {
         this.mcpPrompt = segments.join("\n\n---\n\n");
     }
 
+    /**
+     * [核心重构]: 生成带有 Namespace 的 Prompt
+     */
     private async generateServerPrompt(serverName: string, client: Client): Promise<string | null> {
         try {
             const caps = client.getServerCapabilities();
@@ -148,8 +181,18 @@ class MCPClient {
             const toolDocs = tools
                 .filter(t => t.name !== "execute_bash")
                 .map(tool => {
-                    // 记录工具所属的 client
-                    this.tools[tool.name] = serverName;
+                    // 构建全限定名 (FQN)
+                    const fqn = `${serverName}:${tool.name}`;
+                    
+                    // 注册智能路由
+                    this.fqnRoutingMap[fqn] = { serverName, actualToolName: tool.name };
+                    
+                    // 注册降级路由，并检测潜在的跨 Server 重名冲突
+                    if (this.fallbackToolMap[tool.name]) {
+                        console.warn(`[MCP Router] Tool collision detected for "${tool.name}". FQN routing is strongly recommended.`);
+                    } else {
+                        this.fallbackToolMap[tool.name] = serverName;
+                    }
                     
                     const props = tool.inputSchema?.properties || {};
                     const required = (tool.inputSchema?.required as string[]) || [];
@@ -159,11 +202,10 @@ class MCPClient {
                         return `- ${key}: ${isReq} ${val.description || val.title || ""} (type: ${val.type})`;
                     }).join("\n");
 
-                    // 构建单个工具的描述字符串
-                    const toolDocStr = `MCP name: ${tool.name}\nMCP args:\n${argsDoc}\nMCP description:\n${tool.description}`;
+                    // 在 Prompt 中强迫模型看到并使用带有 serverName: 的完整名称
+                    const toolDocStr = `MCP name: ${fqn}\nMCP args:\n${argsDoc}\nMCP description:\n${tool.description}`;
                     
-                    // 【核心修改】：将生成的单个工具 Prompt 存入 toolPrompts 字典
-                    this.toolPrompts[tool.name] = toolDocStr;
+                    this.toolPrompts[fqn] = toolDocStr;
 
                     return toolDocStr;
                 }).join("\n\n");

@@ -66,7 +66,13 @@ export default function getBaseTools(): Record<string, any> {
         "mcp_server": {
             func: async ({ name, args, toolCall }: { name: string, args: any, toolCall: ToolCall }) => {
                 try {
-                    return await toolCall.mcp_client.callTool({ name, arguments: args });
+                    // [逻辑减负]: 直接将模型传入的 FQN (例如 "biotools:get_mean_express_data") 
+                    // 透传给底层 MCPClient。
+                    // 剥离前缀、降级匹配等脏活已经全部由 MCPClient.callTool 内部的路由拦截器接管了。
+                    return await toolCall.mcp_client.callTool({
+                        name: name.trim(),
+                        arguments: args
+                    });
                 } catch (e: any) {
                     return { error: `MCP Call Failed: ${e.message}` };
                 }
@@ -77,8 +83,15 @@ export default function getBaseTools(): Record<string, any> {
                 parameters: {
                     type: "object",
                     properties: {
-                        name: { type: "string", description: "Exact service name." },
-                        args: { type: "object", description: "Parameter dictionary key-values." }
+                        name: {
+                            type: "string",
+                            // [核心修改]: 强制模型使用 FQN (Fully Qualified Name)
+                            description: "The Fully Qualified Name (FQN) of the service to call, STRICTLY formatted as 'server_name:tool_name' (e.g., 'biotools:get_mean_express_data' or 'math:calculator'). YOU MUST INCLUDE THE SERVER NAMESPACE PREFIX to avoid tool collisions."
+                        },
+                        args: {
+                            type: "object",
+                            description: "Parameter dictionary key-values."
+                        }
                     },
                     required: ["name", "args"]
                 }

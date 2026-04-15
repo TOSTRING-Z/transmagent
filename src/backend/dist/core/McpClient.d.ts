@@ -3,18 +3,22 @@ declare class MCPClient {
     private toolcall?;
     private static instance;
     clients: Record<string, Client>;
-    tools: Record<string, string>;
+    fqnRoutingMap: Record<string, {
+        serverName: string;
+        actualToolName: string;
+    }>;
+    fallbackToolMap: Record<string, string>;
     toolPrompts: Record<string, string>;
     mcpPrompt: string;
     isInitialized: boolean;
     constructor(toolcall?: any | undefined);
     static getInstance(toolcall?: any): MCPClient;
     /**
-     * 连接 Transport 层
+     * 连接 Transport 层 (保持原有逻辑)
      */
     private connectTransport;
     /**
-     * 调用工具
+     * [核心重构]: 智能路由调用
      */
     callTool(params: {
         name: string;
@@ -111,14 +115,11 @@ declare class MCPClient {
             } | undefined;
         } | undefined;
     }>;
-    /**
-     * 初始化
-     */
     initMcp(): Promise<void>;
-    /**
-     * 刷新并汇总所有工具的 Prompt 描述
-     */
     refreshPrompts(): Promise<void>;
+    /**
+     * [核心重构]: 生成带有 Namespace 的 Prompt
+     */
     private generateServerPrompt;
     private notifyError;
 }
