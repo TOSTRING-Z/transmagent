@@ -56,9 +56,6 @@ class LLMAssistant {
     setLLMService(llmService) {
         this.llmService = llmService;
     }
-    setPlugins(plugins) {
-        this.plugins = plugins;
-    }
     // ==================== 公共助手方法 ====================
     /**
      * 创建临时 ReActAgent

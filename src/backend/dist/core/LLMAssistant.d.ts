@@ -13,7 +13,6 @@ export declare class LLMAssistant {
     private utils;
     constructor(llmService: LLMService, plugins: (Plugins | null) | undefined, utils: Utils);
     setLLMService(llmService: LLMService): void;
-    setPlugins(plugins: Plugins): void;
     /**
      * 创建临时 ReActAgent
      * 统一处理配置拷贝与消息深拷贝，避免对主对话上下文造成意外污染

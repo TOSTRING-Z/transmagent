@@ -76,8 +76,7 @@ export class PromptToolCallAdapter implements IToolCallAdapter {
                         reasoning_content: null,
                         content: `\`\`\`text\n${contentStr}\n\`\`\`\n\n**Function calling is not a pure JSON text, or there is a problem with the JSON format.**`,
                         tool_call_name: null,
-                        // 生成一个伪id，便于追踪
-                        tool_call_id: `prompt_call_${Date.now()}_${i}`,
+                        tool_call_id: null,
                         params: {},
                         error: `Error Message: Tool parsing failed at index ${i}`
                     });
@@ -90,7 +89,7 @@ export class PromptToolCallAdapter implements IToolCallAdapter {
                     content: call.content || "",
                     tool_call_name: call?.tool || null,
                     // 原生Prompt没有ID，这里为并行调用生成一个伪唯一ID，或者使用模型自己生成的ID
-                    tool_call_id: call?.id || `prompt_call_${Date.now()}_${i}`,
+                    tool_call_id: call?.id || null,
                     params: call?.params || {},
                     error: null
                 });

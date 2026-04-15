@@ -116,7 +116,13 @@ class ChatManager {
         this.pushMessage(assistantMsg, msg.uuid);
     }
     pushToolMessage(msg) {
-        const toolMsg = { role: "tool", content: msg.content, tool_call_id: msg.tool_call_id, tool_call_name: msg.tool_call_name, group_id: msg.group_id, context_id: msg.context_id, show: true, react: true, del: !!msg?.del };
+        let toolMsg;
+        if (this.chat.tool_format === "toolcalls") {
+            toolMsg = { role: "tool", content: msg.content, tool_call_id: msg.tool_call_id, tool_call_name: msg.tool_call_name, group_id: msg.group_id, context_id: msg.context_id, show: true, react: true, del: !!msg?.del };
+        }
+        else {
+            toolMsg = { role: "user", content: msg.content, group_id: msg.group_id, context_id: msg.context_id, show: true, react: true, del: !!msg?.del };
+        }
         this.pushMessage(toolMsg, msg.uuid);
     }
     popMessage(group_id, context_id) {

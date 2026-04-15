@@ -28,10 +28,6 @@ export class LLMAssistant {
         this.llmService = llmService;
     }
 
-    public setPlugins(plugins: Plugins): void {
-        this.plugins = plugins;
-    }
-
     // ==================== 公共助手方法 ====================
 
     /**
