@@ -37,7 +37,7 @@ export class PromptToolCallAdapter implements IToolCallAdapter {
                 }
             }
 
-            const usageObj = { thinking: "[Thinking process]", tool: schema.name, params: exampleParams };
+            const usageObj = { content: "[Briefly explain your current action to the user]", tool: schema.name, params: exampleParams };
             const usageStr = JSON.stringify(usageObj, null, 2).replace(/\n/g, '\\n');
 
             tool_prompt[schema.name] = `### ${schema.name}\nDescription: ${schema.description}\n\nParameters:\n${paramsStr}\nUsage:\n${usageStr}`;
