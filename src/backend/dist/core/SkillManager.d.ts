@@ -1,11 +1,25 @@
+import { ConnectConfig } from 'ssh2';
 import { Skill } from '../types';
+export interface SshConfig extends ConnectConfig {
+    enabled?: boolean;
+    host: string;
+    port: number;
+    username: string;
+    password: string;
+}
 declare class SkillManager {
     skillsPath: string;
     skills: Skill[];
-    constructor(skillsPath?: string | null);
+    sshConfig?: SshConfig;
+    constructor(skillsPath?: string | null, sshConfig?: SshConfig);
     getSkillsPath(): string;
-    loadSkills(): void;
+    private parseSkillContent;
+    loadSkills(): Promise<void>;
+    private loadLocalSkills;
+    private loadRemoteSkills;
     findRelevantSkills(): Skill[];
-    getSkillPrompt(relevantSkills: any): string;
+    getSkillContent(relevantSkills: Skill[], instructions?: boolean): string;
+    getSkillPrompt(): string;
+    getSkillDescription(): string;
 }
 export { SkillManager };

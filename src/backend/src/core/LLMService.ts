@@ -217,7 +217,7 @@ export class LLMService {
         }
 
         // ========== 截断检测与自动续传机制 (Max: 3) ==========
-        if (finish_reason === "length" || finish_reason === "max_tokens" || finish_reason === "stop_sequence") {
+        if ((finish_reason === "length" || finish_reason === "max_tokens" || finish_reason === "stop_sequence") && this.chatManager.chat.tool_format === "toolcalls") {
             await adapter.truncatedResponse(body, headers, this.window, this.chatManager, messageOutput, data);
         }
 
@@ -259,7 +259,7 @@ export class LLMService {
         }
 
         // ========== 截断检测与自动续传机制 (Max: 3) ==========
-        if ((finish_reason === "length" || finish_reason === "max_tokens" || finish_reason === "stop_sequence") && data.output) {
+        if ((finish_reason === "length" || finish_reason === "max_tokens" || finish_reason === "stop_sequence") && data.output && this.chatManager.chat.tool_format === "toolcalls") {
             await adapter.truncatedResponse(body, headers, this.window, this.chatManager, messageOutput, data);
         }
 

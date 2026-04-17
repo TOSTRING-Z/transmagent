@@ -1,44 +1,11 @@
 "use strict";
-var __createBinding = (this && this.__createBinding) || (Object.create ? (function(o, m, k, k2) {
-    if (k2 === undefined) k2 = k;
-    var desc = Object.getOwnPropertyDescriptor(m, k);
-    if (!desc || ("get" in desc ? !m.__esModule : desc.writable || desc.configurable)) {
-      desc = { enumerable: true, get: function() { return m[k]; } };
-    }
-    Object.defineProperty(o, k2, desc);
-}) : (function(o, m, k, k2) {
-    if (k2 === undefined) k2 = k;
-    o[k2] = m[k];
-}));
-var __setModuleDefault = (this && this.__setModuleDefault) || (Object.create ? (function(o, v) {
-    Object.defineProperty(o, "default", { enumerable: true, value: v });
-}) : function(o, v) {
-    o["default"] = v;
-});
-var __importStar = (this && this.__importStar) || (function () {
-    var ownKeys = function(o) {
-        ownKeys = Object.getOwnPropertyNames || function (o) {
-            var ar = [];
-            for (var k in o) if (Object.prototype.hasOwnProperty.call(o, k)) ar[ar.length] = k;
-            return ar;
-        };
-        return ownKeys(o);
-    };
-    return function (mod) {
-        if (mod && mod.__esModule) return mod;
-        var result = {};
-        if (mod != null) for (var k = ownKeys(mod), i = 0; i < k.length; i++) if (k[i] !== "default") __createBinding(result, mod, k[i]);
-        __setModuleDefault(result, mod);
-        return result;
-    };
-})();
 var __importDefault = (this && this.__importDefault) || function (mod) {
     return (mod && mod.__esModule) ? mod : { "default": mod };
 };
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.PromptToolCallAdapter = void 0;
-const json5_1 = __importDefault(require("json5"));
-const utils = __importStar(require("../utils/public"));
+const extract_json_from_string_1 = __importDefault(require("extract-json-from-string"));
+const jsonrepair_1 = require("jsonrepair");
 class PromptToolCallAdapter {
     // 1. 将正则提取为静态常量，避免每次调用重复编译，提升性能
     static THINKING_PATTERNS = [
@@ -78,48 +45,69 @@ class PromptToolCallAdapter {
         const contentStr = message.content || "";
         let reasoningContent = message.reasoning_content || this.extractReasoning(contentStr);
         try {
-            const pureJsonStr = utils.extractJson(contentStr);
-            if (pureJsonStr) {
-                // 1. 成功提取到括号内容，尝试解析
-                let aiResponse = utils.parseJsonContent(pureJsonStr);
-                if (!aiResponse) {
-                    aiResponse = json5_1.default.parse(pureJsonStr);
-                }
+            let extractedObjects = [];
+            try {
+                extractedObjects = (0, extract_json_from_string_1.default)(contentStr);
+            }
+            catch (e) {
+                const repairedText = (0, jsonrepair_1.jsonrepair)(contentStr);
+                extractedObjects = (0, extract_json_from_string_1.default)(repairedText);
+            }
+            let hasValidToolCall = false;
+            // 【核心新增：用于记录已经处理过的工具调用指纹】
+            const uniqueCallFingerprints = new Set();
+            for (const aiResponse of extractedObjects) {
                 const calls = Array.isArray(aiResponse) ? aiResponse : [aiResponse];
                 for (let i = 0; i < calls.length; i++) {
                     const call = calls[i];
-                    if (!call.content && !call?.tool) {
-                        toolInfos.push(this.createErrorToolInfo(reasoningContent, contentStr, `Tool parsing failed at index ${i}: Missing 'tool' or 'content' fields.`));
+                    if (!call || typeof call !== 'object')
+                        continue;
+                    if (call.success !== undefined && !call.tool && !call.params)
+                        continue;
+                    if (!call.tool && !call.content)
+                        continue;
+                    // 【核心新增：生成唯一指纹】
+                    // 将 tool 和 params 序列化为字符串。如果这两个完全一样，说明是重复提取的同一个动作
+                    const fingerprintObj = {
+                        tool: call.tool || null,
+                        params: call.params || {}
+                    };
+                    const fingerprint = JSON.stringify(fingerprintObj);
+                    // 如果这个指纹已经存在，说明是嵌套提取导致的重复，直接跳过
+                    if (uniqueCallFingerprints.has(fingerprint)) {
                         continue;
                     }
+                    // 记录新指纹
+                    uniqueCallFingerprints.add(fingerprint);
+                    hasValidToolCall = true;
                     toolInfos.push({
                         reasoning_content: reasoningContent || null,
                         content: call.content || "",
-                        tool_call_name: call?.tool || null,
-                        tool_call_id: call?.id || `call_${Date.now()}_${i}`,
-                        params: call?.params || {},
+                        tool_call_name: call.tool || null,
+                        tool_call_id: call.id || `call_${Date.now()}_${Math.random().toString(36).substring(2, 9)}`,
+                        params: call.params || {},
                         error: null
                     });
                 }
             }
-            else if (this.isIntendedToolCall(contentStr)) {
-                // 2. 【核心新增】提取为空，但内容具有强烈的工具调用意图（格式损坏的 JSON）
-                toolInfos.push(this.createErrorToolInfo(reasoningContent, contentStr, "Detected an attempt to call a tool, but the JSON format is strictly invalid or corrupted. Please output strictly valid JSON."));
-            }
-            else {
-                // 3. 确实没有任何工具调用意图，视为纯文本闲聊
-                toolInfos.push({
-                    reasoning_content: reasoningContent || null,
-                    content: contentStr,
-                    tool_call_name: null,
-                    tool_call_id: null,
-                    params: {},
-                    error: null
-                });
+            // 如果没有提取到任何有效工具，走兜底报错或闲聊逻辑
+            if (!hasValidToolCall) {
+                if (this.isIntendedToolCall(contentStr)) {
+                    toolInfos.push(this.createErrorToolInfo(reasoningContent, contentStr, "Detected an attempt to call a tool, but the format is entirely corrupted."));
+                }
+                else {
+                    toolInfos.push({
+                        reasoning_content: reasoningContent || null,
+                        content: contentStr,
+                        tool_call_name: null,
+                        tool_call_id: null,
+                        params: {},
+                        error: null
+                    });
+                }
             }
         }
         catch (error) {
-            // 解析时报错（找到了 JSON 结构但 JSON5 也救不回来）
             toolInfos.push(this.createErrorToolInfo(reasoningContent, contentStr, error.message));
         }
         if (toolInfos.length === 0) {

@@ -1,7 +1,6 @@
 ---
 name: skill-creator
 description: 高级 Skill 元技能创建向导。作为首席提示词工程师，帮助用户通过标准化工作流，从模糊需求中提取关键信息，生成结构严谨、逻辑清晰、跨平台适用的高质量 SKILL.md 文件。
-license: MIT
 ---
 
 # Skill Creator Pro

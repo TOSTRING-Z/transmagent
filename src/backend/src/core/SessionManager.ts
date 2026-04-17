@@ -130,8 +130,6 @@ export class SessionManager {
                     agentMode = chat.agentMode;
                 }
             }
-        } else {
-
         }
 
         const utils = new Utils(agentMode!);

@@ -24,9 +24,9 @@ function main() {
         const query = (params?.query || "").toLowerCase().trim();
         const toolCall = params.toolCall;
         // --- 1. 获取所有 Skill ---
-        const skillManager = toolCall.prompts.skillManager;
+        const skillManager = toolCall.skillManager;
         const allSkills = skillManager.findRelevantSkills();
-        let matchedSkills = skillManager.getSkillPrompt(allSkills);
+        let matchedSkills = skillManager.getSkillContent(allSkills);
         // --- 2. 获取所有 MCP 工具 ---
         const mcp_client = toolCall.mcp_client;
         await mcp_client.initMcp();
@@ -67,7 +67,7 @@ function main() {
             .join('\n***\n');
         return {
             search_query: query,
-            skills: skillManager.getSkillPrompt(filteredSkills),
+            skills: skillManager.getSkillContent(filteredSkills),
             bash_tools: filteredBash || "No matching bash tools found.",
             mcp_tools: filteredMcp || "No matching MCP tools found."
         };

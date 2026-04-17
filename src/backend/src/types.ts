@@ -46,7 +46,6 @@ export interface ToolResult {
 export interface Skill {
     name: string;
     description: string;
-    allowedTools: string[];
     instructions: string;
     path: string;
 }

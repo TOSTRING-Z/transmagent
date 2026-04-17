@@ -51,6 +51,7 @@ const logger_1 = require("../utils/logger");
 const WindowManager_1 = require("../main/windows/WindowManager");
 const LLMAssistant_1 = require("./LLMAssistant");
 const public_1 = require("../utils/public");
+const SkillManager_1 = require("./SkillManager");
 const { all, any, not, always } = ToolDSL_1.ToolDSL;
 const { isSubagent, isMode, hasArg } = ToolDSL_1.Primitives;
 class ToolCall extends ReActAgent_1.ReActAgent {
@@ -79,6 +80,7 @@ class ToolCall extends ReActAgent_1.ReActAgent {
     rememberedChoices = {};
     llmAssistant;
     tool_schemas;
+    skillManager;
     constructor(plugins, agentTools = {}, llmService, window, utils, agentConfigs = {
         agentPrompt: null,
         mcpTool: true,
@@ -95,6 +97,7 @@ class ToolCall extends ReActAgent_1.ReActAgent {
         this.plugins = plugins;
         this.llmAssistant = new LLMAssistant_1.LLMAssistant(llmService, plugins, utils);
         this.mcp_client = new McpClient_1.MCPClient(this);
+        this.skillManager = new SkillManager_1.SkillManager(null, utils.getSshConfig());
         this.agentConfigs = agentConfigs;
         this.initVar();
         this.baseTools = (0, base_tools_1.default)();
@@ -127,6 +130,8 @@ class ToolCall extends ReActAgent_1.ReActAgent {
     }
     heartbeatIntervalId = null;
     setupHeartbeat() {
+        if (this.agentConfigs.subagent)
+            return;
         // 清除现有的心跳定时器
         if (this.heartbeatIntervalId) {
             clearInterval(this.heartbeatIntervalId);
@@ -277,7 +282,7 @@ class ToolCall extends ReActAgent_1.ReActAgent {
                 mcp_prompt: this.mcp_prompt,
                 cli_prompt: this.prompts.getCliPrompt(),
                 extra_prompt: this.prompts.getExtraPrompt(data.extra_prompt),
-                skill_prompt: this.prompts.getSkillPrompt(),
+                skill_prompt: this.skillManager.getSkillDescription(),
                 important_memory: important_memory,
             };
             const systemPrompt = (0, format_1.formatString)(this.task_prompt(data.tools), paramsToFormat);
@@ -299,7 +304,7 @@ class ToolCall extends ReActAgent_1.ReActAgent {
         });
         this.llmService.environment_details.todolist = todolist.join("\n");
         this.llmService.environment_details.envs = envs.length > 0 ? envs.join("\n") : "";
-        this.llmService.environment_details.skills = this.prompts.getSkillPrompt();
+        this.llmService.environment_details.skills = this.skillManager.getSkillDescription();
         if (this.agentConfigs.env && this.utils.getConfig("tool_call")?.env_message) {
             data.env_message = (0, format_1.formatString)(this.env_prompt, this.llmService.environment_details);
         }
@@ -410,10 +415,19 @@ class ToolCall extends ReActAgent_1.ReActAgent {
             return;
         }
         // 3. 循环并发遍历所有工具 (依次执行，确保上下文有序)
-        for (const toolInfo of this.toolInfos) {
+        for (let j = 0; j < this.toolInfos.length; j++) {
+            const toolInfo = this.toolInfos[j];
             if (!toolInfo.tool_call_name)
                 continue;
             this.currentToolInfo = toolInfo; // 更新当前状态引用，供 callReAct 等外部断点恢复使用
+            // 发送美化的任务开始提示
+            const taskEmoji = this.getTaskEmoji(toolInfo.tool_call_name);
+            const taskNumber = String(j + 1).padStart(2, '0');
+            this.window?.webContents.send('streamData', {
+                ...this.llmService.chatManager.chat,
+                content: `\n\n---\n\n**${taskEmoji} Task ${taskNumber} | ${toolInfo.tool_call_name}**`,
+                uuid: data.uuid
+            });
             // [1. 解析错误处理]
             if (toolInfo.error) {
                 this.llmService.chatManager.pushToolMessage({
@@ -544,13 +558,27 @@ class ToolCall extends ReActAgent_1.ReActAgent {
             return [];
         let toolInfoStr = JSON.stringify(toolInfos, null, 2);
         data.output_format = toolInfoStr;
-        this.window?.webContents.send('infoData', { ...this.llmService.chatManager.chat, content: this.getInfo(data), uuid: data.uuid });
+        // 美化 infoData 显示
+        this.window?.webContents.send('infoData', {
+            ...this.llmService.chatManager.chat,
+            content: this.getInfo(data),
+            uuid: data.uuid
+        });
         const content = toolInfos[0]?.content || "";
         const reasoning_content = toolInfos[0]?.reasoning_content || "";
+        // 美化 streamData 显示
         if (content || reasoning_content) {
+            // 使用 Markdown 粗体和分隔线美化输出
+            let formattedContent = '';
+            if (reasoning_content) {
+                formattedContent += `\n\n---\n\n**Thinking**\n\n${reasoning_content}`;
+            }
+            if (content) {
+                formattedContent += `\n\n**Response**\n\n${content}`;
+            }
             this.window?.webContents.send('streamData', {
                 ...this.llmService.chatManager.chat,
-                content: `\n\n${content}`,
+                content: formattedContent,
                 reasoning_content: reasoning_content,
                 uuid: data.uuid
             });
@@ -617,36 +645,98 @@ class ToolCall extends ReActAgent_1.ReActAgent {
         return observation;
     }
     handleToolObservation(observation, toolInfo, data) {
-        // 确保toolInfo存在
+        // Ensure toolInfo exists
         if (!toolInfo) {
             console.error("toolInfo is undefined in handleToolObservation");
             return;
         }
         switch (toolInfo?.tool_call_name) {
             case "display_file":
-                this.window?.webContents.send('streamData', { ...this.llmService.chatManager.chat, content: `\n\n${observation.result}`, uuid: data.uuid });
+                this.window?.webContents.send('streamData', {
+                    ...this.llmService.chatManager.chat,
+                    content: `\n\n${observation.result}`,
+                    uuid: data.uuid
+                });
                 break;
             case "add_subtasks":
             case "record_subtasks":
-                this.window?.webContents.send('streamData', { ...this.llmService.chatManager.chat, content: `\n\n\`\`\`json\n${observation.result}\n\`\`\``, uuid: data.uuid });
+                this.window?.webContents.send('streamData', {
+                    ...this.llmService.chatManager.chat,
+                    content: `\n\n\`\`\`json\n${observation.result}\n\`\`\``,
+                    uuid: data.uuid
+                });
                 break;
         }
         if (observation.subagent_tool) {
-            this.window?.webContents.send('streamData', { ...this.llmService.chatManager.chat, content: `\n\n${observation.result}`, uuid: data.uuid });
+            this.window?.webContents.send('streamData', {
+                ...this.llmService.chatManager.chat,
+                content: `\n\n${observation.result}`,
+                uuid: data.uuid
+            });
         }
         if (this.state === ReActAgent_1.State.PAUSE) {
             const { ask, options } = observation;
-            this.window?.webContents.send('streamData', { ...this.llmService.chatManager.chat, content: `\n\n${ask}`, uuid: data.uuid, end: true });
-            this.window?.webContents.send('handleOptions', { ...this.llmService.chatManager.chat, ...toolInfo, options: options, uuid: data.uuid });
+            this.window?.webContents.send('streamData', {
+                ...this.llmService.chatManager.chat,
+                content: `\n\n${ask}`,
+                uuid: data.uuid,
+                end: true
+            });
+            this.window?.webContents.send('handleOptions', {
+                ...this.llmService.chatManager.chat,
+                ...toolInfo,
+                options: options,
+                uuid: data.uuid
+            });
         }
         else if (this.state === ReActAgent_1.State.FINAL) {
-            this.llmService.chatManager.pushToolMessage({ ...this.llmService.chatManager.chat, ...toolInfo, content: observation.result, uuid: data.uuid });
-            this.window?.webContents.send('streamData', { ...this.llmService.chatManager.chat, content: `\n\n${observation.result}`, uuid: data.uuid, end: true });
+            this.llmService.chatManager.pushToolMessage({
+                ...this.llmService.chatManager.chat,
+                ...toolInfo,
+                content: observation.result,
+                uuid: data.uuid
+            });
+            this.window?.webContents.send('streamData', {
+                ...this.llmService.chatManager.chat,
+                content: `\n\n${observation.result}`,
+                uuid: data.uuid,
+                end: true
+            });
         }
         else {
-            this.llmService.chatManager.pushToolMessage({ ...this.llmService.chatManager.chat, ...toolInfo, content: observation.result, uuid: data.uuid });
-            this.window?.webContents.send('infoData', { ...this.llmService.chatManager.chat, content: this.getInfo({ output_format: observation.result }), uuid: data.uuid });
+            this.llmService.chatManager.pushToolMessage({
+                ...this.llmService.chatManager.chat,
+                ...toolInfo,
+                content: observation.result,
+                uuid: data.uuid
+            });
+            this.window?.webContents.send('infoData', {
+                ...this.llmService.chatManager.chat,
+                content: this.getInfo({ output_format: observation.result }),
+                uuid: data.uuid
+            });
         }
+    }
+    // Task emoji mapping for visual identification
+    getTaskEmoji(toolName) {
+        const emojiMap = {
+            'read_file': '[FILE]',
+            'display_file': '[FILE]',
+            'write_to_file': '[WRITE]',
+            'execute_command': '[CMD]',
+            'python_execute': '[PY]',
+            'search': '[SEARCH]',
+            'web_crawler_toolkit': '[WEB]',
+            'ask_user': '[ASK]',
+            'add_subtasks': '[TASK]',
+            'record_subtasks': '[TASK]',
+            'context_retrieval': '[MEM]',
+            'search_long_term_memory': '[MEM]',
+            'write_important_memory': '[MEM]',
+            'deep_researcher': '[RESEARCH]',
+            'mcp_server': '[MCP]',
+        };
+        return emojiMap[toolName] || '[TOOL]';
     }
     async callReAct(data, setUUID = true) {
         if (setUUID)

@@ -6,7 +6,7 @@ import { LLMAssistant } from './LLMAssistant';
 import { LLMAdapterFactory, ToolCallAdapterFactory } from '../factories/AdapterFactory';
 import { BrowserWindow } from 'electron/main';
 import { Utils } from './Utils';
-import { copy, delay, getSessionId, setHistory } from '../utils/public';
+import { copy, delay, extractJson, getSessionId, parseJsonContent, setHistory } from '../utils/public';
 
 export enum State {
     IDLE = 'idle',
@@ -45,7 +45,7 @@ export class ReActAgent {
 
     public setUUID(data?: Record<string, any>): string {
         if (data) {
-            data.uuid = this.llmService.chatManager.uuid;           
+            data.uuid = this.llmService.chatManager.uuid;
         }
         this.window?.webContents.send('setUUID', this.llmService.chatManager.uuid);
         return this.llmService.chatManager.uuid;
@@ -228,6 +228,14 @@ export class ReActAgent {
                 if (message.role === "user" && !message.react) {
                     this.window?.webContents.send('userData', { ...chat, ...message, end: true });
                 }
+
+                if (message.role === "user" && message.react) {
+                    this.window?.webContents.send('infoData', { ...chat, ...message, content: `\n\n\`\`\`json\n${message.content}\n\`\`\``, end: true });
+                    // 非json内容
+                    if (!parseJsonContent(message.content as string))
+                        this.window?.webContents.send('streamData', { ...chat, ...message, content: `\n\n${message.content}`, end: true });
+                }
+
                 if (message.role === "tool") {
                     const tool_call_name = message.tool_call_name || "unknown_tool";
 
@@ -257,10 +265,32 @@ export class ReActAgent {
                             const tool_format = this.llmService.chatManager.chat.tool_format;
                             const adapter = ToolCallAdapterFactory.getAdapter(tool_format);
                             const toolInfos = adapter.getToolInfos(message);
-                            const toolInfo = toolInfos[0] || { content: message.content, reasoning_content: (message as AssistantMessage).reasoning_content || null, tool: null, params: {} };
-                            let toolInfoStr = JSON.stringify(toolInfo, null, 2).replaceAll("`", "\\`");
-                            this.window?.webContents.send('infoData', { ...chat, ...message, content: `Step ${i}, group_id: ${message.group_id}, context_id: ${message.context_id}, Output:\n\n\`\`\`json\n${toolInfoStr}\n\`\`\`` });
-                            this.window?.webContents.send('streamData', { ...chat, ...message, content: `\n\n${toolInfo.content}`, end: true });
+                            toolInfos.forEach((toolInfo, j) => {
+                                let toolInfoStr = JSON.stringify(toolInfo, null, 2).replaceAll("`", "\\`");
+                                this.window?.webContents.send('infoData', {
+                                    ...chat,
+                                    ...message,
+                                    content: `Step ${i}, group_id: ${message.group_id}, context_id: ${message.context_id}, Output:\n\n\`\`\`json\n${toolInfoStr}\n\`\`\``
+                                });
+
+                                // 根据状态选择图标
+                                const getStatusIcon = (content) => {
+                                    if (content.includes('error') || content.includes('失败')) return '❌';
+                                    if (content.includes('success') || content.includes('成功')) return '✅';
+                                    if (content.includes('warning') || content.includes('警告')) return '⚠️';
+                                    return '📋';
+                                };
+
+                                const icon = getStatusIcon(toolInfo.content);
+                                const taskNumber = String(j).padStart(2, '0'); // 格式化为 01, 02...
+                                if (toolInfo.content || toolInfo.tool_call_name)
+                                    this.window?.webContents.send('streamData', {
+                                        ...chat,
+                                        ...message,
+                                        content: `\n\n- ${icon} **Task ${taskNumber}** | ${toolInfo.content || toolInfo.tool_call_name}`,
+                                        end: true
+                                    });
+                            })
                         } else {
                             this.window?.webContents.send('streamData', { ...chat, ...message, content: `\n\n${message.content}`, end: true });
                         }

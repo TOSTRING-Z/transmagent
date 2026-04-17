@@ -36,70 +36,185 @@ Object.defineProperty(exports, "__esModule", { value: true });
 exports.SkillManager = void 0;
 const fs = __importStar(require("fs"));
 const path = __importStar(require("path"));
+const ssh2_1 = require("ssh2");
+const public_1 = require("../utils/public");
 class SkillManager {
     skillsPath;
     skills;
-    constructor(skillsPath) {
-        this.skillsPath = skillsPath || path.join(__dirname, '../../skills');
+    sshConfig;
+    constructor(skillsPath, sshConfig) {
+        this.sshConfig = sshConfig;
         this.skills = [];
+        const isRemote = !!(this.sshConfig?.enabled && this.sshConfig?.host);
+        if (skillsPath) {
+            this.skillsPath = skillsPath;
+        }
+        else {
+            // 远程模式与本地模式使用不同的默认路径
+            this.skillsPath = isRemote ? '~/.transmagent/skills' : (0, public_1.getDefault)("skills");
+        }
         this.loadSkills();
     }
     getSkillsPath() {
         return this.skillsPath;
     }
-    loadSkills() {
-        if (!fs.existsSync(this.skillsPath)) {
-            fs.mkdirSync(this.skillsPath, { recursive: true });
+    // 修改点 2：将核心解析逻辑抽离，以便本地和远程共用
+    parseSkillContent(content, folderName, folderPath) {
+        const match = content.match(/^---\r?\n([\s\S]*?)\r?\n---\r?\n([\s\S]*)$/);
+        if (!match)
+            return null;
+        try {
+            const yamlText = match[1];
+            const meta = {};
+            yamlText.split('\n').forEach(line => {
+                const [key, ...val] = line.split(':');
+                if (key && val)
+                    meta[key.trim()] = val.join(':').trim();
+            });
+            return {
+                name: meta['name'],
+                description: meta['description'],
+                instructions: match[2].trim(),
+                path: folderPath
+            };
+        }
+        catch (e) {
+            console.error(`Failed to parse skill in ${folderName}:`, e);
+            return null;
+        }
+    }
+    // 修改点 3：主入口变为 async，并分发本地/远程模式
+    async loadSkills() {
+        this.skills = [];
+        const isRemote = !!(this.sshConfig?.enabled && this.sshConfig?.host);
+        if (isRemote) {
+            await this.loadRemoteSkills();
+        }
+        else {
+            await this.loadLocalSkills();
+        }
+    }
+    // 修改点 4：本地加载逻辑（使用 fs.promises 保持异步风格统一）
+    async loadLocalSkills() {
+        try {
+            await fs.promises.access(this.skillsPath);
+        }
+        catch {
+            await fs.promises.mkdir(this.skillsPath, { recursive: true });
             return;
         }
-        const folders = fs.readdirSync(this.skillsPath);
-        this.skills = folders.map(folder => {
-            const skillMdPath = path.join(this.skillsPath, folder, 'SKILL.md');
-            if (fs.existsSync(skillMdPath)) {
-                const content = fs.readFileSync(skillMdPath, 'utf-8');
-                // 使用 \r?\n 来兼容两种换行符
-                const match = content.match(/^---\r?\n([\s\S]*?)\r?\n---\r?\n([\s\S]*)$/);
-                if (match) {
-                    try {
-                        // 简单的正则解析 YAML 元数据，避免外部依赖
-                        const yamlText = match[1];
-                        const meta = {};
-                        yamlText.split('\n').forEach(line => {
-                            const [key, ...val] = line.split(':');
-                            if (key && val)
-                                meta[key.trim()] = val.join(':').trim();
-                        });
-                        return {
-                            name: meta['name'],
-                            description: meta['description'],
-                            allowedTools: meta['allowed-tools'] ? meta['allowed-tools'].split(',').map(t => t.trim()) : null,
-                            instructions: match[2].trim(),
-                            path: path.join(this.skillsPath, folder)
-                        };
-                    }
-                    catch (e) {
-                        console.error(`Failed to parse skill in ${folder}:`, e);
-                    }
-                }
+        const folders = await fs.promises.readdir(this.skillsPath, { withFileTypes: true });
+        for (const item of folders) {
+            if (!item.isDirectory())
+                continue;
+            const folder = item.name;
+            const skillPath = path.join(this.skillsPath, folder);
+            const skillMdPath = path.join(skillPath, 'SKILL.md');
+            try {
+                const content = await fs.promises.readFile(skillMdPath, 'utf-8');
+                const skill = this.parseSkillContent(content, folder, skillPath);
+                if (skill)
+                    this.skills.push(skill);
             }
-            return null;
-        }).filter(Boolean);
+            catch (err) {
+                // SKILL.md 不存在或无法读取，忽略该目录
+                continue;
+            }
+        }
+    }
+    // 修改点 5：远程加载逻辑（使用 ssh2 + sftp）
+    async loadRemoteSkills() {
+        return new Promise((resolve, reject) => {
+            const sshClient = new ssh2_1.Client();
+            sshClient.on('ready', () => {
+                sshClient.sftp(async (err, sftp) => {
+                    if (err) {
+                        sshClient.end();
+                        return reject(new Error(`SFTP Error: ${err.message}`));
+                    }
+                    // 封装 sftp 回调为 Promise
+                    const statAsync = (p) => new Promise((res, rej) => sftp.stat(p, (e, stats) => e ? rej(e) : res(stats)));
+                    const mkdirAsync = (p) => new Promise((res, rej) => sftp.mkdir(p, (e) => e ? rej(e) : res()));
+                    const readdirAsync = (p) => new Promise((res, rej) => sftp.readdir(p, (e, list) => e ? rej(e) : res(list)));
+                    const readFileAsync = (p) => new Promise((res, rej) => sftp.readFile(p, (e, data) => e ? rej(e) : res(data)));
+                    // 统一路径格式为 POSIX 风格
+                    let rawPath = this.skillsPath.replace(/\\/g, '/');
+                    // ⚠️ 核心修复：SFTP 协议不支持 '~' 符号展开。
+                    // 默认登录目录即为 Home 目录，因此将 '~/' 替换为相对路径 './'
+                    if (rawPath.startsWith('~/')) {
+                        rawPath = rawPath.replace('~/', './');
+                    }
+                    const targetPath = rawPath;
+                    try {
+                        // 检查目录是否存在
+                        try {
+                            await statAsync(targetPath);
+                        }
+                        catch {
+                            // 目录不存在则创建
+                            await mkdirAsync(targetPath);
+                            return resolve();
+                        }
+                        const items = await readdirAsync(targetPath);
+                        for (const item of items) {
+                            if (!item.attrs.isDirectory() || item.filename === '.' || item.filename === '..') {
+                                continue;
+                            }
+                            const folder = item.filename;
+                            const skillPath = path.posix.join(targetPath, folder);
+                            const skillMdPath = path.posix.join(skillPath, 'SKILL.md');
+                            try {
+                                const buffer = await readFileAsync(skillMdPath);
+                                const content = buffer.toString('utf-8');
+                                const skill = this.parseSkillContent(content, folder, skillPath);
+                                if (skill) {
+                                    this.skills.push(skill);
+                                }
+                            }
+                            catch (readErr) {
+                                // 同样忽略没有 SKILL.md 的目录
+                            }
+                        }
+                        resolve();
+                    }
+                    catch (error) {
+                        console.error(`Failed to load remote skills from ${targetPath}:`, error);
+                        reject(error);
+                    }
+                    finally {
+                        sshClient.end();
+                    }
+                });
+            }).on('error', (err) => {
+                reject(new Error(`SSH Connection Error: ${err.message}`));
+            }).connect({ ...this.sshConfig, readyTimeout: 20000 });
+        });
     }
     findRelevantSkills() {
         return this.skills;
     }
-    getSkillPrompt(relevantSkills) {
+    getSkillContent(relevantSkills, instructions = true) {
         if (relevantSkills.length === 0)
             return '';
-        let prompt = '\n# 🌟 Active Agent Skills\n';
+        let prompt = `\n`;
         relevantSkills.forEach(skill => {
-            prompt += `\n## Skill: ${skill.name}\n`;
-            if (skill.allowedTools && skill.allowedTools.length > 0) {
-                prompt += `**⚠️ TOOL RESTRICTION**: For this skill, you are STRICTLY LIMITED to the following tools: ${skill.allowedTools.join(', ')}.\n`;
-            }
-            prompt += `${skill.instructions}\n`;
+            prompt += `## Skill: ${skill.name}\n**Skill Path**: ${skill.path}\n`;
+            if (instructions)
+                prompt += `${skill.instructions}\n`;
+            else
+                prompt += `${skill.description}\n`;
         });
         return prompt;
+    }
+    getSkillPrompt() {
+        const relevantSkills = this.findRelevantSkills();
+        const skillsPrompt = this.getSkillContent(relevantSkills);
+        return skillsPrompt || "\n*No active skills detected.*";
+    }
+    getSkillDescription() {
+        const relevantSkills = this.findRelevantSkills();
+        const skillsPrompt = this.getSkillContent(relevantSkills, false);
+        return skillsPrompt || "\n*No active skills detected.*";
     }
 }
 exports.SkillManager = SkillManager;

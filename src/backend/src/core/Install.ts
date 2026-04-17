@@ -62,6 +62,7 @@ const isFirstInstall = (name: string): boolean => {
 export function install(isDefault: boolean = false): void {
     const configs: string[] = [
         "configs",
+        "skills",
         "prompts"  // 可以是文件或目录
     ];
 

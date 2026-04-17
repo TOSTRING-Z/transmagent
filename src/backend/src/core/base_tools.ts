@@ -195,9 +195,6 @@ export default function getBaseTools(): Record<string, any> {
                     // 如果更改了触发条件，顺便更新
                     if (trigger_condition) targetTask.trigger_condition = trigger_condition;
                 }
-
-                // 确保能正确调用 setupHeartbeat (取决于你的架构，通常 toolCall.agent 或传入的回调)
-                // 注意：如果 toolCall 没有直接挂载 setupHeartbeat，请修改为正确的引用路径
                 if (task_type === "recurring" && typeof toolCall.agent?.setupHeartbeat === 'function') {
                     toolCall.agent.setupHeartbeat();
                 }

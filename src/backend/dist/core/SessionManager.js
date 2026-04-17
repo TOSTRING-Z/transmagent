@@ -113,8 +113,6 @@ class SessionManager {
                 }
             }
         }
-        else {
-        }
         const utils = new Utils_1.Utils(agentMode);
         const plugins = new Plugins_1.Plugins(utils);
         const llmService = new LLMService_1.LLMService([], this.window, utils, agentMode);

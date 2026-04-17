@@ -87,6 +87,7 @@ const isFirstInstall = (name) => {
 function install(isDefault = false) {
     const configs = [
         "configs",
+        "skills",
         "prompts" // 可以是文件或目录
     ];
     logger_1.logger.log("[Install] Checking installation environment...");

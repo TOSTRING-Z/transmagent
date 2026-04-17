@@ -8,6 +8,7 @@ import { Plugins } from './Plugins';
 import { LLMAssistant } from './LLMAssistant';
 import { Utils } from './Utils';
 import { BrowserWindow } from 'electron/main';
+import { SkillManager } from './SkillManager';
 export interface Observation {
     result: string;
     options?: string[];
@@ -64,6 +65,7 @@ export declare class ToolCall extends ReActAgent {
     private rememberedChoices;
     llmAssistant: LLMAssistant;
     tool_schemas?: any[];
+    skillManager: SkillManager;
     constructor(plugins: Plugins, agentTools: Record<string, any> | undefined, llmService: LLMService, window: BrowserWindow | null, utils: Utils, agentConfigs?: AgentConfigs);
     initVar(): void;
     private heartbeatIntervalId;
@@ -90,5 +92,6 @@ export declare class ToolCall extends ReActAgent {
     getToolInfos(data: Record<string, any>, assistantMessage: AssistantMessage): Promise<ToolInfo[]>;
     act(toolInfo: ToolInfo): Promise<Observation>;
     private handleToolObservation;
+    private getTaskEmoji;
     callReAct(data: Record<string, any>, setUUID?: boolean): Promise<any>;
 }
