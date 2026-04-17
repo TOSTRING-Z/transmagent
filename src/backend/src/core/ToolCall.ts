@@ -453,6 +453,8 @@ export class ToolCall extends ReActAgent {
         }
 
         // 3. 循环并发遍历所有工具 (依次执行，确保上下文有序)
+        let content;
+        let reasoning_content;
         for (let j = 0; j < this.toolInfos.length; j++) {
             const toolInfo = this.toolInfos[j];
             if (!toolInfo.tool_call_name) continue;
@@ -460,14 +462,23 @@ export class ToolCall extends ReActAgent {
             this.currentToolInfo = toolInfo; // 更新当前状态引用，供 callReAct 等外部断点恢复使用
 
             // 发送美化的任务开始提示
-            const taskEmoji = this.getTaskEmoji(toolInfo.tool_call_name);
             const taskNumber = String(j + 1).padStart(2, '0');
-
-            this.window?.webContents.send('streamData', {
-                ...this.llmService.chatManager.chat,
-                content: `\n\n---\n\n**${taskEmoji} Task ${taskNumber} | ${toolInfo.tool_call_name}**`,
-                uuid: data.uuid
-            });
+            if (toolInfo.content !== content && toolInfo.reasoning_content !== reasoning_content) {
+                this.window?.webContents.send('streamData', {
+                    ...this.llmService.chatManager.chat,
+                    content: `\n\n- 📋 **Task ${taskNumber}** | ${toolInfo.content || toolInfo.tool_call_name}`,
+                    reasoning_content: toolInfo.reasoning_content,
+                    uuid: data.uuid
+                });
+                content = toolInfo.content;
+                reasoning_content = toolInfo.reasoning_content;
+            } else {
+                this.window?.webContents.send('streamData', {
+                    ...this.llmService.chatManager.chat,
+                    content: `\n\n- 📋 **Task ${taskNumber}** | ${toolInfo.tool_call_name}`,
+                    uuid: data.uuid
+                });
+            }
 
             // [1. 解析错误处理]
             if (toolInfo.error) {
@@ -615,36 +626,11 @@ export class ToolCall extends ReActAgent {
         let toolInfoStr = JSON.stringify(toolInfos, null, 2);
         data.output_format = toolInfoStr;
 
-        // 美化 infoData 显示
         this.window?.webContents.send('infoData', {
             ...this.llmService.chatManager.chat,
             content: this.getInfo(data),
             uuid: data.uuid
         });
-
-        const content = toolInfos[0]?.content || "";
-        const reasoning_content = toolInfos[0]?.reasoning_content || "";
-
-        // 美化 streamData 显示
-        if (content || reasoning_content) {
-            // 使用 Markdown 粗体和分隔线美化输出
-            let formattedContent = '';
-
-            if (reasoning_content) {
-                formattedContent += `\n\n---\n\n**Thinking**\n\n${reasoning_content}`;
-            }
-
-            if (content) {
-                formattedContent += `\n\n**Response**\n\n${content}`;
-            }
-
-            this.window?.webContents.send('streamData', {
-                ...this.llmService.chatManager.chat,
-                content: formattedContent,
-                reasoning_content: reasoning_content,
-                uuid: data.uuid
-            });
-        }
 
         return toolInfos;
     }
@@ -784,28 +770,6 @@ export class ToolCall extends ReActAgent {
                 uuid: data.uuid
             });
         }
-    }
-
-    // Task emoji mapping for visual identification
-    private getTaskEmoji(toolName: string): string {
-        const emojiMap: Record<string, string> = {
-            'read_file': '[FILE]',
-            'display_file': '[FILE]',
-            'write_to_file': '[WRITE]',
-            'execute_command': '[CMD]',
-            'python_execute': '[PY]',
-            'search': '[SEARCH]',
-            'web_crawler_toolkit': '[WEB]',
-            'ask_user': '[ASK]',
-            'add_subtasks': '[TASK]',
-            'record_subtasks': '[TASK]',
-            'context_retrieval': '[MEM]',
-            'search_long_term_memory': '[MEM]',
-            'write_important_memory': '[MEM]',
-            'deep_researcher': '[RESEARCH]',
-            'mcp_server': '[MCP]',
-        };
-        return emojiMap[toolName] || '[TOOL]';
     }
 
     public async callReAct(data: Record<string, any>, setUUID: boolean = true): Promise<any> {

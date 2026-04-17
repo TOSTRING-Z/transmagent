@@ -241,23 +241,12 @@ class ReActAgent {
                                     ...message,
                                     content: `Step ${i}, group_id: ${message.group_id}, context_id: ${message.context_id}, Output:\n\n\`\`\`json\n${toolInfoStr}\n\`\`\``
                                 });
-                                // 根据状态选择图标
-                                const getStatusIcon = (content) => {
-                                    if (content.includes('error') || content.includes('失败'))
-                                        return '❌';
-                                    if (content.includes('success') || content.includes('成功'))
-                                        return '✅';
-                                    if (content.includes('warning') || content.includes('警告'))
-                                        return '⚠️';
-                                    return '📋';
-                                };
-                                const icon = getStatusIcon(toolInfo.content);
                                 const taskNumber = String(j).padStart(2, '0'); // 格式化为 01, 02...
                                 if (toolInfo.content || toolInfo.tool_call_name)
                                     this.window?.webContents.send('streamData', {
                                         ...chat,
                                         ...message,
-                                        content: `\n\n- ${icon} **Task ${taskNumber}** | ${toolInfo.content || toolInfo.tool_call_name}`,
+                                        content: `\n\n- 📋 **Task ${taskNumber}** | ${toolInfo.content || toolInfo.tool_call_name}`,
                                         end: true
                                     });
                             });

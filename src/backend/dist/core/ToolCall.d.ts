@@ -92,6 +92,5 @@ export declare class ToolCall extends ReActAgent {
     getToolInfos(data: Record<string, any>, assistantMessage: AssistantMessage): Promise<ToolInfo[]>;
     act(toolInfo: ToolInfo): Promise<Observation>;
     private handleToolObservation;
-    private getTaskEmoji;
     callReAct(data: Record<string, any>, setUUID?: boolean): Promise<any>;
 }
