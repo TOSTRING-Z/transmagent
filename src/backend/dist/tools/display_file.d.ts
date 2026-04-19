@@ -1,15 +1,15 @@
 import { ToolCall } from '../core/ToolCall';
 export interface DisplayOptions {
     start_line?: string | number;
-    end_line?: string | number;
-    max_line_length?: string | number;
+    line_count?: string | number;
+    max_chars_per_line?: string | number;
     max_cols?: string | number;
     format?: string;
 }
 export interface NormalizedOptions {
     startLine: number;
-    endLine: number;
-    maxLineLength: number;
+    lineCount: number;
+    maxCharsPerLine: number;
     maxCols: number;
     fileType: string;
 }
@@ -38,24 +38,22 @@ export declare function getPrompt(): {
             start_line: {
                 type: string;
                 default: number;
+                description: string;
             };
-            end_line: {
+            line_count: {
                 type: string;
+                default: number;
+                description: string;
+            };
+            max_chars_per_line: {
+                type: string;
+                default: number;
                 description: string;
             };
             format: {
                 type: string;
                 enum: string[];
                 default: string;
-                description: string;
-            };
-            max_line_length: {
-                type: string;
-                default: number;
-            };
-            max_cols: {
-                type: string;
-                default: number;
             };
         };
         required: string[];

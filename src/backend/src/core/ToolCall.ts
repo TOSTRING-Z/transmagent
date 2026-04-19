@@ -447,7 +447,7 @@ export class ToolCall extends ReActAgent {
         // 纯思考结束流程
         else {
             this.llmService.chatManager.pushAssistantMessage({ ...this.llmService.chatManager.chat, ...messageOutput, uuid: data.uuid });
-            this.window?.webContents.send('streamData', { ...this.llmService.chatManager.chat, uuid: data.uuid, end: true });
+            this.window?.webContents.send('streamData', { ...this.llmService.chatManager.chat, ...messageOutput, uuid: data.uuid, end: true });
             this.state = State.FINAL;
             return;
         }
@@ -455,6 +455,8 @@ export class ToolCall extends ReActAgent {
         // 3. 循环并发遍历所有工具 (依次执行，确保上下文有序)
         let content;
         let reasoning_content;
+        let formatContent;
+        let formatReasoningContent;
         for (let j = 0; j < this.toolInfos.length; j++) {
             const toolInfo = this.toolInfos[j];
             if (!toolInfo.tool_call_name) continue;
@@ -463,22 +465,23 @@ export class ToolCall extends ReActAgent {
 
             // 发送美化的任务开始提示
             const taskNumber = String(j + 1).padStart(2, '0');
-            if (toolInfo.content !== content && toolInfo.reasoning_content !== reasoning_content) {
-                this.window?.webContents.send('streamData', {
-                    ...this.llmService.chatManager.chat,
-                    content: `\n\n- 📋 **Task ${taskNumber}** | ${toolInfo.content || toolInfo.tool_call_name}`,
-                    reasoning_content: toolInfo.reasoning_content,
-                    uuid: data.uuid
-                });
+            if (toolInfo.content && toolInfo.content !== content) {
+                formatContent = toolInfo.content;
                 content = toolInfo.content;
-                reasoning_content = toolInfo.reasoning_content;
             } else {
-                this.window?.webContents.send('streamData', {
-                    ...this.llmService.chatManager.chat,
-                    content: `\n\n- 📋 **Task ${taskNumber}** | ${toolInfo.tool_call_name}`,
-                    uuid: data.uuid
-                });
+                formatContent = toolInfo.tool_call_name;
             }
+
+            if (toolInfo.reasoning_content && toolInfo.reasoning_content !== reasoning_content) {
+                formatReasoningContent = toolInfo.reasoning_content;
+                reasoning_content = toolInfo.reasoning_content;
+            }
+            this.window?.webContents.send('streamData', {
+                ...this.llmService.chatManager.chat,
+                content: `\n\n- 📋 **Task ${taskNumber}** | ${formatContent}`,
+                reasoning_content: formatReasoningContent,
+                uuid: data.uuid
+            });
 
             // [1. 解析错误处理]
             if (toolInfo.error) {
