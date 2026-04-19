@@ -20,15 +20,30 @@ export interface MemoryRecord {
 }
 
 export class MemoryDB {
+    private static instance: MemoryDB | null = null;
+    private static initialized: boolean = false;
     private dbPath: string;
     private db: any;
 
     constructor(dbPath: string | null = null) {
+        // Singleton pattern: return existing instance if already initialized
+        if (MemoryDB.instance && MemoryDB.initialized) {
+            this.dbPath = MemoryDB.instance.dbPath;
+            this.db = MemoryDB.instance.db;
+            return;
+        }
+        
         this.dbPath = dbPath || path.join(__dirname, '..', '..', 'data', 'memory.db');
         this.db = null;
+        MemoryDB.instance = this;
     }
 
     public async init(): Promise<void> {
+        // Prevent multiple initializations
+        if (MemoryDB.initialized && this.db) {
+            return Promise.resolve();
+        }
+        
         return new Promise((resolve, reject) => {
             this.db = new sqlite3.Database(this.dbPath, async (err: Error | null) => {
                 if (err) {
@@ -47,6 +62,7 @@ export class MemoryDB {
 
                 try {
                     await this.createTables();
+                    MemoryDB.initialized = true;
                     resolve();
                 } catch (tableErr: any) {
                     reject(tableErr);

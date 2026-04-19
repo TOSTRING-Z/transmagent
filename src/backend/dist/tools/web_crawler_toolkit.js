@@ -32,9 +32,6 @@ var __importStar = (this && this.__importStar) || (function () {
         return result;
     };
 })();
-var __importDefault = (this && this.__importDefault) || function (mod) {
-    return (mod && mod.__esModule) ? mod : { "default": mod };
-};
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.WebCrawlerToolkit = exports.ContentFetcher = exports.BaiduSearch = exports.DuckDuckGoSearch = exports.BaseSearch = exports.TTLCache = void 0;
 exports.main = main;
@@ -45,28 +42,9 @@ const url_1 = require("url");
 const node_html_parser_1 = require("node-html-parser");
 const cheerio = __importStar(require("cheerio"));
 const logger_1 = require("../utils/logger");
-const global_agent_1 = __importDefault(require("global-agent"));
-// --- 初始化全局代理 (必须在所有HTTP请求之前) ---
-function bootstrapGlobalProxy() {
-    // 从环境变量获取代理地址
-    const proxyUrl = process.env.https_proxy || process.env.HTTPS_PROXY ||
-        process.env.http_proxy || process.env.HTTP_PROXY ||
-        process.env.ALL_PROXY || process.env.all_proxy;
-    if (proxyUrl) {
-        // 设置全局代理环境变量
-        process.env.GLOBAL_AGENT_HTTP_PROXY = proxyUrl;
-        logger_1.logger.log(`Global proxy bootstrapped: ${proxyUrl}`);
-    }
-    // 初始化 global-agent (自动让所有 HTTP/HTTPS 请求使用代理)
-    global_agent_1.default.bootstrap();
-}
-// 立即执行 bootstrap (模块加载时)
-try {
-    bootstrapGlobalProxy();
-}
-catch (e) {
-    logger_1.logger.warn('Global proxy bootstrap failed, falling back to direct connection');
-}
+const proxy_1 = require("../utils/proxy");
+// 初始化全局代理 (必须在所有HTTP请求之前)
+(0, proxy_1.bootstrapGlobalProxy)();
 // --- 缓存实现 ---
 class TTLCache {
     maxsize;

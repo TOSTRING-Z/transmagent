@@ -46,13 +46,26 @@ catch (e) {
     logger_1.logger.warn("[MemoryDB] sqlite-vec module not found. Vector search will be limited.", e);
 }
 class MemoryDB {
+    static instance = null;
+    static initialized = false;
     dbPath;
     db;
     constructor(dbPath = null) {
+        // Singleton pattern: return existing instance if already initialized
+        if (MemoryDB.instance && MemoryDB.initialized) {
+            this.dbPath = MemoryDB.instance.dbPath;
+            this.db = MemoryDB.instance.db;
+            return;
+        }
         this.dbPath = dbPath || path.join(__dirname, '..', '..', 'data', 'memory.db');
         this.db = null;
+        MemoryDB.instance = this;
     }
     async init() {
+        // Prevent multiple initializations
+        if (MemoryDB.initialized && this.db) {
+            return Promise.resolve();
+        }
         return new Promise((resolve, reject) => {
             this.db = new sqlite3.Database(this.dbPath, async (err) => {
                 if (err) {
@@ -70,6 +83,7 @@ class MemoryDB {
                 }
                 try {
                     await this.createTables();
+                    MemoryDB.initialized = true;
                     resolve();
                 }
                 catch (tableErr) {

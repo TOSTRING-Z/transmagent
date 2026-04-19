@@ -5,6 +5,8 @@ export interface MemoryRecord {
     similarity: number;
 }
 export declare class MemoryDB {
+    private static instance;
+    private static initialized;
     private dbPath;
     private db;
     constructor(dbPath?: string | null);
