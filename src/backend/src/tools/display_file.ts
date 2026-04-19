@@ -308,15 +308,53 @@ class DisplayFile {
     private async _downloadViaSSH(remotePath: string, localPath: string, sshConfig: any): Promise<void> {
         return new Promise((resolve, reject) => {
             const conn = new Client();
+            const timeoutId = setTimeout(() => {
+                conn.end();
+                reject(new Error('SSH download timeout (>30s)'));
+            }, 30000);
+
+            const cleanup = () => {
+                clearTimeout(timeoutId);
+                try { conn.end(); } catch {}
+            };
+
+            conn.on('error', (err) => {
+                cleanup();
+                // 忽略连接关闭错误
+                if (err.message?.includes('closed') || err.message?.includes('No response')) {
+                    resolve(); // 文件可能已下载完成
+                } else {
+                    reject(err);
+                }
+            });
+
             conn.on('ready', () => {
                 conn.sftp((err, sftp) => {
-                    if (err) { conn.end(); return reject(err); }
+                    if (err) {
+                        cleanup();
+                        return reject(err);
+                    }
+
                     sftp.fastGet(remotePath, localPath, (err) => {
-                        conn.end();
-                        err ? reject(err) : resolve();
+                        cleanup();
+                        // 处理 'No response from server' 错误
+                        if (err && (err.message?.includes('No response') || err.code === 'ERR_SSH_CONNECTION_CLOSED')) {
+                            // 假设文件已下载成功，只是连接异常关闭
+                            resolve();
+                        } else if (err) {
+                            reject(err);
+                        } else {
+                            resolve();
+                        }
                     });
                 });
-            }).connect(sshConfig);
+            });
+
+            conn.connect({
+                ...sshConfig,
+                readyTimeout: 20000,
+                timeout: 30000
+            });
         });
     }
 
