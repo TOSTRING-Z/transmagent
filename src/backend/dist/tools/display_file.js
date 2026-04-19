@@ -164,14 +164,45 @@ class DisplayFile {
     _streamRemoteText(remotePath, sshConfig, { startLine, lineCount, maxCharsPerLine }, type, totalLines) {
         return new Promise((resolve, reject) => {
             const conn = new ssh2_1.Client();
-            const cleanup = () => { if (conn)
-                conn.end(); };
+            let isResolved = false;
+            const timeoutId = setTimeout(() => {
+                if (!isResolved) {
+                    isResolved = true;
+                    cleanup();
+                    reject(new Error('SSH stream timeout (>30s)'));
+                }
+            }, 30000);
+            const cleanup = () => {
+                clearTimeout(timeoutId);
+                try {
+                    conn.end();
+                }
+                catch { }
+            };
+            // 关键：捕获SSH连接错误，防止未捕获异常
+            conn.on('error', (err) => {
+                if (!isResolved) {
+                    isResolved = true;
+                    cleanup();
+                    // 忽略连接关闭相关的错误
+                    if (err.message?.includes('closed') || err.message?.includes('No response') || err.message?.includes('ECONNRESET')) {
+                        resolve(''); // 假设连接已关闭
+                    }
+                    else {
+                        reject(err);
+                    }
+                }
+            });
             const endLine = startLine + lineCount - 1;
             conn.on('ready', () => {
                 conn.sftp((err, sftp) => {
                     if (err) {
-                        cleanup();
-                        return reject(err);
+                        if (!isResolved) {
+                            isResolved = true;
+                            cleanup();
+                            reject(err);
+                        }
+                        return;
                     }
                     const stream = sftp.createReadStream(remotePath, { encoding: 'utf8' });
                     const rl = readline.createInterface({ input: stream, crlfDelay: Infinity });
@@ -194,10 +225,29 @@ class DisplayFile {
                     rl.on('close', () => {
                         stream.destroy();
                         cleanup();
-                        resolve(this._formatOutput(lines, startLine, endLine, totalLines, type));
+                        if (!isResolved) {
+                            isResolved = true;
+                            resolve(this._formatOutput(lines, startLine, endLine, totalLines, type));
+                        }
+                    });
+                    // 处理流错误
+                    stream.on('error', (err) => {
+                        if (!isResolved) {
+                            isResolved = true;
+                            cleanup();
+                            reject(err);
+                        }
+                    });
+                    stream.on('close', () => {
+                        if (!isResolved) {
+                            isResolved = true;
+                            cleanup();
+                            resolve(this._formatOutput(lines, startLine, endLine, totalLines, type));
+                        }
                     });
                 });
-            }).connect(sshConfig);
+            });
+            conn.connect({ ...sshConfig, readyTimeout: 20000 });
         });
     }
     async _processLocalFile(filePath, options, totalLines) {
