@@ -229,7 +229,29 @@ TransMAgent 采用 **标准化任务处理架构**：
 - **Ubuntu**: Ubuntu 18.04 或更高版本
 - **macOS**: macOS 10.14 或更高版本
 
+## 🐳 Docker 环境构建
+
+在使用 TransMAgent 之前，需要先构建 BioTools MCP 服务环境。BioTools 集成了超过 30 种生物信息学分析工具，通过 Docker 虚拟化容器技术实现安全隔离的云端与本地统一调用。
+
+> ⚠️ **重要提示**：请先完成 Docker 环境构建，再进行软件安装运行或编译运行。
+
+详细构建步骤请参考：[BioTools MCP Server 环境配置指南](biotools/mcp_server)
+
 ## 🚀 快速开始
+
+### 📦 软件安装运行
+
+直接下载预编译包使用，无需额外配置：
+
+📥 [前往 GitHub Releases 下载最新版本](https://github.com/TOSTRING-Z/TransMAgent/releases/latest)
+
+> 💡 下载对应平台的压缩包，解压后直接运行可执行文件即可。
+
+### 🔨 编译运行
+
+> 💡 由于版本迭代迅速，建议自行编译以体验最新功能。
+
+编译运行可获取最新功能与性能优化：
 
 ```shell
 # 使用 Node.js 23
@@ -238,6 +260,12 @@ nvm use 23
 # 安装依赖
 pnpm install
 
+# 编译TS代码
+cd src/backend/src
+pnpm run watch
+cd src/frontend/js/main
+pnpm run watch
+
 # 启动应用
 pnpm run start
 
@@ -245,15 +273,13 @@ pnpm run start
 pnpm run dist
 ```
 
-> 💡 由于版本迭代迅速，建议自行编译以体验最新功能。
-
 ## ⚙️ 安装配置
 
 TransMAgent 使用两级配置文件机制：
 
 | 类型 | 路径 | 说明 |
 |------|------|------|
-| 系统默认配置 | `src/backend/configs/config_*.json` | 出厂默认配置 |
+| 系统默认配置 | `~/.transmagent/configs/config_*.json` | 出厂默认配置 |
 | 用户配置 | `~/.transmagent/story.json` | 用户自定义配置（自动创建） |
 
 ### 配置文件加载机制
@@ -275,7 +301,7 @@ TransMAgent 使用两级配置文件机制：
 
 安装完成后，需要进行以下配置：
 
-### 🔧 Agent 参数配置
+### 🔧 MCP 配置
 详见 [mcp_server](biotools/mcp_server)
 
 ### 📦 工具依赖安装
@@ -283,6 +309,14 @@ TransMAgent 使用两级配置文件机制：
 
 ### 🤖 大模型与软件详细配置
 参考 [配置示例](CONFIG.md) 了解 `Ollama 支持` 等高级配置
+
+### 📚 完整文档
+详细使用指南请参阅完整文档：
+
+| 文档类型 | 路径 | 说明 |
+|---------|------|------|
+| **用户指南** | [docs/users/](docs/users) | 详细的安装配置、界面操作、Agent 使用教程 |
+| **开发者文档** | [docs/developer/](docs/developer) | 项目架构、API 文档、开发指南 |
 
 ## 🌐 API 接口
 

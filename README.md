@@ -227,7 +227,29 @@ To meet researchers' one-stop needs, we also integrate:
 - **Ubuntu**: Ubuntu 18.04 or later
 - **macOS**: macOS 10.14 or later
 
+## 🐳 Docker Environment Building
+
+Before using TransMAgent, you need to build the BioTools MCP service environment. BioTools integrates over **30 bioinformatics analysis tools**, using Docker virtualization container technology for secure, isolated cloud and local unified tool calling.
+
+> ⚠️ **Important**: Please complete Docker environment building before software installation or build from source.
+
+For detailed build instructions, see: [BioTools MCP Server Environment Setup Guide](biotools/mcp_server)
+
 ## 🚀 Quick Start
+
+### 📦 Software Installation
+
+Directly download and use pre-built packages, no additional configuration required:
+
+📥 [Go to GitHub Releases to download the latest version](https://github.com/TOSTRING-Z/TransMAgent/releases/latest)
+
+> 💡 Download the compressed package for your platform, extract and run the executable directly.
+
+### 🔨 Build from Source
+
+> 💡 Due to rapid version iterations, we recommend compiling yourself to experience the latest features.
+
+Build from source to get the latest features and performance optimizations:
 
 ```shell
 # Use Node.js 23
@@ -236,14 +258,18 @@ nvm use 23
 # Install dependencies
 pnpm install
 
+# Compile TypeScript code
+cd src/backend/src
+pnpm run watch
+cd src/frontend/js/main
+pnpm run watch
+
 # Start application
 pnpm run start
 
 # Package application
 pnpm run dist
 ```
-
-> 💡 Due to rapid version iterations, we recommend compiling yourself to experience the latest features.
 
 ## ⚙️ Installation Configuration
 
@@ -279,6 +305,14 @@ See [plugins](resources/plugins)
 
 ### 🤖 Large Model and Software Detailed Configuration
 Refer to [Configuration Example](CONFIG.md) for advanced configurations like `Ollama Support`
+
+### 📚 Full Documentation
+For comprehensive usage guides, please refer to the complete documentation:
+
+| Documentation Type | Path | Description |
+|---------|------|------|
+| **User Guide** | [docs/users/](docs/users) | Detailed installation, interface operation, Agent usage tutorials |
+| **Developer Documentation** | [docs/developer/](docs/developer) | Project architecture, API documentation, development guide |
 
 ## 🌐 API Interface
 
