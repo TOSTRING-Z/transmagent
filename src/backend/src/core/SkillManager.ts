@@ -107,12 +107,26 @@ class SkillManager {
   private async loadRemoteSkills(): Promise<void> {
     return new Promise((resolve, reject) => {
       const sshClient = new Client();
+      let isResolved = false;
+
+      // 必须在connect之前设置错误处理，防止'Connection lost before handshake'
+      sshClient.on('error', (err) => {
+        if (!isResolved) {
+          isResolved = true;
+          try { sshClient.end(); } catch {}
+          reject(new Error(`SSH Connection Error: ${err.message}`));
+        }
+      });
 
       sshClient.on('ready', () => {
         sshClient.sftp(async (err, sftp) => {
           if (err) {
-            sshClient.end();
-            return reject(new Error(`SFTP Error: ${err.message}`));
+            if (!isResolved) {
+              isResolved = true;
+              sshClient.end();
+              reject(new Error(`SFTP Error: ${err.message}`));
+            }
+            return;
           }
 
           // 封装 sftp 回调为 Promise
@@ -138,7 +152,12 @@ class SkillManager {
             } catch {
               // 目录不存在则创建
               await mkdirAsync(targetPath);
-              return resolve();
+              if (!isResolved) {
+                isResolved = true;
+                sshClient.end();
+                resolve();
+              }
+              return;
             }
 
             const items = await readdirAsync(targetPath);
@@ -163,17 +182,32 @@ class SkillManager {
                 // 同样忽略没有 SKILL.md 的目录
               }
             }
-            resolve();
+            if (!isResolved) {
+              isResolved = true;
+              sshClient.end();
+              resolve();
+            }
           } catch (error) {
-            console.error(`Failed to load remote skills from ${targetPath}:`, error);
-            reject(error);
-          } finally {
-            sshClient.end();
+            if (!isResolved) {
+              isResolved = true;
+              sshClient.end();
+              console.error(`Failed to load remote skills from ${targetPath}:`, error);
+              reject(error);
+            }
           }
         });
-      }).on('error', (err) => {
-        reject(new Error(`SSH Connection Error: ${err.message}`));
-      }).connect({ ...this.sshConfig, readyTimeout: 20000 } as ConnectConfig);
+      });
+
+      // 确保在error处理之后调用connect
+      try {
+        sshClient.connect({ ...this.sshConfig, readyTimeout: 20000 } as ConnectConfig);
+      } catch (connectErr: any) {
+        if (!isResolved) {
+          isResolved = true;
+          try { sshClient.end(); } catch {}
+          reject(new Error(`SSH Connection Error: ${connectErr.message}`));
+        }
+      }
     });
   }
 
