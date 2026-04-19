@@ -369,7 +369,12 @@ export function main(initialParams: CliExecuteParams = {}) {
                         // 1. 设置远程输出日志文件流
                         finalOutputFilePath = `/tmp/output_${timestamp}_${randomStr}.txt`;
                         outStream = sftp.createWriteStream(finalOutputFilePath, { encoding: 'utf8', flags: 'a' });
-                        outStream.on('error', (err: Error) => logger.warn(`Remote output stream error: ${err.message}`));
+                        outStream.on('error', (err: Error) => {
+                            // SSH命令完成后流关闭是正常的，只在未完成时记录
+                            if (!isResolved) {
+                                logger.warn(`Remote output stream error: ${err.message}`);
+                            }
+                        });
                         logger.log(`Remote output file created: ${finalOutputFilePath}`);
 
                         // 2. 写入并上传执行脚本到远程
@@ -463,7 +468,12 @@ export function main(initialParams: CliExecuteParams = {}) {
                 try {
                     // 1. 设置本地输出日志文件流
                     outStream = fs.createWriteStream(finalOutputFilePath, { encoding: 'utf8', flags: 'a' });
-                    outStream.on('error', (err: Error) => logger.warn(`Local output stream error: ${err.message}`));
+                    outStream.on('error', (err: Error) => {
+                        // 只在未完成时记录，避免正常关闭时的警告
+                        if (!isResolved) {
+                            logger.warn(`Local output stream error: ${err.message}`);
+                        }
+                    });
                     logger.log(`Local output file created: ${finalOutputFilePath}`);
 
                     // 2. 写入本地执行脚本

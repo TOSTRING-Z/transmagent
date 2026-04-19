@@ -342,7 +342,12 @@ function main(initialParams = {}) {
                         // 1. 设置远程输出日志文件流
                         finalOutputFilePath = `/tmp/output_${timestamp}_${randomStr}.txt`;
                         outStream = sftp.createWriteStream(finalOutputFilePath, { encoding: 'utf8', flags: 'a' });
-                        outStream.on('error', (err) => logger_1.logger.warn(`Remote output stream error: ${err.message}`));
+                        outStream.on('error', (err) => {
+                            // SSH命令完成后流关闭是正常的，只在未完成时记录
+                            if (!isResolved) {
+                                logger_1.logger.warn(`Remote output stream error: ${err.message}`);
+                            }
+                        });
                         logger_1.logger.log(`Remote output file created: ${finalOutputFilePath}`);
                         // 2. 写入并上传执行脚本到远程
                         const remoteScriptPath = `/tmp/bash_script_${timestamp}_${randomStr}.sh`;
@@ -432,7 +437,12 @@ function main(initialParams = {}) {
                 try {
                     // 1. 设置本地输出日志文件流
                     outStream = fs.createWriteStream(finalOutputFilePath, { encoding: 'utf8', flags: 'a' });
-                    outStream.on('error', (err) => logger_1.logger.warn(`Local output stream error: ${err.message}`));
+                    outStream.on('error', (err) => {
+                        // 只在未完成时记录，避免正常关闭时的警告
+                        if (!isResolved) {
+                            logger_1.logger.warn(`Local output stream error: ${err.message}`);
+                        }
+                    });
                     logger_1.logger.log(`Local output file created: ${finalOutputFilePath}`);
                     // 2. 写入本地执行脚本
                     fs.writeFileSync(localTempScriptFile, finalCode);
