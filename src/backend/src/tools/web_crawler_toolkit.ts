@@ -4,32 +4,11 @@ import { URL } from 'url';
 import { parse as htmlParse } from 'node-html-parser';
 import * as cheerio from 'cheerio';
 import { logger } from '../utils/logger';
-import globalAgent from 'global-agent';
 import { ToolCall } from '../core/ToolCall';
+import { bootstrapGlobalProxy } from '../utils/proxy';
 
-// --- 初始化全局代理 (必须在所有HTTP请求之前) ---
-function bootstrapGlobalProxy(): void {
-    // 从环境变量获取代理地址
-    const proxyUrl = process.env.https_proxy || process.env.HTTPS_PROXY || 
-                     process.env.http_proxy || process.env.HTTP_PROXY ||
-                     process.env.ALL_PROXY || process.env.all_proxy;
-    
-    if (proxyUrl) {
-        // 设置全局代理环境变量
-        process.env.GLOBAL_AGENT_HTTP_PROXY = proxyUrl;
-        logger.log(`Global proxy bootstrapped: ${proxyUrl}`);
-    }
-    
-    // 初始化 global-agent (自动让所有 HTTP/HTTPS 请求使用代理)
-    (globalAgent as any).bootstrap();
-}
-
-// 立即执行 bootstrap (模块加载时)
-try {
-    bootstrapGlobalProxy();
-} catch (e) {
-    logger.warn('Global proxy bootstrap failed, falling back to direct connection');
-}
+// 初始化全局代理 (必须在所有HTTP请求之前)
+bootstrapGlobalProxy();
 
 
 // --- 类型定义 ---
