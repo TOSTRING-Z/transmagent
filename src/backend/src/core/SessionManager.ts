@@ -99,6 +99,7 @@ export class SessionManager {
         store.set('agentMode', agentMode);
         // 替换当前会话
         const session = this.createSession(this.activeSessionId, agentMode);
+        session.llmService.chatManager.chat.id = this.activeSessionId;
         this.activeSessionId = this.activeSessionId;
         this.activeSession = session;
         this.sessions.set(this.activeSessionId, session);

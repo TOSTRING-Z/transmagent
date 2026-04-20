@@ -3,6 +3,7 @@ import * as path from 'path';
 import { Client, ConnectConfig } from 'ssh2';
 import { Skill } from '../types';
 import { getDefault } from '../utils/public';
+import { logger } from '../utils/logger';
 
 // 定义 SSH 配置项类型
 export interface SshConfig extends ConnectConfig {
@@ -30,7 +31,7 @@ class SkillManager {
       // 远程模式与本地模式使用不同的默认路径
       this.skillsPath = isRemote ? '~/.transmagent/skills' : getDefault("skills");
     }
-    this.loadSkills(); 
+    this.loadSkills();
   }
 
   getSkillsPath() {
@@ -57,7 +58,7 @@ class SkillManager {
         path: folderPath
       };
     } catch (e: any) {
-      console.error(`Failed to parse skill in ${folderName}:`, e);
+      logger.error(`Failed to parse skill in ${folderName}`);
       return null;
     }
   }
@@ -109,11 +110,10 @@ class SkillManager {
       const sshClient = new Client();
       let isResolved = false;
 
-      // 必须在connect之前设置错误处理，防止'Connection lost before handshake'
       sshClient.on('error', (err) => {
         if (!isResolved) {
           isResolved = true;
-          try { sshClient.end(); } catch {}
+          try { sshClient.end(); } catch { }
           reject(new Error(`SSH Connection Error: ${err.message}`));
         }
       });
@@ -135,11 +135,42 @@ class SkillManager {
           const readdirAsync = (p: string) => new Promise<any[]>((res, rej) => sftp.readdir(p, (e, list) => e ? rej(e) : res(list)));
           const readFileAsync = (p: string) => new Promise<Buffer>((res, rej) => sftp.readFile(p, (e, data) => e ? rej(e) : res(data)));
 
+          // 🆕 新增：递归创建目录方法 (等同于 mkdir -p)
+          const mkdirRecursiveAsync = async (targetDir: string) => {
+            const parts = targetDir.split('/');
+            let currentPath = '';
+
+            for (let i = 0; i < parts.length; i++) {
+              const part = parts[i];
+              // 处理绝对路径的根目录 '/'
+              if (i === 0 && part === '') {
+                currentPath = '/';
+                continue;
+              }
+
+              // 逐级拼接路径
+              currentPath = currentPath === '/' ? `/${part}` : (currentPath ? `${currentPath}/${part}` : part);
+
+              // 跳过空路径和当前相对目录 '.'
+              if (!currentPath || currentPath === '.') continue;
+
+              try {
+                await statAsync(currentPath);
+              } catch {
+                // stat 失败说明目录不存在，执行创建
+                try {
+                  await mkdirAsync(currentPath);
+                } catch (mkdirErr: any) {
+                  // 忽略可能由并发创建引发的已存在错误 (SFTP failure code 4)
+                  if (mkdirErr.code !== 4) throw mkdirErr;
+                }
+              }
+            }
+          };
+
           // 统一路径格式为 POSIX 风格
           let rawPath = this.skillsPath.replace(/\\/g, '/');
 
-          // ⚠️ 核心修复：SFTP 协议不支持 '~' 符号展开。
-          // 默认登录目录即为 Home 目录，因此将 '~/' 替换为相对路径 './'
           if (rawPath.startsWith('~/')) {
             rawPath = rawPath.replace('~/', './');
           }
@@ -150,8 +181,9 @@ class SkillManager {
             try {
               await statAsync(targetPath);
             } catch {
-              // 目录不存在则创建
-              await mkdirAsync(targetPath);
+              // ⚠️ 修复点：使用递归创建代替原先的 mkdirAsync
+              await mkdirRecursiveAsync(targetPath);
+
               if (!isResolved) {
                 isResolved = true;
                 sshClient.end();
@@ -179,7 +211,7 @@ class SkillManager {
                   this.skills.push(skill);
                 }
               } catch (readErr) {
-                // 同样忽略没有 SKILL.md 的目录
+                // 忽略没有 SKILL.md 的目录
               }
             }
             if (!isResolved) {
@@ -191,20 +223,19 @@ class SkillManager {
             if (!isResolved) {
               isResolved = true;
               sshClient.end();
-              console.error(`Failed to load remote skills from ${targetPath}:`, error);
+              logger.error(`Failed to load remote skills from ${targetPath}`);
               reject(error);
             }
           }
         });
       });
 
-      // 确保在error处理之后调用connect
       try {
         sshClient.connect({ ...this.sshConfig, readyTimeout: 20000 } as ConnectConfig);
       } catch (connectErr: any) {
         if (!isResolved) {
           isResolved = true;
-          try { sshClient.end(); } catch {}
+          try { sshClient.end(); } catch { }
           reject(new Error(`SSH Connection Error: ${connectErr.message}`));
         }
       }

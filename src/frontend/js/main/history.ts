@@ -118,16 +118,16 @@ export async function confirmRename() {
 }
 
 // Status indicator functions for running sessions
-export function setHistoryRunning(groupId: string) {
-  const item = document.getElementById(groupId);
+export function setHistoryRunning(chatId: string) {
+  const item = document.getElementById(chatId);
   if (item) {
     item.classList.remove('completed');
     item.classList.add('running');
   }
 }
 
-export function setHistoryCompleted(groupId: string) {
-  const item = document.getElementById(groupId);
+export function setHistoryCompleted(chatId: string) {
+  const item = document.getElementById(chatId);
   if (item) {
     item.classList.remove('running');
     item.classList.add('completed');

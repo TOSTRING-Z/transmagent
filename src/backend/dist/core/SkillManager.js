@@ -38,6 +38,7 @@ const fs = __importStar(require("fs"));
 const path = __importStar(require("path"));
 const ssh2_1 = require("ssh2");
 const public_1 = require("../utils/public");
+const logger_1 = require("../utils/logger");
 class SkillManager {
     skillsPath;
     skills;
@@ -79,7 +80,7 @@ class SkillManager {
             };
         }
         catch (e) {
-            console.error(`Failed to parse skill in ${folderName}:`, e);
+            logger_1.logger.error(`Failed to parse skill in ${folderName}`);
             return null;
         }
     }
@@ -127,7 +128,6 @@ class SkillManager {
         return new Promise((resolve, reject) => {
             const sshClient = new ssh2_1.Client();
             let isResolved = false;
-            // 必须在connect之前设置错误处理，防止'Connection lost before handshake'
             sshClient.on('error', (err) => {
                 if (!isResolved) {
                     isResolved = true;
@@ -153,10 +153,40 @@ class SkillManager {
                     const mkdirAsync = (p) => new Promise((res, rej) => sftp.mkdir(p, (e) => e ? rej(e) : res()));
                     const readdirAsync = (p) => new Promise((res, rej) => sftp.readdir(p, (e, list) => e ? rej(e) : res(list)));
                     const readFileAsync = (p) => new Promise((res, rej) => sftp.readFile(p, (e, data) => e ? rej(e) : res(data)));
+                    // 🆕 新增：递归创建目录方法 (等同于 mkdir -p)
+                    const mkdirRecursiveAsync = async (targetDir) => {
+                        const parts = targetDir.split('/');
+                        let currentPath = '';
+                        for (let i = 0; i < parts.length; i++) {
+                            const part = parts[i];
+                            // 处理绝对路径的根目录 '/'
+                            if (i === 0 && part === '') {
+                                currentPath = '/';
+                                continue;
+                            }
+                            // 逐级拼接路径
+                            currentPath = currentPath === '/' ? `/${part}` : (currentPath ? `${currentPath}/${part}` : part);
+                            // 跳过空路径和当前相对目录 '.'
+                            if (!currentPath || currentPath === '.')
+                                continue;
+                            try {
+                                await statAsync(currentPath);
+                            }
+                            catch {
+                                // stat 失败说明目录不存在，执行创建
+                                try {
+                                    await mkdirAsync(currentPath);
+                                }
+                                catch (mkdirErr) {
+                                    // 忽略可能由并发创建引发的已存在错误 (SFTP failure code 4)
+                                    if (mkdirErr.code !== 4)
+                                        throw mkdirErr;
+                                }
+                            }
+                        }
+                    };
                     // 统一路径格式为 POSIX 风格
                     let rawPath = this.skillsPath.replace(/\\/g, '/');
-                    // ⚠️ 核心修复：SFTP 协议不支持 '~' 符号展开。
-                    // 默认登录目录即为 Home 目录，因此将 '~/' 替换为相对路径 './'
                     if (rawPath.startsWith('~/')) {
                         rawPath = rawPath.replace('~/', './');
                     }
@@ -167,8 +197,8 @@ class SkillManager {
                             await statAsync(targetPath);
                         }
                         catch {
-                            // 目录不存在则创建
-                            await mkdirAsync(targetPath);
+                            // ⚠️ 修复点：使用递归创建代替原先的 mkdirAsync
+                            await mkdirRecursiveAsync(targetPath);
                             if (!isResolved) {
                                 isResolved = true;
                                 sshClient.end();
@@ -193,7 +223,7 @@ class SkillManager {
                                 }
                             }
                             catch (readErr) {
-                                // 同样忽略没有 SKILL.md 的目录
+                                // 忽略没有 SKILL.md 的目录
                             }
                         }
                         if (!isResolved) {
@@ -206,13 +236,12 @@ class SkillManager {
                         if (!isResolved) {
                             isResolved = true;
                             sshClient.end();
-                            console.error(`Failed to load remote skills from ${targetPath}:`, error);
+                            logger_1.logger.error(`Failed to load remote skills from ${targetPath}`);
                             reject(error);
                         }
                     }
                 });
             });
-            // 确保在error处理之后调用connect
             try {
                 sshClient.connect({ ...this.sshConfig, readyTimeout: 20000 });
             }
