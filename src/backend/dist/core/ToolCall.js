@@ -52,9 +52,25 @@ const WindowManager_1 = require("../main/windows/WindowManager");
 const LLMAssistant_1 = require("./LLMAssistant");
 const public_1 = require("../utils/public");
 const SkillManager_1 = require("./SkillManager");
+const AgentEventEmitter_1 = require("./AgentEventEmitter");
+const TaskScheduler_1 = require("./TaskScheduler");
+const ExecutionPipeline_1 = require("./ExecutionPipeline");
 const { all, any, not, always } = ToolDSL_1.ToolDSL;
 const { isSubagent, isMode, hasArg } = ToolDSL_1.Primitives;
+const TOOL_POLICY = {
+    'update_env': all(hasArg('env'), not(isMode('PLAN'))),
+    'mcp_server': all(hasArg('mcpTool'), not(isMode('PLAN'))),
+    'add_subtasks': all(hasArg('todolist'), not(any(isMode('PLAN'), isMode('FLASH')))),
+    'record_subtasks': all(hasArg('todolist'), not(any(isMode('PLAN'), isMode('FLASH')))),
+    'context_retrieval': not(isSubagent),
+    'search_long_term_memory': not(isSubagent),
+    'write_important_memory': not(isSubagent),
+    'ask_user': all(not(isSubagent), not(any(isMode('FLASH'), isMode('AUTO')))),
+    'deep_researcher': isMode('PLAN'),
+};
+// ─── ToolCall 主类 ────────────────────────────────────────────────────────────
 class ToolCall extends ReActAgent_1.ReActAgent {
+    // ── 公开属性 ─────────────────────────────────────────────────────────────
     plugins;
     mcp_client;
     agentConfigs;
@@ -74,13 +90,26 @@ class ToolCall extends ReActAgent_1.ReActAgent {
     response_repetitions = [];
     repetitions_delay_empty = 0;
     toolInfos = [];
-    currentToolInfo; // 用于记录当前执行的工具，方便 callReAct 等外部调用读取状态
+    currentToolInfo;
     currentObservation;
-    modeMap = { "auto": ReActAgent_1.Mode.AUTO, "plan": ReActAgent_1.Mode.PLAN, "flash": ReActAgent_1.Mode.FLASH, "act": ReActAgent_1.Mode.ACT };
-    rememberedChoices = {};
+    modeMap = {
+        "auto": ReActAgent_1.Mode.AUTO, "plan": ReActAgent_1.Mode.PLAN, "flash": ReActAgent_1.Mode.FLASH, "act": ReActAgent_1.Mode.ACT,
+    };
     llmAssistant;
     tool_schemas;
     skillManager;
+    // ── 架构新增 ─────────────────────────────────────────────────────────────
+    /** 对外暴露的事件总线：UI 层、测试层均可订阅 */
+    events;
+    /** Electron UI 桥接控制器（仅主进程 Agent） */
+    uiController = null;
+    /** 心跳 / 定时任务调度器（仅非子代理） */
+    scheduler = null;
+    /** 工具执行管道（audit → confirmation → execution） */
+    pipeline;
+    /** 高风险工具已记住的用户选择 */
+    rememberedChoices = {};
+    // ─────────────────────────────────────────────────────────────────────────
     constructor(plugins, agentTools = {}, llmService, window, utils, agentConfigs = {
         agentPrompt: null,
         mcpTool: true,
@@ -108,9 +137,28 @@ class ToolCall extends ReActAgent_1.ReActAgent {
         this.task_prompt = (toolsData) => this.prompts.getSystemPrompts(toolsData);
         this.env_prompt = this.prompts.getEnvPrompts();
         this.todolist_prompt = this.prompts.getTodoListPrompt();
-        // 启动心跳服务
-        this.setupHeartbeat();
+        // 初始化事件总线
+        this.events = new AgentEventEmitter_1.AgentEventEmitter();
+        // 挂载 Electron UI 桥接（仅主进程 Agent）
+        if (window && !agentConfigs.subagent) {
+            this.uiController = new AgentEventEmitter_1.ElectronUIController(this.events, window);
+        }
+        // 启动心跳调度器（仅非子代理）
+        if (!agentConfigs.subagent) {
+            this.scheduler = new TaskScheduler_1.TaskScheduler(this);
+            this.scheduler.start();
+        }
+        // 构建执行管道
+        this.buildPipeline();
     }
+    // ─── ISchedulableAgent 接口实现 ──────────────────────────────────────────
+    getChatVars() {
+        return this.llmService.chatManager.chat.vars ?? {};
+    }
+    getChatUUID() {
+        return this.llmService.chatManager.uuid ?? '';
+    }
+    // ─── 初始化与生命周期 ─────────────────────────────────────────────────────
     initVar() {
         this.state = ReActAgent_1.State.IDLE;
         this.memory_list = [];
@@ -128,53 +176,77 @@ class ToolCall extends ReActAgent_1.ReActAgent {
             todolist: null,
         };
     }
-    heartbeatIntervalId = null;
-    setupHeartbeat() {
-        if (this.agentConfigs.subagent)
-            return;
-        // 清除现有的心跳定时器
-        if (this.heartbeatIntervalId) {
-            clearInterval(this.heartbeatIntervalId);
-            this.heartbeatIntervalId = null;
-            logger_1.logger.log("[Heartbeat] Existing heartbeat interval cleared");
-        }
-        const heartbeat = (0, public_1.getDefaultConfig)("heartbeat");
-        const interval = heartbeat?.interval || 60; // 默认60秒
-        logger_1.logger.log(`[Heartbeat] Heartbeat service initialized. Interval: ${interval}s`);
-        this.heartbeatIntervalId = setInterval(async () => {
-            let hasRecurringTasks = false;
-            try {
-                const chatVars = this.llmService.chatManager.chat.vars;
-                if (chatVars && chatVars.tasks) {
-                    // 优化：只要存在 recurring 任务，不论它是 active 还是 wait，都必须保持心跳
-                    // 否则任务一旦完成一次，心跳就死了，永远无法触发下一轮
-                    hasRecurringTasks = Object.values(chatVars.tasks).some((task) => task.type === "recurring");
-                }
-            }
-            catch (e) {
-                logger_1.logger.error("[Heartbeat] Error checking recurring tasks:", e);
-            }
-            const shouldEnableHeartbeat = hasRecurringTasks || (heartbeat && heartbeat.enabled);
-            // 确保代理当前处于空闲状态，避免打断正在执行的任务
-            if ((this.state === ReActAgent_1.State.IDLE || this.state === ReActAgent_1.State.FINAL) && shouldEnableHeartbeat) {
-                try {
-                    const time = this.llmService.environment_details.time || new Date().toISOString();
-                    // 优化：极具针对性的唤醒提示词，直接命令代理去检查时间差
-                    const query = `[SYSTEM HEARTBEAT @ ${time}] Evaluate your recurring tasks. If a task's trigger_condition is met, initiate the next cycle. If NO tasks are due, respond EXACTLY with [STANDBY].`;
-                    logger_1.logger.log(`[Heartbeat] Triggering ReAct loop at ${time}`);
-                    const data = this.getDataDefault({ query });
-                    data.uuid = this.llmService.chatManager.uuid;
-                    this.callReAct(data, false);
-                }
-                catch (e) {
-                    console.error("[Heartbeat] Execution failed:", e);
-                }
-            }
-        }, interval * 1000);
-    }
     /**
-     * 获取工具配置
+     * 构建（或重建）执行管道：audit → confirmation → execution
+     * 三层中间件各自独立，可单独测试，新增拦截只需 .use(newMW)。
      */
+    buildPipeline() {
+        const getChatPayload = () => ({ ...this.llmService.chatManager.chat });
+        // 1. 审计中间件
+        const auditMW = (0, ExecutionPipeline_1.createAuditMiddleware)((toolInfo, data) => this.llmAssistant.auditToolCall(toolInfo, data, this), (message, chatPayload, uuid) => {
+            this.llmService.chatManager.pushToolMessage({
+                ...chatPayload,
+                content: `⚠️ **Security Intercept**: ${message}`,
+                uuid,
+            });
+            this.events.emitEvent('securityIntercept', { ...chatPayload, message, uuid });
+        }, getChatPayload);
+        // 2. 确认中间件（Human-in-the-loop）
+        const gate = {
+            isRequired: (toolName) => !!this.getToolConfig(toolName)?.require_confirmation &&
+                this.llmService.environment_details.mode === ReActAgent_1.Mode.ACT,
+            isAvailable: () => !!WindowManager_1.WindowManager.instance?.confirmationWindow,
+            getRememberedChoice: (name) => this.getRememberedChoice(name),
+            setRememberedChoice: (name, confirmed) => this.setRememberedChoice(name, confirmed),
+            buildRequest: (toolInfo) => {
+                const toolName = toolInfo.tool_call_name;
+                const toolConfig = this.getToolConfig(toolName);
+                let toolDescription = '';
+                try {
+                    const prompt = this.tools[toolName]?.getPrompt?.();
+                    if (prompt?.description)
+                        toolDescription = prompt.description;
+                }
+                catch { /* ignore */ }
+                return {
+                    toolId: toolInfo.tool_call_id || '',
+                    toolName,
+                    toolDescription,
+                    confirmationMessage: toolConfig?.confirmation_message || `即将执行高风险工具: ${toolName}`,
+                    executionDetails: toolInfo.params,
+                };
+            },
+            showConfirmation: (req) => WindowManager_1.WindowManager.instance.confirmationWindow.showConfirmation(req)
+                .then(r => ({ confirmed: r.confirmed, rememberChoice: r.rememberChoice ?? false })),
+        };
+        const confirmMW = (0, ExecutionPipeline_1.createConfirmationMiddleware)(gate, (message, chatPayload, uuid) => {
+            this.llmService.chatManager.pushToolMessage({
+                ...chatPayload, content: message, uuid,
+            });
+            this.events.emitEvent('streamData', {
+                ...chatPayload,
+                content: `\n\n---\n\n❌ **执行取消**: ${message}`,
+                uuid,
+            });
+        }, getChatPayload);
+        // 3. 执行中间件（管道末端）
+        const executeMW = (0, ExecutionPipeline_1.createExecutionMiddleware)((toolInfo) => this.act(toolInfo), (obs, toolInfo, data) => this.handleToolObservation(obs, toolInfo, data), () => this.state === ReActAgent_1.State.PAUSE);
+        this.pipeline = new ExecutionPipeline_1.ExecutionPipeline()
+            .use(auditMW)
+            .use(confirmMW)
+            .use(executeMW);
+    }
+    /** 更新 Electron 窗口引用（主窗口重建时调用） */
+    setWindow(window) {
+        this.window = window;
+        this.uiController?.setWindow(window);
+    }
+    /** 销毁 Agent，释放定时器与事件监听 */
+    destroy() {
+        this.scheduler?.stop();
+        this.uiController?.destroy();
+    }
+    // ─── 工具配置 ─────────────────────────────────────────────────────────────
     getToolConfig(toolName) {
         if (!this.plugins)
             return null;
@@ -186,22 +258,7 @@ class ToolCall extends ReActAgent_1.ReActAgent {
         this.changeMode(this.llmService.chatManager.chat.mode, false);
     }
     getToolsPrompt() {
-        // --- 工具策略注册表 ---
-        // 在这里声明每个工具在什么条件下允许被使用
-        const TOOL_POLICY = {
-            'update_env': all(hasArg('env'), not(isMode('PLAN'))),
-            'mcp_server': all(hasArg('mcpTool'), not(isMode('PLAN'))),
-            'add_subtasks': all(hasArg('todolist'), not(any(isMode('PLAN'), isMode('FLASH')))),
-            'record_subtasks': all(hasArg('todolist'), not(any(isMode('PLAN'), isMode('FLASH')))),
-            'context_retrieval': not(isSubagent),
-            'search_long_term_memory': not(isSubagent),
-            'write_important_memory': not(isSubagent),
-            'ask_user': all(not(isSubagent), not(any(isMode('FLASH'), isMode('AUTO')))),
-            // PLAN 模式专用：深度研究工具
-            'deep_researcher': isMode('PLAN'),
-        };
-        // --- 核心类方法中的逻辑 ---
-        // 1. 工具与插件初始化 (保持原有逻辑)
+        // 1. 工具初始化
         if (this.plugins && !this.agentConfigs.subagent) {
             this.plugins.loadInit();
             this.tools = { ...this.plugins.getTool(), ...this.agentTools, ...this.baseTools };
@@ -211,42 +268,36 @@ class ToolCall extends ReActAgent_1.ReActAgent {
         }
         let agentConfigs = { ...this.agentConfigs };
         const toolCallConfig = this.utils.getConfig("tool_call");
-        if (!toolCallConfig.todolist_message) {
+        if (!toolCallConfig.todolist_message)
             agentConfigs.todolist = false;
-        }
-        if (!toolCallConfig.env_message) {
+        if (!toolCallConfig.env_message)
             agentConfigs.env = false;
-        }
-        // 2. 组装上下文 (供 DSL 校验使用)
+        // 2. DSL 校验上下文
         const context = {
             args: agentConfigs || {},
             env: this.llmService.environment_details || {},
             modes: ReActAgent_1.Mode || {},
             isSubagent: !!this.agentConfigs?.subagent,
-            currentMode: this.llmService.environment_details?.mode
+            currentMode: this.llmService.environment_details?.mode,
         };
         const format = this.llmService.chatManager.chat.tool_format;
-        // 3. 流水线处理：过滤 -> 提取Schema -> 格式化
+        // 3. 过滤 → 提取 Schema → 格式化
         this.tool_schemas = Object.entries(this.tools)
             .filter(([key, tool]) => {
-            // 步骤 A: 基础校验 (是否有 getPrompt 方法，是否被显式禁用)
             if (!tool?.getPrompt)
                 return false;
             if (tool.enabled === false && !context.isSubagent)
                 return false;
-            // 步骤 B: 策略校验 (查表执行 DSL 规则)
-            const policy = TOOL_POLICY[key] || always;
+            const policy = TOOL_POLICY[key] ?? always;
             return policy(context);
         })
             .map(([key, tool]) => {
             const schemaOrStr = tool.getPrompt();
             if (context.currentMode === context.modes.PLAN) {
-                // PLAN 模式过滤：移除风险工具 + 普通子代理工具，保留 deepresearch
                 const toolConfig = this.getToolConfig(key);
                 const requireConfirmation = !!toolConfig?.require_confirmation;
                 const isSubagentTool = Object.keys(this.agentTools).includes(key);
                 const isDeepresearch = key === 'deep_researcher';
-                // deepresearch 允许在 PLAN 模式使用
                 return !requireConfirmation && (!isSubagentTool || isDeepresearch) ? schemaOrStr : null;
             }
             if (typeof schemaOrStr === 'string') {
@@ -263,6 +314,7 @@ class ToolCall extends ReActAgent_1.ReActAgent {
         const adapter = AdapterFactory_1.ToolCallAdapterFactory.getAdapter(format);
         return adapter.formatTools(this.tool_schemas);
     }
+    // ─── 记忆管理 ─────────────────────────────────────────────────────────────
     async saveLongTermMemory(user_content, final_answer) {
         try {
             if (user_content && final_answer) {
@@ -305,13 +357,14 @@ class ToolCall extends ReActAgent_1.ReActAgent {
         this.llmService.environment_details.todolist = todolist.join("\n");
         this.llmService.environment_details.envs = envs.length > 0 ? envs.join("\n") : "";
         this.llmService.environment_details.skills = this.skillManager.getSkillDescription();
-        if (this.agentConfigs.env && this.utils.getConfig("tool_call")?.env_message) {
+        const toolCallConfig = this.utils.getConfig("tool_call");
+        if (this.agentConfigs.env && toolCallConfig.env_message) {
             data.env_message = (0, format_1.formatString)(this.env_prompt, this.llmService.environment_details);
         }
         else {
             data.env_message = null;
         }
-        if (this.agentConfigs.todolist && this.utils.getConfig("tool_call")?.todolist_message) {
+        if (this.agentConfigs.todolist && toolCallConfig.todolist_message) {
             data.todolist_message = (0, format_1.formatString)(this.todolist_prompt, this.llmService.environment_details);
         }
         else {
@@ -324,29 +377,30 @@ class ToolCall extends ReActAgent_1.ReActAgent {
         this.llmService.environment_details.mode = selectedMode;
         this.llmService.environment_details.mode_constraint = Prompts_1.MODE_CONSTRAINTS[selectedMode];
         this.llmService.chatManager.chat.mode = shortMode;
-        if (!this.agentConfigs.subagent && saveHistory) {
+        if (!this.agentConfigs.subagent && saveHistory)
             this.setHistory();
-        }
     }
-    /**
-     * 获取已记住的工具选择
-     */
+    // ─── 高风险工具记忆选择 ───────────────────────────────────────────────────
     getRememberedChoice(toolName) {
-        if (this.rememberedChoices.hasOwnProperty(toolName)) {
-            return this.rememberedChoices[toolName];
-        }
-        return null;
+        return this.rememberedChoices.hasOwnProperty(toolName)
+            ? this.rememberedChoices[toolName]
+            : null;
     }
-    /**
-     * 记住工具选择
-     */
     setRememberedChoice(toolName, confirmed) {
         this.rememberedChoices[toolName] = confirmed;
     }
+    // ─── step()：单轮 ReAct 步骤 ──────────────────────────────────────────────
+    /**
+     * 职责划分（重构后）：
+     * 1. MCP 初始化 / 环境更新 / System Prompt 构建
+     * 2. LLM 调用，获取 toolInfos
+     * 3. 重复响应检测（loop guard）
+     * 4. 遍历 toolInfos → pipeline（audit → confirmation → execution）
+     * 5. Token 上限检测
+     */
     async step(data) {
-        if (this.state === ReActAgent_1.State.IDLE) {
+        if (this.state === ReActAgent_1.State.IDLE)
             this.state = ReActAgent_1.State.RUNNING;
-        }
         if (!this.mcp_prompt) {
             await this.mcp_client.initMcp();
             this.mcp_prompt = this.mcp_client.mcpPrompt;
@@ -356,240 +410,153 @@ class ToolCall extends ReActAgent_1.ReActAgent {
         this.memoryUpdate(data);
         data.prompt = await this.system_prompt();
         const messageOutput = await this.llmCall(data);
-        if (messageOutput) {
-            this.toolInfos = await this.getToolInfos(data, messageOutput);
-        }
-        else {
+        if (!messageOutput)
             return;
-        }
+        this.toolInfos = await this.getToolInfos(data, messageOutput);
         if (!this.toolInfos || this.toolInfos.length === 0) {
             logger_1.logger.error(`Tool Info Error`);
-            this.window?.webContents.send('infoData', {
+            this.events.emitEvent('infoData', {
                 ...this.llmService.chatManager.chat,
                 content: `Tool Info Error\n`,
-                uuid: data.uuid
+                uuid: data.uuid,
             });
             return;
         }
-        ; // 容错处理
-        // 1. 记录与重复检测
+        // ── 重复响应检测 ────────────────────────────────────────────────────
         const currentResponse = JSON.stringify(this.toolInfos);
-        if (this.response_repetitions.length === 0 || this.response_repetitions[this.response_repetitions.length - 1] === currentResponse) {
+        if (this.response_repetitions.length === 0 ||
+            this.response_repetitions[this.response_repetitions.length - 1] === currentResponse) {
             this.response_repetitions.push(currentResponse);
             this.repetitions_delay_empty = 0;
         }
         else {
             this.repetitions_delay_empty += 1;
-            if (this.repetitions_delay_empty >= (this.utils.getConfig("tool_call")?.repetitions_delay_empty || 1)) {
+            const delayThreshold = this.utils.getConfig("tool_call")?.repetitions_delay_empty ?? 1;
+            if (this.repetitions_delay_empty >= delayThreshold) {
                 this.response_repetitions = [currentResponse];
                 this.repetitions_delay_empty = 0;
             }
         }
-        if (this.response_repetitions.length > (this.utils.getConfig("tool_call")?.max_response_repetitions || 5)) {
-            const error_message = `Detected repetitive response: "${currentResponse}". Repetition count: ${this.response_repetitions.length}`;
+        const maxRepetitions = this.utils.getConfig("tool_call")?.max_response_repetitions ?? 5;
+        if (this.response_repetitions.length > maxRepetitions) {
+            const error_message = `Detected repetitive response: "${currentResponse}". ` +
+                `Repetition count: ${this.response_repetitions.length}`;
             logger_1.logger.warn(error_message);
             this.llmService.chatManager.pushAssistantMessage({
-                ...this.llmService.chatManager.chat,
-                content: error_message,
-                uuid: data.uuid
+                ...this.llmService.chatManager.chat, content: error_message, uuid: data.uuid,
             });
-            this.window?.webContents.send('streamData', {
-                ...this.llmService.chatManager.chat,
-                content: error_message,
-                uuid: data.uuid,
-                end: true
+            this.events.emitEvent('streamData', {
+                ...this.llmService.chatManager.chat, content: error_message, uuid: data.uuid, end: true,
             });
             this.state = ReActAgent_1.State.ERROR;
             return;
         }
+        // ── 消息类型判断 ────────────────────────────────────────────────────
         const hasTool = this.toolInfos.some(t => t.tool_call_name);
         const hasError = this.toolInfos.some(t => t.error);
         if (hasTool || hasError) {
-            this.llmService.chatManager.pushAssistantMessageWithToolCalls({ ...this.llmService.chatManager.chat, ...messageOutput, uuid: data.uuid });
+            this.llmService.chatManager.pushAssistantMessageWithToolCalls({
+                ...this.llmService.chatManager.chat, ...messageOutput, uuid: data.uuid,
+            });
         }
-        // 纯思考结束流程
         else {
-            this.llmService.chatManager.pushAssistantMessage({ ...this.llmService.chatManager.chat, ...messageOutput, uuid: data.uuid });
-            this.window?.webContents.send('streamData', { ...this.llmService.chatManager.chat, ...messageOutput, uuid: data.uuid, end: true });
+            // 纯思考，直接结束本轮
+            this.llmService.chatManager.pushAssistantMessage({
+                ...this.llmService.chatManager.chat, ...messageOutput, uuid: data.uuid,
+            });
+            this.events.emitEvent('streamData', {
+                ...this.llmService.chatManager.chat, ...messageOutput, uuid: data.uuid, end: true,
+            });
             this.state = ReActAgent_1.State.FINAL;
             return;
         }
-        // 3. 循环并发遍历所有工具 (依次执行，确保上下文有序)
-        let content;
-        let reasoning_content;
-        let formatContent;
-        let formatReasoningContent;
+        // ── 遍历 toolInfos，每个工具经管道执行 ─────────────────────────────
+        let prevContent;
+        let prevReasoningContent;
         for (let j = 0; j < this.toolInfos.length; j++) {
             const toolInfo = this.toolInfos[j];
             if (!toolInfo.tool_call_name)
                 continue;
-            this.currentToolInfo = toolInfo; // 更新当前状态引用，供 callReAct 等外部断点恢复使用
-            // 发送美化的任务开始提示
+            this.currentToolInfo = toolInfo;
+            // 发送任务开始提示
             const taskNumber = String(j + 1).padStart(2, '0');
-            if (toolInfo.content && toolInfo.content !== content) {
-                formatContent = toolInfo.content;
-                content = toolInfo.content;
-            }
-            else {
-                formatContent = toolInfo.tool_call_name;
-            }
-            if (toolInfo.reasoning_content && toolInfo.reasoning_content !== reasoning_content) {
-                formatReasoningContent = toolInfo.reasoning_content;
-                reasoning_content = toolInfo.reasoning_content;
-            }
-            this.window?.webContents.send('streamData', {
+            const displayContent = (toolInfo.content && toolInfo.content !== prevContent)
+                ? toolInfo.content
+                : toolInfo.tool_call_name;
+            const displayReasoning = (toolInfo.reasoning_content && toolInfo.reasoning_content !== prevReasoningContent)
+                ? toolInfo.reasoning_content
+                : undefined;
+            if (toolInfo.content)
+                prevContent = toolInfo.content;
+            if (toolInfo.reasoning_content)
+                prevReasoningContent = toolInfo.reasoning_content;
+            this.events.emitEvent('toolStart', {
                 ...this.llmService.chatManager.chat,
-                content: `\n\n- 📋 **Task ${taskNumber}** | ${formatContent}`,
-                reasoning_content: formatReasoningContent,
-                uuid: data.uuid
+                taskNumber,
+                content: displayContent,
+                reasoning_content: displayReasoning,
+                uuid: data.uuid,
             });
-            // [1. 解析错误处理]
+            // 解析错误直接 continue
             if (toolInfo.error) {
                 this.llmService.chatManager.pushToolMessage({
-                    ...toolInfo, ...this.llmService.chatManager.chat, uuid: data.uuid
+                    ...toolInfo, ...this.llmService.chatManager.chat, uuid: data.uuid,
                 });
-                this.window?.webContents.send('streamData', {
-                    ...this.llmService.chatManager.chat,
-                    content: toolInfo.error,
-                    uuid: data.uuid
+                this.events.emitEvent('streamData', {
+                    ...this.llmService.chatManager.chat, content: toolInfo.error, uuid: data.uuid,
                 });
-                continue; // 当前工具执行失败，继续尝试数组中的下一个工具
+                continue;
             }
-            // [2. 触发 AI 审查者 (Critic)]
-            let auditError = await this.llmAssistant.auditToolCall(toolInfo, data, this);
-            if (auditError) {
-                this.llmService.chatManager.pushToolMessage({
-                    ...toolInfo, ...this.llmService.chatManager.chat, content: `⚠️ **Security Intercept**: ${auditError}`, uuid: data.uuid
-                });
-                this.window?.webContents.send('streamData', {
-                    ...this.llmService.chatManager.chat,
-                    content: `\n\n---\n\n⚠️ **Security Intercept**: ${auditError}`,
-                    uuid: data.uuid
-                });
-                continue; // 终止当前风险工具，继续执行数组中下一个工具
+            // 经管道执行：audit → confirmation → execution
+            const ctx = new ExecutionPipeline_1.ExecutionContext(toolInfo, data);
+            try {
+                await this.pipeline.execute(ctx);
             }
-            // [3. 高风险工具确认逻辑]
-            const toolConfig = this.getToolConfig(toolInfo.tool_call_name);
-            const requireConfirmation = !!toolConfig?.require_confirmation;
-            if (requireConfirmation && WindowManager_1.WindowManager.instance?.confirmationWindow && this.llmService.environment_details.mode === ReActAgent_1.Mode.ACT) {
-                let toolDescription = '';
-                const toolName = toolInfo.tool_call_name;
-                // 检查是否有已记住的选择
-                const rememberedChoice = this.getRememberedChoice(toolName);
-                if (rememberedChoice !== null) {
-                    if (rememberedChoice) {
-                        let observation = await this.act(toolInfo);
-                        this.handleToolObservation(observation, toolInfo, data);
-                    }
-                    else {
-                        const cancelMessage = `用户取消了高风险工具 ${toolInfo.tool_call_name} 的执行（已记住的选择）`;
-                        this.llmService.chatManager.pushToolMessage({
-                            ...toolInfo, ...this.llmService.chatManager.chat, content: cancelMessage, uuid: data.uuid
-                        });
-                        this.window?.webContents.send('streamData', {
-                            ...this.llmService.chatManager.chat,
-                            content: `\n\n---\n\n❌ **执行取消**: ${cancelMessage}`,
-                            uuid: data.uuid
-                        });
-                    }
-                    // 如果工具触发了暂停（如提问等），打断并发遍历
-                    if (this.state === ReActAgent_1.State.PAUSE)
-                        break;
-                    continue; // 跳过确认窗口，处理下一个工具
-                }
-                // 尝试从工具定义中获取描述
-                if (this.tools[toolName] && this.tools[toolName].getPrompt) {
-                    try {
-                        const promptInfo = this.tools[toolName].getPrompt();
-                        if (promptInfo && promptInfo.description) {
-                            toolDescription = promptInfo.description;
-                        }
-                    }
-                    catch (error) {
-                        console.warn(`Failed to get description for tool ${toolName}:`, error);
-                    }
-                }
-                const finalConfirmationMessage = toolConfig?.confirmation_message || `即将执行高风险工具: ${toolName}`;
-                // 创建确认请求
-                const confirmationRequest = {
-                    toolId: toolInfo.tool_call_id || '',
-                    toolName: toolName,
-                    toolDescription: toolDescription,
-                    confirmationMessage: finalConfirmationMessage,
-                    executionDetails: toolInfo.params
-                };
-                try {
-                    // 挂起并等待用户在 Electron 弹窗响应
-                    const response = await WindowManager_1.WindowManager.instance.confirmationWindow.showConfirmation(confirmationRequest);
-                    if (response.rememberChoice) {
-                        this.setRememberedChoice(toolName, response.confirmed);
-                    }
-                    if (response.confirmed) {
-                        let observation = await this.act(toolInfo);
-                        this.handleToolObservation(observation, toolInfo, data);
-                    }
-                    else {
-                        const cancelMessage = `用户取消了高风险工具 ${toolInfo.tool_call_name} 的执行`;
-                        this.llmService.chatManager.pushToolMessage({
-                            ...toolInfo, ...this.llmService.chatManager.chat, content: cancelMessage, uuid: data.uuid
-                        });
-                        this.window?.webContents.send('streamData', {
-                            ...this.llmService.chatManager.chat,
-                            content: `\n\n---\n\n❌ **执行取消**: ${cancelMessage}`,
-                            uuid: data.uuid
-                        });
-                    }
-                }
-                catch (error) {
-                    console.error("确认窗口错误:", error);
-                    // 如果确认窗口本身出错（IPC 崩溃等），默认放行执行
-                    let observation = await this.act(toolInfo);
-                    this.handleToolObservation(observation, toolInfo, data);
-                }
-                // 状态机流转：如果弹窗后执行的工具（或回调）让状态变成了暂停，直接跳出并发循环
-                if (this.state === ReActAgent_1.State.PAUSE)
-                    break;
-                continue; // 处理完毕当前高风险工具，进行下一个
+            catch (err) {
+                logger_1.logger.error(`[Pipeline] Unhandled error for tool "${toolInfo.tool_call_name}":`, err);
             }
-            // [4. 标准工具安全执行]
-            let observation = await this.act(toolInfo);
-            this.handleToolObservation(observation, toolInfo, data);
-            // [关键防御点]：如果当前工具（例如 ask_user）需要挂起等待用户回复，必须立刻阻断后续工具的并发执行
-            if (this.state === ReActAgent_1.State.PAUSE) {
+            // 管道要求挂起整个循环（ask_user 等）
+            if (ctx.suspendLoop || this.state === ReActAgent_1.State.PAUSE)
                 break;
-            }
         }
-        if (this.llmService.chatManager.chat.tokens >= this.llmService.chatManager.chat.max_tokens) {
+        // ── Token 上限检测 ───────────────────────────────────────────────────
+        const chat = this.llmService.chatManager.chat;
+        if (chat.tokens >= chat.max_tokens) {
             this.llmAssistant.kvCacheSummary();
-            this.llmService.chatManager.chat.long_memory_length = Math.floor(this.llmService.chatManager.chat.long_memory_length / 2);
-            this.llmService.chatManager.chat.memory_length = Math.floor(this.llmService.chatManager.chat.memory_length / 2);
+            chat.long_memory_length = Math.floor(chat.long_memory_length / 2);
+            chat.memory_length = Math.floor(chat.memory_length / 2);
         }
     }
+    // ─── getToolInfos ─────────────────────────────────────────────────────────
     async getToolInfos(data, assistantMessage) {
         const adapter = AdapterFactory_1.ToolCallAdapterFactory.getAdapter(this.llmService.chatManager.chat.tool_format);
         const toolInfos = adapter.getToolInfos(assistantMessage);
-        // 网络或内容容错处理
-        if (toolInfos.length === 1 && !toolInfos[0].content && !toolInfos[0].reasoning_content && !toolInfos[0].tool_call_name)
+        // 网络 / 内容容错
+        if (toolInfos.length === 1 &&
+            !toolInfos[0].content &&
+            !toolInfos[0].reasoning_content &&
+            !toolInfos[0].tool_call_name)
             return [];
-        let toolInfoStr = JSON.stringify(toolInfos, null, 2);
-        data.output_format = toolInfoStr;
-        this.window?.webContents.send('infoData', {
+        data.output_format = JSON.stringify(toolInfos, null, 2);
+        this.events.emitEvent('infoData', {
             ...this.llmService.chatManager.chat,
             content: this.getInfo(data),
-            uuid: data.uuid
+            uuid: data.uuid,
         });
         return toolInfos;
     }
+    // ─── act()：执行单个工具 ──────────────────────────────────────────────────
     async act(toolInfo) {
         let observation;
         let checkInterval = null;
         try {
-            if (!this.tool_schemas || !this.tool_schemas.map(tool => tool.name).includes(toolInfo.tool_call_name)) {
+            if (!this.tool_schemas ||
+                !this.tool_schemas.map(t => t.name).includes(toolInfo.tool_call_name)) {
                 return { result: "Tool does not exist." };
             }
             const will_tool = this.tools[toolInfo.tool_call_name].func;
+            // 用户中断监听器
             const stopWatcher = new Promise((_, reject) => {
-                // 这里正常赋值给 checkInterval
                 checkInterval = setInterval(() => {
                     if (this.llmService.stopFlag) {
                         if (checkInterval)
@@ -598,32 +565,26 @@ class ToolCall extends ReActAgent_1.ReActAgent {
                     }
                 }, 300);
             });
-            // 2. 包装工具的执行
-            const executePromise = will_tool({ ...toolInfo?.params, toolCall: this }).then(res => {
-                // 防御性检查：即使执行完了，如果此时标记为停止，也按中断处理
+            // 工具执行
+            const executePromise = will_tool({ ...toolInfo?.params, toolCall: this }).then((res) => {
                 if (this.llmService.stopFlag)
                     throw new Error("INTERRUPTED_BY_USER");
                 return res;
             });
-            // 3. 竞速：谁先完成/报错，就返回谁的结果
             const response = await Promise.race([executePromise, stopWatcher]);
-            let result;
-            if (response?.subagent_tool) {
-                result = response.content;
-            }
-            else {
-                result = typeof response === 'string' ? response : JSON.stringify(response, null, 2);
-            }
+            const result = response?.subagent_tool
+                ? response.content
+                : (typeof response === 'string' ? response : JSON.stringify(response, null, 2));
             observation = {
-                result: result,
+                result,
                 ask: response?.ask,
                 options: response?.options,
-                subagent_tool: response?.subagent_tool
+                subagent_tool: response?.subagent_tool,
             };
         }
         catch (error) {
             if (error.message === "INTERRUPTED_BY_USER") {
-                console.log(`[ToolCall] Tool execution ${toolInfo.tool_call_name} was forcefully interrupted.`);
+                logger_1.logger.log(`[ToolCall] Tool "${toolInfo.tool_call_name}" interrupted by user.`);
                 observation = { result: "Execution stopped by user." };
             }
             else {
@@ -632,157 +593,147 @@ class ToolCall extends ReActAgent_1.ReActAgent {
             }
         }
         finally {
-            // 重要：无论工具是正常执行完还是被强制中断，都必须清理定时器防止内存泄漏
             if (checkInterval)
                 clearInterval(checkInterval);
         }
         this.currentObservation = observation;
         return observation;
     }
+    // ─── handleToolObservation()：统一处理工具执行结果 ───────────────────────
     handleToolObservation(observation, toolInfo, data) {
-        // Ensure toolInfo exists
         if (!toolInfo) {
             console.error("toolInfo is undefined in handleToolObservation");
             return;
         }
-        switch (toolInfo?.tool_call_name) {
+        const chat = this.llmService.chatManager.chat;
+        // 特殊工具的 UI 渲染差异
+        switch (toolInfo.tool_call_name) {
             case "display_file":
-                this.window?.webContents.send('streamData', {
-                    ...this.llmService.chatManager.chat,
-                    content: `\n\n${observation.result}`,
-                    uuid: data.uuid
+                this.events.emitEvent('streamData', {
+                    ...chat, content: `\n\n${observation.result}`, uuid: data.uuid,
                 });
                 break;
             case "add_subtasks":
             case "record_subtasks":
-                this.window?.webContents.send('streamData', {
-                    ...this.llmService.chatManager.chat,
+                this.events.emitEvent('streamData', {
+                    ...chat,
                     content: `\n\n\`\`\`json\n${observation.result}\n\`\`\``,
-                    uuid: data.uuid
+                    uuid: data.uuid,
                 });
                 break;
         }
         if (observation.subagent_tool) {
-            this.window?.webContents.send('streamData', {
-                ...this.llmService.chatManager.chat,
-                content: `\n\n${observation.result}`,
-                uuid: data.uuid
+            this.events.emitEvent('streamData', {
+                ...chat, content: `\n\n${observation.result}`, uuid: data.uuid,
             });
         }
         if (this.state === ReActAgent_1.State.PAUSE) {
-            const { ask, options } = observation;
-            this.window?.webContents.send('streamData', {
-                ...this.llmService.chatManager.chat,
-                content: `\n\n${ask}`,
-                uuid: data.uuid,
-                end: true
+            // ask_user：输出问题并挂起等待
+            this.events.emitEvent('streamData', {
+                ...chat, content: `\n\n${observation.ask}`, uuid: data.uuid, end: true,
             });
-            this.window?.webContents.send('handleOptions', {
-                ...this.llmService.chatManager.chat,
-                ...toolInfo,
-                options: options,
-                uuid: data.uuid
+            this.events.emitEvent('handleOptions', {
+                ...chat, ...toolInfo, options: observation.options, uuid: data.uuid,
             });
         }
         else if (this.state === ReActAgent_1.State.FINAL) {
             this.llmService.chatManager.pushToolMessage({
-                ...this.llmService.chatManager.chat,
-                ...toolInfo,
-                content: observation.result,
-                uuid: data.uuid
+                ...chat, ...toolInfo, content: observation.result, uuid: data.uuid,
             });
-            this.window?.webContents.send('streamData', {
-                ...this.llmService.chatManager.chat,
-                content: `\n\n${observation.result}`,
-                uuid: data.uuid,
-                end: true
+            this.events.emitEvent('streamData', {
+                ...chat, content: `\n\n${observation.result}`, uuid: data.uuid, end: true,
             });
         }
         else {
             this.llmService.chatManager.pushToolMessage({
-                ...this.llmService.chatManager.chat,
-                ...toolInfo,
-                content: observation.result,
-                uuid: data.uuid
+                ...chat, ...toolInfo, content: observation.result, uuid: data.uuid,
             });
-            this.window?.webContents.send('infoData', {
-                ...this.llmService.chatManager.chat,
+            this.events.emitEvent('infoData', {
+                ...chat,
                 content: this.getInfo({ output_format: observation.result }),
-                uuid: data.uuid
+                uuid: data.uuid,
             });
         }
     }
+    // ─── callReAct()：ReAct 主循环 ───────────────────────────────────────────
     async callReAct(data, setUUID = true) {
         if (setUUID)
             this.setUUID(data);
+        const chat = this.llmService.chatManager.chat;
         if (this.state === ReActAgent_1.State.PAUSE) {
+            // 从挂起状态恢复：注入用户回复
             data.role = "tool";
-            let context_id = `${this.llmService.chatManager.chat.group_id}${this.llmService.chatManager.chat.step - 1}`;
+            const context_id = `${chat.group_id}${chat.step - 1}`;
             this.llmService.chatManager.pushToolMessage({
-                ...this.currentToolInfo,
-                ...this.llmService.chatManager.chat,
-                context_id: context_id,
-                content: data.query,
-                uuid: data.uuid
+                ...this.currentToolInfo, ...chat, context_id, content: data.query, uuid: data.uuid,
             });
-            this.window?.webContents.send('toolData', { ...this.llmService.chatManager.chat, content: `\n\n---\n\n${data.query}`, uuid: data.uuid });
+            this.events.emitEvent('toolData', {
+                ...chat, content: `\n\n---\n\n${data.query}`, uuid: data.uuid,
+            });
         }
         else {
-            this.llmService.chatManager.chat.step = 1;
-            this.llmService.chatManager.chat.group_id = String((new Date()).getTime());
-            this.llmService.chatManager.chat.context_id = `${this.llmService.chatManager.chat.group_id}${this.llmService.chatManager.chat.step}`;
+            // 全新对话轮次
             data.role = "user";
+            chat.step = 1;
+            chat.group_id = String(Date.now());
+            chat.context_id = `${chat.group_id}${chat.step}`;
             this.llmService.chatManager.fixMessages();
-            this.llmService.chatManager.pushUserMessage({ ...this.llmService.chatManager.chat, content: data.query, uuid: data.uuid });
-            this.window?.webContents.send('userData', { ...this.llmService.chatManager.chat, content: data.query, uuid: data.uuid });
+            this.llmService.chatManager.pushUserMessage({
+                ...chat, content: data.query, uuid: data.uuid,
+            });
+            this.events.emitEvent('userData', {
+                ...chat, content: data.query, uuid: data.uuid,
+            });
         }
-        this.window?.webContents.send('agentRunning', { ...this.llmService.chatManager.chat, uuid: data.uuid });
+        this.events.emitEvent('agentRunning', { ...chat, uuid: data.uuid });
         this.state = ReActAgent_1.State.IDLE;
-        let tool_call = this.utils.getConfig("tool_call");
-        this.llmService.chatManager.chat.seconds = 0;
+        chat.seconds = 0;
+        const tool_call = this.utils.getConfig("tool_call");
+        // ── ReAct 主循环 ──────────────────────────────────────────────────────
         while (this.state === ReActAgent_1.State.IDLE || this.state === ReActAgent_1.State.RUNNING) {
-            // 延时1s，避免过快进入死循环
             await new Promise(resolve => setTimeout(resolve, 1000));
             if (this.llmService.stopFlag) {
                 this.state = ReActAgent_1.State.FINAL;
-                this.window?.webContents.send('streamData', { group_id: this.llmService.chatManager.chat.group_id, end: true, uuid: data.uuid });
+                this.events.emitEvent('streamData', {
+                    group_id: chat.group_id, end: true, uuid: data.uuid,
+                });
                 break;
             }
-            if (data?.max_step && this.llmService.chatManager.chat.step > data.max_step)
+            if (data?.max_step && chat.step > data.max_step)
                 break;
-            data = { ...data, ...tool_call, step: this.llmService.chatManager.chat.step, tools: this.getToolsPrompt(), react: true };
-            // 记录开始时间
-            const startSeconds = Date.now() / 1000;
+            data = {
+                ...data, ...tool_call,
+                step: chat.step,
+                tools: this.getToolsPrompt(),
+                react: true,
+            };
+            const t0 = Date.now() / 1000;
             await this.step(data);
-            // 记录结束时间
-            const endSeconds = Date.now() / 1000;
-            this.llmService.chatManager.chat.seconds += (endSeconds - startSeconds);
-            this.llmService.chatManager.chat.step++;
-            this.llmService.chatManager.chat.context_id = `${this.llmService.chatManager.chat.group_id}${this.llmService.chatManager.chat.step}`;
-            const currentChatName = this.llmService.chatManager.chat.name;
-            if (!currentChatName || currentChatName === globals_1.CHAT_CONST.DEFAULT_NAME) {
+            chat.seconds += (Date.now() / 1000 - t0);
+            chat.step++;
+            chat.context_id = `${chat.group_id}${chat.step}`;
+            // 自动命名对话
+            if (!chat.name || chat.name === globals_1.CHAT_CONST.DEFAULT_NAME) {
                 await this.setChatName(data).then(() => {
-                    if (this.llmService.chatManager.chat.name && this.llmService.chatManager.chat.name !== globals_1.CHAT_CONST.DEFAULT_NAME) {
-                        this.window?.webContents.send('handleRenameChat', { ...this.llmService.chatManager.chat, uuid: data.uuid });
+                    if (chat.name && chat.name !== globals_1.CHAT_CONST.DEFAULT_NAME) {
+                        this.events.emitEvent('handleRenameChat', { ...chat, uuid: data.uuid });
                     }
                 });
             }
-            if (!this.agentConfigs.subagent) {
+            if (!this.agentConfigs.subagent)
                 this.setHistory();
-            }
         }
+        // ── 循环结束后的清理 ──────────────────────────────────────────────────
         if (this.state === ReActAgent_1.State.FINAL || this.state === ReActAgent_1.State.ERROR) {
             if (!this.agentConfigs.subagent) {
                 this.setHistory();
-                // 整理记忆文件
                 this.llmAssistant.organizeMemory().catch(err => {
                     logger_1.logger.warn(`[ToolCall] Memory organization failed: ${err}`);
                 });
             }
         }
         if (!this.agentConfigs.subagent) {
-            // chat.id存在时会添加蓝色完成标志 （仅允许callReAct循环完成添加）
-            this.window?.webContents.send('agentIdle', { ...this.llmService.chatManager.chat, uuid: data.uuid });
+            this.events.emitEvent('agentIdle', { ...chat, uuid: data.uuid });
             this.sendData(data);
         }
         return data;

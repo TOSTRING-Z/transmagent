@@ -9,6 +9,8 @@ import { LLMAssistant } from './LLMAssistant';
 import { Utils } from './Utils';
 import { BrowserWindow } from 'electron/main';
 import { SkillManager } from './SkillManager';
+import { AgentEventEmitter } from './AgentEventEmitter';
+import { ISchedulableAgent } from './TaskScheduler';
 export interface Observation {
     result: string;
     options?: string[];
@@ -39,7 +41,7 @@ export interface EnvironmentDetails {
     todolist: string | null;
     skills?: string;
 }
-export declare class ToolCall extends ReActAgent {
+export declare class ToolCall extends ReActAgent implements ISchedulableAgent {
     plugins: Plugins;
     mcp_client: MCPClient;
     agentConfigs: AgentConfigs;
@@ -62,17 +64,32 @@ export declare class ToolCall extends ReActAgent {
     currentToolInfo: ToolInfo | undefined;
     currentObservation: Observation | undefined;
     modeMap: Record<string, Mode>;
-    private rememberedChoices;
     llmAssistant: LLMAssistant;
     tool_schemas?: any[];
     skillManager: SkillManager;
+    /** 对外暴露的事件总线：UI 层、测试层均可订阅 */
+    readonly events: AgentEventEmitter;
+    /** Electron UI 桥接控制器（仅主进程 Agent） */
+    private uiController;
+    /** 心跳 / 定时任务调度器（仅非子代理） */
+    private scheduler;
+    /** 工具执行管道（audit → confirmation → execution） */
+    private pipeline;
+    /** 高风险工具已记住的用户选择 */
+    private rememberedChoices;
     constructor(plugins: Plugins, agentTools: Record<string, any> | undefined, llmService: LLMService, window: BrowserWindow | null, utils: Utils, agentConfigs?: AgentConfigs);
+    getChatVars(): Record<string, any>;
+    getChatUUID(): string;
     initVar(): void;
-    private heartbeatIntervalId;
-    setupHeartbeat(): void;
     /**
-     * 获取工具配置
+     * 构建（或重建）执行管道：audit → confirmation → execution
+     * 三层中间件各自独立，可单独测试，新增拦截只需 .use(newMW)。
      */
+    private buildPipeline;
+    /** 更新 Electron 窗口引用（主窗口重建时调用） */
+    setWindow(window: BrowserWindow | null): void;
+    /** 销毁 Agent，释放定时器与事件监听 */
+    destroy(): void;
     getToolConfig(toolName: string): any;
     loadMessage(filePath: string, id?: string): void;
     getToolsPrompt(): any;
@@ -80,14 +97,16 @@ export declare class ToolCall extends ReActAgent {
     memoryUpdate(data: Record<string, any>): void;
     environmentUpdate(data: Record<string, any>): void;
     changeMode(mode?: string | null, saveHistory?: boolean): void;
-    /**
-     * 获取已记住的工具选择
-     */
     private getRememberedChoice;
-    /**
-     * 记住工具选择
-     */
     private setRememberedChoice;
+    /**
+     * 职责划分（重构后）：
+     * 1. MCP 初始化 / 环境更新 / System Prompt 构建
+     * 2. LLM 调用，获取 toolInfos
+     * 3. 重复响应检测（loop guard）
+     * 4. 遍历 toolInfos → pipeline（audit → confirmation → execution）
+     * 5. Token 上限检测
+     */
     step(data: Record<string, any>): Promise<void>;
     getToolInfos(data: Record<string, any>, assistantMessage: AssistantMessage): Promise<ToolInfo[]>;
     act(toolInfo: ToolInfo): Promise<Observation>;

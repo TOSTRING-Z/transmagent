@@ -3,7 +3,8 @@ export const ToolDSL = {
     all: (...fns) => (ctx) => fns.every(fn => fn(ctx)),
     any: (...fns) => (ctx) => fns.some(fn => fn(ctx)),
     not: (fn) => (ctx) => !fn(ctx),
-    always: () => true
+    /** 始终返回 true 的断言函数，签名与其他 DSL 原语一致 */
+    always: () => (_?: any) => true
 };
 
 // --- 2. 领域原语 (基础条件) ---
