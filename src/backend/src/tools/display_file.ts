@@ -12,7 +12,7 @@ export interface DisplayOptions {
     line_count?: string | number; // 相对读取行数
     max_chars_per_line?: string | number; // 消除歧义的命名
     max_cols?: string | number;
-    format?: string; 
+    format?: string;
 }
 
 export interface NormalizedOptions {
@@ -163,53 +163,39 @@ class DisplayFile {
     ): Promise<string> {
         return new Promise((resolve, reject) => {
             const conn = new Client();
-            let isResolved = false;
-            const timeoutId = setTimeout(() => {
-                if (!isResolved) {
-                    isResolved = true;
-                    cleanup();
-                    reject(new Error('SSH stream timeout (>30s)'));
-                }
-            }, 30000);
-
-            const cleanup = () => {
-                clearTimeout(timeoutId);
-                try { conn.end(); } catch {}
-            };
-
-            // 关键：捕获SSH连接错误，防止未捕获异常
-            conn.on('error', (err) => {
-                if (!isResolved) {
-                    isResolved = true;
-                    cleanup();
-                    // 忽略连接关闭相关的错误
-                    if (err.message?.includes('closed') || err.message?.includes('No response') || err.message?.includes('ECONNRESET')) {
-                        resolve(''); // 假设连接已关闭
-                    } else {
-                        reject(err);
-                    }
-                }
-            });
-
+            const cleanup = () => { if (conn) conn.end(); };
             const endLine = startLine + lineCount - 1;
+
+            // 👉 ADD THIS: Handle top-level connection errors
+            conn.on('error', (err) => {
+                cleanup();
+                reject(err);
+            });
 
             conn.on('ready', () => {
                 conn.sftp((err, sftp) => {
-                    if (err) {
-                        if (!isResolved) {
-                            isResolved = true;
-                            cleanup();
-                            reject(err);
-                        }
-                        return;
-                    }
+                    if (err) { cleanup(); return reject(err); }
+
+                    // 👉 ADD THIS: Handle SFTP subsystem errors
+                    sftp.on('error', (sftpErr) => {
+                        cleanup();
+                        reject(sftpErr);
+                    });
 
                     const stream = sftp.createReadStream(remotePath, { encoding: 'utf8' });
+
+                    // 👉 ADD THIS: Handle stream-level read errors
+                    stream.on('error', (streamErr) => {
+                        cleanup();
+                        reject(streamErr);
+                    });
+
                     const rl = readline.createInterface({ input: stream, crlfDelay: Infinity });
 
                     const lines: string[] = [];
                     let lineIdx = 0;
 
+                    // ... (rest of your existing readline logic remains the same)
                     rl.on('line', (line) => {
                         lineIdx++;
                         if (lineIdx < startLine) return;
@@ -225,32 +211,10 @@ class DisplayFile {
                     rl.on('close', () => {
                         stream.destroy();
                         cleanup();
-                        if (!isResolved) {
-                            isResolved = true;
-                            resolve(this._formatOutput(lines, startLine, endLine, totalLines, type));
-                        }
-                    });
-
-                    // 处理流错误
-                    stream.on('error', (err: Error) => {
-                        if (!isResolved) {
-                            isResolved = true;
-                            cleanup();
-                            reject(err);
-                        }
-                    });
-
-                    stream.on('close', () => {
-                        if (!isResolved) {
-                            isResolved = true;
-                            cleanup();
-                            resolve(this._formatOutput(lines, startLine, endLine, totalLines, type));
-                        }
+                        resolve(this._formatOutput(lines, startLine, endLine, totalLines, type));
                     });
                 });
-            });
-
-            conn.connect({ ...sshConfig, readyTimeout: 20000 });
+            }).connect(sshConfig);
         });
     }
 
@@ -305,7 +269,7 @@ class DisplayFile {
         const content = lines.join('\n');
         const showEnd = Math.min(end, total);
         let info = `\n\n...[Showing lines ${start}-${showEnd} of ${total} total lines]`;
-        
+
         if (total > showEnd) {
             info += `\n[ATTENTION]: File is too long. To read more, call display_file with start_line=${showEnd + 1}.`;
         }
@@ -355,13 +319,6 @@ class DisplayFile {
         return 'text';
     }
 
-    private _formatFileSize(bytes: number): string {
-        const units = ['B', 'KB', 'MB', 'GB'];
-        let i = 0;
-        while (bytes >= 1024 && i < units.length - 1) { bytes /= 1024; i++; }
-        return `${bytes.toFixed(2)} ${units[i]}`;
-    }
-
     private async _downloadViaSSH(remotePath: string, localPath: string, sshConfig: any): Promise<void> {
         return new Promise((resolve, reject) => {
             const conn = new Client();
@@ -372,14 +329,13 @@ class DisplayFile {
 
             const cleanup = () => {
                 clearTimeout(timeoutId);
-                try { conn.end(); } catch {}
+                try { conn.end(); } catch { }
             };
 
             conn.on('error', (err) => {
                 cleanup();
-                // 忽略连接关闭错误
                 if (err.message?.includes('closed') || err.message?.includes('No response')) {
-                    resolve(); // 文件可能已下载完成
+                    resolve();
                 } else {
                     reject(err);
                 }
@@ -392,11 +348,19 @@ class DisplayFile {
                         return reject(err);
                     }
 
-                    sftp.fastGet(remotePath, localPath, (err) => {
+                    // 👉 ADD THIS: Catch internal SFTP errors to prevent unhandled exceptions
+                    sftp.on('error', (sftpErr: any) => {
                         cleanup();
-                        // 处理 'No response from server' 错误
+                        if (sftpErr.message?.includes('No response') || sftpErr.code === 'ERR_SSH_CONNECTION_CLOSED') {
+                            resolve();
+                        } else {
+                            reject(sftpErr);
+                        }
+                    });
+
+                    sftp.fastGet(remotePath, localPath, (err: any) => {
+                        cleanup();
                         if (err && (err.message?.includes('No response') || err.code === 'ERR_SSH_CONNECTION_CLOSED')) {
-                            // 假设文件已下载成功，只是连接异常关闭
                             resolve();
                         } else if (err) {
                             reject(err);
@@ -426,7 +390,7 @@ export function main(params?: { local_path?: string }) {
     return async function (args: { file_path: string, toolCall: ToolCall; } & DisplayOptions) {
         const display = new DisplayFile(params?.local_path);
         const result = await display.display(args.file_path, args.toolCall, args);
-        
+
         // 核心修复：坚决剥离 JSON 外壳，只向大模型输出纯 Markdown 文本
         if (result.success) {
             return result.content;
@@ -446,10 +410,10 @@ export function getPrompt() {
             "properties": {
                 "file_path": { "type": "string", "description": "Absolute path." },
                 "start_line": { "type": "integer", "default": 1, "description": "Line number to start reading from." },
-                "line_count": { 
-                    "type": "integer", 
-                    "default": 10, 
-                    "description": "Number of lines to read. Defaults to 10. Max allowed is 500. Large files MUST be read in chunks." 
+                "line_count": {
+                    "type": "integer",
+                    "default": 10,
+                    "description": "Number of lines to read. Defaults to 10. Max allowed is 500. Large files MUST be read in chunks."
                 },
                 "max_chars_per_line": { "type": "integer", "default": 500, "description": "Truncates long lines to prevent context overflow." },
                 "format": { "type": "string", "enum": ["auto", "text", "table", "markdown"], "default": "auto" }

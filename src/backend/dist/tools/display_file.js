@@ -164,50 +164,35 @@ class DisplayFile {
     _streamRemoteText(remotePath, sshConfig, { startLine, lineCount, maxCharsPerLine }, type, totalLines) {
         return new Promise((resolve, reject) => {
             const conn = new ssh2_1.Client();
-            let isResolved = false;
-            const timeoutId = setTimeout(() => {
-                if (!isResolved) {
-                    isResolved = true;
-                    cleanup();
-                    reject(new Error('SSH stream timeout (>30s)'));
-                }
-            }, 30000);
-            const cleanup = () => {
-                clearTimeout(timeoutId);
-                try {
-                    conn.end();
-                }
-                catch { }
-            };
-            // 关键：捕获SSH连接错误，防止未捕获异常
-            conn.on('error', (err) => {
-                if (!isResolved) {
-                    isResolved = true;
-                    cleanup();
-                    // 忽略连接关闭相关的错误
-                    if (err.message?.includes('closed') || err.message?.includes('No response') || err.message?.includes('ECONNRESET')) {
-                        resolve(''); // 假设连接已关闭
-                    }
-                    else {
-                        reject(err);
-                    }
-                }
-            });
+            const cleanup = () => { if (conn)
+                conn.end(); };
             const endLine = startLine + lineCount - 1;
+            // 👉 ADD THIS: Handle top-level connection errors
+            conn.on('error', (err) => {
+                cleanup();
+                reject(err);
+            });
             conn.on('ready', () => {
                 conn.sftp((err, sftp) => {
                     if (err) {
-                        if (!isResolved) {
-                            isResolved = true;
-                            cleanup();
-                            reject(err);
-                        }
-                        return;
+                        cleanup();
+                        return reject(err);
                     }
+                    // 👉 ADD THIS: Handle SFTP subsystem errors
+                    sftp.on('error', (sftpErr) => {
+                        cleanup();
+                        reject(sftpErr);
+                    });
                     const stream = sftp.createReadStream(remotePath, { encoding: 'utf8' });
+                    // 👉 ADD THIS: Handle stream-level read errors
+                    stream.on('error', (streamErr) => {
+                        cleanup();
+                        reject(streamErr);
+                    });
                     const rl = readline.createInterface({ input: stream, crlfDelay: Infinity });
                     const lines = [];
                     let lineIdx = 0;
+                    // ... (rest of your existing readline logic remains the same)
                     rl.on('line', (line) => {
                         lineIdx++;
                         if (lineIdx < startLine)
@@ -225,29 +210,10 @@ class DisplayFile {
                     rl.on('close', () => {
                         stream.destroy();
                         cleanup();
-                        if (!isResolved) {
-                            isResolved = true;
-                            resolve(this._formatOutput(lines, startLine, endLine, totalLines, type));
-                        }
-                    });
-                    // 处理流错误
-                    stream.on('error', (err) => {
-                        if (!isResolved) {
-                            isResolved = true;
-                            cleanup();
-                            reject(err);
-                        }
-                    });
-                    stream.on('close', () => {
-                        if (!isResolved) {
-                            isResolved = true;
-                            cleanup();
-                            resolve(this._formatOutput(lines, startLine, endLine, totalLines, type));
-                        }
+                        resolve(this._formatOutput(lines, startLine, endLine, totalLines, type));
                     });
                 });
-            });
-            conn.connect({ ...sshConfig, readyTimeout: 20000 });
+            }).connect(sshConfig);
         });
     }
     async _processLocalFile(filePath, options, totalLines) {
@@ -350,15 +316,6 @@ class DisplayFile {
             return 'markdown';
         return 'text';
     }
-    _formatFileSize(bytes) {
-        const units = ['B', 'KB', 'MB', 'GB'];
-        let i = 0;
-        while (bytes >= 1024 && i < units.length - 1) {
-            bytes /= 1024;
-            i++;
-        }
-        return `${bytes.toFixed(2)} ${units[i]}`;
-    }
     async _downloadViaSSH(remotePath, localPath, sshConfig) {
         return new Promise((resolve, reject) => {
             const conn = new ssh2_1.Client();
@@ -375,9 +332,8 @@ class DisplayFile {
             };
             conn.on('error', (err) => {
                 cleanup();
-                // 忽略连接关闭错误
                 if (err.message?.includes('closed') || err.message?.includes('No response')) {
-                    resolve(); // 文件可能已下载完成
+                    resolve();
                 }
                 else {
                     reject(err);
@@ -389,11 +345,19 @@ class DisplayFile {
                         cleanup();
                         return reject(err);
                     }
+                    // 👉 ADD THIS: Catch internal SFTP errors to prevent unhandled exceptions
+                    sftp.on('error', (sftpErr) => {
+                        cleanup();
+                        if (sftpErr.message?.includes('No response') || sftpErr.code === 'ERR_SSH_CONNECTION_CLOSED') {
+                            resolve();
+                        }
+                        else {
+                            reject(sftpErr);
+                        }
+                    });
                     sftp.fastGet(remotePath, localPath, (err) => {
                         cleanup();
-                        // 处理 'No response from server' 错误
                         if (err && (err.message?.includes('No response') || err.code === 'ERR_SSH_CONNECTION_CLOSED')) {
-                            // 假设文件已下载成功，只是连接异常关闭
                             resolve();
                         }
                         else if (err) {
