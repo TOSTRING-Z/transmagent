@@ -162,7 +162,7 @@
         "maxResults": 20,
         "source": "all"
       },
-      "enabled": true,
+      "enabled": false,
       "show": true,
       "require_confirmation": false,
       "confirmation_message": "即将搜索学术文献，是否继续？"

@@ -161,7 +161,7 @@ STRICT RULES:
     // ==================== 工具审计功能 ====================
 
     public isToolRequireAudit(toolName: string, toolCall: ToolCall): boolean {
-        return toolCall.getToolConfig(toolName)?.require_audit === true || (toolCall.llmService.environment_details.mode !== Mode.FLASH && toolName in toolCall.agentTools);
+        return toolCall.getToolConfig(toolName)?.require_audit === true;
     }
 
     public async auditToolCall(toolInfo: ToolInfo, data: Record<string, any>, toolCall: ToolCall): Promise<string | null> {
