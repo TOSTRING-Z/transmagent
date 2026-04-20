@@ -4,7 +4,6 @@ export interface DisplayOptions {
     line_count?: string | number;
     max_chars_per_line?: string | number;
     max_cols?: string | number;
-    format?: string;
 }
 export interface NormalizedOptions {
     startLine: number;
@@ -49,11 +48,6 @@ export declare function getPrompt(): {
                 type: string;
                 default: number;
                 description: string;
-            };
-            format: {
-                type: string;
-                enum: string[];
-                default: string;
             };
         };
         required: string[];

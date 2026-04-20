@@ -54,9 +54,8 @@ class DisplayFile {
         const normalizedOptions = this._normalizeOptions(options);
         const sshConfig = toolCall.utils.getSshConfig();
         const isRemote = !!(sshConfig?.enabled && sshConfig?.host);
-        const actualFileType = normalizedOptions.fileType === 'auto'
-            ? this._detectFileType(filePath)
-            : normalizedOptions.fileType;
+        // 移除 format 参数后，直接根据文件后缀自动检测类型
+        const actualFileType = this._detectFileType(filePath);
         normalizedOptions.fileType = actualFileType;
         // 获取总行数 (感知文件长度的核心)
         const totalLines = await this._getTotalLines(filePath, isRemote, sshConfig);
@@ -106,7 +105,7 @@ class DisplayFile {
         return result;
     }
     _normalizeOptions(raw) {
-        const { start_line, line_count, max_chars_per_line, max_cols, format } = raw;
+        const { start_line, line_count, max_chars_per_line, max_cols } = raw;
         const start = Math.max(1, parseInt(start_line) || 1);
         let count = parseInt(line_count) || 10; // 默认读取 10 行
         // 强制安全上限
@@ -119,7 +118,7 @@ class DisplayFile {
             lineCount: count,
             maxCharsPerLine: parseInt(max_chars_per_line) || 500,
             maxCols: max_cols !== undefined ? parseInt(max_cols) : 20,
-            fileType: format || 'auto'
+            fileType: 'auto'
         };
     }
     /**
@@ -167,7 +166,6 @@ class DisplayFile {
             const cleanup = () => { if (conn)
                 conn.end(); };
             const endLine = startLine + lineCount - 1;
-            // 👉 ADD THIS: Handle top-level connection errors
             conn.on('error', (err) => {
                 cleanup();
                 reject(err);
@@ -178,13 +176,11 @@ class DisplayFile {
                         cleanup();
                         return reject(err);
                     }
-                    // 👉 ADD THIS: Handle SFTP subsystem errors
                     sftp.on('error', (sftpErr) => {
                         cleanup();
                         reject(sftpErr);
                     });
                     const stream = sftp.createReadStream(remotePath, { encoding: 'utf8' });
-                    // 👉 ADD THIS: Handle stream-level read errors
                     stream.on('error', (streamErr) => {
                         cleanup();
                         reject(streamErr);
@@ -192,7 +188,6 @@ class DisplayFile {
                     const rl = readline.createInterface({ input: stream, crlfDelay: Infinity });
                     const lines = [];
                     let lineIdx = 0;
-                    // ... (rest of your existing readline logic remains the same)
                     rl.on('line', (line) => {
                         lineIdx++;
                         if (lineIdx < startLine)
@@ -260,7 +255,7 @@ class DisplayFile {
             });
             rl.on('close', () => {
                 stream.destroy();
-                resolve(this._formatOutput(lines, startLine, endLine, totalLines, fileType === 'auto' ? 'text' : fileType));
+                resolve(this._formatOutput(lines, startLine, endLine, totalLines, fileType));
             });
         });
     }
@@ -274,7 +269,6 @@ class DisplayFile {
         const wrap = type === 'markdown' ? content : `\`\`\`${type}\n${content}\n\`\`\``;
         return wrap + info;
     }
-    // 表格处理逻辑保持精简...
     async _handleCSV(filePath, { startLine, lineCount, maxCharsPerLine, maxCols }, totalLines) {
         const stream = fs.createReadStream(filePath, { encoding: 'utf8' });
         const rl = readline.createInterface({ input: stream, crlfDelay: Infinity });
@@ -284,7 +278,7 @@ class DisplayFile {
         const endLine = startLine + lineCount;
         for await (const line of rl) {
             lineIdx++;
-            const cols = line.split(','); // 简化演示
+            const cols = line.split(',');
             if (lineIdx === 1) {
                 headers = maxCols > 0 ? cols.slice(0, maxCols) : cols;
                 continue;
@@ -345,7 +339,6 @@ class DisplayFile {
                         cleanup();
                         return reject(err);
                     }
-                    // 👉 ADD THIS: Catch internal SFTP errors to prevent unhandled exceptions
                     sftp.on('error', (sftpErr) => {
                         cleanup();
                         if (sftpErr.message?.includes('No response') || sftpErr.code === 'ERR_SSH_CONNECTION_CLOSED') {
@@ -386,12 +379,10 @@ function main(params) {
     return async function (args) {
         const display = new DisplayFile(params?.local_path);
         const result = await display.display(args.file_path, args.toolCall, args);
-        // 核心修复：坚决剥离 JSON 外壳，只向大模型输出纯 Markdown 文本
         if (result.success) {
             return result.content;
         }
         else {
-            // 发生错误时，也使用 Markdown 格式返回明确的报错信息
             return `> **Error reading file:** ${result.error}\n> Path: \`${args.file_path}\``;
         }
     };
@@ -399,19 +390,29 @@ function main(params) {
 function getPrompt() {
     return {
         "name": "display_file",
-        "description": "Reads file content with mandatory pagination and length awareness. Useful for code review and log analysis.",
+        "description": "Reads file content with mandatory pagination. CRITICAL: For text-based files (code, logs, CSV, MD), it returns actual readable text content. For visual/binary files (images, PDFs), it ONLY returns markdown formatted links for UI rendering/display, and CANNOT extract internal text or pixels.",
         "parameters": {
             "type": "object",
             "properties": {
-                "file_path": { "type": "string", "description": "Absolute path." },
-                "start_line": { "type": "integer", "default": 1, "description": "Line number to start reading from." },
+                "file_path": {
+                    "type": "string",
+                    "description": "Absolute path to the file."
+                },
+                "start_line": {
+                    "type": "integer",
+                    "default": 1,
+                    "description": "Line number to start reading from. (Ignored for images/PDFs)"
+                },
                 "line_count": {
                     "type": "integer",
                     "default": 10,
-                    "description": "Number of lines to read. Defaults to 10. Max allowed is 500. Large files MUST be read in chunks."
+                    "description": "Number of lines to read. Defaults to 10. Max allowed is 500. Large files MUST be read in chunks. (Ignored for images/PDFs)"
                 },
-                "max_chars_per_line": { "type": "integer", "default": 500, "description": "Truncates long lines to prevent context overflow." },
-                "format": { "type": "string", "enum": ["auto", "text", "table", "markdown"], "default": "auto" }
+                "max_chars_per_line": {
+                    "type": "integer",
+                    "default": 500,
+                    "description": "Truncates long lines to prevent context overflow. (Ignored for images/PDFs)"
+                }
             },
             "required": ["file_path"]
         }
