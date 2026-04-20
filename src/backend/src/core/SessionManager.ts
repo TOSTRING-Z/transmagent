@@ -145,7 +145,7 @@ export class SessionManager {
             mcpTool = false;
             mcpPrompt = false;
             skill = false;
-            agentTools = { ...subAgent.getAgentTools() };
+            agentTools = { ...subAgent.getMainSubAgent() };
         }
 
         agentTools["deep_researcher"] = subAgent.getMainSubAgent()["deep_researcher"];

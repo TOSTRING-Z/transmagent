@@ -125,7 +125,7 @@ class SessionManager {
             mcpTool = false;
             mcpPrompt = false;
             skill = false;
-            agentTools = { ...subAgent.getAgentTools() };
+            agentTools = { ...subAgent.getMainSubAgent() };
         }
         agentTools["deep_researcher"] = subAgent.getMainSubAgent()["deep_researcher"];
         const tool_call = new ToolCall_1.ToolCall(plugins, agentTools, llmService, this.window, utils, {
