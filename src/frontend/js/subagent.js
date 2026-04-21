@@ -39,7 +39,6 @@
   // main/state.ts
   var State = {
     uuid: null,
-    markdown_statu: true,
     chat: {},
     scroll_top: {
       info: true,
@@ -338,15 +337,15 @@ $$
   marked.use({ walkTokens, renderer, async: true, extensions: [thinkExtension] });
 
   // main/history.ts
-  function setHistoryRunning(groupId) {
-    const item = document.getElementById(groupId);
+  function setHistoryRunning(chatId) {
+    const item = document.getElementById(chatId);
     if (item) {
       item.classList.remove("completed");
       item.classList.add("running");
     }
   }
-  function setHistoryCompleted(groupId) {
-    const item = document.getElementById(groupId);
+  function setHistoryCompleted(chatId) {
+    const item = document.getElementById(chatId);
     if (item) {
       item.classList.remove("running");
       item.classList.add("completed");

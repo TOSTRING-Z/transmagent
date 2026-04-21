@@ -308,7 +308,7 @@ class MainWindow extends BaseWindow_1.BaseWindow {
                                         });
                                         writeStream.on('close', () => {
                                             conn.end();
-                                            this.window?.webContents.send('upload-progress', { state: "end", remotePath });
+                                            this.window?.webContents.send('upload-progress', { state: "end", filePath: remotePath });
                                         });
                                         writeStream.on('error', (err) => {
                                             conn.end();
@@ -320,11 +320,15 @@ class MainWindow extends BaseWindow_1.BaseWindow {
                                     this.window?.webContents.send('upload-progress', { state: "error", error: err.message });
                                 }).connect(ssh_config);
                             }
-                            else
-                                resolve(filePath);
+                            else {
+                                this.window?.webContents.send('upload-progress', { state: "end", filePath });
+                            }
+                            ;
                         }
-                        else
-                            resolve(filePath);
+                        else {
+                            this.window?.webContents.send('upload-progress', { state: "end", filePath });
+                        }
+                        ;
                     }
                 }).catch(err => reject(err));
             });
@@ -492,10 +496,8 @@ class MainWindow extends BaseWindow_1.BaseWindow {
                 this.window?.webContents.send("extra_load", e.statu && this.session().plugins.getTool[this.sessionManager.getChat()?.version]?.extra);
             }
             else {
-                const ssh_config = this.session().utils.getSshConfig();
                 let extra = [{ "type": "act-plan" }];
-                if (ssh_config?.enabled)
-                    extra.push({ "type": "file-upload" });
+                extra.push({ "type": "file-upload" });
                 this.window?.webContents.send("extra_load", e.statu ? extra : this.session().utils.getConfig("extra"));
             }
         };
@@ -688,11 +690,11 @@ class MainWindow extends BaseWindow_1.BaseWindow {
             {
                 label: "Function Selection",
                 submenu: [
-                    { click: this.funcItems.text.click, label: 'Text Formatting', type: 'checkbox', checked: this.funcItems.text.statu },
-                    { click: this.funcItems.clip.click, label: 'Copy Tool', type: 'checkbox', checked: this.funcItems.clip.statu },
                     { click: this.funcItems.del.click, label: 'Delete Mode', type: 'checkbox', checked: this.funcItems.del.statu },
-                    { type: 'separator' },
                     { click: this.funcItems.silent.click, label: 'Silent Mode', type: 'checkbox', checked: this.funcItems.silent.statu },
+                    { type: 'separator' },
+                    { click: this.funcItems.clip.click, label: 'Copy Tool', type: 'checkbox', checked: this.funcItems.clip.statu },
+                    { click: this.funcItems.text.click, label: 'Text Formatting', type: 'checkbox', checked: this.funcItems.text.statu },
                 ]
             },
             {

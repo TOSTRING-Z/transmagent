@@ -221,7 +221,16 @@ class DisplayFile {
                 content = await this._handleCSV(filePath, options, totalLines);
             }
             else if (['image', 'pdf'].includes(options.fileType)) {
-                content = `![${path.basename(filePath)}](${path.resolve(filePath)})`;
+                // --- 修改开始 ---
+                // 1. 统一正斜杠，防止 Windows 路径在 Markdown 中被转义
+                const resolvedPath = path.resolve(filePath).replace(/\\/g, '/');
+                // 2. 使用 encodeURI 对空格（变为 %20）和中文字符进行编码
+                let encodedPath = encodeURI(resolvedPath);
+                // 推荐：对于本地绝对路径，部分严格的 Markdown 解析器可能需要明确的 file:// 协议前缀
+                // 如果你的前端渲染器支持省略则无需添加，若依然渲染不出来可以取消下面这行的注释：
+                // encodedPath = encodedPath.startsWith('/') ? `file://${encodedPath}` : `file:///${encodedPath}`;
+                content = `![${path.basename(filePath)}](${encodedPath})`;
+                // --- 修改结束 ---
             }
             else {
                 content = await this._handleTextStream(filePath, options, totalLines);

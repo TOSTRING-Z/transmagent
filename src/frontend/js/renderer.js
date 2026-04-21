@@ -39,7 +39,6 @@
   // main/state.ts
   var State = {
     uuid: null,
-    markdown_statu: true,
     chat: {},
     scroll_top: {
       info: true,
@@ -453,15 +452,15 @@ $$
     DOM.renameDialog.style.display = "none";
     DOM.renameInput.value = "";
   }
-  function setHistoryRunning(groupId) {
-    const item = document.getElementById(groupId);
+  function setHistoryRunning(chatId) {
+    const item = document.getElementById(chatId);
     if (item) {
       item.classList.remove("completed");
       item.classList.add("running");
     }
   }
-  function setHistoryCompleted(groupId) {
-    const item = document.getElementById(groupId);
+  function setHistoryCompleted(chatId) {
+    const item = document.getElementById(chatId);
     if (item) {
       item.classList.remove("running");
       item.classList.add("completed");
@@ -1074,8 +1073,8 @@ $$
         DOM.progress_bar.textContent = `100%`;
         setTimeout(() => {
           DOM.progress_container.style.display = "none";
-          if (info?.remotePath)
-            DOM.input.value = `Upload: ${info.remotePath}
+          if (info?.filePath)
+            DOM.input.value = `Upload: ${info.filePath}
 ${DOM.input.value}`;
         }, 500);
         break;
@@ -1368,7 +1367,6 @@ ${DOM.input.value}`;
     DOM.history_list.innerHTML = "";
     data.chats.forEach((chat) => addChatItem(chat));
   });
-  window.electronAPI.handleMarkDownFormat((status) => State.markdown_statu = status);
   window.electronAPI.handleReactStatu((status) => State.react_statu = status);
   window.electronAPI.streamData((data) => {
     if (data.uuid && data.uuid !== State.uuid) {

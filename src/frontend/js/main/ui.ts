@@ -154,8 +154,8 @@ export function updateProgress(info: any) {
       DOM.progress_bar.textContent = `100%`;
       setTimeout(() => {
         DOM.progress_container.style.display = "none";
-        if (info?.remotePath)
-          DOM.input.value = `Upload: ${info.remotePath}\n${DOM.input.value}`;
+        if (info?.filePath)
+          DOM.input.value = `Upload: ${info.filePath}\n${DOM.input.value}`;
       }, 500);
       break;
     case "error":
