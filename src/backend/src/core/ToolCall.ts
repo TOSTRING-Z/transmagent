@@ -17,7 +17,7 @@ import { WindowManager } from '../main/windows/WindowManager';
 import { LLMAssistant } from './LLMAssistant';
 import { Utils } from './Utils';
 import { BrowserWindow } from 'electron/main';
-import { formatDate, getDefaultConfig } from '../utils/public';
+import { formatDate } from '../utils/public';
 import { SkillManager } from './SkillManager';
 import { AgentEventEmitter, ElectronUIController } from './AgentEventEmitter';
 import { TaskScheduler, ISchedulableAgent } from './TaskScheduler';
@@ -80,15 +80,15 @@ type ToolPolicyFn = (ctx: {
 }) => boolean;
 
 const TOOL_POLICY: Record<string, ToolPolicyFn> = {
-    'update_env':              all(hasArg('env'), not(isMode('PLAN'))),
-    'mcp_server':              all(hasArg('mcpTool'), not(isMode('PLAN'))),
-    'add_subtasks':            all(hasArg('todolist'), not(any(isMode('PLAN'), isMode('FLASH')))),
-    'record_subtasks':         all(hasArg('todolist'), not(any(isMode('PLAN'), isMode('FLASH')))),
-    'context_retrieval':       not(isSubagent),
+    'update_env': all(hasArg('env'), not(isMode('PLAN'))),
+    'mcp_server': all(hasArg('mcpTool'), not(isMode('PLAN'))),
+    'add_subtasks': all(hasArg('todolist'), not(any(isMode('PLAN'), isMode('FLASH')))),
+    'record_subtasks': all(hasArg('todolist'), not(any(isMode('PLAN'), isMode('FLASH')))),
+    'context_retrieval': not(isSubagent),
     'search_long_term_memory': not(isSubagent),
-    'write_important_memory':  not(isSubagent),
-    'ask_user':                all(not(isSubagent), not(any(isMode('FLASH'), isMode('AUTO')))),
-    'deep_researcher':         isMode('PLAN'),
+    'write_important_memory': not(isSubagent),
+    'ask_user': all(not(isSubagent), not(any(isMode('FLASH'), isMode('AUTO')))),
+    'deep_researcher': isMode('PLAN'),
 };
 
 // ─── ToolCall 主类 ────────────────────────────────────────────────────────────
@@ -156,33 +156,31 @@ export class ToolCall extends ReActAgent implements ISchedulableAgent {
         },
     ) {
         super(llmService, window, utils);
-        this.llmService   = llmService;
-        this.plugins      = plugins;
+        this.llmService = llmService;
+        this.plugins = plugins;
         this.llmAssistant = new LLMAssistant(llmService, plugins, utils);
-        this.mcp_client   = new MCPClient(this);
+        this.mcp_client = new MCPClient(this);
         this.skillManager = new SkillManager(null, utils.getSshConfig());
         this.agentConfigs = agentConfigs;
 
         this.initVar();
 
-        this.baseTools  = getBaseTools();
+        this.baseTools = getBaseTools();
         this.agentTools = agentTools;
-        this.tools      = {};
+        this.tools = {};
 
-        this.prompts        = new Prompts(this);
+        this.prompts = new Prompts(this);
         this.memory_manager = new MemoryManager(utils);
 
-        this.task_prompt    = (toolsData) => this.prompts.getSystemPrompts(toolsData);
-        this.env_prompt     = this.prompts.getEnvPrompts();
+        this.task_prompt = (toolsData) => this.prompts.getSystemPrompts(toolsData);
+        this.env_prompt = this.prompts.getEnvPrompts();
         this.todolist_prompt = this.prompts.getTodoListPrompt();
 
         // 初始化事件总线
         this.events = new AgentEventEmitter();
 
-        // 挂载 Electron UI 桥接（仅主进程 Agent）
-        if (window && !agentConfigs.subagent) {
-            this.uiController = new ElectronUIController(this.events, window);
-        }
+        // 挂载 Electron UI 桥接
+        this.uiController = new ElectronUIController(this.events, window);
 
         // 启动心跳调度器（仅非子代理）
         if (!agentConfigs.subagent) {
@@ -208,20 +206,20 @@ export class ToolCall extends ReActAgent implements ISchedulableAgent {
 
     public initVar() {
         this.state = State.IDLE;
-        this.memory_list              = [];
-        this.response_repetitions     = [];
-        this.repetitions_delay_empty  = 0;
+        this.memory_list = [];
+        this.response_repetitions = [];
+        this.repetitions_delay_empty = 0;
 
         this.llmService.environment_details = {
             system_platform: this.utils.getConfig("tool_call")?.system_platform || os.platform(),
-            system_arch:     this.utils.getConfig("tool_call")?.system_arch     || os.arch(),
-            language:        this.utils.getLanguage(),
-            tmpdir:          this.utils.getConfig("tool_call")?.tmpdir          || os.tmpdir(),
-            time:            formatDate(),
-            mode:            Mode.ACT,
+            system_arch: this.utils.getConfig("tool_call")?.system_arch || os.arch(),
+            language: this.utils.getLanguage(),
+            tmpdir: this.utils.getConfig("tool_call")?.tmpdir || os.tmpdir(),
+            time: formatDate(),
+            mode: Mode.ACT,
             mode_constraint: MODE_CONSTRAINTS[Mode.ACT],
-            envs:            null,
-            todolist:        null,
+            envs: null,
+            todolist: null,
         };
     }
 
@@ -235,8 +233,9 @@ export class ToolCall extends ReActAgent implements ISchedulableAgent {
         // 1. 审计中间件
         const auditMW = createAuditMiddleware(
             (toolInfo, data) => this.llmAssistant.auditToolCall(toolInfo, data, this),
-            (message, chatPayload, uuid) => {
+            (toolInfo, message, chatPayload, uuid) => {
                 this.llmService.chatManager.pushToolMessage({
+                    ...toolInfo,
                     ...chatPayload,
                     content: `⚠️ **Security Intercept**: ${message}`,
                     uuid,
@@ -255,7 +254,7 @@ export class ToolCall extends ReActAgent implements ISchedulableAgent {
             getRememberedChoice: (name) => this.getRememberedChoice(name),
             setRememberedChoice: (name, confirmed) => this.setRememberedChoice(name, confirmed),
             buildRequest: (toolInfo) => {
-                const toolName   = toolInfo.tool_call_name as string;
+                const toolName = toolInfo.tool_call_name as string;
                 const toolConfig = this.getToolConfig(toolName);
                 let toolDescription = '';
                 try {
@@ -263,11 +262,11 @@ export class ToolCall extends ReActAgent implements ISchedulableAgent {
                     if (prompt?.description) toolDescription = prompt.description;
                 } catch { /* ignore */ }
                 return {
-                    toolId:              toolInfo.tool_call_id || '',
+                    toolId: toolInfo.tool_call_id || '',
                     toolName,
                     toolDescription,
                     confirmationMessage: toolConfig?.confirmation_message || `即将执行高风险工具: ${toolName}`,
-                    executionDetails:    toolInfo.params,
+                    executionDetails: toolInfo.params,
                 };
             },
             showConfirmation: (req) =>
@@ -306,6 +305,7 @@ export class ToolCall extends ReActAgent implements ISchedulableAgent {
     /** 更新 Electron 窗口引用（主窗口重建时调用） */
     public setWindow(window: BrowserWindow | null) {
         this.window = window;
+        this.llmService.window = window;
         this.uiController?.setWindow(window);
     }
 
@@ -340,14 +340,14 @@ export class ToolCall extends ReActAgent implements ISchedulableAgent {
         let agentConfigs = { ...this.agentConfigs };
         const toolCallConfig = this.utils.getConfig("tool_call");
         if (!toolCallConfig.todolist_message) agentConfigs.todolist = false;
-        if (!toolCallConfig.env_message)      agentConfigs.env      = false;
+        if (!toolCallConfig.env_message) agentConfigs.env = false;
 
         // 2. DSL 校验上下文
         const context = {
-            args:        agentConfigs || {},
-            env:         this.llmService.environment_details || {},
-            modes:       Mode || {},
-            isSubagent:  !!this.agentConfigs?.subagent,
+            args: agentConfigs || {},
+            env: this.llmService.environment_details || {},
+            modes: Mode || {},
+            isSubagent: !!this.agentConfigs?.subagent,
             currentMode: this.llmService.environment_details?.mode,
         };
 
@@ -364,10 +364,10 @@ export class ToolCall extends ReActAgent implements ISchedulableAgent {
             .map(([key, tool]) => {
                 const schemaOrStr = tool.getPrompt();
                 if (context.currentMode === context.modes.PLAN) {
-                    const toolConfig         = this.getToolConfig(key);
+                    const toolConfig = this.getToolConfig(key);
                     const requireConfirmation = !!toolConfig?.require_confirmation;
-                    const isSubagentTool     = Object.keys(this.agentTools).includes(key);
-                    const isDeepresearch     = key === 'deep_researcher';
+                    const isSubagentTool = Object.keys(this.agentTools).includes(key);
+                    const isDeepresearch = key === 'deep_researcher';
                     return !requireConfirmation && (!isSubagentTool || isDeepresearch) ? schemaOrStr : null;
                 }
                 if (typeof schemaOrStr === 'string') {
@@ -389,7 +389,7 @@ export class ToolCall extends ReActAgent implements ISchedulableAgent {
     public async saveLongTermMemory(user_content: string, final_answer: string) {
         try {
             if (user_content && final_answer) {
-                const time    = this.llmService.environment_details.time;
+                const time = this.llmService.environment_details.time;
                 const content = `Date: ${time}\nUser: ${user_content}\nAgent: ${final_answer}`;
                 await this.memory_manager.addLongTermMemory(
                     this.llmService.chatManager.chat.id, content, time
@@ -404,10 +404,10 @@ export class ToolCall extends ReActAgent implements ISchedulableAgent {
         this.system_prompt = async () => {
             const important_memory = await this.memory_manager.getImportantMemory();
             const paramsToFormat = {
-                mcp_prompt:       this.mcp_prompt,
-                cli_prompt:       this.prompts.getCliPrompt(),
-                extra_prompt:     this.prompts.getExtraPrompt(data.extra_prompt),
-                skill_prompt:     this.skillManager.getSkillDescription(),
+                mcp_prompt: this.mcp_prompt,
+                cli_prompt: this.prompts.getCliPrompt(),
+                extra_prompt: this.prompts.getExtraPrompt(data.extra_prompt),
+                skill_prompt: this.skillManager.getSkillDescription(),
                 important_memory: important_memory,
             };
             const systemPrompt = formatString(this.task_prompt(data.tools), paramsToFormat);
@@ -416,7 +416,7 @@ export class ToolCall extends ReActAgent implements ISchedulableAgent {
     }
 
     public environmentUpdate(data: Record<string, any>) {
-        this.llmService.environment_details.time     = formatDate();
+        this.llmService.environment_details.time = formatDate();
         this.llmService.environment_details.language = data?.language || this.utils.getLanguage();
         const chatState = this.llmService.chatManager.chat;
 
@@ -425,7 +425,7 @@ export class ToolCall extends ReActAgent implements ISchedulableAgent {
             return `- ${key}: [${env._meta.agent} / ${env._meta.timestamp}] ${env.value}`;
         });
         const todolist = Object.keys(chatState.vars.tasks || {}).map(task_id => {
-            const taskObj  = chatState.vars.tasks[task_id];
+            const taskObj = chatState.vars.tasks[task_id];
             const subtasks = taskObj.subtasks.map(
                 (sub: any) => `  - subtask id: ${sub.id}, description: ${sub.description}, status: ${sub.status}`
             );
@@ -433,8 +433,8 @@ export class ToolCall extends ReActAgent implements ISchedulableAgent {
         });
 
         this.llmService.environment_details.todolist = todolist.join("\n");
-        this.llmService.environment_details.envs     = envs.length > 0 ? envs.join("\n") : "";
-        this.llmService.environment_details.skills   = this.skillManager.getSkillDescription();
+        this.llmService.environment_details.envs = envs.length > 0 ? envs.join("\n") : "";
+        this.llmService.environment_details.skills = this.skillManager.getSkillDescription();
 
         const toolCallConfig = this.utils.getConfig("tool_call");
         if (this.agentConfigs.env && toolCallConfig.env_message) {
@@ -451,10 +451,10 @@ export class ToolCall extends ReActAgent implements ISchedulableAgent {
 
     public changeMode(mode: string | null = null, saveHistory: boolean = true) {
         const selectedMode = this.modeMap[mode || ""] || Mode.ACT;
-        const shortMode    = this.modeMap[mode || ""] ? mode : "act";
-        this.llmService.environment_details.mode            = selectedMode;
+        const shortMode = this.modeMap[mode || ""] ? mode : "act";
+        this.llmService.environment_details.mode = selectedMode;
         this.llmService.environment_details.mode_constraint = MODE_CONSTRAINTS[selectedMode];
-        this.llmService.chatManager.chat.mode               = shortMode as string;
+        this.llmService.chatManager.chat.mode = shortMode as string;
         if (!this.agentConfigs.subagent && saveHistory) this.setHistory();
     }
 
@@ -541,7 +541,7 @@ export class ToolCall extends ReActAgent implements ISchedulableAgent {
         }
 
         // ── 消息类型判断 ────────────────────────────────────────────────────
-        const hasTool  = this.toolInfos.some(t => t.tool_call_name);
+        const hasTool = this.toolInfos.some(t => t.tool_call_name);
         const hasError = this.toolInfos.some(t => t.error);
 
         if (hasTool || hasError) {
@@ -571,7 +571,7 @@ export class ToolCall extends ReActAgent implements ISchedulableAgent {
             this.currentToolInfo = toolInfo;
 
             // 发送任务开始提示
-            const taskNumber     = String(j + 1).padStart(2, '0');
+            const taskNumber = String(j + 1).padStart(2, '0');
             const displayContent =
                 (toolInfo.content && toolInfo.content !== prevContent)
                     ? toolInfo.content
@@ -581,13 +581,13 @@ export class ToolCall extends ReActAgent implements ISchedulableAgent {
                     ? toolInfo.reasoning_content
                     : undefined;
 
-            if (toolInfo.content)           prevContent          = toolInfo.content;
+            if (toolInfo.content) prevContent = toolInfo.content;
             if (toolInfo.reasoning_content) prevReasoningContent = toolInfo.reasoning_content;
 
             this.events.emitEvent('toolStart', {
                 ...this.llmService.chatManager.chat,
                 taskNumber,
-                content:          displayContent,
+                content: displayContent,
                 reasoning_content: displayReasoning,
                 uuid: data.uuid,
             });
@@ -620,7 +620,7 @@ export class ToolCall extends ReActAgent implements ISchedulableAgent {
         if (chat.tokens >= chat.max_tokens) {
             this.llmAssistant.kvCacheSummary();
             chat.long_memory_length = Math.floor(chat.long_memory_length / 2);
-            chat.memory_length      = Math.floor(chat.memory_length      / 2);
+            chat.memory_length = Math.floor(chat.memory_length / 2);
         }
     }
 
@@ -695,8 +695,8 @@ export class ToolCall extends ReActAgent implements ISchedulableAgent {
 
             observation = {
                 result,
-                ask:           response?.ask,
-                options:       response?.options,
+                ask: response?.ask,
+                options: response?.options,
                 subagent_tool: response?.subagent_tool,
             };
 
@@ -799,9 +799,9 @@ export class ToolCall extends ReActAgent implements ISchedulableAgent {
             });
         } else {
             // 全新对话轮次
-            data.role       = "user";
-            chat.step       = 1;
-            chat.group_id   = String(Date.now());
+            data.role = "user";
+            chat.step = 1;
+            chat.group_id = String(Date.now());
             chat.context_id = `${chat.group_id}${chat.step}`;
             this.llmService.chatManager.fixMessages();
             this.llmService.chatManager.pushUserMessage({
@@ -813,8 +813,8 @@ export class ToolCall extends ReActAgent implements ISchedulableAgent {
         }
 
         this.events.emitEvent('agentRunning', { ...chat, uuid: data.uuid });
-        this.state     = State.IDLE;
-        chat.seconds   = 0;
+        this.state = State.IDLE;
+        chat.seconds = 0;
         const tool_call = this.utils.getConfig("tool_call");
 
         // ── ReAct 主循环 ──────────────────────────────────────────────────────
@@ -833,7 +833,7 @@ export class ToolCall extends ReActAgent implements ISchedulableAgent {
 
             data = {
                 ...data, ...tool_call,
-                step:  chat.step,
+                step: chat.step,
                 tools: this.getToolsPrompt(),
                 react: true,
             };

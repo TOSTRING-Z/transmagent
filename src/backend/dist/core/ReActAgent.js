@@ -59,10 +59,6 @@ class ReActAgent {
         });
         return formatText;
     }
-    changeWindow(window = null) {
-        this.window = window;
-        this.llmService.window = window;
-    }
     setHistory(chat = null) {
         if (!chat) {
             chat = this.llmService.chatManager.chat;

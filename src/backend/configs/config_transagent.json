@@ -21,7 +21,6 @@
   },
   "func_status": {
     "clip": false,
-    "markdown": false,
     "text": false,
     "del": false,
     "react": true,

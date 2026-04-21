@@ -26,7 +26,6 @@ export interface ChatState {
 
 export const State = {
     uuid: null as string | null,
-    markdown_statu: true,
     chat: {} as ChatState,
     scroll_top: {
         info: true,

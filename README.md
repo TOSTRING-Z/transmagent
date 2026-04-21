@@ -31,12 +31,18 @@ English | [中文](README_zh.md)
   <img src="./public/img/code_ide.png" alt="Code IDE" width="600">
 </div>
 
-- 2026-2-6 — New: Cross-Session Memory Storage and Retrieval, Important Memory Writing Function
+- 2026-2-4 — New: Cross-Session Memory Storage and Retrieval, Important Memory Writing Function
   - Overview: Added cross-session memory storage and retrieval functionality, allowing users to write important memories into persistent storage and retrieve them in subsequent sessions through indexing.
   - Effect: Solves the "memory loss" problem in long-context tasks, enhancing continuity and stability of agents in complex analysis processes.
 - 2026-2-6 — New: Heartbeat Mechanism
   - Overview: Added a heartbeat mechanism where agents periodically send heartbeat signals during execution to monitor system status and task progress.
   - Effect: Improves system stability and reliability, allowing timely detection and handling of potential execution issues.
+- 2026-3-18 — New: LLM-as-a-Judge for Dynamic Payload Auditing and Runtime Interruption
+  - Overview: Integrated an implicit, sandboxed Critic Agent to verify high-sensitivity tool payloads prior to execution, alongside a System Sentinel that asynchronously monitors real-time console outputs.
+  - Effect: Accurately intercepts hallucinated data and unauthorized requests, and autonomously halts anomalous processes (e.g., infinite loops, interactive hanging, resource exhaustion), thereby safeguarding host integrity and optimizing compute efficiency.
+- 2026-4-6 — New: Multi-Session Parallel Management System
+  - Overview: Restructured the underlying session orchestration architecture to support the concurrent execution of multiple independent agent workflows within strictly isolated memory sandboxes.
+  - Effect: Achieves absolute contextual and resource isolation across different analytical tasks, granting researchers the ability to seamlessly checkout, switch, and orchestrate multiple time-intensive pipelines simultaneously.
   
 ## ✨ Core Features
 

@@ -10,7 +10,6 @@
 
 import { EventEmitter } from 'events';
 import { BrowserWindow } from 'electron/main';
-import { ToolInfo } from '../types';
 
 // ─── 标准事件载荷类型定义 ──────────────────────────────────────────
 

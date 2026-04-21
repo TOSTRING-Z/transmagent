@@ -67,11 +67,6 @@ export class ReActAgent {
         return formatText;
     }
 
-    public changeWindow(window: BrowserWindow | null = null) {
-        this.window = window;
-        this.llmService.window = window;
-    }
-
     public setHistory(chat: ChatState | null = null): boolean | undefined {
         if (!chat) {
             chat = this.llmService.chatManager.chat;

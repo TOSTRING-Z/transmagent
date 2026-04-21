@@ -94,7 +94,7 @@ class SubAgentWindow {
             this.agentTool = this.agentTools[agentToolName];
             win.on('closed', () => {
                 if (this.agentTool) {
-                    this.agentTool.toolCall.changeWindow();
+                    this.agentTool.toolCall.destroy();
                     this.agentTool.toolCall.llmService.stopLoop();
                     resolve("The user interrupted the task.");
                 }
@@ -105,7 +105,7 @@ class SubAgentWindow {
                 win.focus();
                 win.webContents.send('windowInfo', { id: win.id, name: agentToolName });
                 if (this.agentTool) {
-                    this.agentTool.toolCall.changeWindow(win);
+                    this.agentTool.toolCall.setWindow(win);
                     // 子代理模式同主代理模式一样（计划模式例外）
                     if (toolCall.llmService.environment_details.mode !== ReActAgent_1.Mode.PLAN) {
                         this.agentTool.toolCall.changeMode(toolCall.llmService.chatManager.chat.mode);

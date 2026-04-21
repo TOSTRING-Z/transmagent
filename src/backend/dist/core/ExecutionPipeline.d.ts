@@ -40,7 +40,7 @@ export declare class ExecutionPipeline {
  * 1. 审计中间件
  * 调用 LLMAssistant.auditToolCall()，若存在安全风险则终止管道。
  */
-export declare function createAuditMiddleware(auditFn: (toolInfo: ToolInfo, data: Record<string, any>) => Promise<string | null>, emitSecurityIntercept: (message: string, chatPayload: any, uuid: string) => void, getChatPayload: () => any): MiddlewareFn;
+export declare function createAuditMiddleware(auditFn: (toolInfo: ToolInfo, data: Record<string, any>) => Promise<string | null>, emitSecurityIntercept: (toolInfo: ToolInfo, message: string, chatPayload: any, uuid: string) => void, getChatPayload: () => any): MiddlewareFn;
 /**
  * 2. 确认中间件（Human-in-the-loop）
  * 对标记了 require_confirmation 的高风险工具弹出确认窗口。

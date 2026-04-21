@@ -139,10 +139,8 @@ class ToolCall extends ReActAgent_1.ReActAgent {
         this.todolist_prompt = this.prompts.getTodoListPrompt();
         // 初始化事件总线
         this.events = new AgentEventEmitter_1.AgentEventEmitter();
-        // 挂载 Electron UI 桥接（仅主进程 Agent）
-        if (window && !agentConfigs.subagent) {
-            this.uiController = new AgentEventEmitter_1.ElectronUIController(this.events, window);
-        }
+        // 挂载 Electron UI 桥接
+        this.uiController = new AgentEventEmitter_1.ElectronUIController(this.events, window);
         // 启动心跳调度器（仅非子代理）
         if (!agentConfigs.subagent) {
             this.scheduler = new TaskScheduler_1.TaskScheduler(this);
@@ -183,8 +181,9 @@ class ToolCall extends ReActAgent_1.ReActAgent {
     buildPipeline() {
         const getChatPayload = () => ({ ...this.llmService.chatManager.chat });
         // 1. 审计中间件
-        const auditMW = (0, ExecutionPipeline_1.createAuditMiddleware)((toolInfo, data) => this.llmAssistant.auditToolCall(toolInfo, data, this), (message, chatPayload, uuid) => {
+        const auditMW = (0, ExecutionPipeline_1.createAuditMiddleware)((toolInfo, data) => this.llmAssistant.auditToolCall(toolInfo, data, this), (toolInfo, message, chatPayload, uuid) => {
             this.llmService.chatManager.pushToolMessage({
+                ...toolInfo,
                 ...chatPayload,
                 content: `⚠️ **Security Intercept**: ${message}`,
                 uuid,
@@ -239,6 +238,7 @@ class ToolCall extends ReActAgent_1.ReActAgent {
     /** 更新 Electron 窗口引用（主窗口重建时调用） */
     setWindow(window) {
         this.window = window;
+        this.llmService.window = window;
         this.uiController?.setWindow(window);
     }
     /** 销毁 Agent，释放定时器与事件监听 */

@@ -28,7 +28,6 @@ export declare class MainWindow extends BaseWindow {
     startAgentLoop(data: any): void;
     sendQuery(data: any): void;
     private getClipEvent;
-    private getMarkDownEvent;
     private getTextEvent;
     private getReactEvent;
     private initFuncItems;

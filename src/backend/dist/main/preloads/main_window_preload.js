@@ -17,7 +17,6 @@ electron_1.contextBridge.exposeInMainWorld('electronAPI', {
     initInfo: (callback) => electron_1.ipcRenderer.on('init-info', (_event, info) => callback(info)),
     setPrompt: (callback) => electron_1.ipcRenderer.on('prompt', (_event, prompt) => callback(prompt)),
     handleLog: (callback) => electron_1.ipcRenderer.on('log', (_event, log) => callback(log)),
-    handleMarkDownFormat: (callback) => electron_1.ipcRenderer.on('markdown-format', (_event, markdown_statu) => callback(markdown_statu)),
     handleReactStatu: (callback) => electron_1.ipcRenderer.on('react-statu', (_event, react_statu) => callback(react_statu)),
     handleDeleteMemory: (callback) => electron_1.ipcRenderer.on('delete-memory', (_event, data) => callback(data)),
     toolData: (callback) => electron_1.ipcRenderer.on('toolData', (_event, chunk) => callback(chunk)),

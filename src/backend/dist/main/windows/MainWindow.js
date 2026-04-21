@@ -164,14 +164,6 @@ class MainWindow extends BaseWindow_1.BaseWindow {
                 event: () => { },
                 click: () => { this.funcItems.clip.statu = !this.funcItems.clip.statu; }
             },
-            markdown: {
-                statu: this.session().utils.getConfig("func_status")?.markdown || false,
-                event: () => { },
-                click: () => {
-                    this.funcItems.markdown.statu = !this.funcItems.markdown.statu;
-                    this.funcItems.markdown.event();
-                }
-            },
             text: {
                 statu: this.session().utils.getConfig("func_status")?.text || false,
                 event: () => { },
@@ -485,11 +477,6 @@ class MainWindow extends BaseWindow_1.BaseWindow {
             }
         }, 100);
     }
-    getMarkDownEvent(e) {
-        const markdownFormat = () => this.window?.webContents.send('markdown-format', e.statu);
-        markdownFormat();
-        return markdownFormat;
-    }
     getTextEvent(e) {
         return (text) => {
             if (text != null) {
@@ -517,7 +504,6 @@ class MainWindow extends BaseWindow_1.BaseWindow {
     }
     initFuncItems() {
         this.funcItems.clip.event = this.getClipEvent(this.funcItems.clip);
-        this.funcItems.markdown.event = this.getMarkDownEvent(this.funcItems.markdown);
         this.funcItems.text.event = this.getTextEvent(this.funcItems.text);
         this.funcItems.react.event = this.getReactEvent(this.funcItems.react);
     }
@@ -527,7 +513,6 @@ class MainWindow extends BaseWindow_1.BaseWindow {
     saveFuncStatus() {
         const funcStatus = {
             clip: this.funcItems.clip.statu,
-            markdown: this.funcItems.markdown.statu,
             text: this.funcItems.text.statu,
             del: this.funcItems.del.statu,
             react: this.funcItems.react.statu,
@@ -703,7 +688,6 @@ class MainWindow extends BaseWindow_1.BaseWindow {
             {
                 label: "Function Selection",
                 submenu: [
-                    { click: this.funcItems.markdown.click, label: 'Auto MarkDown', type: 'checkbox', checked: this.funcItems.markdown.statu },
                     { click: this.funcItems.text.click, label: 'Text Formatting', type: 'checkbox', checked: this.funcItems.text.statu },
                     { click: this.funcItems.clip.click, label: 'Copy Tool', type: 'checkbox', checked: this.funcItems.clip.statu },
                     { click: this.funcItems.del.click, label: 'Delete Mode', type: 'checkbox', checked: this.funcItems.del.statu },

@@ -16,7 +16,6 @@ contextBridge.exposeInMainWorld('electronAPI', {
   initInfo: (callback: (info: any) => void) => ipcRenderer.on('init-info', (_event, info) => callback(info)),
   setPrompt: (callback: (prompt: any) => void) => ipcRenderer.on('prompt', (_event, prompt) => callback(prompt)),
   handleLog: (callback: (log: any) => void) => ipcRenderer.on('log', (_event, log) => callback(log)),
-  handleMarkDownFormat: (callback: (status: any) => void) => ipcRenderer.on('markdown-format', (_event, markdown_statu) => callback(markdown_statu)),
   handleReactStatu: (callback: (status: any) => void) => ipcRenderer.on('react-statu', (_event, react_statu) => callback(react_statu)),
   handleDeleteMemory: (callback: (data: Record<string, any>) => void) => ipcRenderer.on('delete-memory', (_event, data) => callback(data)),
   toolData: (callback: (chunk: any) => void) => ipcRenderer.on('toolData', (_event, chunk) => callback(chunk)),

@@ -68,7 +68,7 @@ function createAuditMiddleware(auditFn, emitSecurityIntercept, getChatPayload) {
         const auditError = await auditFn(ctx.toolInfo, ctx.data);
         if (auditError) {
             logger_1.logger.warn(`[AuditMiddleware] Blocked tool "${ctx.toolInfo.tool_call_name}": ${auditError}`);
-            emitSecurityIntercept(auditError, getChatPayload(), ctx.data.uuid);
+            emitSecurityIntercept(ctx.toolInfo, auditError, getChatPayload(), ctx.data.uuid);
             // 终止管道（不调用 next），告知外部跳过此工具
             ctx.cancelled = true;
             return;

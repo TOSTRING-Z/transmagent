@@ -9,7 +9,6 @@ import { Worker } from 'worker_threads';
 import { BaseWindow } from "./BaseWindow";
 import { WindowManager } from "./WindowManager";
 import { store, CONSTANTS, sysConfig, extraPrompt } from '../../utils/globals';
-import { State } from "../../core/ReActAgent";
 import { PluginItem } from '../../core/Plugins';
 import { captureMouse } from '../../mouse/CaptureMouse';
 import { install } from '../../core/Install';
@@ -156,14 +155,6 @@ export class MainWindow extends BaseWindow {
                 statu: this.session().utils.getConfig("func_status")?.clip || false,
                 event: () => { },
                 click: () => { this.funcItems.clip.statu = !this.funcItems.clip.statu; }
-            },
-            markdown: {
-                statu: this.session().utils.getConfig("func_status")?.markdown || false,
-                event: () => { },
-                click: () => {
-                    this.funcItems.markdown.statu = !this.funcItems.markdown.statu;
-                    this.funcItems.markdown.event();
-                }
             },
             text: {
                 statu: this.session().utils.getConfig("func_status")?.text || false,
@@ -499,12 +490,6 @@ export class MainWindow extends BaseWindow {
         }, 100);
     }
 
-    private getMarkDownEvent(e: FuncItemNode) {
-        const markdownFormat = () => this.window?.webContents.send('markdown-format', e.statu);
-        markdownFormat();
-        return markdownFormat;
-    }
-
     private getTextEvent(e: FuncItemNode) {
         return (text: string) => {
             if (text != null) {
@@ -532,7 +517,6 @@ export class MainWindow extends BaseWindow {
 
     private initFuncItems() {
         this.funcItems.clip.event = this.getClipEvent(this.funcItems.clip);
-        this.funcItems.markdown.event = this.getMarkDownEvent(this.funcItems.markdown);
         this.funcItems.text.event = this.getTextEvent(this.funcItems.text);
         this.funcItems.react.event = this.getReactEvent(this.funcItems.react);
     }
@@ -543,7 +527,6 @@ export class MainWindow extends BaseWindow {
     private saveFuncStatus(): void {
         const funcStatus = {
             clip: this.funcItems.clip.statu,
-            markdown: this.funcItems.markdown.statu,
             text: this.funcItems.text.statu,
             del: this.funcItems.del.statu,
             react: this.funcItems.react.statu,
@@ -719,7 +702,6 @@ export class MainWindow extends BaseWindow {
             {
                 label: "Function Selection",
                 submenu: [
-                    { click: this.funcItems.markdown.click, label: 'Auto MarkDown', type: 'checkbox', checked: this.funcItems.markdown.statu },
                     { click: this.funcItems.text.click, label: 'Text Formatting', type: 'checkbox', checked: this.funcItems.text.statu },
                     { click: this.funcItems.clip.click, label: 'Copy Tool', type: 'checkbox', checked: this.funcItems.clip.statu },
                     { click: this.funcItems.del.click, label: 'Delete Mode', type: 'checkbox', checked: this.funcItems.del.statu },

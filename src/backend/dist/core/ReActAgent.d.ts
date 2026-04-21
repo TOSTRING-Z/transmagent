@@ -26,7 +26,6 @@ export declare class ReActAgent {
     constructor(llmService: LLMService, window: (BrowserWindow | null) | undefined, utils: Utils);
     setUUID(data?: Record<string, any>): string;
     private formatTemplate;
-    changeWindow(window?: BrowserWindow | null): void;
     setHistory(chat?: ChatState | null): boolean | undefined;
     retry(func: (data: Record<string, any>) => Promise<any>, data: any): Promise<any>;
     llmCall(data: Record<string, any>): Promise<AssistantMessage | null>;

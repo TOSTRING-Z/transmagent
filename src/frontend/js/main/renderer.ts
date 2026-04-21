@@ -168,8 +168,6 @@ window.electronAPI.initInfo((data) => {
   data.chats.forEach((chat: any) => addChatItem(chat));
 });
 
-window.electronAPI.handleMarkDownFormat((status) => State.markdown_statu = status);
-
 window.electronAPI.handleReactStatu((status) => State.react_statu = status);
 
 window.electronAPI.streamData((data) => {
