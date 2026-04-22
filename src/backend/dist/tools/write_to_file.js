@@ -113,18 +113,21 @@ function main() {
     };
 }
 // --- 大模型 Prompt 提示词 ---
+// --- 大模型 Prompt 提示词 ---
 function getPrompt() {
     return {
         "name": "write_to_file",
-        "description": `Writes text content to a local or remote file.
+        "description": `Writes text content to the specified file path.
 
-Write Modes:
-1. **overwrite** (default): Replaces the entire file with the new content. Used for creating new files or fully rewriting existing ones.
-2. **append**: Adds the content to the very end of an existing file. Perfect for adding new lines, logs, or continuing a file that was too long to write in one go due to length limits.
+🛠️ Write Modes:
+1. **overwrite** (default): Completely replaces the file content. Use for new files or full rewrites of small files.
+2. **append**: Adds content to the exact End-Of-File (EOF). Use for logs, or CONTINUING a long file write.
 
-CRITICAL PIPELINE RULES:
-- If your script/file is extremely long and gets cut off, simply call this tool again with mode='append' to continue writing the rest of the content.
-- If you are making partial, surgical edits to the middle of an existing file, DO NOT use this tool. Use the 'replace_in_file' tool instead to avoid wiping out existing code.`,
+🚨 TRUNCATION & ANTI-LOOP PROTOCOL (CRITICAL) 🚨
+LLMs have strict output token limits. Attempting to write a massive file (>300 lines) in one go WILL result in truncation (text being cut off mid-execution).
+- PREVENT: If the script is very long, intentionally chunk it. Call this tool with mode='overwrite' for part 1, then call again with mode='append' for part 2.
+- RECOVER: If your last 'write_to_file' call was truncated, YOU MUST NOT USE 'overwrite' AGAIN. Re-overwriting will cause an infinite loop. Instead, immediately call 'write_to_file' with mode='append' and provide ONLY the missing remaining code, starting exactly where the previous write stopped.
+- MODIFY: To change a few lines in a large file, NEVER use this tool. Use 'replace_in_file' to prevent accidentally wiping out code.`,
         "parameters": {
             "type": "object",
             "properties": {
@@ -134,16 +137,16 @@ CRITICAL PIPELINE RULES:
                 },
                 "content": {
                     "type": "string",
-                    "description": "The text content to write or append."
+                    "description": "The exact text to write or append. If recovering from truncation, only include the missing remaining text."
                 },
                 "mode": {
                     "type": "string",
-                    "description": "Write mode: 'overwrite' or 'append'.",
+                    "description": "Must be 'overwrite' or 'append'. Default is 'overwrite'.",
                     "enum": ["overwrite", "append"],
                     "default": "overwrite"
                 }
             },
-            "required": ["file_path"],
+            "required": ["file_path", "content"],
             "additionalProperties": false
         }
     };

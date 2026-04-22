@@ -214,25 +214,25 @@ class DisplayFile {
     private async _processLocalFile(filePath: string, options: NormalizedOptions, totalLines: number): Promise<ProcessResult> {
         try {
             if (!fs.existsSync(filePath)) throw new Error(`File not found: ${filePath}`);
+
+            // === 新增：明确拦截文件夹，直接抛出普通 Error 让 catch 捕获 ===
+            const stats = fs.statSync(filePath);
+            if (stats.isDirectory()) {
+                throw new Error(`EISDIR: illegal operation on a directory, read. Path is a directory, not a file: ${filePath}`);
+            }
+            // =======================================================
+
             const meta = { file_path: filePath, total_lines: totalLines };
             let content = '';
 
             if (options.fileType === 'table') {
                 content = await this._handleCSV(filePath, options, totalLines);
             } else if (['image', 'pdf'].includes(options.fileType)) {
-                
-                // --- 修改开始 ---
                 // 1. 统一正斜杠，防止 Windows 路径在 Markdown 中被转义
                 const resolvedPath = path.resolve(filePath).replace(/\\/g, '/');
                 // 2. 使用 encodeURI 对空格（变为 %20）和中文字符进行编码
                 let encodedPath = encodeURI(resolvedPath);
-                
-                // 推荐：对于本地绝对路径，部分严格的 Markdown 解析器可能需要明确的 file:// 协议前缀
-                // 如果你的前端渲染器支持省略则无需添加，若依然渲染不出来可以取消下面这行的注释：
-                // encodedPath = encodedPath.startsWith('/') ? `file://${encodedPath}` : `file:///${encodedPath}`;
-                
                 content = `![${path.basename(filePath)}](${encodedPath})`;
-                // --- 修改结束 ---
 
             } else {
                 content = await this._handleTextStream(filePath, options, totalLines);
@@ -245,8 +245,15 @@ class DisplayFile {
     }
 
     private _handleTextStream(filePath: string, { startLine, lineCount, maxCharsPerLine, fileType }: NormalizedOptions, totalLines: number): Promise<string> {
-        return new Promise((resolve) => {
+        return new Promise((resolve, reject) => {
             const stream = fs.createReadStream(filePath, { encoding: 'utf8' });
+
+            // === 新增：关键防崩溃！捕获底层流错误并抛给上层的 try...catch ===
+            stream.on('error', (err) => {
+                reject(err);
+            });
+            // =======================================================
+
             const rl = readline.createInterface({ input: stream, crlfDelay: Infinity });
             const lines: string[] = [];
             let lineIdx = 0;
@@ -285,34 +292,48 @@ class DisplayFile {
     }
 
     private async _handleCSV(filePath: string, { startLine, lineCount, maxCharsPerLine, maxCols }: NormalizedOptions, totalLines: number): Promise<string> {
-        const stream = fs.createReadStream(filePath, { encoding: 'utf8' });
-        const rl = readline.createInterface({ input: stream, crlfDelay: Infinity });
-        const rows: any[] = [];
-        let headers: string[] = [];
-        let lineIdx = 0;
-        const endLine = startLine + lineCount;
+        // 用 Promise 包装，以便我们能接管底层事件的报错
+        return new Promise(async (resolve, reject) => {
+            const stream = fs.createReadStream(filePath, { encoding: 'utf8' });
+            
+            // === 新增：拦截底层流错误 ===
+            stream.on('error', (err) => reject(err));
 
-        for await (const line of rl) {
-            lineIdx++;
-            const cols = line.split(','); 
-            if (lineIdx === 1) {
-                headers = maxCols > 0 ? cols.slice(0, maxCols) : cols;
-                continue;
+            const rl = readline.createInterface({ input: stream, crlfDelay: Infinity });
+            const rows: any[] = [];
+            let headers: string[] = [];
+            let lineIdx = 0;
+            const endLine = startLine + lineCount;
+
+            try {
+                for await (const line of rl) {
+                    lineIdx++;
+                    const cols = line.split(','); 
+                    if (lineIdx === 1) {
+                        headers = maxCols > 0 ? cols.slice(0, maxCols) : cols;
+                        continue;
+                    }
+                    if (lineIdx < startLine + 1) continue;
+                    if (lineIdx > endLine) break;
+
+                    const row: any = {};
+                    headers.forEach((h, i) => row[h] = (cols[i] || '').substring(0, maxCharsPerLine));
+                    rows.push(row);
+                }
+                
+                let md = '| ' + headers.join(' | ') + ' |\n| ' + headers.map(() => '---').join(' | ') + ' |\n';
+                rows.forEach(r => md += '| ' + headers.map(h => r[h]).join(' | ') + ' |\n');
+                md += `\n\n> *Showing rows ${startLine}-${Math.min(endLine - 1, totalLines)} of ${totalLines} total data rows.*`;
+                
+                resolve(md);
+            } catch (err) {
+                // 捕获 for await 过程中可能发生的错误
+                reject(err);
+            } finally {
+                rl.close();
+                stream.destroy();
             }
-            if (lineIdx < startLine + 1) continue;
-            if (lineIdx > endLine) break;
-
-            const row: any = {};
-            headers.forEach((h, i) => row[h] = (cols[i] || '').substring(0, maxCharsPerLine));
-            rows.push(row);
-        }
-        rl.close();
-        stream.destroy();
-
-        let md = '| ' + headers.join(' | ') + ' |\n| ' + headers.map(() => '---').join(' | ') + ' |\n';
-        rows.forEach(r => md += '| ' + headers.map(h => r[h]).join(' | ') + ' |\n');
-        md += `\n\n> *Showing rows ${startLine}-${Math.min(endLine - 1, totalLines)} of ${totalLines} total data rows.*`;
-        return md;
+        });
     }
 
     private _detectFileType(filePath: string): string {
