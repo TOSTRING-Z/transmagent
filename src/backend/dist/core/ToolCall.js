@@ -213,7 +213,7 @@ class ToolCall extends ReActAgent_1.ReActAgent {
                     toolId: toolInfo.tool_call_id || '',
                     toolName,
                     toolDescription,
-                    confirmationMessage: toolConfig?.confirmation_message || `即将执行高风险工具: ${toolName}`,
+                    confirmationMessage: toolConfig?.confirmation_message || `High-risk tool about to be executed: ${toolName}`,
                     executionDetails: toolInfo.params,
                 };
             },
@@ -226,7 +226,7 @@ class ToolCall extends ReActAgent_1.ReActAgent {
             });
             this.events.emitEvent('streamData', {
                 ...chatPayload,
-                content: `\n\n---\n\n❌ **执行取消**: ${message}`,
+                content: `\n\n---\n\n❌ **Cancel execution**: ${message}`,
                 uuid,
             });
         }, getChatPayload);
