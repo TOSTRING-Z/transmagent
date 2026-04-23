@@ -12,15 +12,15 @@ const LLMService_1 = require("./LLMService");
 const globals_1 = require("../utils/globals");
 class SubAgent {
     utils;
-    llmService;
+    mainLLMService;
     agentToolName;
     agentTool;
     agentTools;
     subAgentWindow;
     plugins;
-    constructor(utils, llmService) {
+    constructor(utils, mainLLMService) {
         this.utils = utils;
-        this.llmService = llmService;
+        this.mainLLMService = mainLLMService;
         this.agentTools = {};
         this.plugins = new Plugins_1.Plugins(utils);
         this.subAgentWindow = new SubAgentWindow_1.SubAgentWindow(this.agentTools);
@@ -54,7 +54,7 @@ class SubAgent {
         llmService.chatManager.chat.id = null;
         llmService.chatManager.chat.name = tool_name;
         const normalizedTools = this.normalizeTools(tools);
-        const toolCall = new ToolCall_1.ToolCall(this.plugins, normalizedTools, llmService, null, this.utils, { agentPrompt: agent_prompt, subagent: true, todolist, env, skill, mcpTool: mcpTool, agentName: tool_name, agentMode: globals_1.store.get('agentMode', 'transagent') });
+        const toolCall = new ToolCall_1.ToolCall(this.plugins, normalizedTools, llmService, null, this.utils, { agentPrompt: agent_prompt, subagent: true, todolist, env, skill, mcpTool: mcpTool, agentName: tool_name, agentMode: globals_1.store.get('agentMode', 'transagent') }, this.mainLLMService);
         this.agentTools[tool_name] = {
             toolCall,
             func: async ({ query, toolCall }) => await this.query(query, tool_name, toolCall),

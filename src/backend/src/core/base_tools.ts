@@ -3,9 +3,7 @@ import { ToolCall } from "./ToolCall";
 
 export default function getBaseTools(): Record<string, any> {
     return {
-        // ====================================================================
-        // update_env - 时间戳后端自动化
-        // ====================================================================
+
         "update_env": {
             func: async ({ key, value, toolCall }: { key: string, value: any, toolCall: ToolCall }) => {
                 try {
@@ -13,10 +11,10 @@ export default function getBaseTools(): Record<string, any> {
                         return { status: "error", message: "Both key and value parameters are required." };
                     }
 
-                    const chatState = toolCall.llmService.chatManager.chat;
+                    const llmService = toolCall.mainLLMService ? toolCall.mainLLMService : toolCall.llmService;
 
-                    if (!chatState.envs) {
-                        chatState.envs = {};
+                    if (!llmService.chatManager.chat.envs) {
+                        llmService.chatManager.chat.envs = {};
                     }
 
                     const metadata = {
@@ -24,7 +22,7 @@ export default function getBaseTools(): Record<string, any> {
                         timestamp: toolCall.llmService.environment_details?.time || new Date().toISOString(),
                     };
 
-                    chatState.envs[key] = {
+                    llmService.chatManager.chat.envs[key] = {
                         value: `${value}`,
                         _meta: metadata,  // 后端存储元数据，不污染 value
                     };

@@ -29,6 +29,7 @@ import {
     createExecutionMiddleware,
     ConfirmationGate,
 } from './ExecutionPipeline';
+import { Tool } from '@modelcontextprotocol/sdk/types';
 
 const { all, any, not, always } = ToolDSL;
 const { isSubagent, isMode, hasArg } = Primitives;
@@ -123,6 +124,7 @@ export class ToolCall extends ReActAgent implements ISchedulableAgent {
     public llmAssistant: LLMAssistant;
     public tool_schemas?: any[];
     public skillManager: SkillManager;
+    public mainLLMService: LLMService | null;
 
     // ── 架构新增 ─────────────────────────────────────────────────────────────
     /** 对外暴露的事件总线：UI 层、测试层均可订阅 */
@@ -154,6 +156,7 @@ export class ToolCall extends ReActAgent implements ISchedulableAgent {
             agentMode: "transagent",
             agentName: "TransMAgent",
         },
+        mainLLMService: LLMService | null = null,
     ) {
         super(llmService, window, utils);
         this.llmService = llmService;
@@ -162,6 +165,7 @@ export class ToolCall extends ReActAgent implements ISchedulableAgent {
         this.mcp_client = new MCPClient(this);
         this.skillManager = new SkillManager(null, utils.getSshConfig());
         this.agentConfigs = agentConfigs;
+        this.mainLLMService = mainLLMService;
 
         this.initVar();
 

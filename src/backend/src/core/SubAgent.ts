@@ -24,16 +24,16 @@ export interface SubAgentOptions {
 
 export class SubAgent {
     public utils: Utils;
-    public llmService: LLMService;
+    public mainLLMService: LLMService;
     public agentToolName?: string;
     public agentTool?: AgentTool;
     public agentTools: Record<string, AgentTool>;
     public subAgentWindow: SubAgentWindow;
     private plugins: Plugins;
 
-    constructor(utils: Utils, llmService: LLMService) {
+    constructor(utils: Utils, mainLLMService: LLMService) {
         this.utils = utils;
-        this.llmService = llmService;
+        this.mainLLMService = mainLLMService;
         this.agentTools = {};
         this.plugins = new Plugins(utils);
         this.subAgentWindow = new SubAgentWindow(this.agentTools);
@@ -83,6 +83,7 @@ export class SubAgent {
         const toolCall = new ToolCall(
             this.plugins, normalizedTools, llmService, null, this.utils,
             { agentPrompt: agent_prompt, subagent: true, todolist, env, skill, mcpTool: mcpTool, agentName: tool_name, agentMode: store.get('agentMode', 'transagent') },
+            this.mainLLMService
         );
 
         this.agentTools[tool_name] = {

@@ -21,13 +21,13 @@ export interface SubAgentOptions {
 }
 export declare class SubAgent {
     utils: Utils;
-    llmService: LLMService;
+    mainLLMService: LLMService;
     agentToolName?: string;
     agentTool?: AgentTool;
     agentTools: Record<string, AgentTool>;
     subAgentWindow: SubAgentWindow;
     private plugins;
-    constructor(utils: Utils, llmService: LLMService);
+    constructor(utils: Utils, mainLLMService: LLMService);
     query(query: string, agentToolName: string, toolCall: ToolCall): Promise<any>;
     private normalizeTool;
     private normalizeTools;

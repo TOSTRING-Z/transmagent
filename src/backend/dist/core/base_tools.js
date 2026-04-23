@@ -4,24 +4,21 @@ exports.default = getBaseTools;
 const ReActAgent_1 = require("./ReActAgent");
 function getBaseTools() {
     return {
-        // ====================================================================
-        // update_env - 时间戳后端自动化
-        // ====================================================================
         "update_env": {
             func: async ({ key, value, toolCall }) => {
                 try {
                     if (!key || value === undefined) {
                         return { status: "error", message: "Both key and value parameters are required." };
                     }
-                    const chatState = toolCall.llmService.chatManager.chat;
-                    if (!chatState.envs) {
-                        chatState.envs = {};
+                    const llmService = toolCall.mainLLMService ? toolCall.mainLLMService : toolCall.llmService;
+                    if (!llmService.chatManager.chat.envs) {
+                        llmService.chatManager.chat.envs = {};
                     }
                     const metadata = {
                         agent: toolCall.agentConfigs?.agentName || 'unknown',
                         timestamp: toolCall.llmService.environment_details?.time || new Date().toISOString(),
                     };
-                    chatState.envs[key] = {
+                    llmService.chatManager.chat.envs[key] = {
                         value: `${value}`,
                         _meta: metadata, // 后端存储元数据，不污染 value
                     };

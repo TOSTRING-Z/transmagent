@@ -98,6 +98,7 @@ class ToolCall extends ReActAgent_1.ReActAgent {
     llmAssistant;
     tool_schemas;
     skillManager;
+    mainLLMService;
     // ── 架构新增 ─────────────────────────────────────────────────────────────
     /** 对外暴露的事件总线：UI 层、测试层均可订阅 */
     events;
@@ -120,7 +121,7 @@ class ToolCall extends ReActAgent_1.ReActAgent {
         subagent: false,
         agentMode: "transagent",
         agentName: "TransMAgent",
-    }) {
+    }, mainLLMService = null) {
         super(llmService, window, utils);
         this.llmService = llmService;
         this.plugins = plugins;
@@ -128,6 +129,7 @@ class ToolCall extends ReActAgent_1.ReActAgent {
         this.mcp_client = new McpClient_1.MCPClient(this);
         this.skillManager = new SkillManager_1.SkillManager(null, utils.getSshConfig());
         this.agentConfigs = agentConfigs;
+        this.mainLLMService = mainLLMService;
         this.initVar();
         this.baseTools = (0, base_tools_1.default)();
         this.agentTools = agentTools;

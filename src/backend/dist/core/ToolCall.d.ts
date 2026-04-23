@@ -67,6 +67,7 @@ export declare class ToolCall extends ReActAgent implements ISchedulableAgent {
     llmAssistant: LLMAssistant;
     tool_schemas?: any[];
     skillManager: SkillManager;
+    mainLLMService: LLMService | null;
     /** 对外暴露的事件总线：UI 层、测试层均可订阅 */
     readonly events: AgentEventEmitter;
     /** Electron UI 桥接控制器（仅主进程 Agent） */
@@ -77,7 +78,7 @@ export declare class ToolCall extends ReActAgent implements ISchedulableAgent {
     private pipeline;
     /** 高风险工具已记住的用户选择 */
     private rememberedChoices;
-    constructor(plugins: Plugins, agentTools: Record<string, any> | undefined, llmService: LLMService, window: BrowserWindow | null, utils: Utils, agentConfigs?: AgentConfigs);
+    constructor(plugins: Plugins, agentTools: Record<string, any> | undefined, llmService: LLMService, window: BrowserWindow | null, utils: Utils, agentConfigs?: AgentConfigs, mainLLMService?: LLMService | null);
     getChatVars(): Record<string, any>;
     getChatUUID(): string;
     initVar(): void;

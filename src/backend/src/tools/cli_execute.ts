@@ -35,26 +35,29 @@ export interface ExecuteResult {
 }
 
 // --- 辅助函数 ---
-function threshold(data: string, max_lines = 40, max_chars_per_line = 200): string {
-    if (!data) return data;
+function threshold(data: string, max_lines = 40, max_chars_per_line = 200): { result: string, isTruncated: boolean } {
+    if (!data) return { result: data, isTruncated: false };
 
     let lines = data.split('\n');
     let result = '';
+    let isTruncated = false;
 
     if (lines.length > max_lines) {
         result += `[truncated because the output is too long, showing only last ${max_lines} lines (max ${max_chars_per_line} chars per line)]\n`;
         lines = lines.slice(-max_lines);
+        isTruncated = true;
     }
 
     lines.forEach(line => {
         if (line.length > max_chars_per_line) {
             result += line.substring(0, max_chars_per_line) + '...\n';
+            isTruncated = true;
         } else {
             result += line + '\n';
         }
     });
 
-    return result.trim();
+    return { result: result.trim(), isTruncated };
 }
 
 function validateParams(params: CliExecuteParams | undefined): Required<CliExecuteParams> {
@@ -171,7 +174,6 @@ export function main(initialParams: CliExecuteParams = {}) {
             } else {
                 logger.log('[CliExecute] Running in silent mode - terminal window hidden');
             }
-            // 注意：这里移除了原本在外层的 closed 监听，统一放入 Promise 内部处理，方便回收进程
         } catch (error: any) {
             return { success: false, output: '', error: `Failed to create terminal window: ${error.message}` };
         }
@@ -186,14 +188,18 @@ export function main(initialParams: CliExecuteParams = {}) {
             let killProcess: ((force?: boolean) => void) | null = null;
 
             // 依据执行环境动态分配：输出流及路径
-            let outStream: any = null; // 可以是 fs.WriteStream 也可以是 SFTP WriteStream
+            let outStream: any = null; 
             let finalOutputFilePath = ""; 
-            let localTempScriptFile = ""; // 仅用于本地模式清理用
+            let localTempScriptFile = ""; 
 
             // 用于保存最后的输出内容（防止内存泄漏）
             let tailBuffer = "";
             let errorBuffer = "";
             const MAX_TAIL_CHARS = 50000;
+            
+            // 记录底层 Buffer 是否被截断
+            let isTailTruncated = false;
+            let isErrorTruncated = false;
             
             // 用于 ConsoleMonitor 增量检查的缓冲区
             let monitorBuffer = ""; 
@@ -210,6 +216,7 @@ export function main(initialParams: CliExecuteParams = {}) {
                 tailBuffer += data;
                 if (tailBuffer.length > MAX_TAIL_CHARS) {
                     tailBuffer = tailBuffer.slice(-MAX_TAIL_CHARS);
+                    isTailTruncated = true; // 触发底层截断
                 }
 
                 monitorBuffer += data;
@@ -218,6 +225,7 @@ export function main(initialParams: CliExecuteParams = {}) {
                     errorBuffer += data;
                     if (errorBuffer.length > MAX_TAIL_CHARS) {
                         errorBuffer = errorBuffer.slice(-MAX_TAIL_CHARS);
+                        isErrorTruncated = true; // 触发底层截断
                     }
                 }
             };
@@ -246,23 +254,31 @@ export function main(initialParams: CliExecuteParams = {}) {
 
                 cleanupResources(localTempScriptFile, terminalWindow, conn);
 
-                // 组装最终结果
-                let finalOutput = threshold(tailBuffer, params.max_lines, params.max_chars_per_line);
+                // 获取并检查是否在格式化阶段被截断
+                const outThreshold = threshold(tailBuffer, params.max_lines, params.max_chars_per_line);
+                const errThreshold = threshold(errorBuffer, params.max_lines, params.max_chars_per_line);
+                
+                let finalOutput = outThreshold.result;
+                const finalError = errThreshold.result;
                 
                 if (isInterrupted) {
-                    finalOutput += "\n\n[Process Interrupted by User / 用户主动中断]";
+                    finalOutput += "\n\n[Process Interrupted by User]";
                 } else if (result.timeout) {
-                    finalOutput += "\n\n[Process Timed Out / 执行超时]";
+                    finalOutput += "\n\n[Process Timed Out]";
                 }
 
-                if (finalOutputFilePath) {
-                    finalOutput += `\n\n[Complete output saved to / 完整输出已保存至: ${finalOutputFilePath}]`;
+                // 判断是否在任何环节发生了截断
+                const hasTruncation = isTailTruncated || isErrorTruncated || outThreshold.isTruncated || errThreshold.isTruncated;
+
+                // 仅当发生了截断，且拥有日志文件路径时，才追加提示
+                if (hasTruncation && finalOutputFilePath) {
+                    finalOutput += `\n\n[Complete output saved to: ${finalOutputFilePath}]`;
                 }
 
                 resolve({
                     success: result.success ?? false,
                     output: finalOutput,
-                    error: threshold(errorBuffer, params.max_lines, params.max_chars_per_line),
+                    error: finalError,
                     timeout: result.timeout,
                     message: result.message
                 });
@@ -281,7 +297,7 @@ export function main(initialParams: CliExecuteParams = {}) {
             ipcMain.on('minimize-window', handleMinimize);
             ipcMain.once('close-window', handleCloseWindow);
 
-            // 监听窗口被原生 X 按钮关闭的情况（仅在窗口存在时注册）
+            // 监听窗口被原生 X 按钮关闭的情况
             if (terminalWindow) {
                 terminalWindow.on('closed', () => {
                     terminalWindow = null;
@@ -370,7 +386,6 @@ export function main(initialParams: CliExecuteParams = {}) {
                         finalOutputFilePath = `/tmp/output_${timestamp}_${randomStr}.txt`;
                         outStream = sftp.createWriteStream(finalOutputFilePath, { encoding: 'utf8', flags: 'a' });
                         outStream.on('error', (err: Error) => {
-                            // SSH命令完成后流关闭是正常的，只在未完成时记录
                             if (!isResolved) {
                                 logger.warn(`Remote output stream error: ${err.message}`);
                             }
@@ -394,7 +409,6 @@ export function main(initialParams: CliExecuteParams = {}) {
                                     return finish({ success: false, error: `Execution error: ${execErr.message}` });
                                 }
 
-                                // 初始化 SSH 的强杀逻辑
                                 killProcess = (force?: boolean) => {
                                     if (stream) {
                                         try { stream.close(); } catch(e) {}
@@ -433,7 +447,6 @@ export function main(initialParams: CliExecuteParams = {}) {
                                         isInterrupted = true;
                                         if (killProcess) killProcess(false);
                                         
-                                        // 500ms兜底，如果进程忽略了终端中断，直接断开连接强杀
                                         setTimeout(() => {
                                             if (!isResolved) {
                                                 if (killProcess) killProcess(true);
@@ -469,7 +482,6 @@ export function main(initialParams: CliExecuteParams = {}) {
                     // 1. 设置本地输出日志文件流
                     outStream = fs.createWriteStream(finalOutputFilePath, { encoding: 'utf8', flags: 'a' });
                     outStream.on('error', (err: Error) => {
-                        // 只在未完成时记录，避免正常关闭时的警告
                         if (!isResolved) {
                             logger.warn(`Local output stream error: ${err.message}`);
                         }
@@ -486,7 +498,6 @@ export function main(initialParams: CliExecuteParams = {}) {
                 // 3. 运行本地脚本
                 const child: ChildProcess = exec(`${params.bash} ${localTempScriptFile}`);
 
-                // 初始化本地环境强杀逻辑
                 killProcess = (force?: boolean) => {
                     if (child && child.exitCode === null) {
                         child.kill(force ? 'SIGKILL' : 'SIGINT');
@@ -521,12 +532,11 @@ export function main(initialParams: CliExecuteParams = {}) {
                 signalHandler = (event, signal) => {
                     if (signal === "ctrl_c") {
                         isInterrupted = true;
-                        if (killProcess) killProcess(false); // 发送 SIGINT
+                        if (killProcess) killProcess(false);
                         
-                        // 500ms兜底，如果进程未死亡则强杀
                         setTimeout(() => {
                             if (!isResolved) {
-                                if (killProcess) killProcess(true); // 发送 SIGKILL
+                                if (killProcess) killProcess(true);
                                 finish({ success: false });
                             }
                         }, 500);
