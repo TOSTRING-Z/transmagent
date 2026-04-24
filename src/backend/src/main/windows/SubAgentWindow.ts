@@ -1,10 +1,8 @@
 import { BrowserWindow, ipcMain } from 'electron';
 import * as path from 'path';
-import { WindowManager } from "./WindowManager";
 import { ToolCall } from '../../core/ToolCall';
 import { Mode } from '../../core/ReActAgent';
 import { AgentTool } from '../../core/SubAgent';
-import { LLMService } from '../../core/LLMService';
 import { parseJsonContent, isSilentMode } from '../../utils/public';
 
 export class SubAgentWindow {

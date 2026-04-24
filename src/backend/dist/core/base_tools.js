@@ -7,12 +7,30 @@ function getBaseTools() {
         "update_env": {
             func: async ({ key, value, toolCall }) => {
                 try {
-                    if (!key || value === undefined) {
-                        return { status: "error", message: "Both key and value parameters are required." };
+                    if (!key) {
+                        return { status: "error", message: "The 'key' parameter is required." };
                     }
                     const llmService = toolCall.mainLLMService ? toolCall.mainLLMService : toolCall.llmService;
                     if (!llmService.chatManager.chat.envs) {
                         llmService.chatManager.chat.envs = {};
+                    }
+                    // 删除变量逻辑：当 value 为空或 null 或 undefined 时删除该键
+                    if (value === undefined || value === null || value === "") {
+                        if (llmService.chatManager.chat.envs.hasOwnProperty(key)) {
+                            delete llmService.chatManager.chat.envs[key];
+                            return {
+                                status: "success",
+                                key: key,
+                                message: `Environment variable '${key}' has been deleted.`
+                            };
+                        }
+                        else {
+                            return {
+                                status: "success",
+                                key: key,
+                                message: `Environment variable '${key}' did not exist; nothing to delete.`
+                            };
+                        }
                     }
                     const metadata = {
                         agent: toolCall.agentConfigs?.agentName || 'unknown',
@@ -39,7 +57,7 @@ function getBaseTools() {
             },
             getPrompt: () => ({
                 name: "update_env",
-                description: "[IN-SESSION STATE] Writes or updates a variable in the CURRENT session's shared environment. CRITICAL: Use this to share file paths, IDs, and temporary states with other sub-agents during this specific conversation.",
+                description: "[IN-SESSION STATE] Write, update, or DELETE a variable in the CURRENT session's shared environment. CRITICAL: Use this to share file paths, IDs, and temporary states with other sub-agents during this specific conversation. If 'value' is empty (null/undefined/blank), the variable will be DELETED.",
                 parameters: {
                     type: "object",
                     properties: {
@@ -49,7 +67,7 @@ function getBaseTools() {
                         },
                         value: {
                             type: "string",
-                            description: "The value to store. Simply provide the actual value - the system will automatically append metadata (agent name, timestamp) in the backend."
+                            description: "The value to store. If this is blank/empty/null/undefined, the variable will be deleted from the environment. The system will automatically append metadata (agent name, timestamp) in the backend."
                         }
                     },
                     required: ["key", "value"]
