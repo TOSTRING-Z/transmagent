@@ -27,6 +27,10 @@ export class OpenAIAdapter implements ILLMAdapter {
                     }
                 }));
             }
+            // 回传 reasoning_content（扩展思考模式必需，否则 API 返回 400）
+            if (message.role === "assistant" && (message as any).reasoning_content) {
+                messageCopy.reasoning_content = (message as any).reasoning_content;
+            }
 
             // 2. 视觉模型参数处理
             if (!data.params?.vision) {
