@@ -23,6 +23,7 @@ export type AgentMode = 'transagent' | 'baseagent' | 'multagent'
 export interface OpenAIContent {
     role: "system" | "user" | "assistant" | "tool";
     content: string | MessageContent[];
+    reasoning_content?: string;
     tool_call_id?: string | null;
     tool_calls?: ToolCall[];
 }
@@ -31,6 +32,7 @@ export interface OpenAIContent {
 export interface OllamaContent {
     role: "system" | "user" | "assistant";
     content: string;
+    reasoning_content?: string;
     tool_call_id?: string | null;
     images?: string[]; // base64图片数据数组
 }

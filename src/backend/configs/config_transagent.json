@@ -54,7 +54,7 @@
       "api_type": "openai",
       "versions": [
         {
-          "version": "deepseek-chat"
+          "version": "deepseek-v4-pro"
         }
       ]
     },
@@ -64,7 +64,7 @@
       "api_type": "anthropic",
       "versions": [
         {
-          "version": "deepseek-chat"
+          "version": "deepseek-v4-pro"
         }
       ]
     }

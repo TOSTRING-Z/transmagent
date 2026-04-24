@@ -58,8 +58,8 @@ export class OllamaAdapter implements ILLMAdapter {
             }
 
             // 回传 reasoning_content（扩展思考/思维链模式必需）
-            if (message.role === "assistant" && (message as any).reasoning_content) {
-                messageCopy.reasoning_content = (message as any).reasoning_content;
+            if (message.role === "assistant") {
+                messageCopy.reasoning_content = (message as any)?.reasoning_content || "";
             }
 
             return messageCopy;

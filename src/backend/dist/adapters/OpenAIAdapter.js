@@ -30,6 +30,10 @@ class OpenAIAdapter {
                     }
                 }));
             }
+            // 回传 reasoning_content（扩展思考模式必需，否则 API 返回 400）
+            if (message.role === "assistant") {
+                messageCopy.reasoning_content = message?.reasoning_content || "";
+            }
             // 2. 视觉模型参数处理
             if (!data.params?.vision) {
                 // 非视觉模型：如果是数组内容，提取出纯文本

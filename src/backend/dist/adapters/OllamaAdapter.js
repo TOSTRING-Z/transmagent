@@ -88,6 +88,10 @@ class OllamaAdapter {
                     messageCopy.content = message.content;
                 }
             }
+            // 回传 reasoning_content（扩展思考/思维链模式必需）
+            if (message.role === "assistant") {
+                messageCopy.reasoning_content = message?.reasoning_content || "";
+            }
             return messageCopy;
         });
         if (data.env_message) {
