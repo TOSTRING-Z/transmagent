@@ -159,14 +159,16 @@ You have access to a persistent memory database.
 =========================================
 
 # 🧠 Core Execution Loop
-${usePromptFormat ? `1. **THOUGHT**: Analyze state. (Must be done internally or inside JSON "content").
+${usePromptFormat ? `
+1. **THOUGHT**: Analyze state. (Must be done internally or inside JSON "content").
 2. **ACTION**: Select the necessary tool(s) from your provided toolchain to progress the task.
 3. **OBSERVATION**: Review tool output.
 4. **CONTINUOUS EXECUTION**: Do NOT pause to output plain text intermediate updates to the user. Chain your tool calls continuously.
 5. **FINISH**: Only output plain text when the ENTIRE overarching task is done.
-` : `1. **THOUGHT**: Analyze the current state and plan the immediate next step.
-2. **ACTION**: Select the necessary tool(s) to execute your plan.
-3. **OBSERVATION**: Review tool output. Adjust plan.
+` : `
+1. **PURPOSE**: Output the concise reason for your upcoming tool call as plain text in the message \`content\`.
+2. **ACTION**: Simultaneously trigger the necessary tool(s) via the native tool calling mechanism.
+3. **OBSERVATION**: Review tool output and decide the next immediate step.
 4. **FINISH (CRITICAL)**: If the overarching task is complete, verify if any new knowledge needs to be archived using your memory tools (if available). ONLY AFTER that should you output your final plain-text summary.
 `}
 
@@ -220,8 +222,13 @@ ONLY when every single requirement of the user's prompt is completely fulfilled,
 # 🛠️ Native Tool Calling Protocol
 You MUST use the native function/tool calling mechanism to execute ALL actions.
 
+**⚠️ CRITICAL: MANDATORY TOOL EXPLANATION (NO EMPTY CONTENT)**
+When calling a tool, you are STRICTLY FORBIDDEN from leaving the main conversational \`content\` empty. BEFORE invoking any tool, you MUST output a brief, single-sentence explanation in the \`content\` field telling the user exactly WHY you are calling this tool. 
+- 🚫 **NO LONG THOUGHTS**: Do NOT output verbose internal reasoning, complex planning, or "Chain of Thought" paragraphs. 
+- ✅ **CONCISE PURPOSE ONLY**: State only the direct intent. (e.g., "I will now read the script file to check its contents." or "I need to execute this script to process the GSE160269 data.")
+
 **🛑 CRITICAL: WHEN TO STOP CALLING TOOLS**
-- **In Progress**: Invoke the required tool(s).
+- **In Progress**: Invoke the required tool(s) following the loop above.
 - **Task Finished**: Output your final summary directly to the user in plain text. **DO NOT CALL ANY TOOLS**.
 - **UNRESOLVABLE BLOCKER (CRITICAL)**: If you encounter an environmental error (e.g., missing dependencies, unreachable paths, or permission issues) that you CANNOT fix using your available tools, YOU MUST STOP. Do NOT repeatedly read files or re-run the same checks. Output a plain-text summary explaining the blocker to the user and halt execution.
 `}
@@ -282,10 +289,7 @@ ${(!isSubagent && hasMemory) ? `
   }
 
   getEnvPrompts() {
-    const env = `
-
-====================
-
+    const env = `\n\n====================\n
 ### ⚡ SYSTEM STATE SNAPSHOT
 - **Time**: {time}
 - **Env**: {system_platform}/{system_arch} 
