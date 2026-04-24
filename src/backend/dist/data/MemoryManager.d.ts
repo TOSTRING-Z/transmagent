@@ -1,21 +1,7 @@
-/** 配置接口定义 */
-interface EmbeddingConfig {
-    base_url: string;
-    api_key: string;
-    enabled: boolean;
-    model?: string;
-}
-interface Utils {
-    getLongMemoryPath(): string;
-    getImportantMemoryPath(): string;
-    getConfig(key: 'embedding'): EmbeddingConfig | undefined;
-}
 /** 内存管理类 */
 declare class MemoryManager {
-    private readonly dbPath;
     private memoryDB;
-    private readonly utils;
-    constructor(utils: Utils);
+    constructor();
     initDB(): Promise<void>;
     /** 获取向量嵌入 */
     private getEmbedding;

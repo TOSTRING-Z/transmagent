@@ -20,6 +20,4 @@ export declare class Utils {
     setHistoryData(historyData: any): boolean;
     getHistoryConfigPath(): string;
     getHistoryPath(id: string): string;
-    getImportantMemoryPath(): string;
-    getLongMemoryPath(): string;
 }

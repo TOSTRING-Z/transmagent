@@ -135,7 +135,7 @@ class ToolCall extends ReActAgent_1.ReActAgent {
         this.agentTools = agentTools;
         this.tools = {};
         this.prompts = new Prompts_1.default(this);
-        this.memory_manager = new MemoryManager_1.default(utils);
+        this.memory_manager = new MemoryManager_1.default();
         this.task_prompt = (toolsData) => this.prompts.getSystemPrompts(toolsData);
         this.env_prompt = this.prompts.getEnvPrompts();
         this.todolist_prompt = this.prompts.getTodoListPrompt();
@@ -347,8 +347,9 @@ class ToolCall extends ReActAgent_1.ReActAgent {
         this.llmService.environment_details.time = (0, public_1.formatDate)();
         this.llmService.environment_details.language = data?.language || this.utils.getLanguage();
         const chatState = this.llmService.chatManager.chat;
-        const envs = Object.keys(chatState.envs || {}).map(key => {
-            const env = chatState.envs[key];
+        const mainChatState = this.mainLLMService ? this.mainLLMService.chatManager.chat : chatState;
+        const envs = Object.keys(mainChatState.envs || {}).map(key => {
+            const env = mainChatState.envs[key];
             return `- ${key}: [${env._meta.agent} / ${env._meta.timestamp}] ${env.value}`;
         });
         const todolist = Object.keys(chatState.vars.tasks || {}).map(task_id => {
@@ -729,6 +730,7 @@ class ToolCall extends ReActAgent_1.ReActAgent {
         if (this.state === ReActAgent_1.State.FINAL || this.state === ReActAgent_1.State.ERROR) {
             if (!this.agentConfigs.subagent) {
                 this.setHistory();
+                this.saveLongTermMemory(data.query, data.output);
                 this.llmAssistant.organizeMemory().catch(err => {
                     logger_1.logger.warn(`[ToolCall] Memory organization failed: ${err}`);
                 });

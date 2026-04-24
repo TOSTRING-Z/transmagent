@@ -264,11 +264,9 @@ class MainWindow extends BaseWindow_1.BaseWindow {
         }
         else if (this.funcItems.react.statu) {
             await this.session().tool_call.callReAct(data);
-            this.session().tool_call.saveLongTermMemory(data.query, data.output);
         }
         else {
             await this.session().chain_call.callChain(data);
-            this.session().tool_call.saveLongTermMemory(data.query, data.output);
         }
     }
     setup() {

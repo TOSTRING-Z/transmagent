@@ -174,7 +174,7 @@ export class ToolCall extends ReActAgent implements ISchedulableAgent {
         this.tools = {};
 
         this.prompts = new Prompts(this);
-        this.memory_manager = new MemoryManager(utils);
+        this.memory_manager = new MemoryManager();
 
         this.task_prompt = (toolsData) => this.prompts.getSystemPrompts(toolsData);
         this.env_prompt = this.prompts.getEnvPrompts();
@@ -423,9 +423,10 @@ export class ToolCall extends ReActAgent implements ISchedulableAgent {
         this.llmService.environment_details.time = formatDate();
         this.llmService.environment_details.language = data?.language || this.utils.getLanguage();
         const chatState = this.llmService.chatManager.chat;
+        const mainChatState = this.mainLLMService ? this.mainLLMService.chatManager.chat: chatState;
 
-        const envs = Object.keys(chatState.envs || {}).map(key => {
-            const env = chatState.envs[key];
+        const envs = Object.keys(mainChatState.envs || {}).map(key => {
+            const env = mainChatState.envs[key];
             return `- ${key}: [${env._meta.agent} / ${env._meta.timestamp}] ${env.value}`;
         });
         const todolist = Object.keys(chatState.vars.tasks || {}).map(task_id => {
@@ -865,6 +866,7 @@ export class ToolCall extends ReActAgent implements ISchedulableAgent {
         if (this.state === State.FINAL || (this.state as State) === State.ERROR) {
             if (!this.agentConfigs.subagent) {
                 this.setHistory();
+                this.saveLongTermMemory(data.query, data.output);
                 this.llmAssistant.organizeMemory().catch(err => {
                     logger.warn(`[ToolCall] Memory organization failed: ${err}`);
                 });

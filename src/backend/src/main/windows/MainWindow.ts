@@ -254,10 +254,8 @@ export class MainWindow extends BaseWindow {
             await this.session().chain_call.pluginCall(data);
         } else if (this.funcItems.react.statu) {
             await this.session().tool_call.callReAct(data);
-            this.session().tool_call.saveLongTermMemory(data.query, data.output);
         } else {
             await this.session().chain_call.callChain(data);
-            this.session().tool_call.saveLongTermMemory(data.query, data.output);
         }
     }
 

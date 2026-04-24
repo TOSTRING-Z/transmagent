@@ -94,7 +94,6 @@ class SubAgentWindow {
             this.agentTool = this.agentTools[agentToolName];
             win.on('closed', () => {
                 if (this.agentTool) {
-                    this.agentTool.toolCall.destroy();
                     this.agentTool.toolCall.llmService.stopLoop();
                     resolve("The user interrupted the task.");
                 }

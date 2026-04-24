@@ -8,15 +8,12 @@ const path_1 = __importDefault(require("path"));
 const promises_1 = __importDefault(require("fs/promises"));
 const fs_1 = require("fs");
 const MemoryDB_1 = require("./MemoryDB");
+const public_1 = require("../utils/public");
 /** 内存管理类 */
 class MemoryManager {
-    dbPath;
     memoryDB;
-    utils;
-    constructor(utils) {
-        this.utils = utils;
-        this.dbPath = path_1.default.join(this.utils.getLongMemoryPath(), 'memory.db');
-        this.memoryDB = new MemoryDB_1.MemoryDB(this.dbPath);
+    constructor() {
+        this.memoryDB = new MemoryDB_1.MemoryDB();
         // 初始化在构造函数外显式调用更为稳妥，或者在这里静默初始化
         this.initDB().catch(err => console.error("Database initialization failed:", err));
     }
@@ -25,7 +22,7 @@ class MemoryManager {
     }
     /** 获取向量嵌入 */
     async getEmbedding(text) {
-        const config = this.utils.getConfig('embedding');
+        const config = (0, public_1.getDefaultConfig)('embedding');
         if (!config?.enabled || !config.base_url || !config.api_key) {
             return null;
         }
@@ -53,7 +50,7 @@ class MemoryManager {
             // 1. 文件持久化 (异步)
             const date = time.split(' ')[0];
             const filename = `${chatId}-${date}.md`;
-            const filePath = path_1.default.join(this.utils.getLongMemoryPath(), filename);
+            const filePath = (0, public_1.getDefault)(`long_memory/${filename}`);
             await promises_1.default.appendFile(filePath, `${content}\n`, 'utf8');
             // 2. 向量化并入库
             const embedding = await this.getEmbedding(content);
@@ -70,13 +67,12 @@ class MemoryManager {
     /** 查询相关记忆 */
     async queryLongTermMemory(query, topK = 5) {
         const embedding = await this.getEmbedding(query);
-        if (!embedding)
-            return [];
-        return this.memoryDB.query(embedding, topK);
+        // embedding 为 null 时也会传给 memoryDB.query，由底层决定单独使用 BM25
+        return this.memoryDB.query(embedding, query, topK);
     }
     /** 获取核心/重要记忆 */
     async getImportantMemory() {
-        const memoryPath = this.utils.getImportantMemoryPath();
+        const memoryPath = (0, public_1.getDefault)('memory.md');
         try {
             return await promises_1.default.readFile(memoryPath, 'utf8');
         }
@@ -86,7 +82,7 @@ class MemoryManager {
     }
     /** 追加核心/重要记忆 */
     async appendImportantMemory(content, time) {
-        const memoryPath = this.utils.getImportantMemoryPath();
+        const memoryPath = (0, public_1.getDefault)('memory.md');
         const dir = path_1.default.dirname(memoryPath);
         try {
             // 确保目录存在

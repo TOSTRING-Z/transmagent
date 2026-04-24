@@ -247,18 +247,4 @@ export class Utils {
         const history_path = historyPathTpl ? formatString(historyPathTpl, process as any) : this.getDefault();
         return path.join(history_path, 'history', `${id}.json`);
     }
-
-    public getImportantMemoryPath(): string {
-        return this.getDefault("memory.md");
-    }
-
-    public getLongMemoryPath(): string {
-        const historyPathTpl = this.getConfig("history_path");
-        const history_path = historyPathTpl ? formatString(historyPathTpl, process as any) : this.getDefault();
-        const long_memory_path = path.join(history_path, 'long_memory');
-        if (!fs.existsSync(long_memory_path)) {
-            fs.mkdirSync(long_memory_path, { recursive: true });
-        }
-        return long_memory_path;
-    }
 }

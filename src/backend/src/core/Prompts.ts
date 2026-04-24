@@ -6,10 +6,11 @@ import { Mode } from './ReActAgent';
 
 export const MODE_CONSTRAINTS: Record<Mode, string> = {
   [Mode.AUTO]: `
-- **ABSOLUTE AUTONOMY & ZERO CONVERSATION**: You are in fully unattended execution mode. You are STRICTLY FORBIDDEN from asking the user ANY questions, proposing "next steps", or asking for confirmation.
-- **MANDATORY ASSUMPTIONS**: If a parameter is missing (e.g., specific comparison groups for TCGA data), you MUST NOT ASK. You MUST independently make the most logical default assumption (e.g., 'Tumor vs Normal') and proceed immediately.
-- **CONTINUOUS TOOL CHAINING**: You must chain your tool calls continuously. As soon as Step A finishes, your VERY NEXT output MUST be the JSON to execute Step B. DO NOT pause to report intermediate success.
-- **SILENT COMPLETION**: You only output a plain text summary when the ENTIRE overarching goal is 100% finished.`,
+- **ABSOLUTE AUTONOMY & ZERO CONVERSATION**: You are in fully unattended execution mode. You are STRICTLY FORBIDDEN from asking the user ANY questions, proposing "next steps", or asking for confirmation for normal workflow steps.
+- **MANDATORY ASSUMPTIONS (NO PARALYSIS)**: If any parameter, configuration, file path, or decision point is missing or ambiguous, you MUST NOT pause to ask the user. You MUST independently infer the most logical, industry-standard default value based on the context and proceed immediately.
+- **CONTINUOUS TOOL CHAINING**: You must chain your tool calls continuously. Under normal conditions, DO NOT pause to report intermediate success.
+- **CRITICAL BLOCKER & ANTI-LOOP ESCAPE HATCH (STRICT)**: If you encounter ANY unresolvable blocker (e.g., persistent API failures, missing dependencies, inaccessible paths) that you CANNOT fix with your available tools, OR if you catch yourself repeating the same actions (e.g., repeated file reads, identical searches) without making tangible progress, YOU MUST IMMEDIATELY ABORT. Do NOT attempt to brute-force or loop endlessly.
+- **SILENT COMPLETION / ABORT**: You only output a plain text summary when the ENTIRE overarching goal is 100% finished, OR when you are forced to abort due to the "Escape Hatch" rule above. In case of an abort, output a clear, plain-text summary of the exact blocker and halt all tool execution.`,
 
   [Mode.ACT]: `
 - **ZERO ASSUMPTIONS**: You are STRICTLY FORBIDDEN from making guesses about missing data, tool choices, file paths, or environment configurations. If ANY information is implicit, missing, or ambiguous, you MUST pause and use the \`ask_user\` tool immediately.
@@ -25,10 +26,10 @@ export const MODE_CONSTRAINTS: Record<Mode, string> = {
 - **HANDOVER**: Upon plan completion, you MUST explicitly prompt the user (via standard text) to switch to "Execution mode" or "Automatic mode" to proceed.`,
 
   [Mode.FLASH]: `
-- **RUTHLESS AUTONOMY**: Do NOT pause to ask for clarification, permissions, or missing data. Make rapid, executive decisions on all ambiguities and missing context to maintain absolute momentum.
-- **MAXIMUM VELOCITY**: Execute the most direct technical path to task completion. Prioritize speed and immediate results over deep exploration, defensive checks, or edge-case handling.
+- **RUTHLESS AUTONOMY**: Do NOT pause to ask for clarification, permissions, or missing data. Make rapid, logical decisions on all ambiguities to maintain absolute momentum.
+- **FOCUSED VELOCITY (NO CORNERS CUT)**: Execute the most direct technical path to task completion. You must eliminate over-engineering and deep rabbit holes, BUT you are STRICTLY FORBIDDEN from skipping essential functional steps or ignoring core requirements. Speed comes from decisive action and zero conversational overhead, not from incomplete execution.
 - **SILENT EXECUTION**: Strictly minimize all conversational text, step-by-step explanations, and pleasantries. Output only the final result or critical execution logs. Talk less, do more.
-- **NO OVERHEAD**: You are FORBIDDEN from generating Mermaid charts, subtask breakdowns, or long summaries. Reach the end state as fast as possible.`
+- **NO OVERHEAD**: You are FORBIDDEN from generating Mermaid charts, subtask breakdowns, or long summaries. Reach the correct end state as fast as possible.`,
 };
 
 class Prompts {
@@ -222,6 +223,7 @@ You MUST use the native function/tool calling mechanism to execute ALL actions.
 **🛑 CRITICAL: WHEN TO STOP CALLING TOOLS**
 - **In Progress**: Invoke the required tool(s).
 - **Task Finished**: Output your final summary directly to the user in plain text. **DO NOT CALL ANY TOOLS**.
+- **UNRESOLVABLE BLOCKER (CRITICAL)**: If you encounter an environmental error (e.g., missing dependencies, unreachable paths, or permission issues) that you CANNOT fix using your available tools, YOU MUST STOP. Do NOT repeatedly read files or re-run the same checks. Output a plain-text summary explaining the blocker to the user and halt execution.
 `}
 
 # ⚠️ TRUNCATION PREVENTION
