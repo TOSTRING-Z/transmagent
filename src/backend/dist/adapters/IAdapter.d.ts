@@ -7,6 +7,7 @@ export interface ILLMAdapter {
     parseResponse(respJson: any): {
         content: string;
         reasoning_content?: string;
+        thinking_signature?: string;
         tool_calls?: any[];
         finish_reason?: string;
         tokens?: number;

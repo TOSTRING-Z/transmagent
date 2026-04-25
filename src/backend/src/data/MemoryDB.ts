@@ -77,6 +77,7 @@ export class MemoryDB {
         if (MemoryDB.instance && MemoryDB.initialized) {
             this.dbPath = MemoryDB.instance.dbPath;
             this.db = MemoryDB.instance.db;
+            this.mdDir = MemoryDB.instance.mdDir;
             return;
         }
         this.dbPath = getDefault('long_memory/memory.db');

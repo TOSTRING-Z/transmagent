@@ -57,7 +57,13 @@ export class ChainCall extends ReActAgent {
             stateResult = await this.llmCall(data);
             // 存入本地记忆与结束反馈
             this.llmService.chatManager.pushUserMessage({ ...this.llmService.chatManager.chat, content: data.query, uuid: data.uuid });
-            this.llmService.chatManager.pushAssistantMessage({ ...this.llmService.chatManager.chat, content: data.output, uuid: data.uuid });
+            this.llmService.chatManager.pushAssistantMessage({
+                ...this.llmService.chatManager.chat,
+                content: data.output,
+                reasoning_content: stateResult?.reasoning_content,
+                thinking_signature: (stateResult as any)?.thinking_signature,
+                uuid: data.uuid
+            });
         }
 
         if (!stateResult) {

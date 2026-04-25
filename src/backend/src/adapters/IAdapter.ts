@@ -14,7 +14,7 @@ export interface ILLMAdapter {
     parseStreamChunk(chunk: any): StreamChunkResult;
     
     // 解析非流式 Response
-    parseResponse(respJson: any): { content: string, reasoning_content?: string, tool_calls?: any[], finish_reason?: string, tokens?: number };
+    parseResponse(respJson: any): { content: string, reasoning_content?: string, thinking_signature?: string, tool_calls?: any[], finish_reason?: string, tokens?: number };
 
     // 输出截断与续传
     truncatedResponse(body, headers, window, chatManager, messageOutput, data: ChatRequestData): any;

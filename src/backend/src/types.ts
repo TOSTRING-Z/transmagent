@@ -1,3 +1,9 @@
+// 思考内容
+export interface ThinkingContent {
+    type: "thinking" | "redacted_thinking";
+    thinking: string;
+}
+
 // 文本内容
 export interface TextContent {
     type: "text";
@@ -14,8 +20,16 @@ export interface ImageContent {
     };
 }
 
+// 工具结果内容
+export interface ToolResultContent {
+    type: "tool_result";
+    tool_call_id?: string | null;
+    tool_use_id?: string | null;
+    content: string;
+}
+
 // 联合类型
-export type MessageContent = TextContent | ImageContent;
+export type MessageContent = TextContent | ImageContent | ToolResultContent;
 
 export type AgentMode = 'transagent' | 'baseagent' | 'multagent'
 
@@ -35,13 +49,6 @@ export interface OllamaContent {
     reasoning_content?: string;
     tool_call_id?: string | null;
     images?: string[]; // base64图片数据数组
-}
-
-// observation
-export interface ToolResult {
-    type: "tool_result";
-    tool_call_id?: string | null;
-    content: string | MessageContent[];
 }
 
 // skill
@@ -109,6 +116,8 @@ export interface AssistantMessage extends BaseMessage {
     role: "assistant";
     content: string;
     reasoning_content?: string;
+    thinking_signature?: string;
+    thinking?: string;
     tool_calls?: ToolCall[];
 }
 
@@ -119,7 +128,7 @@ export interface UserMessage extends BaseMessage {
 
 export interface ToolMessage extends BaseMessage {
     role: "tool";
-    content: string;
+    content: string | ToolResultContent[];
     tool_call_id: string;
     tool_call_name: string;
 }
@@ -176,6 +185,7 @@ export interface ChatRequestData {
 export interface StreamChunkResult {
     content: string;
     reasoning_content?: string;
+    thinking_signature?: string;  // thinking 块的签名，用于后续重建 thinking 块
     tool_calls?: ToolCall[];
     tokens?: number;
     is_incremental_tokens?: boolean;

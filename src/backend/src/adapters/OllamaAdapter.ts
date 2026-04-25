@@ -29,10 +29,10 @@ export class OllamaAdapter implements ILLMAdapter {
                 if (Array.isArray(message.content)) {
                     const textObj = message.content.find(
                         (c: MessageContent): c is TextContent => c.type === "text"
-                    );
+                    ) as TextContent;
                     const imgObj = message.content.find(
                         (c: MessageContent): c is ImageContent => c.type === "image_url"
-                    );
+                    ) as ImageContent;
 
                     if (textObj && imgObj) {
                         // 提取 base64 编码的图片

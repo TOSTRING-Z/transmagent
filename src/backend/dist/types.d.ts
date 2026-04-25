@@ -1,3 +1,7 @@
+export interface ThinkingContent {
+    type: "thinking" | "redacted_thinking";
+    thinking: string;
+}
 export interface TextContent {
     type: "text";
     text: string;
@@ -9,7 +13,13 @@ export interface ImageContent {
         detail?: "low" | "high" | "auto";
     };
 }
-export type MessageContent = TextContent | ImageContent;
+export interface ToolResultContent {
+    type: "tool_result";
+    tool_call_id?: string | null;
+    tool_use_id?: string | null;
+    content: string;
+}
+export type MessageContent = TextContent | ImageContent | ToolResultContent;
 export type AgentMode = 'transagent' | 'baseagent' | 'multagent';
 export interface OpenAIContent {
     role: "system" | "user" | "assistant" | "tool";
@@ -24,11 +34,6 @@ export interface OllamaContent {
     reasoning_content?: string;
     tool_call_id?: string | null;
     images?: string[];
-}
-export interface ToolResult {
-    type: "tool_result";
-    tool_call_id?: string | null;
-    content: string | MessageContent[];
 }
 export interface Skill {
     name: string;
@@ -81,6 +86,8 @@ export interface AssistantMessage extends BaseMessage {
     role: "assistant";
     content: string;
     reasoning_content?: string;
+    thinking_signature?: string;
+    thinking?: string;
     tool_calls?: ToolCall[];
 }
 export interface UserMessage extends BaseMessage {
@@ -89,7 +96,7 @@ export interface UserMessage extends BaseMessage {
 }
 export interface ToolMessage extends BaseMessage {
     role: "tool";
-    content: string;
+    content: string | ToolResultContent[];
     tool_call_id: string;
     tool_call_name: string;
 }
@@ -142,6 +149,7 @@ export interface ChatRequestData {
 export interface StreamChunkResult {
     content: string;
     reasoning_content?: string;
+    thinking_signature?: string;
     tool_calls?: ToolCall[];
     tokens?: number;
     is_incremental_tokens?: boolean;

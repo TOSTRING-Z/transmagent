@@ -64,6 +64,7 @@ class MemoryDB {
         if (MemoryDB.instance && MemoryDB.initialized) {
             this.dbPath = MemoryDB.instance.dbPath;
             this.db = MemoryDB.instance.db;
+            this.mdDir = MemoryDB.instance.mdDir;
             return;
         }
         this.dbPath = (0, public_1.getDefault)('long_memory/memory.db');

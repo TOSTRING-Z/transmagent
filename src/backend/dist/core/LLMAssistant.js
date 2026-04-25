@@ -154,6 +154,12 @@ STRICT RULES:
             version: _data.version,
             llm_conversation_mode: true
         });
+        // 命名任务不需要 thinking 模式，强制移除，避免 API 要求历史消息携带 thinking 块
+        // 在 llmCall 解析 params 之后才能拿到完整配置，所以这里提前占位一个空对象覆盖，
+        // 在真正发送前由下方逻辑确保 thinking 被清除
+        const configModels = react_agent.utils.getConfig("models");
+        const versionParams = configModels[callData.model]?.versions?.find((v) => typeof v !== "string" && v.version === callData.version);
+        callData.params = { ...(versionParams || {}), thinking: undefined };
         const messageOutput = await react_agent.llmCall(callData);
         if (messageOutput && !this.llmService.stopFlag) {
             const format = this.llmService.chatManager.chat.tool_format;

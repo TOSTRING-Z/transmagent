@@ -151,7 +151,7 @@ export class LLMService {
             if (this.stopFlag) return false;
 
             const parsedChunk = adapter.parseStreamChunk(chunk);
-            const { content, reasoning_content, tool_calls, tokens, is_incremental_tokens, finish_reason: chunkFinishReason } = parsedChunk;
+            const { content, reasoning_content, thinking_signature, tool_calls, tokens, is_incremental_tokens, finish_reason: chunkFinishReason } = parsedChunk;
 
             // 捕获截断原因
             if (chunkFinishReason) {
@@ -166,6 +166,11 @@ export class LLMService {
             // 组装 reasoning_content
             if (reasoning_content) {
                 messageOutput.reasoning_content = (messageOutput.reasoning_content || "") + reasoning_content;
+            }
+
+            // 保存 thinking 块签名（用于后续重建 thinking 块）
+            if (thinking_signature) {
+                (messageOutput as any).thinking_signature = thinking_signature;
             }
 
             // 组装并拼凑碎片的 Tool Calls
@@ -238,11 +243,12 @@ export class LLMService {
             return false;
         }
 
-        const { content, reasoning_content, tool_calls, finish_reason, tokens } = adapter.parseResponse(respJson);
+        const { content, reasoning_content, thinking_signature, tool_calls, finish_reason, tokens } = adapter.parseResponse(respJson);
 
         data.output = content;
         messageOutput.content = content;
         if (reasoning_content) messageOutput.reasoning_content = reasoning_content;
+        if (thinking_signature) (messageOutput as any).thinking_signature = thinking_signature;
         if (tool_calls) {
             messageOutput.tool_calls = tool_calls;
         }
