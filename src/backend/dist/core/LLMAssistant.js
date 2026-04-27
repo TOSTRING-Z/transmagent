@@ -36,7 +36,7 @@ Object.defineProperty(exports, "__esModule", { value: true });
 exports.LLMAssistant = void 0;
 const fs = __importStar(require("fs/promises"));
 const LLMService_1 = require("./LLMService");
-const ReActAgent_1 = require("./ReActAgent");
+const LLMBase_1 = require("./LLMBase");
 const AdapterFactory_1 = require("../factories/AdapterFactory");
 const logger_1 = require("../utils/logger");
 const public_1 = require("../utils/public");
@@ -58,7 +58,7 @@ class LLMAssistant {
     }
     // ==================== 公共助手方法 ====================
     /**
-     * 创建临时 ReActAgent
+     * 创建临时 LLMBase
      * 统一处理配置拷贝与消息深拷贝，避免对主对话上下文造成意外污染
      * @param modifyMessages 可选回调，用于对拷贝的消息列表进行修改
      */
@@ -72,7 +72,7 @@ class LLMAssistant {
             modifyMessages(clonedMessages);
         }
         temp_llmService.chatManager.messages = clonedMessages;
-        return new ReActAgent_1.ReActAgent(temp_llmService, null, this.llmService.utils);
+        return new LLMBase_1.LLMBase(temp_llmService, null, this.llmService.utils);
     }
     // ==================== 对话压缩功能 ====================
     async compressionGroupMessage({ group_id }) {

@@ -1,7 +1,7 @@
 import { BrowserWindow, ipcMain } from 'electron';
 import * as path from 'path';
 import { ToolCall } from '../../core/ToolCall';
-import { Mode } from '../../core/ReActAgent';
+import { Mode } from '../../core/LLMBase';
 import { AgentTool } from '../../core/SubAgent';
 import { parseJsonContent, isSilentMode } from '../../utils/public';
 

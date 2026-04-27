@@ -1,6 +1,6 @@
-import { ReActAgent, Mode } from './ReActAgent';
+import { LLMBase, Mode } from './LLMBase';
 import { LLMService } from './LLMService';
-import { AssistantMessage, Message, ToolInfo } from '../types';
+import { AssistantMessage, ChatState, Message, ToolInfo } from '../types';
 import { MCPClient } from './McpClient';
 import Prompts from './Prompts';
 import MemoryManager from '../data/MemoryManager';
@@ -41,7 +41,7 @@ export interface EnvironmentDetails {
     todolist: string | null;
     skills?: string;
 }
-export declare class ToolCall extends ReActAgent implements ISchedulableAgent {
+export declare class ToolCall extends LLMBase implements ISchedulableAgent {
     plugins: Plugins;
     mcp_client: MCPClient;
     agentConfigs: AgentConfigs;
@@ -62,7 +62,6 @@ export declare class ToolCall extends ReActAgent implements ISchedulableAgent {
     repetitions_delay_empty: number;
     toolInfos: ToolInfo[];
     currentToolInfo: ToolInfo | undefined;
-    currentObservation: Observation | undefined;
     modeMap: Record<string, Mode>;
     llmAssistant: LLMAssistant;
     tool_schemas?: any[];
@@ -92,7 +91,6 @@ export declare class ToolCall extends ReActAgent implements ISchedulableAgent {
     /** 销毁 Agent，释放定时器与事件监听 */
     destroy(): void;
     getToolConfig(toolName: string): any;
-    loadMessage(filePath: string, id?: string): void;
     getToolsPrompt(): any;
     saveLongTermMemory(user_content: string, final_answer: string): Promise<void>;
     memoryUpdate(data: Record<string, any>): void;
@@ -113,4 +111,7 @@ export declare class ToolCall extends ReActAgent implements ISchedulableAgent {
     act(toolInfo: ToolInfo): Promise<Observation>;
     private handleToolObservation;
     callReAct(data: Record<string, any>, setUUID?: boolean): Promise<any>;
+    loadMessage(filePath: string, id?: string): void;
+    loadChat(id: string): ChatState;
+    newChat(id?: string): ChatState;
 }

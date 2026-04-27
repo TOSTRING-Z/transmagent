@@ -36,7 +36,7 @@ Object.defineProperty(exports, "__esModule", { value: true });
 exports.SubAgentWindow = void 0;
 const electron_1 = require("electron");
 const path = __importStar(require("path"));
-const ReActAgent_1 = require("../../core/ReActAgent");
+const LLMBase_1 = require("../../core/LLMBase");
 const public_1 = require("../../utils/public");
 class SubAgentWindow {
     agentToolName;
@@ -106,7 +106,7 @@ class SubAgentWindow {
                 if (this.agentTool) {
                     this.agentTool.toolCall.setWindow(win);
                     // 子代理模式同主代理模式一样（计划模式例外）
-                    if (toolCall.llmService.environment_details.mode !== ReActAgent_1.Mode.PLAN) {
+                    if (toolCall.llmService.environment_details.mode !== LLMBase_1.Mode.PLAN) {
                         this.agentTool.toolCall.changeMode(toolCall.llmService.chatManager.chat.mode);
                     }
                     else {
@@ -164,7 +164,7 @@ class SubAgentWindow {
                 throw new Error(`Agent tool ${agentToolName} not found`);
             }
             // 子代理模式同主代理模式一样（计划模式例外）
-            if (toolCall.llmService.environment_details.mode !== ReActAgent_1.Mode.PLAN) {
+            if (toolCall.llmService.environment_details.mode !== LLMBase_1.Mode.PLAN) {
                 this.agentTool.toolCall.changeMode(toolCall.llmService.chatManager.chat.mode);
             }
             else {

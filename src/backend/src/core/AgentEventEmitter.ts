@@ -41,6 +41,7 @@ export interface ConfirmationRequest {
 }
 
 export interface AgentEventMap {
+    clear: [];
     streamData: [payload: StreamPayload];
     toolData: [payload: StreamPayload];
     userData: [payload: StreamPayload];
@@ -107,13 +108,14 @@ export class ElectronUIController {
     private bindAll() {
         const { emitter } = this;
 
-        emitter.onEvent('streamData',       (p) => this.send('streamData', p));
-        emitter.onEvent('toolData',         (p) => this.send('toolData', p));
-        emitter.onEvent('userData',         (p) => this.send('userData', p));
-        emitter.onEvent('infoData',         (p) => this.send('infoData', p));
-        emitter.onEvent('handleOptions',    (p) => this.send('handleOptions', p));
-        emitter.onEvent('agentRunning',     (p) => this.send('agentRunning', p));
-        emitter.onEvent('agentIdle',        (p) => this.send('agentIdle', p));
+        emitter.onEvent('clear', () => this.send('clear', null));
+        emitter.onEvent('streamData', (p) => this.send('streamData', p));
+        emitter.onEvent('toolData', (p) => this.send('toolData', p));
+        emitter.onEvent('userData', (p) => this.send('userData', p));
+        emitter.onEvent('infoData', (p) => this.send('infoData', p));
+        emitter.onEvent('handleOptions', (p) => this.send('handleOptions', p));
+        emitter.onEvent('agentRunning', (p) => this.send('agentRunning', p));
+        emitter.onEvent('agentIdle', (p) => this.send('agentIdle', p));
         emitter.onEvent('handleRenameChat', (p) => this.send('handleRenameChat', p));
 
         emitter.onEvent('securityIntercept', (p) =>

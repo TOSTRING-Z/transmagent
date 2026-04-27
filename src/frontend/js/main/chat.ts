@@ -275,11 +275,11 @@ export function menuEvent(messageSystem: HTMLElement, message_content: HTMLEleme
 export async function enterEnd(messageSystem: HTMLElement, chunk: any = null) {
   if (messageSystem) {
     const message_content = messageSystem.getElementsByClassName('message')[0] as HTMLElement;
-    const thinking = messageSystem?.getElementsByClassName("thinking")[0];
-    thinking.classList.add('hidden');
+    const thinking = messageSystem.getElementsByClassName("thinking")[0];
+    thinking?.classList.add('hidden');
     if (!messageSystem.dataset?.event_stop) {
       messageSystem.dataset.event_stop = "true";
-      menuEvent(messageSystem, message_content.dataset.content as any, chunk?.is_plugin);
+      if (message_content) menuEvent(messageSystem, message_content.dataset.content as any, chunk?.is_plugin);
     }
   }
   DOM.submit.classList.remove("running");
@@ -456,14 +456,21 @@ export async function streamData(chunk: any): Promise<HTMLElement> {
 
     if (chunk.end) {
       enterEnd(messageSystem, chunk);
+      if (chunk?.state !== "pause") {
+        hidePauseOptions();
+      }
     }
   }
   return messageSystem;
 }
 
-export async function startAgentLoop(data: any) {
+export function hidePauseOptions() {
   DOM.pause.style.display = "none";
   DOM.pause.innerHTML = "";
+}
+
+export async function startAgentLoop(data: any) {
+  hidePauseOptions();
   const optionDom = document.querySelector('.base-container');
   if (optionDom) optionDom.remove();
 

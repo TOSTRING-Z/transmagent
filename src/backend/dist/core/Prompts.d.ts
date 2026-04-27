@@ -1,5 +1,5 @@
 import { ToolCall } from './ToolCall';
-import { Mode } from './ReActAgent';
+import { Mode } from './LLMBase';
 export declare const MODE_CONSTRAINTS: Record<Mode, string>;
 declare class Prompts {
     toolCall: ToolCall;

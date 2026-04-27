@@ -1,3 +1,4 @@
+import { State } from "./core/LLMBase";
 export interface ThinkingContent {
     type: "thinking" | "redacted_thinking";
     thinking: string;
@@ -102,6 +103,7 @@ export interface ToolMessage extends BaseMessage {
 }
 export type Message = SystemMessage | AssistantMessage | UserMessage | ToolMessage;
 export interface ChatState {
+    state: State;
     id: string;
     name: string;
     system_prompt: string | null;

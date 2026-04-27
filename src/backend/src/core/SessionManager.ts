@@ -8,7 +8,7 @@ import { Observation, ToolCall } from "./ToolCall";
 import { Utils } from "./Utils";
 import { SubAgent } from "./SubAgent";
 import { delHistoryChat, getHistoryChat, getSessionId, setHistory } from "../utils/public";
-import { State } from "./ReActAgent";
+import { State } from "./LLMBase";
 
 export interface Session {
     tool_call: ToolCall;
@@ -190,16 +190,11 @@ export class SessionManager {
             this.activeSessionId = id;
             this.activeSession = this.sessions.get(id);
             this.activeSession.tool_call.loadChat(id);
-            const state = this.activeSession.tool_call.state;
+            const state = this.activeSession.tool_call.llmService.chatManager.chat.state;
             const chat = this.activeSession.llmService.chatManager.chat;
             const uuid = this.activeSession.tool_call.setUUID();
             if (state === State.RUNNING) {
                 this.window.webContents.send('agentRunning', { ...chat, uuid });
-            } else if (state === State.PAUSE) {
-                const toolInfo = this.activeSession.tool_call.currentToolInfo;
-                const observation = this.activeSession.tool_call.currentObservation;
-                const { options } = observation as Observation;
-                this.window?.webContents.send('handleOptions', { ...this.activeSession.llmService.chatManager.chat, ...toolInfo, options: options, uuid: uuid });
             } else {
                 this.window?.webContents.send('agentIdle', { group_id: chat.group_id, uuid });
             }

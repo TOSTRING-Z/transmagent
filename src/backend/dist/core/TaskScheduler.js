@@ -3,7 +3,7 @@
  * TaskScheduler.ts
  *
  * 【职责】将心跳（Heartbeat）和定时调度逻辑从 ToolCall 中完全剥离。
- * ToolCall / ReActAgent 保持无状态、无定时器；TaskScheduler 作为
+ * ToolCall / LLMBase 保持无状态、无定时器；TaskScheduler 作为
  * 外部观察者，在满足条件时调用 agent.callReAct(data)。
  *
  * 优点：
@@ -15,7 +15,7 @@ Object.defineProperty(exports, "__esModule", { value: true });
 exports.TaskScheduler = void 0;
 const logger_1 = require("../utils/logger");
 const public_1 = require("../utils/public");
-const ReActAgent_1 = require("./ReActAgent");
+const LLMBase_1 = require("./LLMBase");
 class TaskScheduler {
     agent;
     intervalId = null;
@@ -51,8 +51,8 @@ class TaskScheduler {
     // ─── 内部心跳逻辑 ───────────────────────────────────────────────
     async tick() {
         const shouldRun = this.shouldTriggerHeartbeat();
-        const agentIdle = this.agent.state === ReActAgent_1.State.IDLE ||
-            this.agent.state === ReActAgent_1.State.FINAL;
+        const agentIdle = this.agent.llmService.chatManager.chat.state === LLMBase_1.State.IDLE ||
+            this.agent.llmService.chatManager.chat.state === LLMBase_1.State.FINAL;
         if (!agentIdle || !shouldRun)
             return;
         try {

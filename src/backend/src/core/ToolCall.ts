@@ -1,9 +1,9 @@
 import * as os from 'os';
-import { ReActAgent, State, Mode } from './ReActAgent';
+import { LLMBase, State, Mode } from './LLMBase';
 import { CHAT_CONST } from '../utils/globals';
 import { formatString } from '../utils/format';
 import { LLMService } from './LLMService';
-import { AssistantMessage, Message, ToolInfo } from '../types';
+import { AssistantMessage, ChatState, Message, ToolInfo } from '../types';
 import { MCPClient } from './McpClient';
 import Prompts, { MODE_CONSTRAINTS } from './Prompts';
 import MemoryManager from '../data/MemoryManager';
@@ -17,7 +17,7 @@ import { WindowManager } from '../main/windows/WindowManager';
 import { LLMAssistant } from './LLMAssistant';
 import { Utils } from './Utils';
 import { BrowserWindow } from 'electron/main';
-import { formatDate } from '../utils/public';
+import { formatDate, getSessionId, parseJsonContent } from '../utils/public';
 import { SkillManager } from './SkillManager';
 import { AgentEventEmitter, ElectronUIController } from './AgentEventEmitter';
 import { TaskScheduler, ISchedulableAgent } from './TaskScheduler';
@@ -29,7 +29,6 @@ import {
     createExecutionMiddleware,
     ConfirmationGate,
 } from './ExecutionPipeline';
-import { Tool } from '@modelcontextprotocol/sdk/types';
 
 const { all, any, not, always } = ToolDSL;
 const { isSubagent, isMode, hasArg } = Primitives;
@@ -94,7 +93,7 @@ const TOOL_POLICY: Record<string, ToolPolicyFn> = {
 
 // ─── ToolCall 主类 ────────────────────────────────────────────────────────────
 
-export class ToolCall extends ReActAgent implements ISchedulableAgent {
+export class ToolCall extends LLMBase implements ISchedulableAgent {
 
     // ── 公开属性 ─────────────────────────────────────────────────────────────
     public plugins: Plugins;
@@ -117,7 +116,6 @@ export class ToolCall extends ReActAgent implements ISchedulableAgent {
     public repetitions_delay_empty: number = 0;
     public toolInfos: ToolInfo[] = [];
     public currentToolInfo: ToolInfo | undefined;
-    public currentObservation: Observation | undefined;
     public modeMap: Record<string, Mode> = {
         "auto": Mode.AUTO, "plan": Mode.PLAN, "flash": Mode.FLASH, "act": Mode.ACT,
     };
@@ -209,7 +207,7 @@ export class ToolCall extends ReActAgent implements ISchedulableAgent {
     // ─── 初始化与生命周期 ─────────────────────────────────────────────────────
 
     public initVar() {
-        this.state = State.IDLE;
+        this.llmService.chatManager.chat.state = State.IDLE;
         this.memory_list = [];
         this.response_repetitions = [];
         this.repetitions_delay_empty = 0;
@@ -297,7 +295,7 @@ export class ToolCall extends ReActAgent implements ISchedulableAgent {
         const executeMW = createExecutionMiddleware(
             (toolInfo) => this.act(toolInfo),
             (obs, toolInfo, data) => this.handleToolObservation(obs, toolInfo, data),
-            () => this.state === State.PAUSE,
+            () => this.llmService.chatManager.chat.state === State.PAUSE,
         );
 
         this.pipeline = new ExecutionPipeline()
@@ -325,11 +323,6 @@ export class ToolCall extends ReActAgent implements ISchedulableAgent {
         if (!this.plugins) return null;
         const tool = this.plugins.getTool(toolName);
         return (tool && typeof tool === 'object') ? tool : null;
-    }
-
-    public loadMessage(filePath: string, id?: string) {
-        super.loadMessage(filePath, id);
-        this.changeMode(this.llmService.chatManager.chat.mode, false);
     }
 
     public getToolsPrompt(): any {
@@ -423,7 +416,7 @@ export class ToolCall extends ReActAgent implements ISchedulableAgent {
         this.llmService.environment_details.time = formatDate();
         this.llmService.environment_details.language = data?.language || this.utils.getLanguage();
         const chatState = this.llmService.chatManager.chat;
-        const mainChatState = this.mainLLMService ? this.mainLLMService.chatManager.chat: chatState;
+        const mainChatState = this.mainLLMService ? this.mainLLMService.chatManager.chat : chatState;
 
         const envs = Object.keys(mainChatState.envs || {}).map(key => {
             const env = mainChatState.envs[key];
@@ -485,7 +478,7 @@ export class ToolCall extends ReActAgent implements ISchedulableAgent {
      * 5. Token 上限检测
      */
     public async step(data: Record<string, any>) {
-        if (this.state === State.IDLE) this.state = State.RUNNING;
+        if (this.llmService.chatManager.chat.state === State.IDLE) this.llmService.chatManager.chat.state = State.RUNNING;
 
         if (!this.mcp_prompt) {
             await this.mcp_client.initMcp();
@@ -541,7 +534,7 @@ export class ToolCall extends ReActAgent implements ISchedulableAgent {
             this.events.emitEvent('streamData', {
                 ...this.llmService.chatManager.chat, content: error_message, uuid: data.uuid, end: true,
             });
-            this.state = State.ERROR;
+            this.llmService.chatManager.chat.state = State.ERROR;
             return;
         }
 
@@ -561,7 +554,7 @@ export class ToolCall extends ReActAgent implements ISchedulableAgent {
             this.events.emitEvent('streamData', {
                 ...this.llmService.chatManager.chat, ...messageOutput, uuid: data.uuid, end: true,
             });
-            this.state = State.FINAL;
+            this.llmService.chatManager.chat.state = State.FINAL;
             return;
         }
 
@@ -617,7 +610,7 @@ export class ToolCall extends ReActAgent implements ISchedulableAgent {
             }
 
             // 管道要求挂起整个循环（ask_user 等）
-            if (ctx.suspendLoop || this.state === State.PAUSE) break;
+            if (ctx.suspendLoop || this.llmService.chatManager.chat.state === State.PAUSE) break;
         }
 
         // ── Token 上限检测 ───────────────────────────────────────────────────
@@ -716,8 +709,6 @@ export class ToolCall extends ReActAgent implements ISchedulableAgent {
         } finally {
             if (checkInterval) clearInterval(checkInterval);
         }
-
-        this.currentObservation = observation!;
         return observation!;
     }
 
@@ -758,7 +749,7 @@ export class ToolCall extends ReActAgent implements ISchedulableAgent {
             });
         }
 
-        if (this.state === State.PAUSE) {
+        if (this.llmService.chatManager.chat.state === State.PAUSE) {
             // ask_user：输出问题并挂起等待
             this.events.emitEvent('streamData', {
                 ...chat, content: `\n\n${observation.ask}`, uuid: data.uuid, end: true,
@@ -766,7 +757,7 @@ export class ToolCall extends ReActAgent implements ISchedulableAgent {
             this.events.emitEvent('handleOptions', {
                 ...chat, ...toolInfo, options: observation.options, uuid: data.uuid,
             });
-        } else if (this.state === State.FINAL) {
+        } else if (this.llmService.chatManager.chat.state === State.FINAL) {
             this.llmService.chatManager.pushToolMessage({
                 ...chat, ...toolInfo, content: observation.result, uuid: data.uuid,
             });
@@ -792,7 +783,7 @@ export class ToolCall extends ReActAgent implements ISchedulableAgent {
 
         const chat = this.llmService.chatManager.chat;
 
-        if (this.state === State.PAUSE) {
+        if (this.llmService.chatManager.chat.state === State.PAUSE) {
             // 从挂起状态恢复：注入用户回复
             data.role = "tool";
             const context_id = `${chat.group_id}${chat.step - 1}`;
@@ -818,16 +809,16 @@ export class ToolCall extends ReActAgent implements ISchedulableAgent {
         }
 
         this.events.emitEvent('agentRunning', { ...chat, uuid: data.uuid });
-        this.state = State.IDLE;
+        this.llmService.chatManager.chat.state = State.IDLE;
         chat.seconds = 0;
         const tool_call = this.utils.getConfig("tool_call");
 
         // ── ReAct 主循环 ──────────────────────────────────────────────────────
-        while (this.state === State.IDLE || this.state === State.RUNNING) {
+        while (this.llmService.chatManager.chat.state === State.IDLE || this.llmService.chatManager.chat.state === State.RUNNING) {
             await new Promise(resolve => setTimeout(resolve, 1000));
 
             if (this.llmService.stopFlag) {
-                this.state = State.FINAL;
+                this.llmService.chatManager.chat.state = State.FINAL;
                 this.events.emitEvent('streamData', {
                     group_id: chat.group_id, end: true, uuid: data.uuid,
                 });
@@ -863,7 +854,7 @@ export class ToolCall extends ReActAgent implements ISchedulableAgent {
         }
 
         // ── 循环结束后的清理 ──────────────────────────────────────────────────
-        if (this.state === State.FINAL || (this.state as State) === State.ERROR) {
+        if (this.llmService.chatManager.chat.state === State.FINAL || (this.llmService.chatManager.chat.state as State) === State.ERROR) {
             if (!this.agentConfigs.subagent) {
                 this.setHistory();
                 this.saveLongTermMemory(data.query, data.output);
@@ -879,5 +870,120 @@ export class ToolCall extends ReActAgent implements ISchedulableAgent {
         }
 
         return data;
+    }
+
+    public loadMessage(filePath: string, id?: string) {
+        this.events.emitEvent('clear');
+        let messages: Message[] = [];
+        if (id !== undefined && this.llmService.chatManager.chat.id === id) {
+            messages = this.llmService.chatManager.getMessages();
+        } else {
+            messages = this.llmService.chatManager.loadMessages(filePath);
+        }
+        const chat = this.llmService.chatManager.chat;
+        this.llmService.chatManager.chat.state = State.IDLE;
+        if (messages.length > 0) {
+            messages.forEach((message, i) => {
+                if (message.group_id && message.context_id) {
+                    this.llmService.chatManager.chat.group_id = message.group_id;
+                    this.llmService.chatManager.chat.context_id = message.context_id;
+                }
+                this.llmService.chatManager.chat.state = State.RUNNING;
+                if (message.role === "user" && !message.react) {
+                    this.events.emitEvent('userData', { ...chat, ...message, content: message.content as string, end: true });
+                }
+
+                if (message.role === "user" && message.react) {
+                    this.events.emitEvent('infoData', { ...chat, ...message, content: `\n\n\`\`\`json\n${message.content}\n\`\`\``, end: true });
+                    // 非json内容
+                    if (!parseJsonContent(message.content as string))
+                        this.events.emitEvent('streamData', { ...chat, ...message, content: `\n\n${message.content}`, end: true });
+                }
+
+                if (message.role === "tool") {
+                    const tool_call_name = message.tool_call_name || "unknown_tool";
+
+                    switch (tool_call_name) {
+                        case "display_file":
+                            this.events.emitEvent('streamData', { ...chat, ...message, content: `\n\n${message.content}`, end: true });
+                            break;
+                        case "add_subtasks":
+                        case "complete_subtasks":
+                            this.events.emitEvent('streamData', { ...chat, ...message, content: `\n\n\`\`\`json\n${message.content}\n\`\`\``, end: true });
+                            break;
+                    }
+
+                    if (["deep_researcher", "workflow_planner", "tool_manager", "web_searcher", "chart_plotter", "task_executor", "tool_documentation_collector", "url_summarizer"].includes(tool_call_name)) {
+                        this.events.emitEvent('streamData', { ...chat, ...message, content: `\n\n${message.content}`, end: true });
+                    }
+                    if (["ask_user"].includes(tool_call_name)) {
+                        this.events.emitEvent('streamData', { ...chat, ...message, content: `\n\n${message.content}`, end: true });
+                    }
+
+                    let content_format = (message.content as string).replaceAll("`", "\\`");
+                    this.events.emitEvent('infoData', { ...chat, ...message, content: `Step ${i}, group_id: ${message.group_id}, context_id: ${message.context_id}, Output:\n\n\`\`\`json\n${content_format}\n\`\`\`\n\n` });
+                }
+                if (message.role === "assistant") {
+                    try {
+                        if (message.react) {
+                            const tool_format = this.llmService.chatManager.chat.tool_format;
+                            const adapter = ToolCallAdapterFactory.getAdapter(tool_format);
+                            const toolInfos = adapter.getToolInfos(message);
+                            toolInfos.forEach((toolInfo, j) => {
+                                this.currentToolInfo = toolInfo;
+                                let toolInfoStr = JSON.stringify(toolInfo, null, 2).replaceAll("`", "\\`");
+                                this.events.emitEvent('infoData', {
+                                    ...chat,
+                                    ...message,
+                                    content: `Step ${i}, group_id: ${message.group_id}, context_id: ${message.context_id}, Output:\n\n\`\`\`json\n${toolInfoStr}\n\`\`\``
+                                });
+
+                                const taskNumber = String(j).padStart(2, '0'); // 格式化为 01, 02...
+                                if (toolInfo.content || toolInfo.tool_call_name)
+                                    this.events.emitEvent('streamData', {
+                                        ...chat,
+                                        ...message,
+                                        content: `\n\n- 📋 **Task ${taskNumber}** | ${toolInfo.content || toolInfo.tool_call_name}`,
+                                        end: true
+                                    });
+                                if (["ask_user"].includes(toolInfo.tool_call_name as string)) {
+                                    this.llmService.chatManager.chat.state = State.PAUSE;
+                                    this.events.emitEvent('streamData', { ...chat, ...message, content: `\n\n${toolInfo.params.ask}`, end: true });
+                                    if (toolInfo.params?.options)
+                                        this.events.emitEvent('handleOptions', {
+                                            ...chat, ...toolInfo, options: toolInfo.params.options, end: true,
+                                        });
+                                }
+                            })
+                        } else {
+                            this.events.emitEvent('streamData', { ...chat, ...message, content: `\n\n${message.content}`, end: true });
+                            this.llmService.chatManager.chat.state = State.FINAL;
+                        }
+                    } catch (e: any) {
+                        this.events.emitEvent('streamData', { ...chat, ...message, content: undefined, end: true });
+                        this.llmService.chatManager.chat.state = State.ERROR;
+                    }
+                }
+            });
+            this.changeMode(this.llmService.chatManager.chat.mode, false);
+            logger.log(`Load success: ${filePath}`);
+        }
+    }
+
+    public loadChat(id: string): ChatState {
+        if (this.llmService.chatManager.chat.id !== id) {
+            this.initVar();
+        }
+        const history_path = this.utils.getHistoryPath(id);
+        this.loadMessage(history_path, id);
+        return this.llmService.chatManager.chat;
+    }
+
+    public newChat(id?: string): ChatState {
+        this.events.emitEvent('clear');
+        this.initVar();
+        this.llmService.chatManager.chat.id = id || getSessionId();
+        this.setHistory(this.llmService.chatManager.chat);
+        return this.llmService.chatManager.chat;
     }
 }

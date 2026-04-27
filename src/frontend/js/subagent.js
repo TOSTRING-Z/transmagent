@@ -622,11 +622,12 @@ $$
   async function enterEnd(messageSystem, chunk = null) {
     if (messageSystem) {
       const message_content = messageSystem.getElementsByClassName("message")[0];
-      const thinking = messageSystem?.getElementsByClassName("thinking")[0];
-      thinking.classList.add("hidden");
+      const thinking = messageSystem.getElementsByClassName("thinking")[0];
+      thinking?.classList.add("hidden");
       if (!messageSystem.dataset?.event_stop) {
         messageSystem.dataset.event_stop = "true";
-        menuEvent(messageSystem, message_content.dataset.content, chunk?.is_plugin);
+        if (message_content)
+          menuEvent(messageSystem, message_content.dataset.content, chunk?.is_plugin);
       }
     }
     DOM.submit.classList.remove("running");
@@ -790,9 +791,16 @@ $$
       }
       if (chunk.end) {
         enterEnd(messageSystem, chunk);
+        if (chunk?.state !== "pause") {
+          hidePauseOptions();
+        }
       }
     }
     return messageSystem;
+  }
+  function hidePauseOptions() {
+    DOM.pause.style.display = "none";
+    DOM.pause.innerHTML = "";
   }
   window.electronAPI.setUUID((uuid) => State.uuid = uuid);
   window.electronAPI.agentRunning((data) => {

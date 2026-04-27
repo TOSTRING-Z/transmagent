@@ -9,7 +9,7 @@ const ToolCall_1 = require("./ToolCall");
 const Utils_1 = require("./Utils");
 const SubAgent_1 = require("./SubAgent");
 const public_1 = require("../utils/public");
-const ReActAgent_1 = require("./ReActAgent");
+const LLMBase_1 = require("./LLMBase");
 class SessionManager {
     static instance;
     activeSessionId;
@@ -165,17 +165,11 @@ class SessionManager {
             this.activeSessionId = id;
             this.activeSession = this.sessions.get(id);
             this.activeSession.tool_call.loadChat(id);
-            const state = this.activeSession.tool_call.state;
+            const state = this.activeSession.tool_call.llmService.chatManager.chat.state;
             const chat = this.activeSession.llmService.chatManager.chat;
             const uuid = this.activeSession.tool_call.setUUID();
-            if (state === ReActAgent_1.State.RUNNING) {
+            if (state === LLMBase_1.State.RUNNING) {
                 this.window.webContents.send('agentRunning', { ...chat, uuid });
-            }
-            else if (state === ReActAgent_1.State.PAUSE) {
-                const toolInfo = this.activeSession.tool_call.currentToolInfo;
-                const observation = this.activeSession.tool_call.currentObservation;
-                const { options } = observation;
-                this.window?.webContents.send('handleOptions', { ...this.activeSession.llmService.chatManager.chat, ...toolInfo, options: options, uuid: uuid });
             }
             else {
                 this.window?.webContents.send('agentIdle', { group_id: chat.group_id, uuid });

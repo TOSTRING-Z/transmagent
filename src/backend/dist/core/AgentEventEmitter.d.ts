@@ -33,6 +33,7 @@ export interface ConfirmationRequest {
     executionDetails: any;
 }
 export interface AgentEventMap {
+    clear: [];
     streamData: [payload: StreamPayload];
     toolData: [payload: StreamPayload];
     userData: [payload: StreamPayload];

@@ -1,6 +1,6 @@
 import * as fs from 'fs/promises';
 import { LLMService } from './LLMService';
-import { Mode, ReActAgent } from './ReActAgent';
+import { Mode, LLMBase } from './LLMBase';
 import { Plugins } from './Plugins';
 import { ToolCallAdapterFactory } from '../factories/AdapterFactory';
 import { Message, ToolInfo, AssistantMessage } from '../types';
@@ -31,11 +31,11 @@ export class LLMAssistant {
     // ==================== 公共助手方法 ====================
 
     /**
-     * 创建临时 ReActAgent
+     * 创建临时 LLMBase
      * 统一处理配置拷贝与消息深拷贝，避免对主对话上下文造成意外污染
      * @param modifyMessages 可选回调，用于对拷贝的消息列表进行修改
      */
-    private createTempAgent(modifyMessages?: (messages: Message[]) => void): ReActAgent {
+    private createTempAgent(modifyMessages?: (messages: Message[]) => void): LLMBase {
         const temp_llmService = new LLMService(undefined, null, this.utils);
         // 复制聊天配置
         temp_llmService.chatManager.chat = { ...this.llmService.chatManager.chat };
@@ -48,7 +48,7 @@ export class LLMAssistant {
         }
 
         temp_llmService.chatManager.messages = clonedMessages;
-        return new ReActAgent(temp_llmService, null, this.llmService.utils);
+        return new LLMBase(temp_llmService, null, this.llmService.utils);
     }
 
     // ==================== 对话压缩功能 ====================

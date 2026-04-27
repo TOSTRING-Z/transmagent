@@ -1,4 +1,4 @@
-import { ReActAgent, State } from './ReActAgent';
+import { LLMBase, State } from './LLMBase';
 import { CHAT_CONST } from '../utils/globals';
 import { formatString } from '../utils/format';
 import { LLMService } from './LLMService';
@@ -7,7 +7,7 @@ import { Utils } from './Utils';
 import { BrowserWindow } from 'electron/main';
 import { copy } from '../utils/public';
 
-export class ChainCall extends ReActAgent {
+export class ChainCall extends LLMBase {
     public plugins: Plugins;
 
     constructor(plugins: Plugins, llmService: LLMService, window: BrowserWindow | null, utils: Utils) {
@@ -67,18 +67,18 @@ export class ChainCall extends ReActAgent {
         }
 
         if (!stateResult) {
-            this.state = State.ERROR;
+            this.llmService.chatManager.chat.state = State.ERROR;
         }
 
         if (data.end) {
-            this.state = State.FINAL;
+            this.llmService.chatManager.chat.state = State.FINAL;
         }
     }
 
     public async callChain(data: Record<string, any>): Promise<any> {
         this.setUUID(data);
         this.llmService.chatManager.chat.system_prompt = data.prompt;
-        this.state = State.IDLE;
+        this.llmService.chatManager.chat.state = State.IDLE;
         this.llmService.chatManager.chat.step = 1;
         this.llmService.chatManager.chat.group_id = String((new Date()).getTime());
         this.llmService.chatManager.chat.context_id = `${this.llmService.chatManager.chat.group_id}${this.llmService.chatManager.chat.step}`
@@ -119,13 +119,13 @@ export class ChainCall extends ReActAgent {
             }
 
             this.setHistory();
-            if ((this.state as any) === "final") {
+            if ((this.llmService.chatManager.chat.state as any) === "final") {
                 if (this.llmService.chatManager.chat.is_plugin) {
                     this.window?.webContents.send('streamData', { ...this.llmService.chatManager.chat, content: data.output_format, uuid: data.uuid, end: true });
                 }
                 break;
             }
-            if ((this.state as any) === "error") {
+            if ((this.llmService.chatManager.chat.state as any) === "error") {
                 this.window?.webContents.send('streamData', { ...this.llmService.chatManager.chat, content: "Error occurred!", uuid: data.uuid, end: true });
                 break;
             }

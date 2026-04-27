@@ -50,6 +50,7 @@ class ElectronUIController {
     }
     bindAll() {
         const { emitter } = this;
+        emitter.onEvent('clear', () => this.send('clear', null));
         emitter.onEvent('streamData', (p) => this.send('streamData', p));
         emitter.onEvent('toolData', (p) => this.send('toolData', p));
         emitter.onEvent('userData', (p) => this.send('userData', p));

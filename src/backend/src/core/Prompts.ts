@@ -2,7 +2,7 @@ import { logger } from '../utils/logger';
 import * as fs from 'fs';
 import { ToolCall } from './ToolCall';
 import { WindowManager } from '../main/windows/WindowManager';
-import { Mode } from './ReActAgent';
+import { Mode } from './LLMBase';
 
 export const MODE_CONSTRAINTS: Record<Mode, string> = {
   [Mode.AUTO]: `

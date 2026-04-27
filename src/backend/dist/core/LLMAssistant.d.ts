@@ -14,7 +14,7 @@ export declare class LLMAssistant {
     constructor(llmService: LLMService, plugins: (Plugins | null) | undefined, utils: Utils);
     setLLMService(llmService: LLMService): void;
     /**
-     * 创建临时 ReActAgent
+     * 创建临时 LLMBase
      * 统一处理配置拷贝与消息深拷贝，避免对主对话上下文造成意外污染
      * @param modifyMessages 可选回调，用于对拷贝的消息列表进行修改
      */

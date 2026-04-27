@@ -1,7 +1,7 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.default = getBaseTools;
-const ReActAgent_1 = require("./ReActAgent");
+const LLMBase_1 = require("./LLMBase");
 function getBaseTools() {
     return {
         "update_env": {
@@ -111,7 +111,7 @@ function getBaseTools() {
         },
         "ask_user": {
             func: async ({ ask, options, toolCall }) => {
-                toolCall.state = ReActAgent_1.State.PAUSE;
+                toolCall.llmService.chatManager.chat.state = LLMBase_1.State.PAUSE;
                 return { ask, options };
             },
             getPrompt: () => ({

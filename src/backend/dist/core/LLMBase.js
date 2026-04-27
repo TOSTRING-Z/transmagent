@@ -22,15 +22,14 @@ var Mode;
     Mode["FLASH"] = "Flash mode";
 })(Mode || (exports.Mode = Mode = {}));
 class LLMBase {
-    state;
     llmService;
     window;
     context_id; // 用于记录当前的 memory id
     llmAssistant; // LLM对话辅助功能实例
     utils;
     constructor(llmService, window = null, utils) {
-        this.state = State.IDLE;
         this.llmService = llmService;
+        this.llmService.chatManager.chat.state = State.IDLE;
         this.window = window;
         this.llmAssistant = new LLMAssistant_1.LLMAssistant(llmService, null, utils);
         this.utils = utils;
@@ -188,4 +187,4 @@ class LLMBase {
     }
 }
 exports.LLMBase = LLMBase;
-//# sourceMappingURL=ReActAgent.js.map
+//# sourceMappingURL=LLMBase.js.map

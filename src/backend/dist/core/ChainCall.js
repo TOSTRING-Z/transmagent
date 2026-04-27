@@ -1,11 +1,11 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.ChainCall = void 0;
-const ReActAgent_1 = require("./ReActAgent");
+const LLMBase_1 = require("./LLMBase");
 const globals_1 = require("../utils/globals");
 const format_1 = require("../utils/format");
 const public_1 = require("../utils/public");
-class ChainCall extends ReActAgent_1.ReActAgent {
+class ChainCall extends LLMBase_1.LLMBase {
     plugins;
     constructor(plugins, llmService, window, utils) {
         super(llmService, window, utils);
@@ -56,16 +56,16 @@ class ChainCall extends ReActAgent_1.ReActAgent {
             });
         }
         if (!stateResult) {
-            this.state = ReActAgent_1.State.ERROR;
+            this.llmService.chatManager.chat.state = LLMBase_1.State.ERROR;
         }
         if (data.end) {
-            this.state = ReActAgent_1.State.FINAL;
+            this.llmService.chatManager.chat.state = LLMBase_1.State.FINAL;
         }
     }
     async callChain(data) {
         this.setUUID(data);
         this.llmService.chatManager.chat.system_prompt = data.prompt;
-        this.state = ReActAgent_1.State.IDLE;
+        this.llmService.chatManager.chat.state = LLMBase_1.State.IDLE;
         this.llmService.chatManager.chat.step = 1;
         this.llmService.chatManager.chat.group_id = String((new Date()).getTime());
         this.llmService.chatManager.chat.context_id = `${this.llmService.chatManager.chat.group_id}${this.llmService.chatManager.chat.step}`;
@@ -98,13 +98,13 @@ class ChainCall extends ReActAgent_1.ReActAgent {
                 });
             }
             this.setHistory();
-            if (this.state === "final") {
+            if (this.llmService.chatManager.chat.state === "final") {
                 if (this.llmService.chatManager.chat.is_plugin) {
                     this.window?.webContents.send('streamData', { ...this.llmService.chatManager.chat, content: data.output_format, uuid: data.uuid, end: true });
                 }
                 break;
             }
-            if (this.state === "error") {
+            if (this.llmService.chatManager.chat.state === "error") {
                 this.window?.webContents.send('streamData', { ...this.llmService.chatManager.chat, content: "Error occurred!", uuid: data.uuid, end: true });
                 break;
             }

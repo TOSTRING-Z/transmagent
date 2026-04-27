@@ -1,4 +1,4 @@
-import { State } from "./ReActAgent";
+import { State } from "./LLMBase";
 import { ToolCall } from "./ToolCall";
 
 export default function getBaseTools(): Record<string, any> {
@@ -116,7 +116,7 @@ export default function getBaseTools(): Record<string, any> {
 
         "ask_user": {
             func: async ({ ask, options, toolCall }: { ask: string, options?: string[], toolCall: ToolCall }) => {
-                toolCall.state = State.PAUSE;
+                toolCall.llmService.chatManager.chat.state = State.PAUSE;
                 return { ask, options };
             },
             getPrompt: () => ({

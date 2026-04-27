@@ -1,12 +1,12 @@
 import { logger } from '../utils/logger';
 import { LLMService } from './LLMService';
 import { CONSTANTS } from '../utils/globals';
-import { ChatState, AssistantMessage, Message } from '../types';
+import { ChatState, AssistantMessage } from '../types';
 import { LLMAssistant } from './LLMAssistant';
-import { LLMAdapterFactory, ToolCallAdapterFactory } from '../factories/AdapterFactory';
+import { LLMAdapterFactory } from '../factories/AdapterFactory';
 import { BrowserWindow } from 'electron/main';
 import { Utils } from './Utils';
-import { copy, delay, extractJson, getSessionId, parseJsonContent, setHistory } from '../utils/public';
+import { copy, delay, setHistory } from '../utils/public';
 
 export enum State {
     IDLE = 'idle',
@@ -23,8 +23,7 @@ export enum Mode {
     FLASH = 'Flash mode',
 }
 
-export class ReActAgent {
-    public state: State;
+export class LLMBase {
     public llmService: LLMService;
     public window: BrowserWindow | null;
     public context_id?: string; // 用于记录当前的 memory id
@@ -36,8 +35,8 @@ export class ReActAgent {
         window: BrowserWindow | null = null,
         utils: Utils
     ) {
-        this.state = State.IDLE;
         this.llmService = llmService;
+        this.llmService.chatManager.chat.state = State.IDLE;
         this.window = window;
         this.llmAssistant = new LLMAssistant(llmService, null, utils);
         this.utils = utils;
@@ -185,109 +184,6 @@ export class ReActAgent {
             output_formats: []
         };
         return { ...defaults, ...data };
-    }
-
-    public newChat(id?: string): ChatState {
-        this.window?.webContents.send('clear');
-        this.initVar();
-        this.llmService.chatManager.chat.id = id || getSessionId();
-        this.setHistory(this.llmService.chatManager.chat);
-        return this.llmService.chatManager.chat;
-    }
-
-    public initVar() {
-        logger.log("可选实现");
-    }
-
-    public loadChat(id: string): ChatState {
-        if (this.llmService.chatManager.chat.id !== id) {
-            this.initVar();
-        }
-        const history_path = this.utils.getHistoryPath(id);
-        this.loadMessage(history_path, id);
-        return this.llmService.chatManager.chat;
-    }
-
-    public loadMessage(filePath: string, id?: string) {
-        this.window?.webContents.send('clear');
-        let messages: Message[] = [];
-        if (id !== undefined && this.llmService.chatManager.chat.id === id) {
-            messages = this.llmService.chatManager.getMessages();
-        } else {
-            messages = this.llmService.chatManager.loadMessages(filePath);
-        }
-        const chat = this.llmService.chatManager.chat;
-
-        if (messages.length > 0) {
-            messages.forEach((message, i) => {
-                if (message.role === "user" && !message.react) {
-                    this.window?.webContents.send('userData', { ...chat, ...message, end: true });
-                }
-
-                if (message.role === "user" && message.react) {
-                    this.window?.webContents.send('infoData', { ...chat, ...message, content: `\n\n\`\`\`json\n${message.content}\n\`\`\``, end: true });
-                    // 非json内容
-                    if (!parseJsonContent(message.content as string))
-                        this.window?.webContents.send('streamData', { ...chat, ...message, content: `\n\n${message.content}`, end: true });
-                }
-
-                if (message.role === "tool") {
-                    const tool_call_name = message.tool_call_name || "unknown_tool";
-
-                    switch (tool_call_name) {
-                        case "display_file":
-                            this.window?.webContents.send('streamData', { ...chat, ...message, content: `\n\n${message.content}`, end: true });
-                            break;
-                        case "add_subtasks":
-                        case "complete_subtasks":
-                            this.window?.webContents.send('streamData', { ...chat, ...message, content: `\n\n\`\`\`json\n${message.content}\n\`\`\``, end: true });
-                            break;
-                    }
-
-                    if (["deep_researcher", "workflow_planner", "tool_manager", "web_searcher", "chart_plotter", "task_executor", "tool_documentation_collector", "url_summarizer"].includes(tool_call_name)) {
-                        this.window?.webContents.send('streamData', { ...chat, ...message, content: `\n\n${message.content}`, end: true });
-                    }
-                    if (["ask_user"].includes(tool_call_name)) {
-                        this.window?.webContents.send('streamData', { ...chat, ...message, content: `\n\n${message.content}`, end: true });
-                    }
-
-                    let content_format = (message.content as string).replaceAll("`", "\\`");
-                    this.window?.webContents.send('infoData', { ...chat, ...message, content: `Step ${i}, group_id: ${message.group_id}, context_id: ${message.context_id}, Output:\n\n\`\`\`json\n${content_format}\n\`\`\`\n\n` });
-                }
-                if (message.role === "assistant") {
-                    try {
-                        if (message.react) {
-                            const tool_format = this.llmService.chatManager.chat.tool_format;
-                            const adapter = ToolCallAdapterFactory.getAdapter(tool_format);
-                            const toolInfos = adapter.getToolInfos(message);
-                            toolInfos.forEach((toolInfo, j) => {
-                                let toolInfoStr = JSON.stringify(toolInfo, null, 2).replaceAll("`", "\\`");
-                                this.window?.webContents.send('infoData', {
-                                    ...chat,
-                                    ...message,
-                                    content: `Step ${i}, group_id: ${message.group_id}, context_id: ${message.context_id}, Output:\n\n\`\`\`json\n${toolInfoStr}\n\`\`\``
-                                });
-
-                                const taskNumber = String(j).padStart(2, '0'); // 格式化为 01, 02...
-                                if (toolInfo.content || toolInfo.tool_call_name)
-                                    this.window?.webContents.send('streamData', {
-                                        ...chat,
-                                        ...message,
-                                        content: `\n\n- 📋 **Task ${taskNumber}** | ${toolInfo.content || toolInfo.tool_call_name}`,
-                                        end: true
-                                    });
-                            })
-                        } else {
-                            this.window?.webContents.send('streamData', { ...chat, ...message, content: `\n\n${message.content}`, end: true });
-                        }
-                    } catch (e: any) {
-                        this.window?.webContents.send('streamData', { ...chat, ...message, content: null, end: true });
-                    }
-                }
-            });
-            this.window?.webContents.send('streamData', { end: true });
-            logger.log(`Load success: ${filePath}`);
-        }
     }
 
     public getInfo(data: Record<string, any>): string {

@@ -17,7 +17,6 @@ export declare enum Mode {
     FLASH = "Flash mode"
 }
 export declare class LLMBase {
-    state: State;
     llmService: LLMService;
     window: BrowserWindow | null;
     context_id?: string;
