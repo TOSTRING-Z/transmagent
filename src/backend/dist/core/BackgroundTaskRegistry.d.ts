@@ -34,9 +34,20 @@ export declare class BackgroundTaskRegistry {
     private static pending;
     /** sessionId → 即时消息处理器（ToolCall 注册） */
     private static handlers;
+    /** taskId → 中断函数（由 runInBackground 注册） */
+    private static killFns;
     static addTaskStart(sessionId: string, taskId: string, toolName: string, command: string): void;
     static markCompleted(taskId: string, resultSummary: string): void;
     static markFailed(taskId: string, errorSummary: string): void;
+    /** 注册后台任务的进程中断函数（由 runInBackground 调用） */
+    static registerProcess(taskId: string, killFn: (force?: boolean) => void): void;
+    /** 注销后台任务的进程中断函数（任务完成后调用） */
+    static unregisterProcess(taskId: string): void;
+    /**
+     * 中断指定后台任务。
+     * @returns true 表示成功中断，false 表示任务不存在或已完成
+     */
+    static interruptTask(taskId: string): boolean;
     /** 返回所有任务列表（按启动时间降序），供前端展示 */
     static getAll(): BgTaskInfo[];
     /** 返回指定会话的任务列表 */

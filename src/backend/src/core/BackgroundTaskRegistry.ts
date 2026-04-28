@@ -44,6 +44,9 @@ export class BackgroundTaskRegistry {
     /** sessionId → 即时消息处理器（ToolCall 注册） */
     private static handlers: Map<string, SessionMessageHandler> = new Map();
 
+    /** taskId → 中断函数（由 runInBackground 注册） */
+    private static killFns: Map<string, (force?: boolean) => void> = new Map();
+
     // ─── 生命周期追踪 ──────────────────────────────────────────────────────
 
     static addTaskStart(
@@ -83,6 +86,44 @@ export class BackgroundTaskRegistry {
             task.resultSummary = errorSummary.replace(/\n/g, ' ').substring(0, 200);
             logger.log(`[BackgroundTaskRegistry] Task "${taskId}" failed`);
         }
+    }
+
+    /** 注册后台任务的进程中断函数（由 runInBackground 调用） */
+    static registerProcess(taskId: string, killFn: (force?: boolean) => void): void {
+        this.killFns.set(taskId, killFn);
+        logger.log(`[BackgroundTaskRegistry] Kill function registered for task "${taskId}"`);
+    }
+
+    /** 注销后台任务的进程中断函数（任务完成后调用） */
+    static unregisterProcess(taskId: string): void {
+        this.killFns.delete(taskId);
+    }
+
+    /**
+     * 中断指定后台任务。
+     * @returns true 表示成功中断，false 表示任务不存在或已完成
+     */
+    static interruptTask(taskId: string): boolean {
+        const task = this.tasks.get(taskId);
+        if (!task) {
+            logger.warn(`[BackgroundTaskRegistry] interruptTask: task "${taskId}" not found`);
+            return false;
+        }
+        if (task.status !== 'running') {
+            logger.warn(`[BackgroundTaskRegistry] interruptTask: task "${taskId}" is already ${task.status}`);
+            return false;
+        }
+
+        const killFn = this.killFns.get(taskId);
+        if (killFn) {
+            killFn(true); // force kill (SIGKILL)
+            this.killFns.delete(taskId);
+        }
+
+        this.markFailed(taskId, 'Interrupted by user');
+        // 覆写 status 为 failed（markFailed 已做）
+        logger.log(`[BackgroundTaskRegistry] Task "${taskId}" interrupted`);
+        return true;
     }
 
     /** 返回所有任务列表（按启动时间降序），供前端展示 */

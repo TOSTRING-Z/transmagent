@@ -70,10 +70,12 @@ async function runInBackground(code, params, toolCall, taskId, sessionId) {
     };
     return new Promise((_resolve) => {
         let isFinished = false;
+        let killProcess = null;
         const sendToRegistry = (exitCode) => {
             if (isFinished)
                 return;
             isFinished = true;
+            BackgroundTaskRegistry_1.BackgroundTaskRegistry.unregisterProcess(taskId);
             outStream.end();
             if ((0, fs_1.existsSync)(tempFile)) {
                 try {
@@ -99,6 +101,12 @@ async function runInBackground(code, params, toolCall, taskId, sessionId) {
         };
         const env = { ...process.env, PYTHONIOENCODING: 'utf-8' };
         const child = (0, child_process_1.spawn)(params.python_bin || 'python', [tempFile], { env });
+        killProcess = (force) => {
+            if (child && child.exitCode === null) {
+                child.kill(force ? 'SIGKILL' : 'SIGINT');
+            }
+        };
+        BackgroundTaskRegistry_1.BackgroundTaskRegistry.registerProcess(taskId, killProcess);
         child.stdout.setEncoding('utf8');
         child.stderr.setEncoding('utf8');
         child.stdout.on('data', (data) => {

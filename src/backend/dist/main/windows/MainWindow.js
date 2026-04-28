@@ -435,6 +435,9 @@ class MainWindow extends BaseWindow_1.BaseWindow {
                 BackgroundTaskRegistry_1.BackgroundTaskRegistry.clearFinished();
                 return true;
             }
+            if (data.type === "interrupt") {
+                return BackgroundTaskRegistry_1.BackgroundTaskRegistry.interruptTask(data.taskId);
+            }
             return [];
         });
         electron_1.ipcMain.on('setChat', (_, chat) => {

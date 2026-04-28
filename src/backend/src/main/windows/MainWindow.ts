@@ -442,6 +442,9 @@ export class MainWindow extends BaseWindow {
                 BackgroundTaskRegistry.clearFinished();
                 return true;
             }
+            if (data.type === "interrupt") {
+                return BackgroundTaskRegistry.interruptTask(data.taskId);
+            }
             return [];
         });
 

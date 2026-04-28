@@ -1190,6 +1190,18 @@ ${DOM.input.value}`;
       const color = statusColors[t.status] || "#888";
       const icon = statusIcons[t.status] || "fa-question-circle";
       const result = t.resultSummary ? `<div style="font-size: 11px; color: #999; margin-top: 4px; word-break: break-all;">${escapeHtml(t.resultSummary)}</div>` : "";
+      const stopBtn = t.status === "running" ? `<button class="bg-stop-btn" data-taskid="${escapeHtml(t.taskId)}" title="Stop task" style="
+          background: transparent;
+          border: 1px solid #ef4444;
+          color: #ef4444;
+          cursor: pointer;
+          padding: 2px 8px;
+          border-radius: 4px;
+          font-size: 11px;
+          transition: background 0.2s;
+        " onmouseover="this.style.background='#ef444422'" onmouseout="this.style.background='transparent'">
+          <i class="fas fa-stop"></i> Stop
+        </button>` : "";
       return `
       <div style="
         padding: 12px 16px;
@@ -1210,7 +1222,10 @@ ${DOM.input.value}`;
               border: 1px solid ${color}44;
             ">${t.status}</span>
           </div>
-          <span style="color: #888; font-size: 12px;">${elapsed}</span>
+          <div style="display: flex; align-items: center; gap: 10px;">
+            ${stopBtn}
+            <span style="color: #888; font-size: 12px;">${elapsed}</span>
+          </div>
         </div>
         <div style="margin-top: 6px; color: #aab; font-size: 12px; font-family: monospace;">
           <span style="color: #666;">${escapeHtml(t.taskId)}</span>
@@ -1225,6 +1240,17 @@ ${DOM.input.value}`;
     `;
     }).join("");
     container.innerHTML = rows;
+    container.querySelectorAll(".bg-stop-btn").forEach((btn) => {
+      btn.addEventListener("click", async () => {
+        const taskId = btn.dataset.taskid;
+        if (!taskId)
+          return;
+        btn.disabled = true;
+        btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i>';
+        await window.electronAPI.BGTasks({ type: "interrupt", taskId });
+        await renderBGTasks();
+      });
+    });
   }
   function escapeHtml(text) {
     const div = document.createElement("div");

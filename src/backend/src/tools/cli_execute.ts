@@ -167,6 +167,8 @@ async function runInBackground(
             if (isFinished) return;
             isFinished = true;
 
+            BackgroundTaskRegistry.unregisterProcess(taskId);
+
             if (timeoutId) clearTimeout(timeoutId);
             if (outStream) {
                 try { outStream.end(); } catch (e) { /* ignore */ }
@@ -259,6 +261,8 @@ async function runInBackground(
                                 }
                             };
 
+                            BackgroundTaskRegistry.registerProcess(taskId, killProcess);
+
                             stream.on('close', (exitCode: number) => {
                                 sendToRegistry({ success: exitCode === 0 && !isInterrupted });
                             });
@@ -307,6 +311,8 @@ async function runInBackground(
                     child.kill(force ? 'SIGKILL' : 'SIGINT');
                 }
             };
+
+            BackgroundTaskRegistry.registerProcess(taskId, killProcess);
 
             child.on('error', (childErr: Error) => {
                 sendToRegistry({ success: false, error: `Process execution failed: ${childErr.message}` });
