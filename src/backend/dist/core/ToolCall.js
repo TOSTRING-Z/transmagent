@@ -250,7 +250,6 @@ class ToolCall extends LLMBase_1.LLMBase {
                 uuid: this.llmService.chatManager.uuid,
             });
             // 若 agent 空闲 → 自动唤醒 ReAct 循环（skipInitialPush=true，消息已在上方注入）
-            const chat = this.llmService.chatManager.chat;
             if (this.state === LLMBase_1.State.IDLE || this.state === LLMBase_1.State.FINAL) {
                 logger_1.logger.log(`[ToolCall] Waking agent from "${this.state}" state for background task "${msg.taskId}"`);
                 const wakeData = this.getDataDefault({
