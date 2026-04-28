@@ -243,10 +243,17 @@ class ToolCall extends LLMBase_1.LLMBase {
         this.registeredBgSessionId = sessionId;
         BackgroundTaskRegistry_1.BackgroundTaskRegistry.registerHandler(sessionId, (msg) => {
             logger_1.logger.log(`[ToolCall] Background handler: delivering task "${msg.taskId}" to session "${sessionId}"`);
-            // 注入消息到 ChatManager
-            this.llmService.chatManager.pushUserMessage({
+            // 追加后台任务结果到上一条消息的 content 末尾
+            const resultText = this.prompts.getTaskResultPrompt(msg.taskId, msg.content);
+            const messages = this.llmService.chatManager.messages;
+            const lastMsg = messages[messages.length - 1];
+            if (lastMsg) {
+                lastMsg.content = (lastMsg.content || '') + resultText;
+            }
+            // 前端 streamData 展示
+            this.events.emitEvent('streamData', {
                 ...this.llmService.chatManager.chat,
-                content: `[Background Task \`${msg.taskId}\` Completed]\n\n${msg.content}`,
+                content: resultText,
                 uuid: this.llmService.chatManager.uuid,
             });
             // 若 agent 空闲 → 自动唤醒 ReAct 循环（skipInitialPush=true，消息已在上方注入）
@@ -262,11 +269,20 @@ class ToolCall extends LLMBase_1.LLMBase {
             }
         });
         // 4. 后台消息接收中间件（安全兜底：在处理活跃工具调用前 drain 遗留消息）
-        const bgMsgMW = (0, ExecutionPipeline_1.createBackgroundMessageMiddleware)(() => this.llmService.chatManager.chat.id, (msg) => this.llmService.chatManager.pushUserMessage({
-            ...this.llmService.chatManager.chat,
-            content: msg.content,
-            uuid: this.llmService.chatManager.uuid,
-        }));
+        const bgMsgMW = (0, ExecutionPipeline_1.createBackgroundMessageMiddleware)(() => this.llmService.chatManager.chat.id, (taskId, content) => {
+            const resultText = this.prompts.getTaskResultPrompt(taskId, content);
+            const messages = this.llmService.chatManager.messages;
+            const lastMsg = messages[messages.length - 1];
+            if (lastMsg) {
+                lastMsg.content = (lastMsg.content || '') + resultText;
+            }
+            // 前端 streamData 展示
+            this.events.emitEvent('streamData', {
+                ...this.llmService.chatManager.chat,
+                content: resultText,
+                uuid: this.llmService.chatManager.uuid,
+            });
+        });
         this.pipeline = new ExecutionPipeline_1.ExecutionPipeline()
             .use(bgMsgMW)
             .use(auditMW)

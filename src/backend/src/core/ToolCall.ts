@@ -314,10 +314,18 @@ export class ToolCall extends LLMBase implements ISchedulableAgent {
         BackgroundTaskRegistry.registerHandler(sessionId, (msg) => {
             logger.log(`[ToolCall] Background handler: delivering task "${msg.taskId}" to session "${sessionId}"`);
 
-            // 注入消息到 ChatManager
-            this.llmService.chatManager.pushUserMessage({
+            // 追加后台任务结果到上一条消息的 content 末尾
+            const resultText = this.prompts.getTaskResultPrompt(msg.taskId, msg.content);
+            const messages = this.llmService.chatManager.messages;
+            const lastMsg = messages[messages.length - 1];
+            if (lastMsg) {
+                lastMsg.content = (lastMsg.content || '') + resultText;
+            }
+
+            // 前端 streamData 展示
+            this.events.emitEvent('streamData', {
                 ...this.llmService.chatManager.chat,
-                content: `[Background Task \`${msg.taskId}\` Completed]\n\n${msg.content}`,
+                content: resultText,
                 uuid: this.llmService.chatManager.uuid,
             });
 
@@ -337,11 +345,20 @@ export class ToolCall extends LLMBase implements ISchedulableAgent {
         // 4. 后台消息接收中间件（安全兜底：在处理活跃工具调用前 drain 遗留消息）
         const bgMsgMW = createBackgroundMessageMiddleware(
             () => this.llmService.chatManager.chat.id,
-            (msg) => this.llmService.chatManager.pushUserMessage({
-                ...this.llmService.chatManager.chat,
-                content: msg.content,
-                uuid: this.llmService.chatManager.uuid,
-            }),
+            (taskId, content) => {
+                const resultText = this.prompts.getTaskResultPrompt(taskId, content);
+                const messages = this.llmService.chatManager.messages;
+                const lastMsg = messages[messages.length - 1];
+                if (lastMsg) {
+                    lastMsg.content = (lastMsg.content || '') + resultText;
+                }
+                // 前端 streamData 展示
+                this.events.emitEvent('streamData', {
+                    ...this.llmService.chatManager.chat,
+                    content: resultText,
+                    uuid: this.llmService.chatManager.uuid,
+                });
+            },
         );
 
         this.pipeline = new ExecutionPipeline()

@@ -306,6 +306,17 @@ ${(!isSubagent && hasMemory) ? `
 
     return env;
   }
+
+  /**
+   * 生成后台任务完成结果的分隔提示文本，统一追加到消息末尾。
+   * @param taskId 后台任务 ID
+   * @param content 任务输出内容
+   * @returns 带分隔符的结果提示字符串
+   */
+  getTaskResultPrompt(taskId: string, content: string): string {
+    const sep = '━'.repeat(50);
+    return `\n\n${sep}\n\n📋 Background Task \`${taskId}\` Completed\n\n${sep}\n\n${content}\n\n${sep}\n\n`;
+  }
 }
 
 export default Prompts;

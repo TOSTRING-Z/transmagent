@@ -198,7 +198,7 @@ export function createExecutionMiddleware(
  */
 export function createBackgroundMessageMiddleware(
     getSessionId: () => string,
-    pushUserMessage: (msg: any) => void,
+    injectResult: (taskId: string, content: string) => void,
 ): MiddlewareFn {
     return async (ctx, next) => {
         const sessionId = getSessionId();
@@ -214,9 +214,7 @@ export function createBackgroundMessageMiddleware(
                 `[BackgroundMsgMiddleware] Injecting background task "${pending.taskId}" ` +
                 `into session "${sessionId}"`
             );
-            pushUserMessage({
-                content: `[Background Task \`${pending.taskId}\` Completed]\n\n${pending.content}`,
-            });
+            injectResult(pending.taskId, pending.content);
         }
 
         await next();

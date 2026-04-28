@@ -154,7 +154,7 @@ function createExecutionMiddleware(actFn, handleObservationFn, isSuspended) {
  * @param getSessionId   获取当前会话 ID 的函数
  * @param pushUserMessage 将消息推入当前会话 ChatManager 的函数
  */
-function createBackgroundMessageMiddleware(getSessionId, pushUserMessage) {
+function createBackgroundMessageMiddleware(getSessionId, injectResult) {
     return async (ctx, next) => {
         const sessionId = getSessionId();
         if (!sessionId) {
@@ -165,9 +165,7 @@ function createBackgroundMessageMiddleware(getSessionId, pushUserMessage) {
         for (const pending of pendingMessages) {
             logger_1.logger.log(`[BackgroundMsgMiddleware] Injecting background task "${pending.taskId}" ` +
                 `into session "${sessionId}"`);
-            pushUserMessage({
-                content: `[Background Task \`${pending.taskId}\` Completed]\n\n${pending.content}`,
-            });
+            injectResult(pending.taskId, pending.content);
         }
         await next();
     };

@@ -79,4 +79,4 @@ export declare function createExecutionMiddleware(actFn: (toolInfo: ToolInfo) =>
  * @param getSessionId   获取当前会话 ID 的函数
  * @param pushUserMessage 将消息推入当前会话 ChatManager 的函数
  */
-export declare function createBackgroundMessageMiddleware(getSessionId: () => string, pushUserMessage: (msg: any) => void): MiddlewareFn;
+export declare function createBackgroundMessageMiddleware(getSessionId: () => string, injectResult: (taskId: string, content: string) => void): MiddlewareFn;
