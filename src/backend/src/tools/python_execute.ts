@@ -6,6 +6,7 @@ import { BrowserWindow, ipcMain, IpcMainEvent } from 'electron';
 import { logger } from '../utils/logger';
 import { ToolCall } from '../core/ToolCall';
 import { isSilentMode } from '../utils/public';
+import { BackgroundTaskRegistry } from '../core/BackgroundTaskRegistry';
 
 // 定义传入参数的接口
 export interface PythonExecuteParams {
@@ -13,21 +14,123 @@ export interface PythonExecuteParams {
     threshold?: number;
     show?: boolean;
     delay_time?: number;
+    background?: boolean;      // 是否后台执行（异步模式，立即返回 task_id）
 }
 
 export interface ExecuteArgs {
     code: string;
     toolCall: ToolCall;
+    background?: boolean;
 }
 
 export interface ExecuteResult {
     success: boolean;
     output: string;
     error: string;
+    task_id?: string; // 后台执行模式返回的任务 ID
+}
+
+// --- 后台执行核心逻辑 ---
+
+/**
+ * 在后台执行 Python 代码，完成后通过 BackgroundTaskRegistry 投递结果。
+ * 不创建终端窗口、不注册 IPC 监听器。
+ */
+async function runInBackground(
+    code: string,
+    params: PythonExecuteParams,
+    toolCall: ToolCall,
+    taskId: string,
+    sessionId: string
+): Promise<void> {
+    const timestamp = Date.now();
+    const randomStr = Math.floor(Math.random() * 1000);
+
+    const tempFile = path.join(tmpdir(), `bg_temp_${timestamp}_${randomStr}.py`);
+    writeFileSync(tempFile, code);
+
+    const outputFile = path.join(tmpdir(), `bg_output_${timestamp}_${randomStr}.txt`);
+    const outStream = createWriteStream(outputFile, { encoding: 'utf8', flags: 'a' });
+
+    let tailBuffer = '';
+    let errorBuffer = '';
+    const MAX_TAIL_CHARS = 50000;
+    let isInterrupted = false;
+
+    const appendToTail = (data: string, isError: boolean = false) => {
+        tailBuffer += data;
+        if (tailBuffer.length > MAX_TAIL_CHARS * 2) {
+            tailBuffer = tailBuffer.slice(-MAX_TAIL_CHARS);
+        }
+        if (isError) {
+            errorBuffer += data;
+        }
+    };
+
+    return new Promise<void>((_resolve) => {
+        let isFinished = false;
+
+        const sendToRegistry = (exitCode: number | null) => {
+            if (isFinished) return;
+            isFinished = true;
+
+            outStream.end();
+            if (existsSync(tempFile)) {
+                try { unlinkSync(tempFile); } catch (e) { /* ignore */ }
+            }
+
+            const MAX_LINES = 100;
+            const lines = tailBuffer.split(/\r?\n/);
+            let finalOutput = lines.length > MAX_LINES
+                ? lines.slice(-MAX_LINES).join('\n')
+                : tailBuffer;
+
+            if (isInterrupted) {
+                finalOutput += '\n\n[Process Interrupted]';
+            }
+
+            finalOutput += `\n\n[Complete output saved to: ${outputFile}]`;
+
+            const message = (exitCode === 0 && !isInterrupted)
+                ? `✅ Background Python task completed successfully.\n\n**Output:**\n\`\`\`\n${finalOutput}\n\`\`\`` +
+                  (errorBuffer ? `\n\n**Stderr:**\n\`\`\`\n${errorBuffer}\n\`\`\`` : '')
+                : `❌ Background Python task failed (exit code: ${exitCode}).\n\n**Error:** ${errorBuffer || 'Unknown error'}\n\n**Output:**\n\`\`\`\n${finalOutput}\n\`\`\``;
+
+            BackgroundTaskRegistry.addMessage(sessionId, taskId, message);
+            logger.log(`[BackgroundPython] Task "${taskId}" completed, message sent to session "${sessionId}"`);
+        };
+
+        const env = { ...process.env, PYTHONIOENCODING: 'utf-8' };
+        const child = spawn(params.python_bin || 'python', [tempFile], { env });
+
+        child.stdout.setEncoding('utf8');
+        child.stderr.setEncoding('utf8');
+
+        child.stdout.on('data', (data: string) => {
+            outStream.write(data);
+            appendToTail(data);
+        });
+
+        child.stderr.on('data', (data: string) => {
+            outStream.write(data);
+            appendToTail(data, true);
+        });
+
+        child.on('close', (exitCode) => {
+            sendToRegistry(exitCode);
+        });
+
+        child.on('error', (err) => {
+            errorBuffer += `Process error: ${err.message}`;
+            sendToRegistry(-1);
+        });
+
+        logger.log(`[BackgroundPython] Task "${taskId}" started: ${tempFile}`);
+    });
 }
 
 export function main(params: PythonExecuteParams) {
-    return async ({ code }: ExecuteArgs): Promise<string> => {
+    return async ({ code, toolCall, background }: ExecuteArgs): Promise<string> => {
         const timestamp = Date.now();
         const randomStr = Math.floor(Math.random() * 1000);
 
@@ -40,6 +143,35 @@ export function main(params: PythonExecuteParams) {
         const outputFile = path.join(tmpdir(), `output_${timestamp}_${randomStr}.txt`);
         const outStream = createWriteStream(outputFile, { encoding: 'utf8', flags: 'a' });
         logger.log(`Created temp output log file: ${outputFile}`);
+
+        // ================= 后台执行分支 =================
+        if (params.background || background) {
+            const taskId = `py_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
+            const sessionId = toolCall.llmService.chatManager.chat.id;
+
+            // 注册后台任务启动生命周期
+            BackgroundTaskRegistry.addTaskStart(sessionId, taskId, 'python_execute', code);
+
+            logger.log(`[PythonExecute] Starting background task "${taskId}" for session "${sessionId}"`);
+            // 清理同步模式创建的文件，runInBackground 会自行创建
+            outStream.end();
+            if (existsSync(tempFile)) {
+                try { unlinkSync(tempFile); } catch (e) { /* ignore */ }
+            }
+            if (existsSync(outputFile)) {
+                try { unlinkSync(outputFile); } catch (e) { /* ignore */ }
+            }
+            // 不等待，立即返回；完成后由 runInBackground 回调投递消息
+            runInBackground(code, params, toolCall, taskId, sessionId);
+
+            return JSON.stringify({
+                success: true,
+                output: `Background Python task started. Task ID: ${taskId}`,
+                error: '',
+                task_id: taskId
+            });
+        }
+        // ================= END 后台执行分支 =================
 
         let terminalWindow: BrowserWindow | null = null;
         let child: ChildProcessWithoutNullStreams | null = null;
@@ -233,13 +365,17 @@ export function main(params: PythonExecuteParams) {
 export function getPrompt() {
     return {
         "name": "python_execute",
-        "description": "Execute Python code locally. \n[CRITICAL TRIGGER RULES]: \n1. Simple/Single-line commands: Directly pass the executable snippet into the `code` parameter.\n2. Complex/Multi-line commands: DO NOT pass large blocks of code directly. You MUST first write the code into a local `.py` file (in batches if necessary) using file operations, and then use this tool to simply run the generated file (e.g., `import os; os.system('python your_script.py')`).",
+        "description": "Execute Python code locally. \n[CRITICAL TRIGGER RULES]: \n1. Simple/Single-line commands: Directly pass the executable snippet into the `code` parameter.\n2. Complex/Multi-line commands: DO NOT pass large blocks of code directly. You MUST first write the code into a local `.py` file (in batches if necessary) using file operations, and then use this tool to simply run the generated file (e.g., `import os; os.system('python your_script.py')`).\n\nBACKGROUND EXECUTION:\n- Set 'background' to true for long-running scripts (e.g., training loops, servers).\n- TRIGGER CONDITIONS:\n  1. User explicitly requests background/async execution.\n  2. Script is expected to run >30 seconds (e.g., model training, data processing, web scraping).\n  3. Server/daemon processes that run indefinitely.\n  4. Any script where the agent should NOT block waiting for the result.\n- The tool returns a 'task_id' immediately and runs the script asynchronously.\n- When complete, the result is automatically injected as a user message into the conversation.\n- ⚠️ CRITICAL: After launching a background task, you MUST complete any remaining work and then enter IDLE state. You are STRICTLY FORBIDDEN from looping to poll/check the background task status. The result will be delivered to you automatically.",
         "parameters": {
             "type": "object",
             "properties": {
                 "code": {
                     "type": "string",
                     "description": "(Required) Executable Python code snippet. Follow the trigger rules strictly to decide whether to execute code directly or execute a pre-written script file."
+                },
+                "background": {
+                    "type": "boolean",
+                    "description": "(Optional) If true, runs the script in background and returns a task_id immediately. The result is automatically injected into the conversation when the script completes."
                 }
             },
             "required": ["code"]

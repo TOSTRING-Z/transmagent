@@ -56,16 +56,16 @@ class ChainCall extends LLMBase_1.LLMBase {
             });
         }
         if (!stateResult) {
-            this.llmService.chatManager.chat.state = LLMBase_1.State.ERROR;
+            this.state = LLMBase_1.State.ERROR;
         }
         if (data.end) {
-            this.llmService.chatManager.chat.state = LLMBase_1.State.FINAL;
+            this.state = LLMBase_1.State.FINAL;
         }
     }
     async callChain(data) {
         this.setUUID(data);
         this.llmService.chatManager.chat.system_prompt = data.prompt;
-        this.llmService.chatManager.chat.state = LLMBase_1.State.IDLE;
+        this.state = LLMBase_1.State.IDLE;
         this.llmService.chatManager.chat.step = 1;
         this.llmService.chatManager.chat.group_id = String((new Date()).getTime());
         this.llmService.chatManager.chat.context_id = `${this.llmService.chatManager.chat.group_id}${this.llmService.chatManager.chat.step}`;
@@ -98,13 +98,13 @@ class ChainCall extends LLMBase_1.LLMBase {
                 });
             }
             this.setHistory();
-            if (this.llmService.chatManager.chat.state === "final") {
+            if (this.state === "final") {
                 if (this.llmService.chatManager.chat.is_plugin) {
                     this.window?.webContents.send('streamData', { ...this.llmService.chatManager.chat, content: data.output_format, uuid: data.uuid, end: true });
                 }
                 break;
             }
-            if (this.llmService.chatManager.chat.state === "error") {
+            if (this.state === "error") {
                 this.window?.webContents.send('streamData', { ...this.llmService.chatManager.chat, content: "Error occurred!", uuid: data.uuid, end: true });
                 break;
             }

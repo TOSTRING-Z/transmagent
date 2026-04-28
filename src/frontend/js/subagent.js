@@ -24,6 +24,8 @@
     btn_save_envs: document.getElementById("btn_save_envs"),
     tasks: document.getElementById("tasks"),
     btn_save_tasks: document.getElementById("btn_save_tasks"),
+    bgtasks: document.getElementById("bgtasks"),
+    btn_clear_bgtasks: document.getElementById("btn_clear_bgtasks"),
     history_list: document.getElementById("history-list"),
     btn_new_chat: document.getElementById("new-chat"),
     renameDialog: document.getElementById("renameDialog"),

@@ -22,6 +22,7 @@ export declare class LLMBase {
     context_id?: string;
     llmAssistant: LLMAssistant;
     utils: Utils;
+    state: State;
     constructor(llmService: LLMService, window: (BrowserWindow | null) | undefined, utils: Utils);
     setUUID(data?: Record<string, any>): string;
     private formatTemplate;

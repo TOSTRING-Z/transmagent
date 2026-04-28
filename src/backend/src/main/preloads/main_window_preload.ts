@@ -43,4 +43,5 @@ contextBridge.exposeInMainWorld('electronAPI', {
   setConfig: (config: any) => ipcRenderer.invoke('set-config-main', config),
   Envs: (data: Record<string, any>) => ipcRenderer.invoke('envs', data),
   Tasks: (data: Record<string, any>) => ipcRenderer.invoke('tasks', data),
+  BGTasks: (data: Record<string, any>) => ipcRenderer.invoke('bgtasks', data),
 });

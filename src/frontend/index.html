@@ -103,6 +103,30 @@
       </div>
     </div>
 
+    <!-- 后台任务窗口 -->
+    <div class="config-modal" id="m-bgtasks" onclick="hideConfig()">
+      <div class="config-content" onclick="event.stopPropagation()">
+        <h2 style="background: linear-gradient(135deg, var(--primary) 0%, #8b5cf6 100%); -webkit-background-clip: text; -webkit-text-fill-color: transparent; margin-bottom: 24px; padding-bottom: 16px; border-bottom: 2px solid rgba(139, 92, 246, 0.1); font-size: 1.5rem; display: flex; align-items: center; gap: 10px;">
+          <i class="fas fa-spinner" style="-webkit-text-fill-color: var(--primary);"></i> Background Tasks
+        </h2>
+
+        <div class="form-group">
+          <div class="form-row" style="max-height: 400px; overflow-y: auto;">
+            <div id="bg_tasks_list" class="w-full" style="padding: 8px 0;">
+              <div id="bg_tasks_empty" style="text-align: center; color: #888; padding: 40px 0; font-size: 14px;">
+                No background tasks running
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="modal-actions">
+          <button class="dialog-btn" onclick="hideConfig()">Close</button>
+          <button class="dialog-btn dialog-confirm" id="btn_clear_bgtasks">Clear Finished</button>
+        </div>
+      </div>
+    </div>
+
     <!-- 配置弹窗 -->
     <!-- 小圆华丽升级的配置面板 -->
     <div class="config-modal" id="m-config" onclick="hideConfig()" style="display: none; justify-content: center; align-items: center; background: rgba(0,0,0,0.5); position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; z-index: 1000;">
@@ -260,6 +284,7 @@
               <div class="status-right">
                 <div class="btn" id="envs">Environment Variables</div>
                 <div class="btn" id="tasks">Task List</div>
+                <div class="btn" id="bgtasks">Background Tasks</div>
               </div>
             </div>
           </div>

@@ -51,8 +51,8 @@ class TaskScheduler {
     // ─── 内部心跳逻辑 ───────────────────────────────────────────────
     async tick() {
         const shouldRun = this.shouldTriggerHeartbeat();
-        const agentIdle = this.agent.llmService.chatManager.chat.state === LLMBase_1.State.IDLE ||
-            this.agent.llmService.chatManager.chat.state === LLMBase_1.State.FINAL;
+        const agentIdle = this.agent.state === LLMBase_1.State.IDLE ||
+            this.agent.state === LLMBase_1.State.FINAL;
         if (!agentIdle || !shouldRun)
             return;
         try {

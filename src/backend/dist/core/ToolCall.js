@@ -55,6 +55,7 @@ const SkillManager_1 = require("./SkillManager");
 const AgentEventEmitter_1 = require("./AgentEventEmitter");
 const TaskScheduler_1 = require("./TaskScheduler");
 const ExecutionPipeline_1 = require("./ExecutionPipeline");
+const BackgroundTaskRegistry_1 = require("./BackgroundTaskRegistry");
 const { all, any, not, always } = ToolDSL_1.ToolDSL;
 const { isSubagent, isMode, hasArg } = ToolDSL_1.Primitives;
 const TOOL_POLICY = {
@@ -109,6 +110,8 @@ class ToolCall extends LLMBase_1.LLMBase {
     pipeline;
     /** 高风险工具已记住的用户选择 */
     rememberedChoices = {};
+    /** 当前已注册 BackgroundTaskRegistry handler 的会话 ID */
+    registeredBgSessionId = null;
     // ─────────────────────────────────────────────────────────────────────────
     constructor(plugins, agentTools = {}, llmService, window, utils, agentConfigs = {
         agentPrompt: null,
@@ -159,7 +162,7 @@ class ToolCall extends LLMBase_1.LLMBase {
     }
     // ─── 初始化与生命周期 ─────────────────────────────────────────────────────
     initVar() {
-        this.llmService.chatManager.chat.state = LLMBase_1.State.IDLE;
+        this.state = LLMBase_1.State.IDLE;
         this.memory_list = [];
         this.response_repetitions = [];
         this.repetitions_delay_empty = 0;
@@ -230,8 +233,43 @@ class ToolCall extends LLMBase_1.LLMBase {
             });
         }, getChatPayload);
         // 3. 执行中间件（管道末端）
-        const executeMW = (0, ExecutionPipeline_1.createExecutionMiddleware)((toolInfo) => this.act(toolInfo), (obs, toolInfo, data) => this.handleToolObservation(obs, toolInfo, data), () => this.llmService.chatManager.chat.state === LLMBase_1.State.PAUSE);
+        const executeMW = (0, ExecutionPipeline_1.createExecutionMiddleware)((toolInfo) => this.act(toolInfo), (obs, toolInfo, data) => this.handleToolObservation(obs, toolInfo, data), () => this.state === LLMBase_1.State.PAUSE);
+        // ── 后台消息 Handler：即时投递 + agent 空闲时自动唤醒 ────────────
+        const sessionId = this.llmService.chatManager.chat.id;
+        // 先注销旧 Handler（防止重复注册）
+        if (this.registeredBgSessionId) {
+            BackgroundTaskRegistry_1.BackgroundTaskRegistry.unregisterHandler(this.registeredBgSessionId);
+        }
+        this.registeredBgSessionId = sessionId;
+        BackgroundTaskRegistry_1.BackgroundTaskRegistry.registerHandler(sessionId, (msg) => {
+            logger_1.logger.log(`[ToolCall] Background handler: delivering task "${msg.taskId}" to session "${sessionId}"`);
+            // 注入消息到 ChatManager
+            this.llmService.chatManager.pushUserMessage({
+                ...this.llmService.chatManager.chat,
+                content: `[Background Task \`${msg.taskId}\` Completed]\n\n${msg.content}`,
+                uuid: this.llmService.chatManager.uuid,
+            });
+            // 若 agent 空闲 → 自动唤醒 ReAct 循环（skipInitialPush=true，消息已在上方注入）
+            const chat = this.llmService.chatManager.chat;
+            if (chat.state === LLMBase_1.State.IDLE || chat.state === LLMBase_1.State.FINAL) {
+                logger_1.logger.log(`[ToolCall] Waking agent from "${chat.state}" state for background task "${msg.taskId}"`);
+                const wakeData = this.getDataDefault({
+                    query: '', // 不会被推送（skipInitialPush=true）
+                });
+                wakeData.uuid = this.llmService.chatManager.uuid;
+                this.callReAct(wakeData, false, true).catch((err) => {
+                    logger_1.logger.error('[ToolCall] Background wake-up callReAct error:', err);
+                });
+            }
+        });
+        // 4. 后台消息接收中间件（安全兜底：在处理活跃工具调用前 drain 遗留消息）
+        const bgMsgMW = (0, ExecutionPipeline_1.createBackgroundMessageMiddleware)(() => this.llmService.chatManager.chat.id, (msg) => this.llmService.chatManager.pushUserMessage({
+            ...this.llmService.chatManager.chat,
+            content: msg.content,
+            uuid: this.llmService.chatManager.uuid,
+        }));
         this.pipeline = new ExecutionPipeline_1.ExecutionPipeline()
+            .use(bgMsgMW)
             .use(auditMW)
             .use(confirmMW)
             .use(executeMW);
@@ -397,8 +435,8 @@ class ToolCall extends LLMBase_1.LLMBase {
      * 5. Token 上限检测
      */
     async step(data) {
-        if (this.llmService.chatManager.chat.state === LLMBase_1.State.IDLE)
-            this.llmService.chatManager.chat.state = LLMBase_1.State.RUNNING;
+        if (this.state === LLMBase_1.State.IDLE)
+            this.state = LLMBase_1.State.RUNNING;
         if (!this.mcp_prompt) {
             await this.mcp_client.initMcp();
             this.mcp_prompt = this.mcp_client.mcpPrompt;
@@ -446,7 +484,7 @@ class ToolCall extends LLMBase_1.LLMBase {
             this.events.emitEvent('streamData', {
                 ...this.llmService.chatManager.chat, content: error_message, uuid: data.uuid, end: true,
             });
-            this.llmService.chatManager.chat.state = LLMBase_1.State.ERROR;
+            this.state = LLMBase_1.State.ERROR;
             return;
         }
         // ── 消息类型判断 ────────────────────────────────────────────────────
@@ -465,7 +503,7 @@ class ToolCall extends LLMBase_1.LLMBase {
             this.events.emitEvent('streamData', {
                 ...this.llmService.chatManager.chat, ...messageOutput, uuid: data.uuid, end: true,
             });
-            this.llmService.chatManager.chat.state = LLMBase_1.State.FINAL;
+            this.state = LLMBase_1.State.FINAL;
             return;
         }
         // ── 遍历 toolInfos，每个工具经管道执行 ─────────────────────────────
@@ -514,7 +552,7 @@ class ToolCall extends LLMBase_1.LLMBase {
                 logger_1.logger.error(`[Pipeline] Unhandled error for tool "${toolInfo.tool_call_name}":`, err);
             }
             // 管道要求挂起整个循环（ask_user 等）
-            if (ctx.suspendLoop || this.llmService.chatManager.chat.state === LLMBase_1.State.PAUSE)
+            if (ctx.suspendLoop || this.state === LLMBase_1.State.PAUSE)
                 break;
         }
         // ── Token 上限检测 ───────────────────────────────────────────────────
@@ -624,7 +662,7 @@ class ToolCall extends LLMBase_1.LLMBase {
                 ...chat, content: `\n\n${observation.result}`, uuid: data.uuid,
             });
         }
-        if (this.llmService.chatManager.chat.state === LLMBase_1.State.PAUSE) {
+        if (this.state === LLMBase_1.State.PAUSE) {
             // ask_user：输出问题并挂起等待
             this.events.emitEvent('streamData', {
                 ...chat, content: `\n\n${observation.ask}`, uuid: data.uuid, end: true,
@@ -633,7 +671,7 @@ class ToolCall extends LLMBase_1.LLMBase {
                 ...chat, ...toolInfo, options: observation.options, uuid: data.uuid,
             });
         }
-        else if (this.llmService.chatManager.chat.state === LLMBase_1.State.FINAL) {
+        else if (this.state === LLMBase_1.State.FINAL) {
             this.llmService.chatManager.pushToolMessage({
                 ...chat, ...toolInfo, content: observation.result, uuid: data.uuid,
             });
@@ -653,12 +691,19 @@ class ToolCall extends LLMBase_1.LLMBase {
         }
     }
     // ─── callReAct()：ReAct 主循环 ───────────────────────────────────────────
-    async callReAct(data, setUUID = true) {
+    /**
+     * @param data             ReAct 循环数据
+     * @param setUUID          是否自动设置 UUID（默认 true）
+     * @param skipInitialPush  跳过初始消息推送（后台任务唤醒用）。
+     *                         前置条件：消息已由外部注入 ChatManager。
+     *                         若 state === PAUSE 则忽略此参数（挂起恢复必须推送）。
+     */
+    async callReAct(data, setUUID = true, skipInitialPush = false) {
         if (setUUID)
             this.setUUID(data);
         const chat = this.llmService.chatManager.chat;
-        if (this.llmService.chatManager.chat.state === LLMBase_1.State.PAUSE) {
-            // 从挂起状态恢复：注入用户回复
+        if (this.state === LLMBase_1.State.PAUSE) {
+            // 从挂起状态恢复：注入用户回复（skipInitialPush 不适用于 PAUSE 恢复）
             data.role = "tool";
             const context_id = `${chat.group_id}${chat.step - 1}`;
             this.llmService.chatManager.pushToolMessage({
@@ -668,7 +713,7 @@ class ToolCall extends LLMBase_1.LLMBase {
                 ...chat, content: `\n\n---\n\n${data.query}`, uuid: data.uuid,
             });
         }
-        else {
+        else if (!skipInitialPush) {
             // 全新对话轮次
             data.role = "user";
             chat.step = 1;
@@ -682,15 +727,16 @@ class ToolCall extends LLMBase_1.LLMBase {
                 ...chat, content: data.query, uuid: data.uuid,
             });
         }
+        // skipInitialPush && state !== PAUSE：消息已由外部注入，直接进入主循环
         this.events.emitEvent('agentRunning', { ...chat, uuid: data.uuid });
-        this.llmService.chatManager.chat.state = LLMBase_1.State.IDLE;
+        this.state = LLMBase_1.State.IDLE;
         chat.seconds = 0;
         const tool_call = this.utils.getConfig("tool_call");
         // ── ReAct 主循环 ──────────────────────────────────────────────────────
-        while (this.llmService.chatManager.chat.state === LLMBase_1.State.IDLE || this.llmService.chatManager.chat.state === LLMBase_1.State.RUNNING) {
+        while (this.state === LLMBase_1.State.IDLE || this.state === LLMBase_1.State.RUNNING) {
             await new Promise(resolve => setTimeout(resolve, 1000));
             if (this.llmService.stopFlag) {
-                this.llmService.chatManager.chat.state = LLMBase_1.State.FINAL;
+                this.state = LLMBase_1.State.FINAL;
                 this.events.emitEvent('streamData', {
                     group_id: chat.group_id, end: true, uuid: data.uuid,
                 });
@@ -721,7 +767,7 @@ class ToolCall extends LLMBase_1.LLMBase {
                 this.setHistory();
         }
         // ── 循环结束后的清理 ──────────────────────────────────────────────────
-        if (this.llmService.chatManager.chat.state === LLMBase_1.State.FINAL || this.llmService.chatManager.chat.state === LLMBase_1.State.ERROR) {
+        if (this.state === LLMBase_1.State.FINAL || this.state === LLMBase_1.State.ERROR) {
             if (!this.agentConfigs.subagent) {
                 this.setHistory();
                 this.saveLongTermMemory(data.query, data.output);
@@ -746,14 +792,14 @@ class ToolCall extends LLMBase_1.LLMBase {
             messages = this.llmService.chatManager.loadMessages(filePath);
         }
         const chat = this.llmService.chatManager.chat;
-        this.llmService.chatManager.chat.state = LLMBase_1.State.IDLE;
+        let state = LLMBase_1.State.IDLE;
         if (messages.length > 0) {
             messages.forEach((message, i) => {
                 if (message.group_id && message.context_id) {
                     this.llmService.chatManager.chat.group_id = message.group_id;
                     this.llmService.chatManager.chat.context_id = message.context_id;
                 }
-                this.llmService.chatManager.chat.state = LLMBase_1.State.RUNNING;
+                state = LLMBase_1.State.RUNNING;
                 if (message.role === "user" && !message.react) {
                     this.events.emitEvent('userData', { ...chat, ...message, content: message.content, end: true });
                 }
@@ -806,29 +852,36 @@ class ToolCall extends LLMBase_1.LLMBase {
                                         end: true
                                     });
                                 if (["ask_user"].includes(toolInfo.tool_call_name)) {
-                                    this.llmService.chatManager.chat.state = LLMBase_1.State.PAUSE;
+                                    state = LLMBase_1.State.PAUSE;
                                     this.events.emitEvent('streamData', { ...chat, ...message, content: `\n\n${toolInfo.params.ask}`, end: true });
-                                    if (toolInfo.params?.options)
+                                    if (toolInfo.params?.options && i === (messages.length - 1)) {
+                                        this.state = state;
                                         this.events.emitEvent('handleOptions', {
                                             ...chat, ...toolInfo, options: toolInfo.params.options, end: true,
                                         });
+                                    }
                                 }
                             });
                         }
                         else {
                             this.events.emitEvent('streamData', { ...chat, ...message, content: `\n\n${message.content}`, end: true });
-                            this.llmService.chatManager.chat.state = LLMBase_1.State.FINAL;
+                            state = LLMBase_1.State.FINAL;
                         }
                     }
                     catch (e) {
                         this.events.emitEvent('streamData', { ...chat, ...message, content: undefined, end: true });
-                        this.llmService.chatManager.chat.state = LLMBase_1.State.ERROR;
+                        state = LLMBase_1.State.ERROR;
                     }
                 }
             });
+            if (state !== LLMBase_1.State.PAUSE) {
+                this.window?.webContents.send('agentIdle', { group_id: chat.group_id });
+            }
             this.changeMode(this.llmService.chatManager.chat.mode, false);
             logger_1.logger.log(`Load success: ${filePath}`);
         }
+        // 重新注册后台消息 Handler（会话可能已切换）
+        this.buildPipeline();
     }
     loadChat(id) {
         if (this.llmService.chatManager.chat.id !== id) {
@@ -842,6 +895,7 @@ class ToolCall extends LLMBase_1.LLMBase {
         this.events.emitEvent('clear');
         this.initVar();
         this.llmService.chatManager.chat.id = id || (0, public_1.getSessionId)();
+        this.buildPipeline(); // 为新会话注册后台消息 Handler
         this.setHistory(this.llmService.chatManager.chat);
         return this.llmService.chatManager.chat;
     }

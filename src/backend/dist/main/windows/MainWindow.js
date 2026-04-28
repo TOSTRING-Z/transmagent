@@ -48,6 +48,7 @@ const CaptureMouse_1 = require("../../mouse/CaptureMouse");
 const Install_1 = require("../../core/Install");
 const MainServer_1 = require("../../server/MainServer");
 const SessionManager_1 = require("../../core/SessionManager");
+const BackgroundTaskRegistry_1 = require("../../core/BackgroundTaskRegistry");
 const public_1 = require("../../utils/public");
 class MainWindow extends BaseWindow_1.BaseWindow {
     funcItems;
@@ -425,6 +426,16 @@ class MainWindow extends BaseWindow_1.BaseWindow {
             else {
                 return this.session().tool_call?.llmService.chatManager.chat.vars.tasks || [];
             }
+        });
+        electron_1.ipcMain.handle('bgtasks', (_, data) => {
+            if (data.type === "get") {
+                return BackgroundTaskRegistry_1.BackgroundTaskRegistry.getAll();
+            }
+            if (data.type === "clear") {
+                BackgroundTaskRegistry_1.BackgroundTaskRegistry.clearFinished();
+                return true;
+            }
+            return [];
         });
         electron_1.ipcMain.on('setChat', (_, chat) => {
             this.sessionManager.setSessionChat({ seconds: chat.seconds });

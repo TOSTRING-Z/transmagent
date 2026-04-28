@@ -14,6 +14,7 @@ import { captureMouse } from '../../mouse/CaptureMouse';
 import { install } from '../../core/Install';
 import { MainServer } from '../../server/MainServer';
 import { Session, SessionManager } from '../../core/SessionManager';
+import { BackgroundTaskRegistry } from '../../core/BackgroundTaskRegistry';
 import { AgentMode } from '../../types';
 import { formatDate, setDefaultConfig } from '../../utils/public';
 
@@ -431,6 +432,17 @@ export class MainWindow extends BaseWindow {
             } else {
                 return this.session().tool_call?.llmService.chatManager.chat.vars.tasks || [];
             }
+        });
+
+        ipcMain.handle('bgtasks', (_, data) => {
+            if (data.type === "get") {
+                return BackgroundTaskRegistry.getAll();
+            }
+            if (data.type === "clear") {
+                BackgroundTaskRegistry.clearFinished();
+                return true;
+            }
+            return [];
         });
 
         ipcMain.on('setChat', (_, chat) => {

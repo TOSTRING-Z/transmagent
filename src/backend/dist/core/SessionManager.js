@@ -165,7 +165,7 @@ class SessionManager {
             this.activeSessionId = id;
             this.activeSession = this.sessions.get(id);
             this.activeSession.tool_call.loadChat(id);
-            const state = this.activeSession.tool_call.llmService.chatManager.chat.state;
+            const state = this.activeSession.tool_call.state;
             const chat = this.activeSession.llmService.chatManager.chat;
             const uuid = this.activeSession.tool_call.setUUID();
             if (state === LLMBase_1.State.RUNNING) {

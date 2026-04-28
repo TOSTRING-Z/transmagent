@@ -67,18 +67,18 @@ export class ChainCall extends LLMBase {
         }
 
         if (!stateResult) {
-            this.llmService.chatManager.chat.state = State.ERROR;
+            this.state = State.ERROR;
         }
 
         if (data.end) {
-            this.llmService.chatManager.chat.state = State.FINAL;
+            this.state = State.FINAL;
         }
     }
 
     public async callChain(data: Record<string, any>): Promise<any> {
         this.setUUID(data);
         this.llmService.chatManager.chat.system_prompt = data.prompt;
-        this.llmService.chatManager.chat.state = State.IDLE;
+        this.state = State.IDLE;
         this.llmService.chatManager.chat.step = 1;
         this.llmService.chatManager.chat.group_id = String((new Date()).getTime());
         this.llmService.chatManager.chat.context_id = `${this.llmService.chatManager.chat.group_id}${this.llmService.chatManager.chat.step}`
@@ -119,13 +119,13 @@ export class ChainCall extends LLMBase {
             }
 
             this.setHistory();
-            if ((this.llmService.chatManager.chat.state as any) === "final") {
+            if ((this.state as any) === "final") {
                 if (this.llmService.chatManager.chat.is_plugin) {
                     this.window?.webContents.send('streamData', { ...this.llmService.chatManager.chat, content: data.output_format, uuid: data.uuid, end: true });
                 }
                 break;
             }
-            if ((this.llmService.chatManager.chat.state as any) === "error") {
+            if ((this.state as any) === "error") {
                 this.window?.webContents.send('streamData', { ...this.llmService.chatManager.chat, content: "Error occurred!", uuid: data.uuid, end: true });
                 break;
             }

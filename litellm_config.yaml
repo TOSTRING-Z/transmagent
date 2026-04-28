@@ -1,0 +1,13 @@
+model_list:
+  - model_name: deepseek-chat
+    litellm_params:
+      model: openai/deepseek-chat
+      api_key: sk-e883650b2a1a4da9a4628eac7e7f340e
+      api_base: https://api.deepseek.com/v1
+
+general_settings:
+  master_key: sk-local-proxy-master-key
+
+litellm_settings:
+  drop_params: true
+  set_verbose: false

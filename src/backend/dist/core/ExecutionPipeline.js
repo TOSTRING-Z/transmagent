@@ -17,7 +17,9 @@ exports.ExecutionPipeline = exports.ExecutionContext = void 0;
 exports.createAuditMiddleware = createAuditMiddleware;
 exports.createConfirmationMiddleware = createConfirmationMiddleware;
 exports.createExecutionMiddleware = createExecutionMiddleware;
+exports.createBackgroundMessageMiddleware = createBackgroundMessageMiddleware;
 const logger_1 = require("../utils/logger");
+const BackgroundTaskRegistry_1 = require("./BackgroundTaskRegistry");
 // ─── 执行上下文 ─────────────────────────────────────────────────────
 /**
  * 贯穿整条管道的上下文对象。
@@ -135,6 +137,39 @@ function createExecutionMiddleware(actFn, handleObservationFn, isSuspended) {
         if (isSuspended()) {
             ctx.suspendLoop = true;
         }
+    };
+}
+/**
+ * 4. 后台消息接收中间件
+ *
+ * 【职责】在每个工具调用执行前，检查 BackgroundTaskRegistry 中是否有
+ * 属于当前会话的后台任务完成消息。若存在，则将其逐条作为用户消息注入到
+ * ChatManager 消息队列末尾，使 LLM 在下一轮 step() 中能自然感知到。
+ *
+ * 【注入时机】在当前工具 pipeline 的最前端执行，先于 audit/confirmation/execution。
+ * 这意味着：
+ *   - 后台任务结果会在当前 step 的下一个工具调用之前被 LLM 看到。
+ *   - 不会打断正在执行的工具调用链。
+ *
+ * @param getSessionId   获取当前会话 ID 的函数
+ * @param pushUserMessage 将消息推入当前会话 ChatManager 的函数
+ */
+function createBackgroundMessageMiddleware(getSessionId, pushUserMessage) {
+    return async (ctx, next) => {
+        const sessionId = getSessionId();
+        if (!sessionId) {
+            await next();
+            return;
+        }
+        const pendingMessages = BackgroundTaskRegistry_1.BackgroundTaskRegistry.drainMessages(sessionId);
+        for (const pending of pendingMessages) {
+            logger_1.logger.log(`[BackgroundMsgMiddleware] Injecting background task "${pending.taskId}" ` +
+                `into session "${sessionId}"`);
+            pushUserMessage({
+                content: `[Background Task \`${pending.taskId}\` Completed]\n\n${pending.content}`,
+            });
+        }
+        await next();
     };
 }
 //# sourceMappingURL=ExecutionPipeline.js.map

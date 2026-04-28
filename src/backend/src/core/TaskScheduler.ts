@@ -25,7 +25,7 @@ export interface SchedulerOptions {
 
 /** Agent 对 Scheduler 暴露的最小接口，避免循环依赖 */
 export interface ISchedulableAgent {
-    llmService: LLMService;
+    state: State;
     getDataDefault(params: Record<string, any>): Record<string, any>;
     callReAct(data: Record<string, any>, setUUID?: boolean): Promise<any>;
     /** 读取当前会话的 chatVars，用于判断是否存在 recurring 任务 */
@@ -79,8 +79,8 @@ export class TaskScheduler {
     private async tick(): Promise<void> {
         const shouldRun = this.shouldTriggerHeartbeat();
         const agentIdle =
-            this.agent.llmService.chatManager.chat.state === State.IDLE ||
-            this.agent.llmService.chatManager.chat.state === State.FINAL;
+            this.agent.state === State.IDLE ||
+            this.agent.state === State.FINAL;
 
         if (!agentIdle || !shouldRun) return;
 

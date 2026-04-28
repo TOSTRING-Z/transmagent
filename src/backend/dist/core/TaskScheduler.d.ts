@@ -10,7 +10,7 @@
  * - Scheduler 可被独立测试、替换（如换成操作系统 cron）。
  * - 多个 Agent 实例可复用同一个 Scheduler。
  */
-import { LLMService } from './LLMService';
+import { State } from './LLMBase';
 export interface SchedulerOptions {
     /** 心跳检测间隔（秒），默认 60 */
     interval?: number;
@@ -19,7 +19,7 @@ export interface SchedulerOptions {
 }
 /** Agent 对 Scheduler 暴露的最小接口，避免循环依赖 */
 export interface ISchedulableAgent {
-    llmService: LLMService;
+    state: State;
     getDataDefault(params: Record<string, any>): Record<string, any>;
     callReAct(data: Record<string, any>, setUUID?: boolean): Promise<any>;
     /** 读取当前会话的 chatVars，用于判断是否存在 recurring 任务 */

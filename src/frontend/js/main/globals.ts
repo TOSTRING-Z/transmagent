@@ -21,6 +21,8 @@ export const DOM = {
   btn_save_envs: document.getElementById("btn_save_envs") as HTMLElement,
   tasks: document.getElementById("tasks") as HTMLElement,
   btn_save_tasks: document.getElementById("btn_save_tasks") as HTMLElement,
+  bgtasks: document.getElementById("bgtasks") as HTMLElement,
+  btn_clear_bgtasks: document.getElementById("btn_clear_bgtasks") as HTMLElement,
   history_list: document.getElementById("history-list") as HTMLElement,
   btn_new_chat: document.getElementById("new-chat") as HTMLElement,
   renameDialog: document.getElementById('renameDialog') as HTMLElement,

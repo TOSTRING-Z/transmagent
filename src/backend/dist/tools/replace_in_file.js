@@ -91,37 +91,43 @@ async function writeRemoteFile(filePath, content, sshConfig) {
 }
 /**
  * 核心补丁应用函数 (纯函数，易于单元测试)
- * 解决了缩进丢失和换行符不匹配的痛点
+ * 解决了缩进丢失、换行符不匹配、以及注释中包含 '=' 导致的截断痛点
  */
 function applyPatch(originalContent, diff) {
     // 统一将所有换行符归一化为 \n，消除 \r\n 带来的严格匹配失败问题
     let content = originalContent.replace(/\r\n/g, '\n');
     const normalizedDiff = diff.replace(/\r\n/g, '\n');
-    const blocks = normalizedDiff.split(/<<<<<<< SEARCH\n?/);
-    blocks.shift(); // 移除第一个空元素
+    // 严谨的块分隔符：必须位于行首 (用 ^ 和 m flag)，防止匹配到代码注释里的 =======
+    const SEARCH_MARKER = /^<<<<<<< SEARCH\n/m;
+    const DIVIDER_MARKER = /^=======\n/m;
+    const REPLACE_MARKER = /^>>>>>>> REPLACE\n?/m;
+    const blocks = normalizedDiff.split(SEARCH_MARKER);
+    blocks.shift(); // 移除第一个空元素 (或是标记前的废话)
     if (blocks.length === 0) {
-        throw new Error('Invalid diff format: No SEARCH blocks found. Make sure to use <<<<<<< SEARCH.');
+        throw new Error('Invalid diff format: No SEARCH blocks found. Make sure to use <<<<<<< SEARCH on its own line.');
     }
     blocks.forEach((block, index) => {
-        if (!block.includes('=======') || !block.includes('>>>>>>> REPLACE')) {
-            throw new Error(`Invalid diff format in block ${index + 1}: missing "=======" or ">>>>>>> REPLACE"`);
+        const dividerSplit = block.split(DIVIDER_MARKER);
+        if (dividerSplit.length < 2) {
+            throw new Error(`Invalid diff format in block ${index + 1}: missing "=======" on its own line.`);
         }
-        // 使用正则提取，而不是 trim()，这样可以完美保留代码的前导缩进和内部空格
-        // 这里的 \n? 是为了吃掉标记符自带的那一个换行
-        const searchMatch = block.match(/([\s\S]*?)\n?=======\n?/);
-        const replaceMatch = block.match(/=======\n?([\s\S]*?)\n?>>>>>>> REPLACE/);
-        if (!searchMatch || !replaceMatch) {
-            throw new Error(`Failed to parse SEARCH or REPLACE content in block ${index + 1}`);
+        if (dividerSplit.length > 2) {
+            throw new Error(`Invalid diff format in block ${index + 1}: multiple "=======" markers found.`);
         }
-        const searchContent = searchMatch[1];
-        const replaceContent = replaceMatch[1];
+        const searchContent = dividerSplit[0];
+        const replaceSplit = dividerSplit[1].split(REPLACE_MARKER);
+        if (replaceSplit.length < 2) {
+            throw new Error(`Invalid diff format in block ${index + 1}: missing ">>>>>>> REPLACE" on its own line.`);
+        }
+        const replaceContent = replaceSplit[0];
         if (!content.includes(searchContent)) {
             // 提取前 50 个字符用于报错提示，避免日志被撑爆
             const snippet = searchContent.substring(0, 50).replace(/\n/g, '\\n') + '...';
             throw new Error(`Search content not found in block ${index + 1}: "${snippet}". Ensure exact match including whitespace and comments.`);
         }
         // 仅替换第一个匹配项
-        content = content.replace(searchContent, replaceContent);
+        // CRITICAL: 使用 () => replaceContent 函数形式，避免 JS 引擎把字符串里的 $& 或 $` 当成正则特殊替换符！
+        content = content.replace(searchContent, () => replaceContent);
     });
     if (content === originalContent.replace(/\r\n/g, '\n')) {
         throw new Error(`File not modified: The replacement is identical to the existing content.`);

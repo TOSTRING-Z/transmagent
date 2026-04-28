@@ -111,7 +111,7 @@ function getBaseTools() {
         },
         "ask_user": {
             func: async ({ ask, options, toolCall }) => {
-                toolCall.llmService.chatManager.chat.state = LLMBase_1.State.PAUSE;
+                toolCall.state = LLMBase_1.State.PAUSE;
                 return { ask, options };
             },
             getPrompt: () => ({

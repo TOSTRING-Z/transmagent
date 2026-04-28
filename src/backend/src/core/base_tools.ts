@@ -116,7 +116,7 @@ export default function getBaseTools(): Record<string, any> {
 
         "ask_user": {
             func: async ({ ask, options, toolCall }: { ask: string, options?: string[], toolCall: ToolCall }) => {
-                toolCall.llmService.chatManager.chat.state = State.PAUSE;
+                toolCall.state = State.PAUSE;
                 return { ask, options };
             },
             getPrompt: () => ({

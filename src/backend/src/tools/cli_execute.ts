@@ -8,6 +8,7 @@ import { logger } from '../utils/logger';
 import { LLMAssistant } from '../core/LLMAssistant';
 import { ToolCall } from '../core/ToolCall';
 import { isSilentMode } from '../utils/public';
+import { BackgroundTaskRegistry } from '../core/BackgroundTaskRegistry';
 
 // --- 类型定义 ---
 export interface CliExecuteParams {
@@ -19,19 +20,23 @@ export interface CliExecuteParams {
     show?: boolean;
     bash?: string;
     monitor_interval?: number; // 控制台监测间隔（分钟），默认10
+    background?: boolean;      // 是否后台执行（异步模式，立即返回 task_id）
 }
 
 export interface ExecuteArgs {
     code: string;
     timeout?: number;
     toolCall: ToolCall;
+    background?: boolean;
 }
+
 export interface ExecuteResult {
     success: boolean;
     output: string;
     error: string;
     timeout?: boolean;
     message?: string;
+    task_id?: string; // 后台执行模式返回的任务 ID
 }
 
 // --- 辅助函数 ---
@@ -73,7 +78,8 @@ function validateParams(params: CliExecuteParams | undefined): Required<CliExecu
         bashrc: params.bashrc || '',
         show: !!params.show,
         bash: params.bash || 'bash',
-        monitor_interval: (typeof params.monitor_interval === 'number' && params.monitor_interval >= 1) ? params.monitor_interval : 10
+        monitor_interval: (typeof params.monitor_interval === 'number' && params.monitor_interval >= 1) ? params.monitor_interval : 10,
+        background: !!params.background
     };
 
     return validated;
@@ -101,9 +107,229 @@ function cleanupResources(tempFile: string, terminalWindow: BrowserWindow | null
     }
 }
 
+// --- 后台执行核心逻辑 ---
+
+/**
+ * 在后台执行命令，完成后通过 BackgroundTaskRegistry 将结果投递到会话消息队列。
+ * 不创建终端窗口、不注册 IPC 监听器。
+ */
+async function runInBackground(
+    code: string,
+    params: Required<CliExecuteParams>,
+    toolCall: ToolCall,
+    taskId: string,
+    sessionId: string
+): Promise<void> {
+    let finalCode = code;
+    if (params.bashrc) {
+        finalCode = `source ${params.bashrc};\n${code}`;
+    }
+
+    const timestamp = Date.now();
+    const randomStr = Math.floor(Math.random() * 1000);
+    let outStream: any = null;
+    let finalOutputFilePath = '';
+    let localTempScriptFile = '';
+
+    // 输出缓冲区
+    let tailBuffer = '';
+    let errorBuffer = '';
+    const MAX_TAIL_CHARS = 50000;
+    let isTailTruncated = false;
+    let isErrorTruncated = false;
+    let isInterrupted = false;
+
+    const appendData = (data: string, isError: boolean = false) => {
+        if (outStream) {
+            try { outStream.write(data); } catch (e: any) { /* ignore */ }
+        }
+        tailBuffer += data;
+        if (tailBuffer.length > MAX_TAIL_CHARS) {
+            tailBuffer = tailBuffer.slice(-MAX_TAIL_CHARS);
+            isTailTruncated = true;
+        }
+        if (isError) {
+            errorBuffer += data;
+            if (errorBuffer.length > MAX_TAIL_CHARS) {
+                errorBuffer = errorBuffer.slice(-MAX_TAIL_CHARS);
+                isErrorTruncated = true;
+            }
+        }
+    };
+
+    return new Promise<void>((_resolve) => {
+        let isFinished = false;
+        let timeoutId: NodeJS.Timeout | null = null;
+        let killProcess: ((force?: boolean) => void) | null = null;
+        let conn: Client | null = null;
+
+        const sendToRegistry = (result: Partial<ExecuteResult>) => {
+            if (isFinished) return;
+            isFinished = true;
+
+            if (timeoutId) clearTimeout(timeoutId);
+            if (outStream) {
+                try { outStream.end(); } catch (e) { /* ignore */ }
+            }
+
+            if (localTempScriptFile && fs.existsSync(localTempScriptFile)) {
+                try { fs.unlinkSync(localTempScriptFile); } catch (e: any) { /* ignore */ }
+            }
+            if (conn) {
+                try { conn.end(); } catch (e: any) { /* ignore */ }
+            }
+
+            const outThreshold = threshold(tailBuffer, params.max_lines, params.max_chars_per_line);
+            const errThreshold = threshold(errorBuffer, params.max_lines, params.max_chars_per_line);
+            let finalOutput = outThreshold.result;
+            const finalError = errThreshold.result;
+
+            if (isInterrupted) {
+                finalOutput += '\n\n[Process Interrupted]';
+            } else if (result.timeout) {
+                finalOutput += '\n\n[Process Timed Out]';
+            }
+
+            const hasTruncation = isTailTruncated || isErrorTruncated ||
+                outThreshold.isTruncated || errThreshold.isTruncated;
+
+            if (hasTruncation && finalOutputFilePath) {
+                finalOutput += `\n\n[Complete output saved to: ${finalOutputFilePath}]`;
+            }
+
+            const message = result.success
+                ? `✅ Background task completed successfully.\n\n**Output:**\n\`\`\`\n${finalOutput}\n\`\`\`` +
+                  (finalError ? `\n\n**Stderr:**\n\`\`\`\n${finalError}\n\`\`\`` : '')
+                : `❌ Background task failed.\n\n**Error:** ${result.error || finalError || 'Unknown error'}\n\n**Output:**\n\`\`\`\n${finalOutput}\n\`\`\``;
+
+            BackgroundTaskRegistry.addMessage(sessionId, taskId, message);
+            logger.log(`[BackgroundTask] Task "${taskId}" completed, message sent to session "${sessionId}"`);
+        };
+
+        // 超时处理
+        timeoutId = setTimeout(() => {
+            logger.log(`[BackgroundTask] Task "${taskId}" timed out after ${params.timeout}s`);
+            if (killProcess) killProcess(true);
+            sendToRegistry({
+                success: false,
+                timeout: true,
+                message: `Command execution timed out after ${params.timeout} seconds`,
+                error: 'Execution timed out'
+            });
+        }, params.timeout * 1000);
+
+        const sshConfig = toolCall.utils.getSshConfig();
+
+        if (sshConfig?.enabled) {
+            // =========== 远程 SSH 后台执行 ===========
+            conn = new Client();
+
+            conn.on('ready', () => {
+                logger.log(`[BackgroundTask] SSH connected for task "${taskId}"`);
+                conn!.sftp((sftpErr, sftp) => {
+                    if (sftpErr) {
+                        return sendToRegistry({ success: false, error: `SFTP error: ${sftpErr.message}` });
+                    }
+
+                    finalOutputFilePath = `/tmp/bg_output_${timestamp}_${randomStr}.txt`;
+                    outStream = sftp.createWriteStream(finalOutputFilePath, { encoding: 'utf8', flags: 'a' });
+                    outStream.on('error', (err: Error) => {
+                        logger.warn(`[BackgroundTask] Remote stream error: ${err.message}`);
+                    });
+
+                    const remoteScriptPath = `/tmp/bg_script_${timestamp}_${randomStr}.sh`;
+                    const writeStream = sftp.createWriteStream(remoteScriptPath);
+                    writeStream.on('error', (writeErr: Error) => {
+                        sendToRegistry({ success: false, error: `File upload error: ${writeErr.message}` });
+                    });
+
+                    writeStream.write(`#!/bin/bash\n${finalCode}`);
+                    writeStream.end();
+
+                    writeStream.on('close', () => {
+                        conn!.exec(`chmod +x ${remoteScriptPath} && ${remoteScriptPath}; rm -f ${remoteScriptPath}`, (execErr, stream: ClientChannel) => {
+                            if (execErr) {
+                                return sendToRegistry({ success: false, error: `Execution error: ${execErr.message}` });
+                            }
+
+                            killProcess = (force?: boolean) => {
+                                try { stream.close(); } catch (e) { /* ignore */ }
+                                if (force && conn) {
+                                    try { conn.end(); } catch (e) { /* ignore */ }
+                                }
+                            };
+
+                            stream.on('close', (exitCode: number) => {
+                                sendToRegistry({ success: exitCode === 0 && !isInterrupted });
+                            });
+
+                            stream.on('data', (data: Buffer) => {
+                                appendData(data.toString(), false);
+                            });
+
+                            stream.stderr.on('data', (data: Buffer) => {
+                                appendData(data.toString(), true);
+                            });
+                        });
+                    });
+                });
+            });
+
+            conn.on('error', (err: Error) => {
+                sendToRegistry({ success: false, error: `SSH connection failed: ${err.message}` });
+            });
+
+            try {
+                conn.connect(sshConfig);
+            } catch (connectErr: any) {
+                sendToRegistry({ success: false, error: `SSH connection failed: ${connectErr.message}` });
+            }
+        } else {
+            // =========== 本地后台执行 ===========
+            finalOutputFilePath = path.join(os.tmpdir(), `bg_output_${timestamp}_${randomStr}.txt`);
+            localTempScriptFile = path.join(os.tmpdir(), `bg_temp_${timestamp}_${randomStr}.sh`);
+
+            try {
+                outStream = fs.createWriteStream(finalOutputFilePath, { encoding: 'utf8', flags: 'a' });
+                outStream.on('error', (err: Error) => {
+                    if (!isFinished) logger.warn(`[BackgroundTask] Local stream error: ${err.message}`);
+                });
+                fs.writeFileSync(localTempScriptFile, finalCode);
+                logger.log(`[BackgroundTask] Task "${taskId}" started, script: ${localTempScriptFile}`);
+            } catch (error: any) {
+                return sendToRegistry({ success: false, error: `Failed to create local files: ${error.message}` });
+            }
+
+            const child: ChildProcess = exec(`${params.bash} ${localTempScriptFile}`);
+
+            killProcess = (force?: boolean) => {
+                if (child && child.exitCode === null) {
+                    child.kill(force ? 'SIGKILL' : 'SIGINT');
+                }
+            };
+
+            child.on('error', (childErr: Error) => {
+                sendToRegistry({ success: false, error: `Process execution failed: ${childErr.message}` });
+            });
+
+            child.stdout?.on('data', (data: Buffer | string) => {
+                appendData(data.toString(), false);
+            });
+
+            child.stderr?.on('data', (data: Buffer | string) => {
+                appendData(data.toString(), true);
+            });
+
+            child.on('close', (exitCode: number | null) => {
+                sendToRegistry({ success: exitCode === 0 && !isInterrupted });
+            });
+        }
+    });
+}
+
 // --- 主执行逻辑 ---
 export function main(initialParams: CliExecuteParams = {}) {
-    return async ({ code, timeout, toolCall }: ExecuteArgs): Promise<ExecuteResult> => {
+    return async ({ code, timeout, toolCall, background }: ExecuteArgs): Promise<ExecuteResult> => {
         let params: Required<CliExecuteParams>;
 
         try {
@@ -142,6 +368,26 @@ export function main(initialParams: CliExecuteParams = {}) {
         if (params.bashrc) {
             finalCode = `source ${params.bashrc};\n${code}`;
         }
+
+        // ================= 后台执行分支 =================
+        if (params.background || background) {
+            const taskId = `bg_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
+            const sessionId = toolCall.llmService.chatManager.chat.id;
+
+            // 注册后台任务启动生命周期
+            BackgroundTaskRegistry.addTaskStart(sessionId, taskId, 'cli_execute', code);
+
+            logger.log(`[CliExecute] Starting background task "${taskId}" for session "${sessionId}"`);
+            // 不等待，立即返回；完成后由 runInBackground 回调投递消息
+            runInBackground(finalCode, params, toolCall, taskId, sessionId);
+
+            return {
+                success: true,
+                output: `Background task started. Task ID: ${taskId}`,
+                task_id: taskId
+            } as any;
+        }
+        // ================= END 后台执行分支 =================
 
         // 检查静默模式：静默模式下不创建窗口，除非 params.show 为 true
         const silentMode = isSilentMode();
@@ -565,6 +811,17 @@ EXECUTION PIPELINE:
   2. Use the 'write_to_file' tool FIRST to save your script to a file (e.g., '/tmp/script.sh').
   3. Then, use this 'cli_execute' tool to run the file (e.g., pass 'bash /tmp/script.sh' into 'code').
 
+BACKGROUND EXECUTION:
+- Set 'background' to true for long-running commands (e.g., training loops, servers, watchers, long installations).
+- TRIGGER CONDITIONS:
+  1. User explicitly requests background/async execution.
+  2. Command is expected to run >30 seconds (e.g., npm install, pip install, model training).
+  3. Server/daemon processes that run indefinitely.
+  4. Any command where the agent should NOT block waiting for the result.
+- The tool returns a 'task_id' immediately and runs the command asynchronously.
+- When complete, the result is automatically injected as a user message into the conversation.
+- ⚠️ CRITICAL: After launching a background task, you MUST complete any remaining work and then enter IDLE state. You are STRICTLY FORBIDDEN from looping to poll/check the background task status. The result will be delivered to you automatically.
+
 If your execution fails due to a bug in a long script, use 'replace_in_file' to patch the file, then run 'cli_execute' again.`,
         "parameters": {
             "type": "object",
@@ -576,6 +833,10 @@ If your execution fails due to a bug in a long script, use 'replace_in_file' to 
                 "timeout": {
                     "type": "number",
                     "description": "(Optional) Maximum execution time in seconds (default: 6000). Returns console output if timed out."
+                },
+                "background": {
+                    "type": "boolean",
+                    "description": "(Optional) If true, runs the command in background and returns a task_id immediately. The result is automatically injected into the conversation when the command completes."
                 }
             },
             "required": ["code"]

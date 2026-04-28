@@ -44,5 +44,6 @@ electron_1.contextBridge.exposeInMainWorld('electronAPI', {
     setConfig: (config) => electron_1.ipcRenderer.invoke('set-config-main', config),
     Envs: (data) => electron_1.ipcRenderer.invoke('envs', data),
     Tasks: (data) => electron_1.ipcRenderer.invoke('tasks', data),
+    BGTasks: (data) => electron_1.ipcRenderer.invoke('bgtasks', data),
 });
 //# sourceMappingURL=main_window_preload.js.map

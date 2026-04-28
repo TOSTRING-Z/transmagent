@@ -27,9 +27,10 @@ class LLMBase {
     context_id; // 用于记录当前的 memory id
     llmAssistant; // LLM对话辅助功能实例
     utils;
+    state;
     constructor(llmService, window = null, utils) {
         this.llmService = llmService;
-        this.llmService.chatManager.chat.state = State.IDLE;
+        this.state = State.IDLE;
         this.window = window;
         this.llmAssistant = new LLMAssistant_1.LLMAssistant(llmService, null, utils);
         this.utils = utils;

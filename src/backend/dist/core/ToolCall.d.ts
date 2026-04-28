@@ -77,6 +77,8 @@ export declare class ToolCall extends LLMBase implements ISchedulableAgent {
     private pipeline;
     /** 高风险工具已记住的用户选择 */
     private rememberedChoices;
+    /** 当前已注册 BackgroundTaskRegistry handler 的会话 ID */
+    private registeredBgSessionId;
     constructor(plugins: Plugins, agentTools: Record<string, any> | undefined, llmService: LLMService, window: BrowserWindow | null, utils: Utils, agentConfigs?: AgentConfigs, mainLLMService?: LLMService | null);
     getChatVars(): Record<string, any>;
     getChatUUID(): string;
@@ -110,7 +112,14 @@ export declare class ToolCall extends LLMBase implements ISchedulableAgent {
     getToolInfos(data: Record<string, any>, assistantMessage: AssistantMessage): Promise<ToolInfo[]>;
     act(toolInfo: ToolInfo): Promise<Observation>;
     private handleToolObservation;
-    callReAct(data: Record<string, any>, setUUID?: boolean): Promise<any>;
+    /**
+     * @param data             ReAct 循环数据
+     * @param setUUID          是否自动设置 UUID（默认 true）
+     * @param skipInitialPush  跳过初始消息推送（后台任务唤醒用）。
+     *                         前置条件：消息已由外部注入 ChatManager。
+     *                         若 state === PAUSE 则忽略此参数（挂起恢复必须推送）。
+     */
+    callReAct(data: Record<string, any>, setUUID?: boolean, skipInitialPush?: boolean): Promise<any>;
     loadMessage(filePath: string, id?: string): void;
     loadChat(id: string): ChatState;
     newChat(id?: string): ChatState;

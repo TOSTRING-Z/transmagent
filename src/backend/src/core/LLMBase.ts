@@ -29,6 +29,7 @@ export class LLMBase {
     public context_id?: string; // 用于记录当前的 memory id
     public llmAssistant: LLMAssistant; // LLM对话辅助功能实例
     public utils: Utils;
+    public state: State;
 
     constructor(
         llmService: LLMService,
@@ -36,7 +37,7 @@ export class LLMBase {
         utils: Utils
     ) {
         this.llmService = llmService;
-        this.llmService.chatManager.chat.state = State.IDLE;
+        this.state = State.IDLE;
         this.window = window;
         this.llmAssistant = new LLMAssistant(llmService, null, utils);
         this.utils = utils;
