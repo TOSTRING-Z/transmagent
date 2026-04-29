@@ -1,7 +1,7 @@
 /**
  * send_message.ts
  *
- * 【职责】代理间通信工具——供后台子代理使用，向主代理或其他子代理发送消息。
+ * 【职责】代理间通信工具——供主代理和子代理相互发送消息。
  *
  * 路由机制：
  *   消息通过 BackgroundTaskRegistry.addAgentMessage 投递：
@@ -9,9 +9,9 @@
  *     - to: "all"  → 注入主代理会话 + 广播所有子代理
  *     - to: "agent_name" → 定向投递到指定子代理
  *
- * 注意：
- *   - 此工具仅供子代理使用，主代理不应拥有此工具。
- *   - parentSessionId 和 agentName 在 subagent_launcher 创建工具实例时通过 params 注入。
+ * 动态推导：
+ *   - 子代理场景：parentSessionId 和 agentName 由 subagent_launcher 注入
+ *   - 主代理场景：sessionId 和 agentName 从 toolCall 运行时动态获取
  */
 
 import { BackgroundTaskRegistry } from '../core/BackgroundTaskRegistry';
@@ -56,26 +56,34 @@ function validateParams(params: SendMessageParams): string | null {
 // --- 主逻辑 ---
 
 export function main(initialParams: { parentSessionId?: string; agentName?: string } = {}) {
-    const { parentSessionId = '', agentName = 'unknown' } = initialParams;
+    const { parentSessionId = '', agentName = '' } = initialParams;
 
-    return async ({ to, message }: SendMessageArgs): Promise<SendMessageResult> => {
+    return async ({ to, message, toolCall }: SendMessageArgs): Promise<SendMessageResult> => {
         const validationError = validateParams({ to, message });
         if (validationError) {
             return { success: false, message: '', error: validationError };
         }
 
-        if (!parentSessionId) {
+        // 【修改点】：修复主代理场景下获取 sessionId 的路径，保持与 Launcher 一致使用 chat.id
+        const sessionId = 
+            parentSessionId || 
+            toolCall?.llmService?.chatManager?.chat?.id || 
+            '';
+            
+        const fromAgent = agentName || toolCall?.agentConfigs?.agentName || 'main';
+
+        if (!sessionId) {
             return {
                 success: false,
                 message: '',
-                error: 'send_message: parentSessionId is not configured. This tool must be used within a background sub-agent.',
+                error: 'send_message: session ID could not be determined. Ensure the tool is called within an active agent session.',
             };
         }
 
         try {
             BackgroundTaskRegistry.addAgentMessage(
-                parentSessionId,
-                agentName,
+                sessionId,
+                fromAgent,
                 to.trim(),
                 message.trim(),
             );

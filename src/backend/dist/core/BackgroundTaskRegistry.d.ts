@@ -21,8 +21,12 @@ export interface BgTaskInfo {
     /** 完成时的输出摘要（截断后的前 200 字符） */
     resultSummary?: string;
 }
+/** 投递给主会话（前端）的消息结构 */
 export interface PendingMessage {
-    taskId: string;
+    /** 区分消息来源：后台任务结果 vs 代理间通信推送到前端 */
+    type: 'task_result' | 'agent_message';
+    /** 任务ID（仅当 type 为 task_result 时存在） */
+    taskId?: string;
     content: string;
     timestamp: number;
 }
@@ -75,6 +79,11 @@ export declare class BackgroundTaskRegistry {
     static getBySession(sessionId: string): BgTaskInfo[];
     /** 清空已完成/失败的任务（保留 running） */
     static clearFinished(): void;
+    /**
+     * 内部方法：负责将消息投递给主代理（前端），处理即时投递和队列暂存
+     */
+    private static deliverToMainSession;
+    /** 添加后台任务的完成消息，并触发任务结算 */
     static addMessage(sessionId: string, taskId: string, content: string): void;
     static registerHandler(sessionId: string, handler: SessionMessageHandler): void;
     static unregisterHandler(sessionId: string): void;

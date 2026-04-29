@@ -3,6 +3,7 @@ Object.defineProperty(exports, "__esModule", { value: true });
 exports.default = getBaseTools;
 const LLMBase_1 = require("./LLMBase");
 const subagent_launcher_1 = require("../tools/subagent_launcher");
+const send_message_1 = require("../tools/send_message");
 function getBaseTools() {
     return {
         "update_env": {
@@ -355,6 +356,13 @@ You MUST NOT save any transient session state. DO NOT save:
                     required: ["content"]
                 }
             })
+        },
+        "send_message": {
+            func: async ({ to, message, toolCall }) => {
+                const sender = (0, send_message_1.main)({});
+                return await sender({ to, message, toolCall });
+            },
+            getPrompt: send_message_1.getPrompt,
         },
         "subagent_launcher": {
             func: async ({ agent_name, agent_prompt, query, tools, timeout, toolCall }) => {

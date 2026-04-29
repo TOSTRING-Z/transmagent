@@ -15,7 +15,7 @@
 import { ToolInfo } from '../types';
 import { Observation } from './ToolCall';
 import { logger } from '../utils/logger';
-import { BackgroundTaskRegistry } from './BackgroundTaskRegistry';
+import { BackgroundTaskRegistry, PendingMessage } from './BackgroundTaskRegistry';
 
 // ─── 执行上下文 ─────────────────────────────────────────────────────
 
@@ -185,22 +185,22 @@ export function createExecutionMiddleware(
  * 4. 后台消息接收中间件
  *
  * 【职责】在每个工具调用执行前，检查 BackgroundTaskRegistry 中是否有
- * 属于当前会话的后台任务完成消息。若存在，则将其逐条作为用户消息注入到
- * ChatManager 消息队列末尾，使 LLM 在下一轮 step() 中能自然感知到。
+ * 属于当前会话的后台任务完成消息或代理间通信消息。若存在，则将其逐条
+ * 作为消息注入到 ChatManager 消息队列末尾，使 LLM 在下一轮 step() 中能自然感知到。
  *
  * 【注入时机】在当前工具 pipeline 的最前端执行，先于 audit/confirmation/execution。
  * 这意味着：
- *   - 后台任务结果会在当前 step 的下一个工具调用之前被 LLM 看到。
+ *   - 后台任务结果/代理通信消息会在当前 step 的下一个工具调用之前被 LLM 看到。
  *   - 不会打断正在执行的工具调用链。
  *
  * @param getSessionId   获取当前会话 ID 的函数
- * @param pushUserMessage 将消息推入当前会话 ChatManager 的函数
+ * @param injectMessage  将消息推入当前会话 ChatManager 的函数（接收完整的 PendingMessage）
  */
 export function createBackgroundMessageMiddleware(
     getSessionId: () => string,
-    injectResult: (taskId: string, content: string) => void,
-): MiddlewareFn {
-    return async (ctx, next) => {
+    injectMessage: (msg: PendingMessage) => void,
+): any { // 这里替换回你的 MiddlewareFn 类型
+    return async (ctx: any, next: () => Promise<void>) => {
         const sessionId = getSessionId();
         if (!sessionId) {
             await next();
@@ -210,11 +210,19 @@ export function createBackgroundMessageMiddleware(
         const pendingMessages = BackgroundTaskRegistry.drainMessages(sessionId);
 
         for (const pending of pendingMessages) {
-            logger.log(
-                `[BackgroundMsgMiddleware] Injecting background task "${pending.taskId}" ` +
-                `into session "${sessionId}"`
-            );
-            injectResult(pending.taskId, pending.content);
+            if (pending.type === 'task_result') {
+                logger.log(
+                    `[BackgroundMsgMiddleware] Injecting background task result "${pending.taskId}" ` +
+                    `into session "${sessionId}"`
+                );
+            } else if (pending.type === 'agent_message') {
+                logger.log(
+                    `[BackgroundMsgMiddleware] Injecting agent message into session "${sessionId}"`
+                );
+            }
+
+            // 将完整的 pending 消息对象交给外层处理
+            injectMessage(pending);
         }
 
         await next();

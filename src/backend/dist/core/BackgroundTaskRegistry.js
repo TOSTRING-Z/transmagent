@@ -84,7 +84,6 @@ class BackgroundTaskRegistry {
             this.killFns.delete(taskId);
         }
         this.markFailed(taskId, 'Interrupted by user');
-        // 覆写 status 为 failed（markFailed 已做）
         logger_1.logger.log(`[BackgroundTaskRegistry] Task "${taskId}" interrupted`);
         return true;
     }
@@ -104,22 +103,35 @@ class BackgroundTaskRegistry {
             }
         }
     }
-    // ─── 消息投递 ──────────────────────────────────────────────────────────
-    static addMessage(sessionId, taskId, content) {
-        const msg = { taskId, content, timestamp: Date.now() };
-        // 先标记任务完成
-        this.markCompleted(taskId, content);
+    // ─── 主会话消息投递核心逻辑 ───────────────────────────────────────────────────
+    /**
+     * 内部方法：负责将消息投递给主代理（前端），处理即时投递和队列暂存
+     */
+    static deliverToMainSession(sessionId, msg) {
         const handler = this.handlers.get(sessionId);
         if (handler) {
-            logger_1.logger.log(`[BackgroundTaskRegistry] Immediate delivery for session "${sessionId}", task "${taskId}"`);
+            logger_1.logger.log(`[BackgroundTaskRegistry] Immediate delivery for session "${sessionId}", type "${msg.type}"`);
             handler(msg);
             return;
         }
-        logger_1.logger.log(`[BackgroundTaskRegistry] Queued for session "${sessionId}" (no handler yet), task "${taskId}"`);
+        logger_1.logger.log(`[BackgroundTaskRegistry] Queued for session "${sessionId}" (no handler yet), type "${msg.type}"`);
         if (!this.pending.has(sessionId)) {
             this.pending.set(sessionId, []);
         }
         this.pending.get(sessionId).push(msg);
+    }
+    /** 添加后台任务的完成消息，并触发任务结算 */
+    static addMessage(sessionId, taskId, content) {
+        // 1. 先标记任务完成
+        this.markCompleted(taskId, content);
+        // 2. 构造 task_result 类型消息并投递给主会话
+        const msg = {
+            type: 'task_result',
+            taskId,
+            content,
+            timestamp: Date.now()
+        };
+        this.deliverToMainSession(sessionId, msg);
     }
     static registerHandler(sessionId, handler) {
         this.handlers.set(sessionId, handler);
@@ -191,22 +203,30 @@ class BackgroundTaskRegistry {
     static addAgentMessage(sessionId, from, to, content) {
         const msg = { from, content, timestamp: Date.now() };
         const formatted = `\n\n📨 **[${from}] → [${to}]**:\n${content}`;
+        // 1. 如果需要发给主会话（前端），直接构造 agent_message 类型消息投递，跳过任务生命周期
+        if (to === 'all' || to === 'main') {
+            const mainSessionMsg = {
+                type: 'agent_message',
+                content: formatted,
+                timestamp: Date.now()
+            };
+            this.deliverToMainSession(sessionId, mainSessionMsg);
+        }
+        // 2. 处理子代理的投递逻辑
         if (to === 'all') {
-            this.addMessage(sessionId, `amsg_${Date.now()}`, formatted);
             const prefix = `${sessionId}::`;
             for (const [key, listener] of this.agentListeners) {
                 if (key.startsWith(prefix)) {
                     const targetName = key.slice(prefix.length);
+                    // 广播给其他子代理，排除发送方自身
                     if (targetName !== from) {
                         listener(msg);
                     }
                 }
             }
         }
-        else if (to === 'main') {
-            this.addMessage(sessionId, `amsg_${Date.now()}`, formatted);
-        }
-        else {
+        else if (to !== 'main') {
+            // 定向发给特定子代理
             const key = `${sessionId}::${to}`;
             const listener = this.agentListeners.get(key);
             if (listener) {
@@ -234,6 +254,7 @@ class BackgroundTaskRegistry {
         this.pending.clear();
         this.handlers.clear();
         this.tasks.clear();
+        this.killFns.clear();
         this.agentListeners.clear();
         this.agentMsgQueues.clear();
     }

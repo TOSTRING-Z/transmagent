@@ -1,6 +1,7 @@
 import { State } from "./LLMBase";
 import { ToolCall } from "./ToolCall";
 import { main as subagentLauncherMain, getPrompt as subagentLauncherPrompt } from '../tools/subagent_launcher';
+import { main as sendMessageMain, getPrompt as sendMessagePrompt } from '../tools/send_message';
 
 export default function getBaseTools(): Record<string, any> {
     return {
@@ -370,6 +371,13 @@ You MUST NOT save any transient session state. DO NOT save:
                     required: ["content"]
                 }
             })
+        },
+        "send_message": {
+            func: async ({ to, message, toolCall }: { to: string; message: string; toolCall: any }) => {
+                const sender = sendMessageMain({});
+                return await sender({ to, message, toolCall });
+            },
+            getPrompt: sendMessagePrompt,
         },
         "subagent_launcher": {
             func: async ({ agent_name, agent_prompt, query, tools, timeout, toolCall }: {

@@ -7,14 +7,8 @@
  *   1. 主代理调用此工具，传入 agent_prompt + query + tools。
  *   2. 工具立即返回 task_id（非阻塞）。
  *   3. 子代理在后台运行 ReAct 循环。
- *   4. 完成后，结果通过 BackgroundTaskRegistry 注入主代理会话。
- *   5. 子代理可通过 send_message 与其他代理通信。
- *
- * 安全约束：
- *   - 子代理无 ask_user（防止阻塞）
- *   - 子代理无 subagent_launcher（防止递归）
- *   - 子代理无 mcp_server（避免 MCP 冲突）
- *   - 超时自动终止
+ *   4. 运行期间：子代理可通过 send_message (底层 addAgentMessage) 与主代理/其他代理实时通信。
+ *   5. 运行结束：结果通过 BackgroundTaskRegistry.addMessage (携带 taskId) 核销任务并注入主会话。
  */
 import { ToolCall } from '../core/ToolCall';
 export interface SubAgentLauncherParams {

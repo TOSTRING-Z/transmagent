@@ -7,29 +7,20 @@
  *   1. 主代理调用此工具，传入 agent_prompt + query + tools。
  *   2. 工具立即返回 task_id（非阻塞）。
  *   3. 子代理在后台运行 ReAct 循环。
- *   4. 完成后，结果通过 BackgroundTaskRegistry 注入主代理会话。
- *   5. 子代理可通过 send_message 与其他代理通信。
- *
- * 安全约束：
- *   - 子代理无 ask_user（防止阻塞）
- *   - 子代理无 subagent_launcher（防止递归）
- *   - 子代理无 mcp_server（避免 MCP 冲突）
- *   - 超时自动终止
+ *   4. 运行期间：子代理可通过 send_message (底层 addAgentMessage) 与主代理/其他代理实时通信。
+ *   5. 运行结束：结果通过 BackgroundTaskRegistry.addMessage (携带 taskId) 核销任务并注入主会话。
  */
 
 import { LLMService } from '../core/LLMService';
 import { ToolCall } from '../core/ToolCall';
 import { Plugins } from '../core/Plugins';
-import { BackgroundTaskRegistry, PendingMessage } from '../core/BackgroundTaskRegistry';
-import { Mode, State } from '../core/LLMBase';
+import { BackgroundTaskRegistry } from '../core/BackgroundTaskRegistry'; // 移除了未使用的 PendingMessage
+import { State } from '../core/LLMBase';
 import { parseJsonContent } from '../utils/public';
 import { logger } from '../utils/logger';
 import { store } from '../utils/globals';
 
 // --- send_message 工具（内联创建，避免循环依赖）---
-// 注意：此处的 send_message 工厂函数在 subagent_launcher 中内联，
-// 因为 send_message.ts 使用了相同的模式。编译时 send_message.ts 作为独立文件存在。
-
 function createSendMessageTool(parentSessionId: string, agentName: string) {
     const func = async ({ to, message }: { to: string; message: string }) => {
         if (!to || !message) {
@@ -39,6 +30,7 @@ function createSendMessageTool(parentSessionId: string, agentName: string) {
             return { success: false, message: '', error: 'Message cannot be empty.' };
         }
         try {
+            // 【通信通道】这里使用 addAgentMessage，因为它属于运行中的“代理间消息投递”，不干涉任务生命周期
             BackgroundTaskRegistry.addAgentMessage(parentSessionId, agentName, to.trim(), message.trim());
             return { success: true, message: `Message sent to "${to}" successfully.` };
         } catch (error: any) {
@@ -69,7 +61,6 @@ function createSendMessageTool(parentSessionId: string, agentName: string) {
 }
 
 // --- 类型定义 ---
-
 export interface SubAgentLauncherParams {
     timeout?: number;
 }
@@ -92,7 +83,6 @@ export interface ExecuteResult {
 
 // --- 默认工具集 ---
 const DEFAULT_TOOLS = [
-    'cli_execute',
     'python_execute',
     'display_file',
     'write_to_file',
@@ -113,7 +103,6 @@ const FORBIDDEN_TOOLS = new Set([
 ]);
 
 // --- 后台子代理执行器 ---
-
 async function runSubAgentInBackground(
     taskId: string,
     parentSessionId: string,
@@ -134,14 +123,11 @@ async function runSubAgentInBackground(
     let subAgentToolCall: ToolCall | null = null;
 
     try {
-        // 1. 创建 Plugins 并加载工具
         const plugins = new Plugins(parentUtils);
         const allTools = plugins.getTool() as Record<string, any>;
-
-        // 2. 过滤工具：仅保留请求的工具，排除禁止工具，追加 send_message
         const filteredTools: Record<string, any> = {};
 
-        // 添加 send_message（注入 parentSessionId 和 agentName）
+        // 强行注入 send_message 工具
         filteredTools['send_message'] = createSendMessageTool(parentSessionId, agentName);
 
         for (const name of toolNames) {
@@ -161,18 +147,16 @@ async function runSubAgentInBackground(
             `[SubAgentLauncher] Agent "${agentName}" starting with tools: [${Object.keys(filteredTools).join(', ')}]`
         );
 
-        // 3. 创建 LLMService
         const llmService = new LLMService(undefined, null, parentUtils);
         llmService.chatManager.chat.id = parentSessionId;
         llmService.chatManager.chat.name = agentName;
         llmService.chatManager.chat.tool_format = toolFormat as 'toolcalls' | 'prompt';
 
-        // 4. 创建 ToolCall
         subAgentToolCall = new ToolCall(
             plugins,
             filteredTools,
             llmService,
-            null,  // 无 BrowserWindow（后台静默）
+            null,
             parentUtils,
             {
                 agentPrompt,
@@ -188,24 +172,20 @@ async function runSubAgentInBackground(
             mainLLMService,
         );
 
-        // 5. 设置模式
         if (parentMode !== 'plan') {
             subAgentToolCall.changeMode(parentMode);
         } else {
             subAgentToolCall.changeMode('auto');
         }
 
-        // 6. 注册代理消息监听器（接收来自其他代理的消息）
+        // 注册代理消息监听器（接收主代理或其他子代理发来的 AgentMessage）
         BackgroundTaskRegistry.registerAgentListener(
             parentSessionId,
             agentName,
             (msg) => {
                 if (!subAgentToolCall) return;
-                logger.log(
-                    `[SubAgentLauncher] Agent "${agentName}" received message from "${msg.from}"`
-                );
+                logger.log(`[SubAgentLauncher] Agent "${agentName}" received message from "${msg.from}"`);
 
-                // 拼接到子代理最后一条消息的 content 末尾
                 const msgText = `\n📨 **Message from [${msg.from}]**:\n${msg.content}`;
                 const agentMessages = subAgentToolCall.llmService.chatManager.messages;
                 const agentLastMsg = agentMessages[agentMessages.length - 1];
@@ -213,38 +193,23 @@ async function runSubAgentInBackground(
                     agentLastMsg.content = (agentLastMsg.content || '') + msgText;
                 }
 
-                // 若子代理空闲，自动唤醒
-                if (
-                    subAgentToolCall.state === State.IDLE ||
-                    subAgentToolCall.state === State.FINAL
-                ) {
-                    logger.log(
-                        `[SubAgentLauncher] Waking agent "${agentName}" for incoming message`
-                    );
-                    // 重置 stopFlag（stopLoop() 在 IDLE 时会将 stopFlag 置为 true）
+                // 唤醒处于空闲状态的子代理
+                if (subAgentToolCall.state === State.IDLE || subAgentToolCall.state === State.FINAL) {
+                    logger.log(`[SubAgentLauncher] Waking agent "${agentName}" for incoming message`);
                     subAgentToolCall.llmService.stopFlag = false;
-                    const wakeData = subAgentToolCall.getDataDefault({
-                        query: '',
-                        model,
-                        version,
-                    });
+                    const wakeData = subAgentToolCall.getDataDefault({ query: '', model, version });
                     wakeData.uuid = subAgentToolCall.llmService.chatManager.uuid;
                     subAgentToolCall.callReAct(wakeData, false, true).catch((err: Error) => {
-                        logger.error(
-                            `[SubAgentLauncher] Agent "${agentName}" wake-up error:`,
-                            err
-                        );
+                        logger.error(`[SubAgentLauncher] Agent "${agentName}" wake-up error:`, err);
                     });
                 }
             }
         );
 
-        // 7. 初始化消息（可选，根据配置）
         if (parentUtils.getConfig('toolCall')?.subagent_llm_init) {
             subAgentToolCall.llmService.chatManager.initMessages();
         }
 
-        // 8. 启动 ReAct 循环（带超时）
         subAgentToolCall.llmService.startLoop();
         let data = subAgentToolCall.getDataDefault({ query, model, version });
 
@@ -259,10 +224,10 @@ async function runSubAgentInBackground(
             timeoutPromise,
         ]);
 
-        // 9. 解析结果
         const resJson = parseJsonContent(resultData.output_format);
         const result = resJson[0]?.content || resultData.output_format || 'Sub-agent completed with no output.';
 
+        // 【任务核销通道】子代理生命周期结束，必须调用 addMessage 附带 taskId，触发 markCompleted 消除前端 Loading。
         BackgroundTaskRegistry.addMessage(
             parentSessionId,
             taskId,
@@ -273,28 +238,24 @@ async function runSubAgentInBackground(
 
     } catch (error: any) {
         logger.error(`[SubAgentLauncher] Agent "${agentName}" failed: ${error.message}`);
+        
+        // 【任务异常核销】同上，发送错误信息给主代理并核销 taskId
         BackgroundTaskRegistry.addMessage(
             parentSessionId,
             taskId,
             `❌ **Background sub-agent \`${agentName}\` failed.**\n\n**Error:** ${error.message}`
         );
     } finally {
-        // 清理：注销代理消息监听器
         BackgroundTaskRegistry.unregisterAgentListener(parentSessionId, agentName);
-
-        // 停止子代理循环
         if (subAgentToolCall) {
             try {
                 subAgentToolCall.llmService.stopLoop();
-            } catch (e) {
-                // 忽略清理错误
-            }
+            } catch (e) {}
         }
     }
 }
 
 // --- 主入口 ---
-
 export function main(initialParams: SubAgentLauncherParams = {}) {
     return async ({
         agent_name,
@@ -304,7 +265,6 @@ export function main(initialParams: SubAgentLauncherParams = {}) {
         timeout,
         toolCall,
     }: ExecuteArgs): Promise<ExecuteResult> => {
-        // 校验
         if (!agent_name || typeof agent_name !== 'string' || agent_name.trim().length === 0) {
             return { success: false, error: 'The "agent_name" parameter is required and must be a non-empty string.' };
         }
@@ -318,18 +278,13 @@ export function main(initialParams: SubAgentLauncherParams = {}) {
         const sanitizedName = agent_name.trim().replace(/[^a-zA-Z0-9_-]/g, '_');
         const taskId = `sbagent_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
         const sessionId = toolCall.llmService.chatManager.chat.id;
-
-        // 超时默认 600 秒
         const effectiveTimeout = (typeof timeout === 'number' && timeout > 0) ? timeout : 600;
-
-        // 工具列表：默认 + 用户指定
         const toolNames = (tools && tools.length > 0) ? tools : DEFAULT_TOOLS;
 
-        // 获取主代理信息
         const mainChat = toolCall.llmService.chatManager.chat;
         const mainLLMService = toolCall.mainLLMService || toolCall.llmService;
 
-        // 注册后台任务
+        // 【任务生命周期起点】注册 Task
         BackgroundTaskRegistry.addTaskStart(
             sessionId,
             taskId,
@@ -341,7 +296,6 @@ export function main(initialParams: SubAgentLauncherParams = {}) {
             `[SubAgentLauncher] Launching agent "${sanitizedName}" (task: ${taskId}) in session "${sessionId}"`
         );
 
-        // 异步启动子代理
         setImmediate(() => {
             runSubAgentInBackground(
                 taskId,
@@ -361,6 +315,7 @@ export function main(initialParams: SubAgentLauncherParams = {}) {
                 mainChat.mode || 'auto',
             ).catch((err: Error) => {
                 logger.error(`[SubAgentLauncher] Fatal error launching agent "${sanitizedName}":`, err);
+                // 【任务异常核销】处理进程级别的崩溃
                 BackgroundTaskRegistry.addMessage(
                     sessionId,
                     taskId,
@@ -369,6 +324,7 @@ export function main(initialParams: SubAgentLauncherParams = {}) {
             });
         });
 
+        // 立刻向大模型返回成功执行并附上 taskId，让主对话流程继续往下走
         return {
             success: true,
             task_id: taskId,
@@ -380,6 +336,7 @@ export function main(initialParams: SubAgentLauncherParams = {}) {
 export function getPrompt() {
     return {
         name: 'subagent_launcher',
+        // (保持原有的 description / parameters 不变) ...
         description:
             'Launch a generic sub-agent in the background (non-blocking).\n\n' +
             'The sub-agent runs asynchronously with a custom system prompt defining its identity and behavior. ' +

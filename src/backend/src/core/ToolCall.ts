@@ -158,7 +158,7 @@ export class ToolCall extends LLMBase implements ISchedulableAgent {
             skill: true,
             subagent: false,
             agentMode: "transagent",
-            agentName: "TransMAgent",
+            agentName: "main",
         },
         mainLLMService: LLMService | null = null,
     ) {
@@ -305,6 +305,8 @@ export class ToolCall extends LLMBase implements ISchedulableAgent {
         );
 
         // ── 后台消息 Handler：即时投递 + agent 空闲时自动唤醒 ────────────
+        // 仅主代理注册会话级 handler；子代理使用 registerAgentListener 替代
+        if (!this.agentConfigs.subagent) {
         const sessionId = this.llmService.chatManager.chat.id;
 
         // 先注销旧 Handler（防止重复注册）
@@ -314,52 +316,79 @@ export class ToolCall extends LLMBase implements ISchedulableAgent {
         this.registeredBgSessionId = sessionId;
 
         BackgroundTaskRegistry.registerHandler(sessionId, (msg) => {
-            logger.log(`[ToolCall] Background handler: delivering task "${msg.taskId}" to session "${sessionId}"`);
+            let appendedText = '';
 
-            // 追加后台任务结果到上一条消息的 content 末尾
-            const resultText = this.prompts.getTaskResultPrompt(msg.taskId, msg.content);
+            // 1. 根据消息类型格式化注入文本，并打印对应的日志
+            if (msg.type === 'task_result') {
+                logger.log(`[ToolCall] Background handler: delivering task result "${msg.taskId}" to session "${sessionId}"`);
+                // 后台任务：使用预设的 prompt 模板包裹（需确保 msg.taskId 存在，此处做个 fallback 防御）
+                appendedText = this.prompts.getTaskResultPrompt(msg.taskId || 'unknown_task', msg.content);
+            } else if (msg.type === 'agent_message') {
+                logger.log(`[ToolCall] Background handler: delivering agent message to session "${sessionId}"`);
+                // 代理通信：内容已经在 addAgentMessage 中格式化好（带有 📨 符号），直接加个换行追加即可
+                appendedText = `\n${msg.content}`;
+            }
+
+            // 2. 追加内容到上一条消息的 content 末尾
             const messages = this.llmService.chatManager.messages;
             const lastMsg = messages[messages.length - 1];
             if (lastMsg) {
-                lastMsg.content = (lastMsg.content || '') + resultText;
+                lastMsg.content = (lastMsg.content || '') + appendedText;
             }
 
-            // 前端 streamData 展示
+            // 3. 前端 streamData 展示
             this.events.emitEvent('streamData', {
                 ...this.llmService.chatManager.chat,
-                content: resultText,
+                content: appendedText,
                 uuid: this.llmService.chatManager.uuid,
             });
 
-            // 若 agent 空闲 → 自动唤醒 ReAct 循环（skipInitialPush=true，消息已在上方注入）
+            // 4. 若 agent 空闲 → 自动唤醒 ReAct 循环（skipInitialPush=true，消息已在上方注入）
             if (this.state === State.IDLE || this.state === State.FINAL) {
-                logger.log(`[ToolCall] Waking agent from "${this.state}" state for background task "${msg.taskId}"`);
+                const wakeReason = msg.type === 'task_result' ? `task "${msg.taskId}"` : 'incoming agent message';
+                logger.log(`[ToolCall] Waking agent from "${this.state}" state for ${wakeReason}`);
+
                 // 重置 stopFlag（stopLoop() 在 IDLE 时会将 stopFlag 置为 true）
                 this.llmService.stopFlag = false;
                 const wakeData = this.getDataDefault({
                     query: '',  // 不会被推送（skipInitialPush=true）
                 });
                 wakeData.uuid = this.llmService.chatManager.uuid;
+
                 this.callReAct(wakeData, false, true).catch((err) => {
                     logger.error('[ToolCall] Background wake-up callReAct error:', err);
                 });
             }
         });
 
+        } // end if (!this.agentConfigs.subagent)
+
         // 4. 后台消息接收中间件（安全兜底：在处理活跃工具调用前 drain 遗留消息）
         const bgMsgMW = createBackgroundMessageMiddleware(
             () => this.llmService.chatManager.chat.id,
-            (taskId, content) => {
-                const resultText = this.prompts.getTaskResultPrompt(taskId, content);
+            (msg) => {
+                let appendedText = '';
+
+                // 根据消息类型决定如何格式化注入的文本
+                if (msg.type === 'task_result') {
+                    // 后台任务结果
+                    appendedText = this.prompts.getTaskResultPrompt(msg.taskId || 'unknown_task', msg.content);
+                } else if (msg.type === 'agent_message') {
+                    // 代理间通信消息
+                    appendedText = `\n${msg.content}`;
+                }
+
+                // 注入到当前对话流的最后一条消息末尾
                 const messages = this.llmService.chatManager.messages;
                 const lastMsg = messages[messages.length - 1];
                 if (lastMsg) {
-                    lastMsg.content = (lastMsg.content || '') + resultText;
+                    lastMsg.content = (lastMsg.content || '') + appendedText;
                 }
+
                 // 前端 streamData 展示
                 this.events.emitEvent('streamData', {
                     ...this.llmService.chatManager.chat,
-                    content: resultText,
+                    content: appendedText,
                     uuid: this.llmService.chatManager.uuid,
                 });
             },
