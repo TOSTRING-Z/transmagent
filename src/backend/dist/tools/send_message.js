@@ -55,7 +55,14 @@ function main(initialParams = {}) {
             };
         }
         try {
-            BackgroundTaskRegistry_1.BackgroundTaskRegistry.addAgentMessage(sessionId, fromAgent, to.trim(), message.trim());
+            const delivered = BackgroundTaskRegistry_1.BackgroundTaskRegistry.addAgentMessage(sessionId, fromAgent, to.trim(), message.trim());
+            if (!delivered) {
+                return {
+                    success: false,
+                    message: '',
+                    error: `Target agent "${to}" is no longer active. The message was not delivered.`,
+                };
+            }
             return {
                 success: true,
                 message: `Message sent to "${to}" successfully.`,

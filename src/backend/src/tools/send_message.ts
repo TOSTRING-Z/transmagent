@@ -81,12 +81,20 @@ export function main(initialParams: { parentSessionId?: string; agentName?: stri
         }
 
         try {
-            BackgroundTaskRegistry.addAgentMessage(
+            const delivered = BackgroundTaskRegistry.addAgentMessage(
                 sessionId,
                 fromAgent,
                 to.trim(),
                 message.trim(),
             );
+
+            if (!delivered) {
+                return {
+                    success: false,
+                    message: '',
+                    error: `Target agent "${to}" is no longer active. The message was not delivered.`,
+                };
+            }
 
             return {
                 success: true,

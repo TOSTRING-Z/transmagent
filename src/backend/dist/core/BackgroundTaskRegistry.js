@@ -199,6 +199,8 @@ class BackgroundTaskRegistry {
      *   - to === "all"  → 注入主代理会话 + 广播所有子代理
      *   - to === "main" → 仅注入主代理会话
      *   - 其他           → 定向投递到指定子代理监听器
+     *
+     * @returns true 表示消息成功投递到目标，false 表示目标不存在
      */
     static addAgentMessage(sessionId, from, to, content) {
         const msg = { from, content, timestamp: Date.now() };
@@ -233,13 +235,18 @@ class BackgroundTaskRegistry {
                 listener(msg);
             }
             else {
-                if (!this.agentMsgQueues.has(key)) {
-                    this.agentMsgQueues.set(key, []);
-                }
-                this.agentMsgQueues.get(key).push(msg);
+                // 子代理已不在线（已完成/未启动），通知主会话投递失败而非静默丢弃
+                logger_1.logger.log(`[BackgroundTaskRegistry] Agent message to "${to}" failed: listener not found`);
+                this.deliverToMainSession(sessionId, {
+                    type: 'agent_message',
+                    content: `\n\n⚠️ **[System]** Message to \`${to}\` could not be delivered: agent is no longer active.`,
+                    timestamp: Date.now()
+                });
+                return false;
             }
         }
         logger_1.logger.log(`[BackgroundTaskRegistry] Agent message routed: [${from}] → [${to}]`);
+        return true;
     }
     /**
      * 排空指定代理的待处理消息队列。

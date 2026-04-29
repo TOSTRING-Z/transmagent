@@ -105,8 +105,10 @@ export declare class BackgroundTaskRegistry {
      *   - to === "all"  → 注入主代理会话 + 广播所有子代理
      *   - to === "main" → 仅注入主代理会话
      *   - 其他           → 定向投递到指定子代理监听器
+     *
+     * @returns true 表示消息成功投递到目标，false 表示目标不存在
      */
-    static addAgentMessage(sessionId: string, from: string, to: string, content: string): void;
+    static addAgentMessage(sessionId: string, from: string, to: string, content: string): boolean;
     /**
      * 排空指定代理的待处理消息队列。
      */
