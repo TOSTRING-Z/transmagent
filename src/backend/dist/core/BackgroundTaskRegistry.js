@@ -21,6 +21,10 @@ class BackgroundTaskRegistry {
     static handlers = new Map();
     /** taskId → 中断函数（由 runInBackground 注册） */
     static killFns = new Map();
+    /** "${sessionId}::${agentName}" → 代理消息监听器 */
+    static agentListeners = new Map();
+    /** "${sessionId}::${agentName}" → 待投递的代理消息队列（监听器注册前暂存） */
+    static agentMsgQueues = new Map();
     // ─── 生命周期追踪 ──────────────────────────────────────────────────────
     static addTaskStart(sessionId, taskId, toolName, command) {
         this.tasks.set(taskId, {
@@ -146,10 +150,92 @@ class BackgroundTaskRegistry {
         const msgs = this.pending.get(sessionId);
         return !!msgs && msgs.length > 0;
     }
+    // ─── 代理间消息通信 ────────────────────────────────────────────────────
+    /**
+     * 注册代理消息监听器。
+     * 子代理在后台启动时调用，用于接收其他代理发来的消息。
+     */
+    static registerAgentListener(sessionId, agentName, listener) {
+        const key = `${sessionId}::${agentName}`;
+        this.agentListeners.set(key, listener);
+        logger_1.logger.log(`[BackgroundTaskRegistry] AgentListener registered for "${agentName}" in session "${sessionId}"`);
+        const queued = this.agentMsgQueues.get(key);
+        if (queued && queued.length > 0) {
+            logger_1.logger.log(`[BackgroundTaskRegistry] Draining ${queued.length} queued agent message(s) for "${agentName}"`);
+            for (const msg of queued) {
+                listener(msg);
+            }
+            this.agentMsgQueues.delete(key);
+        }
+    }
+    /**
+     * 注销代理消息监听器。
+     */
+    static unregisterAgentListener(sessionId, agentName) {
+        const key = `${sessionId}::${agentName}`;
+        this.agentListeners.delete(key);
+        const queued = this.agentMsgQueues.get(key);
+        if (queued && queued.length > 0) {
+            logger_1.logger.warn(`[BackgroundTaskRegistry] Discarding ${queued.length} queued agent message(s) for destroyed agent "${agentName}"`);
+            this.agentMsgQueues.delete(key);
+        }
+    }
+    /**
+     * 向指定代理发送消息（代理间通信核心路由）。
+     *
+     * 路由规则：
+     *   - to === "all"  → 注入主代理会话 + 广播所有子代理
+     *   - to === "main" → 仅注入主代理会话
+     *   - 其他           → 定向投递到指定子代理监听器
+     */
+    static addAgentMessage(sessionId, from, to, content) {
+        const msg = { from, content, timestamp: Date.now() };
+        const formatted = `\n\n📨 **[${from}] → [${to}]**:\n${content}`;
+        if (to === 'all') {
+            this.addMessage(sessionId, `amsg_${Date.now()}`, formatted);
+            const prefix = `${sessionId}::`;
+            for (const [key, listener] of this.agentListeners) {
+                if (key.startsWith(prefix)) {
+                    const targetName = key.slice(prefix.length);
+                    if (targetName !== from) {
+                        listener(msg);
+                    }
+                }
+            }
+        }
+        else if (to === 'main') {
+            this.addMessage(sessionId, `amsg_${Date.now()}`, formatted);
+        }
+        else {
+            const key = `${sessionId}::${to}`;
+            const listener = this.agentListeners.get(key);
+            if (listener) {
+                listener(msg);
+            }
+            else {
+                if (!this.agentMsgQueues.has(key)) {
+                    this.agentMsgQueues.set(key, []);
+                }
+                this.agentMsgQueues.get(key).push(msg);
+            }
+        }
+        logger_1.logger.log(`[BackgroundTaskRegistry] Agent message routed: [${from}] → [${to}]`);
+    }
+    /**
+     * 排空指定代理的待处理消息队列。
+     */
+    static drainAgentMessages(sessionId, agentName) {
+        const key = `${sessionId}::${agentName}`;
+        const msgs = this.agentMsgQueues.get(key) || [];
+        this.agentMsgQueues.delete(key);
+        return msgs;
+    }
     static clear() {
         this.pending.clear();
         this.handlers.clear();
         this.tasks.clear();
+        this.agentListeners.clear();
+        this.agentMsgQueues.clear();
     }
 }
 exports.BackgroundTaskRegistry = BackgroundTaskRegistry;

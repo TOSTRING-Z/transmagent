@@ -2,6 +2,7 @@
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.default = getBaseTools;
 const LLMBase_1 = require("./LLMBase");
+const subagent_launcher_1 = require("../tools/subagent_launcher");
 function getBaseTools() {
     return {
         "update_env": {
@@ -354,6 +355,13 @@ You MUST NOT save any transient session state. DO NOT save:
                     required: ["content"]
                 }
             })
+        },
+        "subagent_launcher": {
+            func: async ({ agent_name, agent_prompt, query, tools, timeout, toolCall }) => {
+                const launcher = (0, subagent_launcher_1.main)({});
+                return await launcher({ agent_name, agent_prompt, query, tools, timeout, toolCall });
+            },
+            getPrompt: subagent_launcher_1.getPrompt,
         }
     };
 }

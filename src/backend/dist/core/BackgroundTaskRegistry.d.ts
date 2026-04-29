@@ -27,6 +27,23 @@ export interface PendingMessage {
     timestamp: number;
 }
 export type SessionMessageHandler = (message: PendingMessage) => void;
+/**
+ * 代理消息监听器：子代理通过此回调接收来自其他代理的消息。
+ * @param msg.from    发送方代理名称
+ * @param msg.content 消息正文
+ * @param msg.timestamp 时间戳
+ */
+export type AgentMessageListener = (msg: {
+    from: string;
+    content: string;
+    timestamp: number;
+}) => void;
+/** 代理消息结构（用于队列暂存） */
+export interface AgentMessage {
+    from: string;
+    content: string;
+    timestamp: number;
+}
 export declare class BackgroundTaskRegistry {
     /** 所有后台任务字典（taskId → BgTaskInfo） */
     private static tasks;
@@ -36,6 +53,10 @@ export declare class BackgroundTaskRegistry {
     private static handlers;
     /** taskId → 中断函数（由 runInBackground 注册） */
     private static killFns;
+    /** "${sessionId}::${agentName}" → 代理消息监听器 */
+    private static agentListeners;
+    /** "${sessionId}::${agentName}" → 待投递的代理消息队列（监听器注册前暂存） */
+    private static agentMsgQueues;
     static addTaskStart(sessionId: string, taskId: string, toolName: string, command: string): void;
     static markCompleted(taskId: string, resultSummary: string): void;
     static markFailed(taskId: string, errorSummary: string): void;
@@ -59,5 +80,27 @@ export declare class BackgroundTaskRegistry {
     static unregisterHandler(sessionId: string): void;
     static drainMessages(sessionId: string): PendingMessage[];
     static hasPending(sessionId: string): boolean;
+    /**
+     * 注册代理消息监听器。
+     * 子代理在后台启动时调用，用于接收其他代理发来的消息。
+     */
+    static registerAgentListener(sessionId: string, agentName: string, listener: AgentMessageListener): void;
+    /**
+     * 注销代理消息监听器。
+     */
+    static unregisterAgentListener(sessionId: string, agentName: string): void;
+    /**
+     * 向指定代理发送消息（代理间通信核心路由）。
+     *
+     * 路由规则：
+     *   - to === "all"  → 注入主代理会话 + 广播所有子代理
+     *   - to === "main" → 仅注入主代理会话
+     *   - 其他           → 定向投递到指定子代理监听器
+     */
+    static addAgentMessage(sessionId: string, from: string, to: string, content: string): void;
+    /**
+     * 排空指定代理的待处理消息队列。
+     */
+    static drainAgentMessages(sessionId: string, agentName: string): AgentMessage[];
     static clear(): void;
 }

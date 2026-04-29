@@ -57,7 +57,7 @@ const TaskScheduler_1 = require("./TaskScheduler");
 const ExecutionPipeline_1 = require("./ExecutionPipeline");
 const BackgroundTaskRegistry_1 = require("./BackgroundTaskRegistry");
 const { all, any, not, always } = ToolDSL_1.ToolDSL;
-const { isSubagent, isMode, hasArg } = ToolDSL_1.Primitives;
+const { isSubagent, isMode, hasArg, isAgentMode } = ToolDSL_1.Primitives;
 const TOOL_POLICY = {
     'update_env': all(hasArg('env'), not(isMode('PLAN'))),
     'mcp_server': all(hasArg('mcpTool'), not(isMode('PLAN'))),
@@ -66,6 +66,7 @@ const TOOL_POLICY = {
     'context_retrieval': not(isSubagent),
     'search_long_term_memory': not(isSubagent),
     'write_important_memory': not(isSubagent),
+    'subagent_launcher': all(not(isSubagent), isAgentMode('baseagent')),
     'ask_user': all(not(isSubagent), not(any(isMode('FLASH'), isMode('AUTO')))),
     'deep_researcher': isMode('PLAN'),
 };
@@ -259,6 +260,8 @@ class ToolCall extends LLMBase_1.LLMBase {
             // 若 agent 空闲 → 自动唤醒 ReAct 循环（skipInitialPush=true，消息已在上方注入）
             if (this.state === LLMBase_1.State.IDLE || this.state === LLMBase_1.State.FINAL) {
                 logger_1.logger.log(`[ToolCall] Waking agent from "${this.state}" state for background task "${msg.taskId}"`);
+                // 重置 stopFlag（stopLoop() 在 IDLE 时会将 stopFlag 置为 true）
+                this.llmService.stopFlag = false;
                 const wakeData = this.getDataDefault({
                     query: '', // 不会被推送（skipInitialPush=true）
                 });
@@ -329,6 +332,7 @@ class ToolCall extends LLMBase_1.LLMBase {
             modes: LLMBase_1.Mode || {},
             isSubagent: !!this.agentConfigs?.subagent,
             currentMode: this.llmService.environment_details?.mode,
+            agentMode: this.agentConfigs?.agentMode || 'transagent',
         };
         const format = this.llmService.chatManager.chat.tool_format;
         // 3. 过滤 → 提取 Schema → 格式化

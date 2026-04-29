@@ -13,6 +13,7 @@ exports.ToolDSL = {
 exports.Primitives = {
     isSubagent: (ctx) => ctx.isSubagent,
     isMode: (modeKey) => (ctx) => ctx.currentMode === ctx.modes[modeKey],
-    hasArg: (argKey) => (ctx) => !!ctx.args[argKey]
+    hasArg: (argKey) => (ctx) => !!ctx.args[argKey],
+    isAgentMode: (agentModeKey) => (ctx) => ctx.agentMode === agentModeKey,
 };
 //# sourceMappingURL=ToolDSL.js.map
