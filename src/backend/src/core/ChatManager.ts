@@ -356,9 +356,8 @@ export class ChatManager {
             // 保留最近的一半上下文
             startIdx -= Math.floor(this.chat.memory_length / 2);
         }
-        let startMessage = messages[startIdx];
-        // 如果最后一条消息是 tool 的话，startIdx - 1 表示上一条为 assistant 的消息
-        if (startMessage?.role === "tool") {
+        // 可能有多条连续的 tool 消息，需要一直向前找到最近的 assistant 消息
+        while (startIdx > 0 && messages[startIdx]?.role === "tool") {
             startIdx -= 1;
         }
         return startIdx;
