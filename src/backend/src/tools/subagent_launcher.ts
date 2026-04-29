@@ -231,7 +231,8 @@ async function runSubAgentInBackground(
         BackgroundTaskRegistry.addMessage(
             parentSessionId,
             taskId,
-            `✅ **Background sub-agent \`${agentName}\` completed.**\n\n**Result:**\n${result}`
+            `✅ **Background sub-agent \`${agentName}\` completed.**\n\n**Result:**\n${result}`,
+            true  // skipMarkCompleted: 非瞬态生命周期，任务保持可见
         );
 
         logger.log(`[SubAgentLauncher] Agent "${agentName}" completed successfully`);
@@ -243,16 +244,20 @@ async function runSubAgentInBackground(
         BackgroundTaskRegistry.addMessage(
             parentSessionId,
             taskId,
-            `❌ **Background sub-agent \`${agentName}\` failed.**\n\n**Error:** ${error.message}`
+            `❌ **Background sub-agent \`${agentName}\` failed.**\n\n**Error:** ${error.message}`,
+            true  // skipMarkCompleted: 非瞬态生命周期，任务保持可见
         );
-    } finally {
-        BackgroundTaskRegistry.unregisterAgentListener(parentSessionId, agentName);
-        if (subAgentToolCall) {
-            try {
-                subAgentToolCall.llmService.stopLoop();
-            } catch (e) {}
-        }
     }
+
+    // ── NON-TRANSIENT LIFECYCLE ──────────────────────────────────────────
+    // 子代理主任务完成后不退出，保持存活以接收后续消息。
+    // Listener 回调处理消息投递 + callReAct 唤醒；此 Promise 永不 resolve，
+    // 函数不返回，finally 逻辑被跳过，listener 保持注册。
+    logger.log(`[SubAgentLauncher] Agent "${agentName}" entering idle mode, awaiting messages...`);
+
+    await new Promise<void>(() => {
+        // 永不 resolve —— 保持异步函数存活，直至 session 清理或进程终止
+    });
 }
 
 // --- 主入口 ---

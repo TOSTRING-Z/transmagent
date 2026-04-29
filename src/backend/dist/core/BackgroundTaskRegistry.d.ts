@@ -83,8 +83,10 @@ export declare class BackgroundTaskRegistry {
      * 内部方法：负责将消息投递给主代理（前端），处理即时投递和队列暂存
      */
     private static deliverToMainSession;
-    /** 添加后台任务的完成消息，并触发任务结算 */
-    static addMessage(sessionId: string, taskId: string, content: string): void;
+    /** 添加后台任务的完成消息，并触发任务结算。
+     *  @param skipMarkCompleted - 若为 true，不标记任务完成（用于非瞬态子代理）
+     */
+    static addMessage(sessionId: string, taskId: string, content: string, skipMarkCompleted?: boolean): void;
     static registerHandler(sessionId: string, handler: SessionMessageHandler): void;
     static unregisterHandler(sessionId: string): void;
     static drainMessages(sessionId: string): PendingMessage[];

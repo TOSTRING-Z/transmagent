@@ -120,10 +120,14 @@ class BackgroundTaskRegistry {
         }
         this.pending.get(sessionId).push(msg);
     }
-    /** 添加后台任务的完成消息，并触发任务结算 */
-    static addMessage(sessionId, taskId, content) {
-        // 1. 先标记任务完成
-        this.markCompleted(taskId, content);
+    /** 添加后台任务的完成消息，并触发任务结算。
+     *  @param skipMarkCompleted - 若为 true，不标记任务完成（用于非瞬态子代理）
+     */
+    static addMessage(sessionId, taskId, content, skipMarkCompleted) {
+        // 1. 先标记任务完成（非瞬态子代理跳过，保持任务可见）
+        if (!skipMarkCompleted) {
+            this.markCompleted(taskId, content);
+        }
         // 2. 构造 task_result 类型消息并投递给主会话
         const msg = {
             type: 'task_result',
