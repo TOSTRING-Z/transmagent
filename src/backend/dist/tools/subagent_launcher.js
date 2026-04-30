@@ -124,6 +124,32 @@ async function runSubAgentInBackground(taskId, parentSessionId, agentName, agent
             subAgentToolCall.changeMode('auto');
         }
         // 注册代理消息监听器（接收主代理或其他子代理发来的 AgentMessage）
+        // ── 滞留消息 drain：callReAct 最终迭代未触发工具调用时，
+        //    中间件不会运行，pending 队列中的消息需主动取出处理 ──
+        const drainPendingAndWake = async () => {
+            const pendingMsgs = BackgroundTaskRegistry_1.BackgroundTaskRegistry.drainMessages(subAgentToolCall.llmService.chatManager.chat.id);
+            if (!pendingMsgs || pendingMsgs.length === 0)
+                return;
+            logger_1.logger.log(`[SubAgentLauncher] Agent "${agentName}" draining ` +
+                `${pendingMsgs.length} pending message(s) post-callReAct`);
+            for (const pm of pendingMsgs) {
+                const msgs = subAgentToolCall.llmService.chatManager.messages;
+                const last = msgs[msgs.length - 1];
+                if (last) {
+                    last.content = (last.content || '') + '\n' + pm.content;
+                }
+            }
+            subAgentToolCall.llmService.stopFlag = false;
+            const wd = subAgentToolCall.getDataDefault({ query: '', model, version });
+            wd.uuid = subAgentToolCall.llmService.chatManager.uuid;
+            try {
+                await subAgentToolCall.callReAct(wd, false, true);
+                await drainPendingAndWake(); // 递归
+            }
+            catch (err) {
+                logger_1.logger.error(`[SubAgentLauncher] Agent "${agentName}" drain error:`, err);
+            }
+        };
         BackgroundTaskRegistry_1.BackgroundTaskRegistry.registerAgentListener(parentSessionId, agentName, (msg) => {
             if (!subAgentToolCall)
                 return;
@@ -154,7 +180,9 @@ async function runSubAgentInBackground(taskId, parentSessionId, agentName, agent
             subAgentToolCall.llmService.stopFlag = false;
             const wakeData = subAgentToolCall.getDataDefault({ query: '', model, version });
             wakeData.uuid = subAgentToolCall.llmService.chatManager.uuid;
-            subAgentToolCall.callReAct(wakeData, false, true).catch((err) => {
+            subAgentToolCall.callReAct(wakeData, false, true)
+                .then(() => drainPendingAndWake())
+                .catch((err) => {
                 logger_1.logger.error(`[SubAgentLauncher] Agent "${agentName}" wake-up error:`, err);
             });
         });
@@ -178,6 +206,8 @@ async function runSubAgentInBackground(taskId, parentSessionId, agentName, agent
         BackgroundTaskRegistry_1.BackgroundTaskRegistry.addMessage(parentSessionId, taskId, `✅ **Background sub-agent \`${agentName}\` completed.**\n\n**Result:**\n${result}`, true // skipMarkCompleted: 非瞬态生命周期，任务保持可见
         );
         logger_1.logger.log(`[SubAgentLauncher] Agent "${agentName}" completed successfully`);
+        // 主任务 callReAct 完成后，检查是否有滞留 pending 消息
+        await drainPendingAndWake();
     }
     catch (error) {
         logger_1.logger.error(`[SubAgentLauncher] Agent "${agentName}" failed: ${error.message}`);

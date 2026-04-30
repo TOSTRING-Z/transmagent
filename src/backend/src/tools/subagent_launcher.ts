@@ -180,6 +180,38 @@ async function runSubAgentInBackground(
         }
 
         // 注册代理消息监听器（接收主代理或其他子代理发来的 AgentMessage）
+        // ── 滞留消息 drain：callReAct 最终迭代未触发工具调用时，
+        //    中间件不会运行，pending 队列中的消息需主动取出处理 ──
+        const drainPendingAndWake = async (): Promise<void> => {
+            const pendingMsgs = BackgroundTaskRegistry.drainMessages(
+                subAgentToolCall!.llmService.chatManager.chat.id,
+            );
+            if (!pendingMsgs || pendingMsgs.length === 0) return;
+
+            logger.log(
+                `[SubAgentLauncher] Agent "${agentName}" draining ` +
+                `${pendingMsgs.length} pending message(s) post-callReAct`,
+            );
+
+            for (const pm of pendingMsgs) {
+                const msgs = subAgentToolCall!.llmService.chatManager.messages;
+                const last = msgs[msgs.length - 1];
+                if (last) {
+                    last.content = (last.content || '') + '\n' + pm.content;
+                }
+            }
+
+            subAgentToolCall!.llmService.stopFlag = false;
+            const wd = subAgentToolCall!.getDataDefault({ query: '', model, version });
+            wd.uuid = subAgentToolCall!.llmService.chatManager.uuid;
+            try {
+                await subAgentToolCall!.callReAct(wd, false, true);
+                await drainPendingAndWake(); // 递归
+            } catch (err: any) {
+                logger.error(`[SubAgentLauncher] Agent "${agentName}" drain error:`, err);
+            }
+        };
+
         BackgroundTaskRegistry.registerAgentListener(
             parentSessionId,
             agentName,
@@ -223,9 +255,11 @@ async function runSubAgentInBackground(
                 subAgentToolCall.llmService.stopFlag = false;
                 const wakeData = subAgentToolCall.getDataDefault({ query: '', model, version });
                 wakeData.uuid = subAgentToolCall.llmService.chatManager.uuid;
-                subAgentToolCall.callReAct(wakeData, false, true).catch((err: Error) => {
-                    logger.error(`[SubAgentLauncher] Agent "${agentName}" wake-up error:`, err);
-                });
+                subAgentToolCall.callReAct(wakeData, false, true)
+                    .then(() => drainPendingAndWake())
+                    .catch((err: Error) => {
+                        logger.error(`[SubAgentLauncher] Agent "${agentName}" wake-up error:`, err);
+                    });
             }
         );
 
@@ -259,6 +293,9 @@ async function runSubAgentInBackground(
         );
 
         logger.log(`[SubAgentLauncher] Agent "${agentName}" completed successfully`);
+
+        // 主任务 callReAct 完成后，检查是否有滞留 pending 消息
+        await drainPendingAndWake();
 
     } catch (error: any) {
         logger.error(`[SubAgentLauncher] Agent "${agentName}" failed: ${error.message}`);
