@@ -322,6 +322,33 @@ export class BackgroundTaskRegistry {
     }
 
     /**
+     * 将代理消息放入队列（当子代理处于活跃状态时，由 listener 调用）。
+     * 消息将在子代理空闲时由 drainAgentMessages 取出并处理。
+     */
+    static queueAgentMessage(sessionId: string, agentName: string, msg: AgentMessage): void {
+        const key = `${sessionId}::${agentName}`;
+        if (!this.agentMsgQueues.has(key)) {
+            this.agentMsgQueues.set(key, []);
+        }
+        this.agentMsgQueues.get(key)!.push(msg);
+        logger.log(
+            `[BackgroundTaskRegistry] Queued agent message for "${agentName}" (active), ` +
+            `total queued: ${this.agentMsgQueues.get(key)!.length}`
+        );
+    }
+
+    /**
+     * 取出并清空指定代理的消息队列。
+     * @returns 积压的消息数组（可能为空）
+     */
+    static drainAgentMessages(sessionId: string, agentName: string): AgentMessage[] {
+        const key = `${sessionId}::${agentName}`;
+        const msgs = this.agentMsgQueues.get(key) || [];
+        this.agentMsgQueues.delete(key);
+        return msgs;
+    }
+
+    /**
      * 向指定代理发送消息（代理间通信核心路由）。
      *
      * 路由规则：

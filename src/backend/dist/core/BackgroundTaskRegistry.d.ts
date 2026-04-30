@@ -112,6 +112,11 @@ export declare class BackgroundTaskRegistry {
      */
     static unregisterAgentListener(sessionId: string, agentName: string): void;
     /**
+     * 将代理消息放入队列（当子代理处于活跃状态时，由 listener 调用）。
+     * 消息将在子代理空闲时由 drainAgentMessages 取出并处理。
+     */
+    static queueAgentMessage(sessionId: string, agentName: string, msg: AgentMessage): void;
+    /**
      * 向指定代理发送消息（代理间通信核心路由）。
      *
      * 路由规则：
@@ -122,9 +127,5 @@ export declare class BackgroundTaskRegistry {
      * @returns true 表示消息成功投递到目标，false 表示目标不存在
      */
     static addAgentMessage(sessionId: string, from: string, to: string, content: string): boolean;
-    /**
-     * 排空指定代理的待处理消息队列。
-     */
-    static drainAgentMessages(sessionId: string, agentName: string): AgentMessage[];
     static clear(): void;
 }
