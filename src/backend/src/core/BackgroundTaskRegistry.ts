@@ -338,17 +338,6 @@ export class BackgroundTaskRegistry {
     }
 
     /**
-     * 取出并清空指定代理的消息队列。
-     * @returns 积压的消息数组（可能为空）
-     */
-    static drainAgentMessages(sessionId: string, agentName: string): AgentMessage[] {
-        const key = `${sessionId}::${agentName}`;
-        const msgs = this.agentMsgQueues.get(key) || [];
-        this.agentMsgQueues.delete(key);
-        return msgs;
-    }
-
-    /**
      * 向指定代理发送消息（代理间通信核心路由）。
      *
      * 路由规则：

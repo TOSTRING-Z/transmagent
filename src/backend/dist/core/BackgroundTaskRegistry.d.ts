@@ -127,5 +127,9 @@ export declare class BackgroundTaskRegistry {
      * @returns true 表示消息成功投递到目标，false 表示目标不存在
      */
     static addAgentMessage(sessionId: string, from: string, to: string, content: string): boolean;
+    /**
+     * 排空指定代理的待处理消息队列。
+     */
+    static drainAgentMessages(sessionId: string, agentName: string): AgentMessage[];
     static clear(): void;
 }
