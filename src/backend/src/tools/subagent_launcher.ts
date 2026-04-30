@@ -14,7 +14,8 @@
 import { LLMService } from '../core/LLMService';
 import { ToolCall } from '../core/ToolCall';
 import { Plugins } from '../core/Plugins';
-import { BackgroundTaskRegistry } from '../core/BackgroundTaskRegistry'; // 移除了未使用的 PendingMessage
+import { BackgroundTaskRegistry } from '../core/BackgroundTaskRegistry';
+import type { PendingMessage } from '../core/BackgroundTaskRegistry';
 import { State } from '../core/LLMBase';
 import { parseJsonContent } from '../utils/public';
 import { logger } from '../utils/logger';
@@ -179,57 +180,36 @@ async function runSubAgentInBackground(
         }
 
         // 注册代理消息监听器（接收主代理或其他子代理发来的 AgentMessage）
-        // ── 递归 drain：callReAct 完成后检查 agentMsgQueues 是否有积压消息 ──
-        const drainAndProcess = () => {
-            const queued = BackgroundTaskRegistry.drainAgentMessages(parentSessionId, agentName);
-            if (!queued || queued.length === 0) return;
-
-            logger.log(
-                `[SubAgentLauncher] Agent "${agentName}" draining ${queued.length} queued message(s)`
-            );
-
-            // 追加所有积压消息到 chat
-            for (const qm of queued) {
-                const text = `\n📨 **Message from [${qm.from}]**:\n${qm.content}`;
-                const msgs = subAgentToolCall!.llmService.chatManager.messages;
-                const last = msgs[msgs.length - 1];
-                if (last) {
-                    last.content = (last.content || '') + text;
-                }
-            }
-
-            // 唤醒处理
-            subAgentToolCall!.llmService.stopFlag = false;
-            const wd = subAgentToolCall!.getDataDefault({ query: '', model, version });
-            wd.uuid = subAgentToolCall!.llmService.chatManager.uuid;
-            subAgentToolCall!.callReAct(wd, false, true)
-                .then(() => drainAndProcess())  // 递归检查
-                .catch((err: Error) => {
-                    logger.error(`[SubAgentLauncher] Agent "${agentName}" drain error:`, err);
-                });
-        };
-
         BackgroundTaskRegistry.registerAgentListener(
             parentSessionId,
             agentName,
             (msg) => {
                 if (!subAgentToolCall) return;
 
-                // ── 活跃状态守卫：子代理正在处理，不可直接注入 chat ──
-                // 将消息入队 agentMsgQueues，由 drainAndProcess 在 callReAct 完成后取出
+                // ── 活跃状态守卫：与主代理行为一致，入队 pending 由中间件 drain ──
+                // createBackgroundMessageMiddleware 在每次工具调用前安全 drain
                 if (
                     subAgentToolCall.state !== State.IDLE &&
                     subAgentToolCall.state !== State.FINAL
                 ) {
                     logger.log(
                         `[SubAgentLauncher] Agent "${agentName}" is active (${subAgentToolCall.state}), ` +
-                        `queuing message from "${msg.from}"`
+                        `requeuing message from "${msg.from}" for middleware drain`
                     );
-                    BackgroundTaskRegistry.queueAgentMessage(parentSessionId, agentName, msg);
+                    const msgText = `\n📨 **Message from [${msg.from}]**:\n${msg.content}`;
+                    const pendingMsg: PendingMessage = {
+                        type: 'agent_message',
+                        content: msgText,
+                        timestamp: Date.now(),
+                    };
+                    BackgroundTaskRegistry.requeueForMiddleware(
+                        subAgentToolCall.llmService.chatManager.chat.id,
+                        pendingMsg,
+                    );
                     return;
                 }
 
-                // ── 空闲状态：直接注入 + 唤醒 + 唤醒后递归 drain ──
+                // ── 空闲状态：直接注入 + 唤醒 ──
                 logger.log(`[SubAgentLauncher] Agent "${agentName}" received message from "${msg.from}"`);
 
                 const msgText = `\n📨 **Message from [${msg.from}]**:\n${msg.content}`;
@@ -243,11 +223,9 @@ async function runSubAgentInBackground(
                 subAgentToolCall.llmService.stopFlag = false;
                 const wakeData = subAgentToolCall.getDataDefault({ query: '', model, version });
                 wakeData.uuid = subAgentToolCall.llmService.chatManager.uuid;
-                subAgentToolCall.callReAct(wakeData, false, true)
-                    .then(() => drainAndProcess())  // 唤醒完成后递归检查积压消息
-                    .catch((err: Error) => {
-                        logger.error(`[SubAgentLauncher] Agent "${agentName}" wake-up error:`, err);
-                    });
+                subAgentToolCall.callReAct(wakeData, false, true).catch((err: Error) => {
+                    logger.error(`[SubAgentLauncher] Agent "${agentName}" wake-up error:`, err);
+                });
             }
         );
 
