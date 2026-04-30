@@ -30,7 +30,11 @@ export interface PendingMessage {
     content: string;
     timestamp: number;
 }
-export type SessionMessageHandler = (message: PendingMessage) => void;
+/**
+ * 主会话消息处理器。返回 false 表示 agent 活跃中，消息应入队由 middleware drain；
+ * 返回 void/true 表示已直接处理。
+ */
+export type SessionMessageHandler = (message: PendingMessage) => boolean | void;
 /**
  * 代理消息监听器：子代理通过此回调接收来自其他代理的消息。
  * @param msg.from    发送方代理名称
@@ -83,6 +87,13 @@ export declare class BackgroundTaskRegistry {
      * 内部方法：负责将消息投递给主代理（前端），处理即时投递和队列暂存
      */
     private static deliverToMainSession;
+    /** 将消息放入 pending 队列（由 middleware 在工具调用前 drain） */
+    private static enqueue;
+    /**
+     * 当 agent 处于活跃状态时，handler 调用此方法将消息重新入队，
+     * 由 createBackgroundMessageMiddleware 在安全时机 drain。
+     */
+    static requeueForMiddleware(sessionId: string, msg: PendingMessage): void;
     /** 添加后台任务的完成消息，并触发任务结算。
      *  @param skipMarkCompleted - 若为 true，不标记任务完成（用于非瞬态子代理）
      */

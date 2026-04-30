@@ -110,15 +110,29 @@ class BackgroundTaskRegistry {
     static deliverToMainSession(sessionId, msg) {
         const handler = this.handlers.get(sessionId);
         if (handler) {
-            logger_1.logger.log(`[BackgroundTaskRegistry] Immediate delivery for session "${sessionId}", type "${msg.type}"`);
-            handler(msg);
+            const accepted = handler(msg);
+            // handler 返回 false 表示 agent 活跃中，应入队由 middleware 安全 drain
+            if (accepted === false) {
+                this.enqueue(sessionId, msg);
+            }
             return;
         }
-        logger_1.logger.log(`[BackgroundTaskRegistry] Queued for session "${sessionId}" (no handler yet), type "${msg.type}"`);
+        this.enqueue(sessionId, msg);
+    }
+    /** 将消息放入 pending 队列（由 middleware 在工具调用前 drain） */
+    static enqueue(sessionId, msg) {
+        logger_1.logger.log(`[BackgroundTaskRegistry] Queued for session "${sessionId}", type "${msg.type}"`);
         if (!this.pending.has(sessionId)) {
             this.pending.set(sessionId, []);
         }
         this.pending.get(sessionId).push(msg);
+    }
+    /**
+     * 当 agent 处于活跃状态时，handler 调用此方法将消息重新入队，
+     * 由 createBackgroundMessageMiddleware 在安全时机 drain。
+     */
+    static requeueForMiddleware(sessionId, msg) {
+        this.enqueue(sessionId, msg);
     }
     /** 添加后台任务的完成消息，并触发任务结算。
      *  @param skipMarkCompleted - 若为 true，不标记任务完成（用于非瞬态子代理）

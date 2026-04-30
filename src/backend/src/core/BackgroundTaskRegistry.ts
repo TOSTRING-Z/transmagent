@@ -36,7 +36,11 @@ export interface PendingMessage {
     timestamp: number;
 }
 
-export type SessionMessageHandler = (message: PendingMessage) => void;
+/** 
+ * 主会话消息处理器。返回 false 表示 agent 活跃中，消息应入队由 middleware drain；
+ * 返回 void/true 表示已直接处理。
+ */
+export type SessionMessageHandler = (message: PendingMessage) => boolean | void;
 
 /**
  * 代理消息监听器：子代理通过此回调接收来自其他代理的消息。
@@ -183,20 +187,33 @@ export class BackgroundTaskRegistry {
     private static deliverToMainSession(sessionId: string, msg: PendingMessage): void {
         const handler = this.handlers.get(sessionId);
         if (handler) {
-            logger.log(
-                `[BackgroundTaskRegistry] Immediate delivery for session "${sessionId}", type "${msg.type}"`
-            );
-            handler(msg);
+            const accepted = handler(msg);
+            // handler 返回 false 表示 agent 活跃中，应入队由 middleware 安全 drain
+            if (accepted === false) {
+                this.enqueue(sessionId, msg);
+            }
             return;
         }
+        this.enqueue(sessionId, msg);
+    }
 
+    /** 将消息放入 pending 队列（由 middleware 在工具调用前 drain） */
+    private static enqueue(sessionId: string, msg: PendingMessage): void {
         logger.log(
-            `[BackgroundTaskRegistry] Queued for session "${sessionId}" (no handler yet), type "${msg.type}"`
+            `[BackgroundTaskRegistry] Queued for session "${sessionId}", type "${msg.type}"`
         );
         if (!this.pending.has(sessionId)) {
             this.pending.set(sessionId, []);
         }
         this.pending.get(sessionId)!.push(msg);
+    }
+
+    /** 
+     * 当 agent 处于活跃状态时，handler 调用此方法将消息重新入队，
+     * 由 createBackgroundMessageMiddleware 在安全时机 drain。
+     */
+    static requeueForMiddleware(sessionId: string, msg: PendingMessage): void {
+        this.enqueue(sessionId, msg);
     }
 
     /** 添加后台任务的完成消息，并触发任务结算。

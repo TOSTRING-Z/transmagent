@@ -245,16 +245,23 @@ class ToolCall extends LLMBase_1.LLMBase {
             }
             this.registeredBgSessionId = sessionId;
             BackgroundTaskRegistry_1.BackgroundTaskRegistry.registerHandler(sessionId, (msg) => {
+                // ── 活跃状态守卫：agent 正在处理工具调用，不可直接注入 chat ──
+                // 返回 false 告知 deliverToMainSession 将消息入队，
+                // 由 createBackgroundMessageMiddleware 在安全时机 drain。
+                if (this.state !== LLMBase_1.State.IDLE && this.state !== LLMBase_1.State.FINAL) {
+                    logger_1.logger.log(`[ToolCall] Background handler: agent is active (${this.state}), ` +
+                        `requeuing ${msg.type} message for middleware drain`);
+                    return false;
+                }
+                // ── 空闲状态：直接注入 + 唤醒 ──
                 let appendedText = '';
-                // 1. 根据消息类型格式化注入文本，并打印对应的日志
+                // 1. 根据消息类型格式化注入文本
                 if (msg.type === 'task_result') {
                     logger_1.logger.log(`[ToolCall] Background handler: delivering task result "${msg.taskId}" to session "${sessionId}"`);
-                    // 后台任务：使用预设的 prompt 模板包裹（需确保 msg.taskId 存在，此处做个 fallback 防御）
                     appendedText = this.prompts.getTaskResultPrompt(msg.taskId || 'unknown_task', msg.content);
                 }
                 else if (msg.type === 'agent_message') {
                     logger_1.logger.log(`[ToolCall] Background handler: delivering agent message to session "${sessionId}"`);
-                    // 代理通信：内容已经在 addAgentMessage 中格式化好（带有 📨 符号），直接加个换行追加即可
                     appendedText = `\n${msg.content}`;
                 }
                 // 2. 追加内容到上一条消息的 content 末尾
@@ -269,20 +276,17 @@ class ToolCall extends LLMBase_1.LLMBase {
                     content: appendedText,
                     uuid: this.llmService.chatManager.uuid,
                 });
-                // 4. 若 agent 空闲 → 自动唤醒 ReAct 循环（skipInitialPush=true，消息已在上方注入）
-                if (this.state === LLMBase_1.State.IDLE || this.state === LLMBase_1.State.FINAL) {
-                    const wakeReason = msg.type === 'task_result' ? `task "${msg.taskId}"` : 'incoming agent message';
-                    logger_1.logger.log(`[ToolCall] Waking agent from "${this.state}" state for ${wakeReason}`);
-                    // 重置 stopFlag（stopLoop() 在 IDLE 时会将 stopFlag 置为 true）
-                    this.llmService.stopFlag = false;
-                    const wakeData = this.getDataDefault({
-                        query: '', // 不会被推送（skipInitialPush=true）
-                    });
-                    wakeData.uuid = this.llmService.chatManager.uuid;
-                    this.callReAct(wakeData, false, true).catch((err) => {
-                        logger_1.logger.error('[ToolCall] Background wake-up callReAct error:', err);
-                    });
-                }
+                // 4. 自动唤醒 ReAct 循环（skipInitialPush=true，消息已在上方注入）
+                const wakeReason = msg.type === 'task_result' ? `task "${msg.taskId}"` : 'incoming agent message';
+                logger_1.logger.log(`[ToolCall] Waking agent from "${this.state}" state for ${wakeReason}`);
+                this.llmService.startLoop();
+                const wakeData = this.getDataDefault({
+                    query: '',
+                });
+                wakeData.uuid = this.llmService.chatManager.uuid;
+                this.callReAct(wakeData, false, true).catch((err) => {
+                    logger_1.logger.error('[ToolCall] Background wake-up callReAct error:', err);
+                });
             });
         } // end if (!this.agentConfigs.subagent)
         // 4. 后台消息接收中间件（安全兜底：在处理活跃工具调用前 drain 遗留消息）
