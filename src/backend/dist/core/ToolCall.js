@@ -173,8 +173,6 @@ class ToolCall extends LLMBase_1.LLMBase {
             language: this.utils.getLanguage(),
             tmpdir: this.utils.getConfig("tool_call")?.tmpdir || os.tmpdir(),
             time: (0, public_1.formatDate)(),
-            mode: LLMBase_1.Mode.ACT,
-            mode_constraint: Prompts_1.MODE_CONSTRAINTS[LLMBase_1.Mode.ACT],
             envs: null,
             todolist: null,
         };
@@ -198,7 +196,7 @@ class ToolCall extends LLMBase_1.LLMBase {
         // 2. 确认中间件（Human-in-the-loop）
         const gate = {
             isRequired: (toolName) => !!this.getToolConfig(toolName)?.require_confirmation &&
-                this.llmService.environment_details.mode === LLMBase_1.Mode.ACT,
+                this.modeMap[this.llmService.chatManager.chat.mode] === LLMBase_1.Mode.ACT,
             isAvailable: () => !!WindowManager_1.WindowManager.instance?.confirmationWindow,
             getRememberedChoice: (name) => this.getRememberedChoice(name),
             setRememberedChoice: (name, confirmed) => this.setRememberedChoice(name, confirmed),
@@ -359,7 +357,7 @@ class ToolCall extends LLMBase_1.LLMBase {
             env: this.llmService.environment_details || {},
             modes: LLMBase_1.Mode || {},
             isSubagent: !!this.agentConfigs?.subagent,
-            currentMode: this.llmService.environment_details?.mode,
+            currentMode: this.modeMap[this.llmService.chatManager.chat.mode] ?? LLMBase_1.Mode.ACT,
             agentMode: this.agentConfigs?.agentMode || 'transagent',
         };
         const format = this.llmService.chatManager.chat.tool_format;
@@ -440,6 +438,10 @@ class ToolCall extends LLMBase_1.LLMBase {
         this.llmService.environment_details.todolist = todolist.join("\n");
         this.llmService.environment_details.envs = envs.length > 0 ? envs.join("\n") : "";
         this.llmService.environment_details.skills = this.skillManager.getSkillDescription();
+        // 从 chat.mode 动态注入 mode 信息，用于 env_prompt 模板的 {mode} 和 {mode_constraint} 占位符
+        const currentModeEnum = this.modeMap[chatState.mode] || LLMBase_1.Mode.ACT;
+        this.llmService.environment_details.mode = currentModeEnum;
+        this.llmService.environment_details.mode_constraint = Prompts_1.MODE_CONSTRAINTS[currentModeEnum];
         const toolCallConfig = this.utils.getConfig("tool_call");
         if (this.agentConfigs.env && toolCallConfig.env_message) {
             data.env_message = (0, format_1.formatString)(this.env_prompt, this.llmService.environment_details);
@@ -455,10 +457,7 @@ class ToolCall extends LLMBase_1.LLMBase {
         }
     }
     changeMode(mode = null, saveHistory = true) {
-        const selectedMode = this.modeMap[mode || ""] || LLMBase_1.Mode.ACT;
         const shortMode = this.modeMap[mode || ""] ? mode : "act";
-        this.llmService.environment_details.mode = selectedMode;
-        this.llmService.environment_details.mode_constraint = Prompts_1.MODE_CONSTRAINTS[selectedMode];
         this.llmService.chatManager.chat.mode = shortMode;
         if (!this.agentConfigs.subagent && saveHistory)
             this.setHistory();

@@ -35,8 +35,6 @@ export interface EnvironmentDetails {
     language: string;
     tmpdir: string;
     time: string;
-    mode: Mode;
-    mode_constraint: string;
     envs: string | null;
     todolist: string | null;
     skills?: string;

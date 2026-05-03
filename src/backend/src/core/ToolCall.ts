@@ -63,8 +63,6 @@ export interface EnvironmentDetails {
     language: string;
     tmpdir: string;
     time: string;
-    mode: Mode;
-    mode_constraint: string;
     envs: string | null;
     todolist: string | null;
     skills?: string;
@@ -224,8 +222,6 @@ export class ToolCall extends LLMBase implements ISchedulableAgent {
             language: this.utils.getLanguage(),
             tmpdir: this.utils.getConfig("tool_call")?.tmpdir || os.tmpdir(),
             time: formatDate(),
-            mode: Mode.ACT,
-            mode_constraint: MODE_CONSTRAINTS[Mode.ACT],
             envs: null,
             todolist: null,
         };
@@ -257,7 +253,7 @@ export class ToolCall extends LLMBase implements ISchedulableAgent {
         const gate: ConfirmationGate = {
             isRequired: (toolName) =>
                 !!this.getToolConfig(toolName)?.require_confirmation &&
-                this.llmService.environment_details.mode === Mode.ACT,
+                this.modeMap[this.llmService.chatManager.chat.mode] === Mode.ACT,
             isAvailable: () => !!WindowManager.instance?.confirmationWindow,
             getRememberedChoice: (name) => this.getRememberedChoice(name),
             setRememberedChoice: (name, confirmed) => this.setRememberedChoice(name, confirmed),
@@ -449,7 +445,7 @@ export class ToolCall extends LLMBase implements ISchedulableAgent {
             env: this.llmService.environment_details || {},
             modes: Mode || {},
             isSubagent: !!this.agentConfigs?.subagent,
-            currentMode: this.llmService.environment_details?.mode,
+            currentMode: this.modeMap[this.llmService.chatManager.chat.mode] ?? Mode.ACT,
             agentMode: this.agentConfigs?.agentMode || 'transagent',
         };
 
@@ -539,6 +535,11 @@ export class ToolCall extends LLMBase implements ISchedulableAgent {
         this.llmService.environment_details.envs = envs.length > 0 ? envs.join("\n") : "";
         this.llmService.environment_details.skills = this.skillManager.getSkillDescription();
 
+        // 从 chat.mode 动态注入 mode 信息，用于 env_prompt 模板的 {mode} 和 {mode_constraint} 占位符
+        const currentModeEnum = this.modeMap[chatState.mode] || Mode.ACT;
+        (this.llmService.environment_details as any).mode = currentModeEnum;
+        (this.llmService.environment_details as any).mode_constraint = MODE_CONSTRAINTS[currentModeEnum];
+
         const toolCallConfig = this.utils.getConfig("tool_call");
         if (this.agentConfigs.env && toolCallConfig.env_message) {
             data.env_message = formatString(this.env_prompt, this.llmService.environment_details as any);
@@ -553,10 +554,7 @@ export class ToolCall extends LLMBase implements ISchedulableAgent {
     }
 
     public changeMode(mode: string | null = null, saveHistory: boolean = true) {
-        const selectedMode = this.modeMap[mode || ""] || Mode.ACT;
         const shortMode = this.modeMap[mode || ""] ? mode : "act";
-        this.llmService.environment_details.mode = selectedMode;
-        this.llmService.environment_details.mode_constraint = MODE_CONSTRAINTS[selectedMode];
         this.llmService.chatManager.chat.mode = shortMode as string;
         if (!this.agentConfigs.subagent && saveHistory) this.setHistory();
     }
