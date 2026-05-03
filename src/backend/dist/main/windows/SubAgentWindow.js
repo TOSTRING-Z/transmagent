@@ -105,7 +105,7 @@ class SubAgentWindow {
                 if (this.agentTool) {
                     this.agentTool.toolCall.setWindow(win);
                     // 子代理模式同主代理模式一样（计划模式例外）
-                    if (toolCall.llmService.environment_details.mode !== LLMBase_1.Mode.PLAN) {
+                    if (toolCall.llmService.chatManager.chat.mode !== "plan") {
                         this.agentTool.toolCall.changeMode(toolCall.llmService.chatManager.chat.mode);
                     }
                     else {
@@ -163,7 +163,7 @@ class SubAgentWindow {
                 throw new Error(`Agent tool ${agentToolName} not found`);
             }
             // 子代理模式同主代理模式一样（计划模式例外）
-            if (toolCall.llmService.environment_details.mode !== LLMBase_1.Mode.PLAN) {
+            if (toolCall.llmService.chatManager.chat.mode !== "plan") {
                 this.agentTool.toolCall.changeMode(toolCall.llmService.chatManager.chat.mode);
             }
             else {

@@ -551,7 +551,7 @@ export class ToolCall extends LLMBase implements ISchedulableAgent {
     }
 
     public changeMode(mode: string | null = null, saveHistory: boolean = true) {
-        const shortMode = this.modeMap[mode || ""] ? mode : "act";
+        const shortMode = mode || "act";
         this.llmService.chatManager.chat.mode = shortMode as string;
         if (!this.agentConfigs.subagent && saveHistory) this.setHistory();
     }

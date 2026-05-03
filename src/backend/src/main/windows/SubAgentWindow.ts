@@ -1,7 +1,6 @@
 import { BrowserWindow, ipcMain } from 'electron';
 import * as path from 'path';
 import { ToolCall } from '../../core/ToolCall';
-import { Mode } from '../../core/LLMBase';
 import { AgentTool } from '../../core/SubAgent';
 import { parseJsonContent, isSilentMode } from '../../utils/public';
 
@@ -86,7 +85,7 @@ export class SubAgentWindow {
                 if (this.agentTool) {
                     this.agentTool.toolCall.setWindow(win);
                     // 子代理模式同主代理模式一样（计划模式例外）
-                    if (toolCall.llmService.environment_details.mode !== Mode.PLAN) {
+                    if (toolCall.llmService.chatManager.chat.mode !== "plan") {
                         this.agentTool.toolCall.changeMode(toolCall.llmService.chatManager.chat.mode);
                     } else {
                         // 计划模式下，子代理默认为自动模式
@@ -152,7 +151,7 @@ export class SubAgentWindow {
             }
             
             // 子代理模式同主代理模式一样（计划模式例外）
-            if (toolCall.llmService.environment_details.mode !== Mode.PLAN) {
+            if (toolCall.llmService.chatManager.chat.mode !== "plan") {
                 this.agentTool.toolCall.changeMode(toolCall.llmService.chatManager.chat.mode);
             } else {
                 // 计划模式下，子代理默认为自动模式

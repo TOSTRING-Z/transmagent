@@ -454,7 +454,7 @@ class ToolCall extends LLMBase_1.LLMBase {
         }
     }
     changeMode(mode = null, saveHistory = true) {
-        const shortMode = this.modeMap[mode || ""] ? mode : "act";
+        const shortMode = mode || "act";
         this.llmService.chatManager.chat.mode = shortMode;
         if (!this.agentConfigs.subagent && saveHistory)
             this.setHistory();
