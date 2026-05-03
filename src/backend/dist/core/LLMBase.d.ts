@@ -10,12 +10,11 @@ export declare enum State {
     FINAL = "final",
     ERROR = "error"
 }
-export declare enum Mode {
-    AUTO = "Automatic mode",
-    ACT = "Execution mode",
-    PLAN = "Planning mode",
-    FLASH = "Flash mode"
-}
+/** mode 短名 → 显示名 映射 */
+export declare const MODE_LABELS: Record<string, string>;
+/** 兼容旧 isMode DSL 的 key→短名 查找表（key 为大写，如 PLAN → "plan"） */
+export declare const MODE_KEYS: Record<string, string>;
+export type Mode = string;
 export declare class LLMBase {
     llmService: LLMService;
     window: BrowserWindow | null;

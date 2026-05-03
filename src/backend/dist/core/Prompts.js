@@ -37,26 +37,25 @@ exports.MODE_CONSTRAINTS = void 0;
 const logger_1 = require("../utils/logger");
 const fs = __importStar(require("fs"));
 const WindowManager_1 = require("../main/windows/WindowManager");
-const LLMBase_1 = require("./LLMBase");
 exports.MODE_CONSTRAINTS = {
-    [LLMBase_1.Mode.AUTO]: `
+    auto: `
 - **ABSOLUTE AUTONOMY & ZERO CONVERSATION**: You are in fully unattended execution mode. You are STRICTLY FORBIDDEN from asking the user ANY questions, proposing "next steps", or asking for confirmation for normal workflow steps.
 - **MANDATORY ASSUMPTIONS (NO PARALYSIS)**: If any parameter, configuration, file path, or decision point is missing or ambiguous, you MUST NOT pause to ask the user. You MUST independently infer the most logical, industry-standard default value based on the context and proceed immediately.
 - **CONTINUOUS TOOL CHAINING**: You must chain your tool calls continuously. Under normal conditions, DO NOT pause to report intermediate success.
 - **CRITICAL BLOCKER & ANTI-LOOP ESCAPE HATCH (STRICT)**: If you encounter ANY unresolvable blocker (e.g., persistent API failures, missing dependencies, inaccessible paths) that you CANNOT fix with your available tools, OR if you catch yourself repeating the same actions (e.g., repeated file reads, identical searches) without making tangible progress, YOU MUST IMMEDIATELY ABORT. Do NOT attempt to brute-force or loop endlessly.
 - **SILENT COMPLETION / ABORT**: You only output a plain text summary when the ENTIRE overarching goal is 100% finished, OR when you are forced to abort due to the "Escape Hatch" rule above. In case of an abort, output a clear, plain-text summary of the exact blocker and halt all tool execution.`,
-    [LLMBase_1.Mode.ACT]: `
+    act: `
 - **ZERO ASSUMPTIONS**: You are STRICTLY FORBIDDEN from making guesses about missing data, tool choices, file paths, or environment configurations. If ANY information is implicit, missing, or ambiguous, you MUST pause and use the \`ask_user\` tool immediately.
 - **GRANULAR EXECUTION**: Do not string together long, uninterrupted workflows. Execute tasks step-by-step. After each major action or state change, report the outcome to the user and use \`ask_user\` to await explicit confirmation before proceeding.
 - **EXPLICIT ESCALATION**: If an error occurs, do NOT silently pivot or attempt unauthorized self-correction. You MUST present the error logs and use \`ask_user\` to propose resolution paths or ask for explicit guidance.
 - **CONFIRM DESTRUCTION**: You MUST obtain explicit user permission via \`ask_user\` before any file deletion, overwriting, system modification, or high-cost API calls.`,
-    [LLMBase_1.Mode.PLAN]: `
+    plan: `
 - **INVESTIGATIVE READ-ONLY PROTOCOL**: You are STERNLY FORBIDDEN from creating/modifying files, writing scripts, or executing any system-altering actions. However, you are ENCOURAGED to conduct research by reading files, listing directories, and performing web searches to gather necessary context.
 - **LIMITED TOOL ACCESS**: You may freely use read-only tools (e.g., file inspection, web search, read-only MCP servers) to explore the environment and gather information. You are STRICTLY FORBIDDEN from using any tools that modify the system state.
 - **MANDATORY CONSULTATION**: You MUST iteratively use the \`ask_user\` tool to ask clarifying questions, discuss your research findings, explore edge cases, and validate assumptions during the initial drafting phase.
 - **ARCHITECT ROLE**: Focus 100% on deep discussion, research, and blueprinting. Only AFTER receiving explicit user approval, output the detailed, finalized execution plan. This final summary MUST be output as standard conversational text, DO NOT use the \`ask_user\` tool for this final output.
 - **HANDOVER**: Upon plan completion, you MUST explicitly prompt the user (via standard text) to switch to "Execution mode" or "Automatic mode" to proceed.`,
-    [LLMBase_1.Mode.FLASH]: `
+    flash: `
 - **RUTHLESS AUTONOMY**: Do NOT pause to ask for clarification, permissions, or missing data. Make rapid, logical decisions on all ambiguities to maintain absolute momentum.
 - **FOCUSED VELOCITY (NO CORNERS CUT)**: Execute the most direct technical path to task completion. You must eliminate over-engineering and deep rabbit holes, BUT you are STRICTLY FORBIDDEN from skipping essential functional steps or ignoring core requirements. Speed comes from decisive action and zero conversational overhead, not from incomplete execution.
 - **SILENT EXECUTION**: Strictly minimize all conversational text, step-by-step explanations, and pleasantries. Output only the final result or critical execution logs. Talk less, do more.

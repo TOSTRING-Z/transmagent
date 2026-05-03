@@ -1,6 +1,6 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.LLMBase = exports.Mode = exports.State = void 0;
+exports.LLMBase = exports.MODE_KEYS = exports.MODE_LABELS = exports.State = void 0;
 const logger_1 = require("../utils/logger");
 const globals_1 = require("../utils/globals");
 const LLMAssistant_1 = require("./LLMAssistant");
@@ -14,13 +14,20 @@ var State;
     State["FINAL"] = "final";
     State["ERROR"] = "error";
 })(State || (exports.State = State = {}));
-var Mode;
-(function (Mode) {
-    Mode["AUTO"] = "Automatic mode";
-    Mode["ACT"] = "Execution mode";
-    Mode["PLAN"] = "Planning mode";
-    Mode["FLASH"] = "Flash mode";
-})(Mode || (exports.Mode = Mode = {}));
+/** mode 短名 → 显示名 映射 */
+exports.MODE_LABELS = {
+    auto: 'Automatic mode',
+    act: 'Execution mode',
+    plan: 'Planning mode',
+    flash: 'Flash mode',
+};
+/** 兼容旧 isMode DSL 的 key→短名 查找表（key 为大写，如 PLAN → "plan"） */
+exports.MODE_KEYS = {
+    AUTO: 'auto',
+    ACT: 'act',
+    PLAN: 'plan',
+    FLASH: 'flash',
+};
 class LLMBase {
     llmService;
     window;

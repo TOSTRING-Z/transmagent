@@ -1,4 +1,4 @@
-import { LLMBase, Mode } from './LLMBase';
+import { LLMBase } from './LLMBase';
 import { LLMService } from './LLMService';
 import { AssistantMessage, ChatState, Message, ToolInfo } from '../types';
 import { MCPClient } from './McpClient';
@@ -60,7 +60,6 @@ export declare class ToolCall extends LLMBase implements ISchedulableAgent {
     repetitions_delay_empty: number;
     toolInfos: ToolInfo[];
     currentToolInfo: ToolInfo | undefined;
-    modeMap: Record<string, Mode>;
     llmAssistant: LLMAssistant;
     tool_schemas?: any[];
     skillManager: SkillManager;

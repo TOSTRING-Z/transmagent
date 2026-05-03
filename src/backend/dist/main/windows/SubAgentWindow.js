@@ -36,7 +36,6 @@ Object.defineProperty(exports, "__esModule", { value: true });
 exports.SubAgentWindow = void 0;
 const electron_1 = require("electron");
 const path = __importStar(require("path"));
-const LLMBase_1 = require("../../core/LLMBase");
 const public_1 = require("../../utils/public");
 class SubAgentWindow {
     agentToolName;

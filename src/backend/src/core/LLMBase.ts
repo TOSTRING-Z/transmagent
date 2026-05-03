@@ -16,12 +16,23 @@ export enum State {
     ERROR = 'error',
 }
 
-export enum Mode {
-    AUTO = 'Automatic mode',
-    ACT = 'Execution mode',
-    PLAN = 'Planning mode',
-    FLASH = 'Flash mode',
-}
+/** mode 短名 → 显示名 映射 */
+export const MODE_LABELS: Record<string, string> = {
+    auto: 'Automatic mode',
+    act: 'Execution mode',
+    plan: 'Planning mode',
+    flash: 'Flash mode',
+};
+
+/** 兼容旧 isMode DSL 的 key→短名 查找表（key 为大写，如 PLAN → "plan"） */
+export const MODE_KEYS: Record<string, string> = {
+    AUTO: 'auto',
+    ACT: 'act',
+    PLAN: 'plan',
+    FLASH: 'flash',
+};
+
+export type Mode = string;
 
 export class LLMBase {
     public llmService: LLMService;

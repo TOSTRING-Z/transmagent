@@ -1,6 +1,5 @@
 import { ToolCall } from './ToolCall';
-import { Mode } from './LLMBase';
-export declare const MODE_CONSTRAINTS: Record<Mode, string>;
+export declare const MODE_CONSTRAINTS: Record<string, string>;
 declare class Prompts {
     toolCall: ToolCall;
     constructor(toolCall: ToolCall);

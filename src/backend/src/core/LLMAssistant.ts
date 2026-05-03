@@ -1,6 +1,6 @@
 import * as fs from 'fs/promises';
 import { LLMService } from './LLMService';
-import { Mode, LLMBase } from './LLMBase';
+import { LLMBase } from './LLMBase';
 import { Plugins } from './Plugins';
 import { ToolCallAdapterFactory } from '../factories/AdapterFactory';
 import { Message, ToolInfo, AssistantMessage } from '../types';
