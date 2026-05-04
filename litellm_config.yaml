@@ -1,9 +1,21 @@
 model_list:
   - model_name: deepseek-chat
     litellm_params:
-      model: openai/deepseek-chat
-      api_key: sk-e883650b2a1a4da9a4628eac7e7f340e
-      api_base: https://api.deepseek.com/v1
+      model: openai/deepseek-v3.2
+      api_key: sk-uAG0bRv1YefsNDxO6zI3Hw4qOKJbivehSjCASkdMD3Dbd6BH
+      api_base: https://runapi.co/v1
+
+  - model_name: deepseek-ai/DeepSeek-V3.2
+    litellm_params:
+      model: openai/deepseek-v3.2
+      api_key: sk-uAG0bRv1YefsNDxO6zI3Hw4qOKJbivehSjCASkdMD3Dbd6BH
+      api_base: https://runapi.co/v1
+
+  - model_name: deepseek-v3.2
+    litellm_params:
+      model: openai/deepseek-v3.2
+      api_key: sk-uAG0bRv1YefsNDxO6zI3Hw4qOKJbivehSjCASkdMD3Dbd6BH
+      api_base: https://runapi.co/v1
 
 general_settings:
   master_key: sk-local-proxy-master-key

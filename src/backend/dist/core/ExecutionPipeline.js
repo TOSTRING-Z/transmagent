@@ -94,7 +94,7 @@ function createConfirmationMiddleware(gate, emitCancel, getChatPayload) {
             else {
                 ctx.cancelled = true;
                 const msg = `用户取消了高风险工具 ${toolName} 的执行（已记住的选择）`;
-                emitCancel(msg, getChatPayload(), ctx.data.uuid);
+                emitCancel(msg, getChatPayload(), ctx.data.uuid, ctx.toolInfo);
             }
             return;
         }
@@ -111,7 +111,7 @@ function createConfirmationMiddleware(gate, emitCancel, getChatPayload) {
             else {
                 ctx.cancelled = true;
                 const msg = `用户取消了高风险工具 ${toolName} 的执行`;
-                emitCancel(msg, getChatPayload(), ctx.data.uuid);
+                emitCancel(msg, getChatPayload(), ctx.data.uuid, ctx.toolInfo);
             }
         }
         catch (err) {

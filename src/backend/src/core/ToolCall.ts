@@ -277,9 +277,9 @@ export class ToolCall extends LLMBase implements ISchedulableAgent {
 
         const confirmMW = createConfirmationMiddleware(
             gate,
-            (message, chatPayload, uuid) => {
+            (message, chatPayload, uuid, toolInfo) => {
                 this.llmService.chatManager.pushToolMessage({
-                    ...chatPayload, content: message, uuid,
+                    ...toolInfo, ...chatPayload, content: message, uuid,
                 });
                 this.events.emitEvent('streamData', {
                     ...chatPayload,

@@ -58,7 +58,7 @@ export interface ConfirmationGate {
     }>;
     isAvailable(): boolean;
 }
-export declare function createConfirmationMiddleware(gate: ConfirmationGate, emitCancel: (message: string, chatPayload: any, uuid: string) => void, getChatPayload: () => any): MiddlewareFn;
+export declare function createConfirmationMiddleware(gate: ConfirmationGate, emitCancel: (message: string, chatPayload: any, uuid: string, toolInfo: ToolInfo) => void, getChatPayload: () => any): MiddlewareFn;
 /**
  * 3. 执行中间件
  * 调用 act()，处理 observation，管理状态转换。

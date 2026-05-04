@@ -218,9 +218,9 @@ class ToolCall extends LLMBase_1.LLMBase {
             showConfirmation: (req) => WindowManager_1.WindowManager.instance.confirmationWindow.showConfirmation(req)
                 .then(r => ({ confirmed: r.confirmed, rememberChoice: r.rememberChoice ?? false })),
         };
-        const confirmMW = (0, ExecutionPipeline_1.createConfirmationMiddleware)(gate, (message, chatPayload, uuid) => {
+        const confirmMW = (0, ExecutionPipeline_1.createConfirmationMiddleware)(gate, (message, chatPayload, uuid, toolInfo) => {
             this.llmService.chatManager.pushToolMessage({
-                ...chatPayload, content: message, uuid,
+                ...toolInfo, ...chatPayload, content: message, uuid,
             });
             this.events.emitEvent('streamData', {
                 ...chatPayload,

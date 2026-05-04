@@ -108,7 +108,7 @@ export interface ConfirmationGate {
 
 export function createConfirmationMiddleware(
     gate: ConfirmationGate,
-    emitCancel: (message: string, chatPayload: any, uuid: string) => void,
+    emitCancel: (message: string, chatPayload: any, uuid: string, toolInfo: ToolInfo) => void,
     getChatPayload: () => any,
 ): MiddlewareFn {
     return async (ctx, next) => {
@@ -127,7 +127,7 @@ export function createConfirmationMiddleware(
             } else {
                 ctx.cancelled = true;
                 const msg = `用户取消了高风险工具 ${toolName} 的执行（已记住的选择）`;
-                emitCancel(msg, getChatPayload(), ctx.data.uuid);
+                emitCancel(msg, getChatPayload(), ctx.data.uuid, ctx.toolInfo);
             }
             return;
         }
@@ -146,7 +146,7 @@ export function createConfirmationMiddleware(
             } else {
                 ctx.cancelled = true;
                 const msg = `用户取消了高风险工具 ${toolName} 的执行`;
-                emitCancel(msg, getChatPayload(), ctx.data.uuid);
+                emitCancel(msg, getChatPayload(), ctx.data.uuid, ctx.toolInfo);
             }
         } catch (err) {
             logger.error('[ConfirmationMiddleware] Confirmation window error:', err);
