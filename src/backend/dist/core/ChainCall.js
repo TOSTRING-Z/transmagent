@@ -10,10 +10,10 @@ class ChainCall extends LLMBase_1.LLMBase {
     constructor(plugins, llmService, window, utils) {
         super(llmService, window, utils);
         this.plugins = plugins;
-        this.llmService.chatManager.chat.is_plugin = false;
     }
     async pluginCall(data) {
         this.setUUID(data);
+        this.llmService.chatManager.chat.group_id = String(Date.now());
         this.window?.webContents.send('userData', { ...this.llmService.chatManager.chat, content: data.query, del: false, uuid: data.uuid });
         data.prompt_format = "";
         data.uuid = this.llmService.chatManager.uuid;
@@ -22,6 +22,7 @@ class ChainCall extends LLMBase_1.LLMBase {
             console.error(`[ChainCall] Plugin function '${data.version}' not found.`);
             return null;
         }
+        data.input = data.input_template ? this.formatTemplate(data.input_template, data) : data.query;
         data.output = await this.retry(func, data);
         if (!data.output) {
             return null;
@@ -34,13 +35,13 @@ class ChainCall extends LLMBase_1.LLMBase {
         else {
             data.output_format = data.output;
         }
+        data.input = data.output_format ? data.output_format : data.query;
         data.output_formats.push((0, public_1.copy)(data.output_format));
         this.window?.webContents.send('streamData', { ...this.llmService.chatManager.chat, content: data.output_format, end: true, is_plugin: data.is_plugin, uuid: data.uuid });
     }
     async step(data) {
-        this.llmService.chatManager.chat.is_plugin = data.model === "plugins";
         let stateResult = null;
-        if (data.model === "plugins") {
+        if (data.is_plugin) {
             stateResult = await this.pluginCall(data);
         }
         else {
@@ -67,7 +68,7 @@ class ChainCall extends LLMBase_1.LLMBase {
         this.llmService.chatManager.chat.system_prompt = data.prompt;
         this.state = LLMBase_1.State.IDLE;
         this.llmService.chatManager.chat.step = 1;
-        this.llmService.chatManager.chat.group_id = String((new Date()).getTime());
+        this.llmService.chatManager.chat.group_id = String(Date.now());
         this.llmService.chatManager.chat.context_id = `${this.llmService.chatManager.chat.group_id}${this.llmService.chatManager.chat.step}`;
         this.window?.webContents.send('userData', { ...this.llmService.chatManager.chat, content: data.query, del: false });
         let chain_calls = this.utils.getConfig("chain_call");
@@ -99,7 +100,7 @@ class ChainCall extends LLMBase_1.LLMBase {
             }
             this.setHistory();
             if (this.state === "final") {
-                if (this.llmService.chatManager.chat.is_plugin) {
+                if (data?.is_plugin) {
                     this.window?.webContents.send('streamData', { ...this.llmService.chatManager.chat, content: data.output_format, uuid: data.uuid, end: true });
                 }
                 break;

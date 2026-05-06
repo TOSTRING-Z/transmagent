@@ -69,10 +69,10 @@ export class Plugins {
             }
 
             const item: PluginItem = {
-                func: plugin.main(pluginParams),
-                extra: info.extra,
-                getPrompt: plugin.getPrompt,
                 enabled: enabled,
+                func: plugin?.main(pluginParams),
+                extra: info?.extra,
+                getPrompt: plugin?.getPrompt,
                 show: info?.show,
                 version: info?.version,
                 params: info?.params,

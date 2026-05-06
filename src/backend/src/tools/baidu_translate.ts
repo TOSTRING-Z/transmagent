@@ -92,7 +92,7 @@ function format(result) {
 }
 
 function main() {
-    async ({ input }) => {
+    return async ({ input }) => {
         try {
             let mode = getMode(input)
             const sign = hash(input).toString() as any;

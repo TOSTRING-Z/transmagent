@@ -65,7 +65,7 @@ class IconWindow extends BaseWindow_1.BaseWindow {
         electron_1.ipcMain.on('translation-clicked', () => {
             WindowManager_1.WindowManager.instance.mainWindow.concat = false;
             const mainWin = this.windowManager.mainWindow;
-            mainWin.sendQuery({ query: WindowManager_1.WindowManager.instance.mainWindow.last_clipboard_content || "" });
+            mainWin.sendQuery({ query: mainWin.last_clipboard_content || "", is_plugin: true, model: "plugins", version: mainWin.sessionManager.getChat()?.plugin });
             this.destroy();
         });
         electron_1.ipcMain.on('submit-clicked', () => {

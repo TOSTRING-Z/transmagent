@@ -155,7 +155,7 @@ export interface ChatState {
     version: string;
     api_type: "openai" | "anthropic" | "ollama";
     tool_format: "toolcalls" | "prompt";
-    is_plugin: boolean;
+    plugin: string | null;
     compress_context: boolean;
     memory_length: number;
     long_memory_length: number;

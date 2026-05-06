@@ -94,7 +94,6 @@ export class MainServer {
                 }
                 this.mainWindow.sessionManager.setSessionChat({
                     model: data.model,
-                    is_plugin: data.model === "plugins",
                     version: modelConfig?.versions[0].version,
                 });
                 this.mainWindow.updateVersionsSubmenu();

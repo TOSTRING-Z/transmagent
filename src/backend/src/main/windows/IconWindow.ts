@@ -72,7 +72,7 @@ export class IconWindow extends BaseWindow {
             WindowManager.instance.mainWindow.concat = false;
             const mainWin = this.windowManager.mainWindow;
             mainWin.sendQuery(
-                { query: WindowManager.instance.mainWindow.last_clipboard_content || "" },
+                { query: mainWin.last_clipboard_content || "", is_plugin: true, model: "plugins", version: mainWin.sessionManager.getChat()?.plugin },
             );
             this.destroy();
         });

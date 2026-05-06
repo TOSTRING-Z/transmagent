@@ -13,11 +13,11 @@ export class ChainCall extends LLMBase {
     constructor(plugins: Plugins, llmService: LLMService, window: BrowserWindow | null, utils: Utils) {
         super(llmService, window, utils);
         this.plugins = plugins;
-        this.llmService.chatManager.chat.is_plugin = false;
     }
 
     public async pluginCall(data: Record<string, any>): Promise<any> {
         this.setUUID(data);
+        this.llmService.chatManager.chat.group_id = String(Date.now());
         this.window?.webContents.send('userData', { ...this.llmService.chatManager.chat, content: data.query, del: false, uuid: data.uuid });
         data.prompt_format = "";
         data.uuid = this.llmService.chatManager.uuid;
@@ -28,7 +28,10 @@ export class ChainCall extends LLMBase {
             return null;
         }
 
+        data.input = data.input_template? this.formatTemplate(data.input_template, data): data.query;
+
         data.output = await this.retry(func, data);
+        
         if (!data.output) {
             return null;
         }
@@ -42,16 +45,17 @@ export class ChainCall extends LLMBase {
             data.output_format = data.output;
         }
 
+        data.input = data.output_format ? data.output_format : data.query;
+
         data.output_formats.push(copy(data.output_format));
 
         this.window?.webContents.send('streamData', { ...this.llmService.chatManager.chat, content: data.output_format, end: true, is_plugin: data.is_plugin, uuid: data.uuid });
     }
 
     public async step(data: Record<string, any>): Promise<void> {
-        this.llmService.chatManager.chat.is_plugin = data.model === "plugins";
         let stateResult: any = null;
 
-        if (data.model === "plugins") {
+        if (data.is_plugin) {
             stateResult = await this.pluginCall(data);
         } else {
             stateResult = await this.llmCall(data);
@@ -80,7 +84,7 @@ export class ChainCall extends LLMBase {
         this.llmService.chatManager.chat.system_prompt = data.prompt;
         this.state = State.IDLE;
         this.llmService.chatManager.chat.step = 1;
-        this.llmService.chatManager.chat.group_id = String((new Date()).getTime());
+        this.llmService.chatManager.chat.group_id = String(Date.now());
         this.llmService.chatManager.chat.context_id = `${this.llmService.chatManager.chat.group_id}${this.llmService.chatManager.chat.step}`
         this.window?.webContents.send('userData', { ...this.llmService.chatManager.chat, content: data.query, del: false });
 
@@ -120,7 +124,7 @@ export class ChainCall extends LLMBase {
 
             this.setHistory();
             if ((this.state as any) === "final") {
-                if (this.llmService.chatManager.chat.is_plugin) {
+                if (data?.is_plugin) {
                     this.window?.webContents.send('streamData', { ...this.llmService.chatManager.chat, content: data.output_format, uuid: data.uuid, end: true });
                 }
                 break;

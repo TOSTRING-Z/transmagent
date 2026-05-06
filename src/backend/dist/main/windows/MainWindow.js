@@ -504,7 +504,7 @@ class MainWindow extends BaseWindow_1.BaseWindow {
     getReactEvent(e) {
         const extraReact = () => {
             this.window?.webContents.send('react-statu', e.statu);
-            if (this.sessionManager.getChat()?.is_plugin) {
+            if (this.sessionManager.getChat()?.model === "plugins") {
                 this.window?.webContents.send("extra_load", e.statu && this.session().plugins.getTool[this.sessionManager.getChat()?.version]?.extra);
             }
             else {
@@ -548,7 +548,7 @@ class MainWindow extends BaseWindow_1.BaseWindow {
             last_clipboard_content: this.last_clipboard_content,
             model: this.sessionManager.getChat()?.model,
             version: this.sessionManager.getChat()?.version,
-            is_plugin: this.sessionManager.getChat()?.is_plugin,
+            plugin: this.sessionManager.getChat()?.plugin,
             chat: this.sessionManager.getChat(),
             chats: history_data.data
         });
@@ -565,7 +565,6 @@ class MainWindow extends BaseWindow_1.BaseWindow {
                 const modelConfig = this.session().utils.getConfig("models")[_model];
                 this.sessionManager.setSessionChat({
                     model: _model,
-                    is_plugin: _model === "plugins",
                     version: modelConfig?.versions[0].version,
                 });
                 this.updateVersionsSubmenu();
@@ -578,7 +577,7 @@ class MainWindow extends BaseWindow_1.BaseWindow {
     }
     getVersionsSubmenu() {
         let versions;
-        if (this.sessionManager.getChat()?.is_plugin) {
+        if (this.sessionManager.getChat()?.model === "plugins") {
             versions = Object.values(this.session().plugins.getTool())
                 .filter((tool) => tool?.version && tool?.show)
                 .map((tool) => ({ version: tool.version, show: tool.show }));
@@ -601,7 +600,7 @@ class MainWindow extends BaseWindow_1.BaseWindow {
                     this.window?.webContents.send("handleSetChat", this.sessionManager.getChat());
                     if (this.session().tool_call.setHistory)
                         this.session().tool_call.setHistory();
-                    if (this.sessionManager.getChat()?.is_plugin)
+                    if (this.sessionManager.getChat()?.model === "plugins")
                         this.window?.webContents.send("extra_load", version?.extra);
                 },
                 label: _version

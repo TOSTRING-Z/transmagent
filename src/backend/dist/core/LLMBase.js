@@ -147,7 +147,7 @@ class LLMBase {
             api_type: null,
             model: this.llmService.chatManager.chat.model,
             version: this.llmService.chatManager.chat.version,
-            is_plugin: this.llmService.chatManager.chat.model === "plugins",
+            is_plugin: false,
             output_template: null,
             input_template: null,
             prompt_template: null,

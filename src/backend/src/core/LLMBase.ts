@@ -52,7 +52,7 @@ export class LLMBase {
     }
 
     // 安全的模板字符串格式化函数（替代被废弃的 String.prototype.format）
-    private formatTemplate(template: string | null | undefined, data: Record<string, any>): string {
+    public formatTemplate(template: string | null | undefined, data: Record<string, any>): string {
         if (!template) return "";
         let formatText = template.replaceAll("{{", "{").replaceAll("}}", "}");
         formatText = formatText.replace(/\{(.*?)\}/g, (match, cmd) => {
@@ -168,7 +168,7 @@ export class LLMBase {
             api_type: null,
             model: this.llmService.chatManager.chat.model,
             version: this.llmService.chatManager.chat.version,
-            is_plugin: this.llmService.chatManager.chat.model === "plugins",
+            is_plugin: false,
             output_template: null,
             input_template: null,
             prompt_template: null,
