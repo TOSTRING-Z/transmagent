@@ -626,7 +626,7 @@ $$
       const message_content = messageSystem.getElementsByClassName("message")[0];
       const thinking = messageSystem.getElementsByClassName("thinking")[0];
       thinking?.classList.add("hidden");
-      if (!messageSystem.dataset?.event_stop) {
+      if (messageSystem.dataset?.event_stop !== "true") {
         messageSystem.dataset.event_stop = "true";
         if (message_content)
           menuEvent(messageSystem, message_content.dataset.content, chunk?.is_plugin);

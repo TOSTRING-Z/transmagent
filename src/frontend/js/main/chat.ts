@@ -277,7 +277,7 @@ export async function enterEnd(messageSystem: HTMLElement, chunk: any = null) {
     const message_content = messageSystem.getElementsByClassName('message')[0] as HTMLElement;
     const thinking = messageSystem.getElementsByClassName("thinking")[0];
     thinking?.classList.add('hidden');
-    if (!messageSystem.dataset?.event_stop) {
+    if (messageSystem.dataset?.event_stop !== "true") {
       messageSystem.dataset.event_stop = "true";
       if (message_content) menuEvent(messageSystem, message_content.dataset.content as any, chunk?.is_plugin);
     }
