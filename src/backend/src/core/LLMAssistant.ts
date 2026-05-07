@@ -545,11 +545,17 @@ ${currentContent}
         const hasError = toolInfos.some(t => t.error);
 
         if (!hasTool && !hasError) {
-            // ── 阻断：LLM 审查者判定无到期任务 → 返回 [STANDBY] ──
-            // 清除心跳 user 消息及 [STANDBY] 回复，保持上下文清洁
-            this.removeHeartbeatMessages(messages, memoryList);
-            logger.log('[HeartbeatGuard] LLM reviewer returned STANDBY. Heartbeat blocked, messages cleaned.');
-            return true;
+            // ── 二次确认：检查 LLM 是否真的返回了 [STANDBY] ──
+            // 仅当响应内容包含 [STANDBY] 时才执行清理，避免任务正常完成后被误判
+            const hasStanby = toolInfos.some(t => t.content && t.content.includes('[STANDBY]'));
+            if (hasStanby) {
+                this.removeHeartbeatMessages(messages, memoryList);
+                logger.log('[HeartbeatGuard] LLM reviewer returned STANDBY. Heartbeat blocked, messages cleaned.');
+                return true;
+            }
+            // 任务正常完成（无工具调用、无错误、无 [STANDBY]），放行保留消息
+            logger.log('[HeartbeatGuard] Task completed normally, no STANDBY. Heartbeat passed (messages preserved).');
+            return false;
         }
 
         // ── 放行：LLM 审查者判定有到期任务 → 执行工具调用 ──
