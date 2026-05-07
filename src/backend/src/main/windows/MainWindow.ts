@@ -757,7 +757,10 @@ export class MainWindow extends BaseWindow {
                             this.session().tool_call.initVar();
                             const chat_id = this.sessionManager.getChat()?.id;
                             this.session().llmService.chatManager.initMessages();
-                            this.sessionManager.setSessionChat({ id: chat_id });
+                            // 清空 Task List
+                            let vars = this.sessionManager.getChat()?.vars || {};
+                            vars.tasks = [];
+                            this.sessionManager.setSessionChat({ id: chat_id, vars });
                             this.session().tool_call.changeMode();
                             this.updateVersionsSubmenu();
                             this.window?.webContents.send('handleSetChat', this.sessionManager.getChat());
