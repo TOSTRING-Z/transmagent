@@ -494,29 +494,27 @@ ${currentContent}
      * - 若 toolInfos 非空（LLM 决定执行工具）→ 放行。
      *
      * @param toolInfos     当前轮次解析出的工具调用列表
-     * @param messages      chatManager 的消息列表（会被原地修改）
-     * @param memoryList    memory_list（会被原地修改）
+     * @param messages               chatManager 的消息列表（会被原地修改）
+     * @param hadToolCallsInSession  本轮心跳会话中是否曾有任何工具调用
      * @returns true 表示心跳被阻断（调用方应退出本轮），false 表示放行
      */
-    resolveHeartbeatReview(toolInfos, messages, memoryList) {
+    resolveHeartbeatReview(toolInfos, messages, hadToolCallsInSession) {
         const hasTool = toolInfos.some(t => t.tool_call_name);
         const hasError = toolInfos.some(t => t.error);
-        if (!hasTool && !hasError) {
-            // ── 阻断：LLM 审查者判定无到期任务 → 返回 [STANDBY] ──
-            // 清除心跳 user 消息及 [STANDBY] 回复，保持上下文清洁
-            this.removeHeartbeatMessages(messages, memoryList);
-            logger_1.logger.log('[HeartbeatGuard] LLM reviewer returned STANDBY. Heartbeat blocked, messages cleaned.');
+        // 仅当当前轮无工具调用、无错误、且整个心跳会话从未调过工具时，才判定为纯 STANDBY
+        if (!hasTool && !hasError && !hadToolCallsInSession) {
+            this.removeHeartbeatMessages(messages);
+            logger_1.logger.log('[HeartbeatGuard] No tools called in session. STANDBY confirmed. Heartbeat blocked, messages cleaned.');
             return true;
         }
-        // ── 放行：LLM 审查者判定有到期任务 → 执行工具调用 ──
-        // 注意：放行时不做任何清理，心跳 user 消息和后续执行记录均保留在上下文中
-        logger_1.logger.log('[HeartbeatGuard] LLM reviewer found due tasks. Heartbeat passed (messages preserved).');
+        // 否则：有工具调用 / 有错误 / 曾调过工具 → 放行，保留消息
+        logger_1.logger.log('[HeartbeatGuard] Heartbeat passed (messages preserved).');
         return false;
     }
     /**
-     * 从 messages 和 memoryList 中移除心跳 user 消息及其对应的 [STANDBY] 回复。
+     * 从 messages 中移除最后一条心跳 user 消息及其之后的所有内容。
      */
-    removeHeartbeatMessages(messages, memoryList) {
+    removeHeartbeatMessages(messages) {
         // 1. 清理 messages 中最后一条心跳 user 消息
         //    从末尾向前搜索，找到第一条（即最近的一条）就 break，
         //    之前放行保留的历史心跳消息不受影响。
@@ -525,35 +523,9 @@ ${currentContent}
             if (msg.role === 'user' &&
                 typeof msg.content === 'string' &&
                 msg.content.startsWith(HEARTBEAT_KEYWORD)) {
-                messages.splice(i, 1);
+                messages.splice(i);
                 break;
             }
-        }
-        // 2. 清理 messages 末尾可能已写入的 [STANDBY] assistant 消息
-        const lastMsg = messages[messages.length - 1];
-        if (lastMsg &&
-            lastMsg.role === 'assistant' &&
-            typeof lastMsg.content === 'string' &&
-            lastMsg.content.includes('[STANDBY]')) {
-            messages.pop();
-        }
-        // 3. 清理 memoryList 中最后一条心跳 user 消息（break 保护历史消息）
-        for (let i = memoryList.length - 1; i >= 0; i--) {
-            const msg = memoryList[i];
-            if (msg.role === 'user' &&
-                typeof msg.content === 'string' &&
-                msg.content.startsWith(HEARTBEAT_KEYWORD)) {
-                memoryList.splice(i, 1);
-                break;
-            }
-        }
-        // 4. 清理 memoryList 末尾的 [STANDBY] assistant 消息
-        const lastMemMsg = memoryList[memoryList.length - 1];
-        if (lastMemMsg &&
-            lastMemMsg.role === 'assistant' &&
-            typeof lastMemMsg.content === 'string' &&
-            lastMemMsg.content.includes('[STANDBY]')) {
-            memoryList.pop();
         }
     }
 }

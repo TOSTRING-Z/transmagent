@@ -51,13 +51,13 @@ export declare class LLMAssistant {
      * - 若 toolInfos 非空（LLM 决定执行工具）→ 放行。
      *
      * @param toolInfos     当前轮次解析出的工具调用列表
-     * @param messages      chatManager 的消息列表（会被原地修改）
-     * @param memoryList    memory_list（会被原地修改）
+     * @param messages               chatManager 的消息列表（会被原地修改）
+     * @param hadToolCallsInSession  本轮心跳会话中是否曾有任何工具调用
      * @returns true 表示心跳被阻断（调用方应退出本轮），false 表示放行
      */
-    resolveHeartbeatReview(toolInfos: ToolInfo[], messages: Message[], memoryList: Message[]): boolean;
+    resolveHeartbeatReview(toolInfos: ToolInfo[], messages: Message[], hadToolCallsInSession: boolean): boolean;
     /**
-     * 从 messages 和 memoryList 中移除心跳 user 消息及其对应的 [STANDBY] 回复。
+     * 从 messages 中移除最后一条心跳 user 消息及其之后的所有内容。
      */
     private removeHeartbeatMessages;
 }

@@ -63,6 +63,7 @@ const TOOL_POLICY = {
     'mcp_server': all(hasArg('mcpTool'), not(isMode('PLAN'))),
     'add_subtasks': all(hasArg('todolist'), not(any(isMode('PLAN'), isMode('FLASH')))),
     'record_subtasks': all(hasArg('todolist'), not(any(isMode('PLAN'), isMode('FLASH')))),
+    'remove_tasks': all(hasArg('todolist'), not(any(isMode('PLAN'), isMode('FLASH')))),
     'context_retrieval': not(isSubagent),
     'search_long_term_memory': not(isSubagent),
     'write_important_memory': not(isSubagent),
@@ -92,6 +93,8 @@ class ToolCall extends LLMBase_1.LLMBase {
     response_repetitions = [];
     repetitions_delay_empty = 0;
     toolInfos = [];
+    /** 当前心跳会话中是否曾有任何工具调用（用于 resolveHeartbeatReview 裁决） */
+    hadToolCallsInHeartbeat = false;
     currentToolInfo;
     llmAssistant;
     tool_schemas;
@@ -480,32 +483,10 @@ class ToolCall extends LLMBase_1.LLMBase {
     async step(data) {
         if (this.state === LLMBase_1.State.IDLE)
             this.state = LLMBase_1.State.RUNNING;
-        // ── 心跳任务审查中间件（阶段1：检测 + 直接持久化） ──
+        // ── 心跳任务审查中间件（阶段1：检测 + 重置追踪状态） ──
         const isHeartbeat = this.llmAssistant.detectHeartbeat(data.query);
         if (isHeartbeat) {
-            logger_1.logger.log('[HeartbeatGuard] Heartbeat message detected, delegating to LLM reviewer.');
-            // 直接写入 messages 数组，绕过 pushUserMessage 的 UUID 守卫
-            // 放行时保留，阻断时由 resolveHeartbeatReview 移除
-            const chat = this.llmService.chatManager.chat;
-            const hbContent = data.query;
-            const alreadyInMessages = this.llmService.chatManager.messages.some((m) => m.role === 'user' && typeof m.content === 'string' && m.content === hbContent);
-            if (!alreadyInMessages) {
-                const hbMsg = {
-                    role: 'user',
-                    content: hbContent,
-                    group_id: chat.group_id,
-                    context_id: chat.context_id,
-                    show: true,
-                    react: false,
-                };
-                this.llmService.chatManager.messages.push(hbMsg);
-                this.llmService.chatManager.updateChat?.();
-                // 同步写入 memory_list
-                if (this.memory_list) {
-                    this.memory_list.push({ ...hbMsg });
-                }
-                logger_1.logger.log('[HeartbeatGuard] Heartbeat user message pushed directly (bypass UUID guard).');
-            }
+            this.hadToolCallsInHeartbeat = false;
         }
         if (!this.mcp_prompt) {
             await this.mcp_client.initMcp();
@@ -560,8 +541,12 @@ class ToolCall extends LLMBase_1.LLMBase {
         // ── 消息类型判断 ────────────────────────────────────────────────────
         const hasTool = this.toolInfos.some(t => t.tool_call_name);
         const hasError = this.toolInfos.some(t => t.error);
+        // 心跳会话中若本轮有工具调用，标记为已调过工具
+        if (isHeartbeat && hasTool) {
+            this.hadToolCallsInHeartbeat = true;
+        }
         // ── 心跳任务审查中间件（阶段2：LLM审查者结果判定） ──
-        if (isHeartbeat && this.llmAssistant.resolveHeartbeatReview(this.toolInfos, this.llmService.chatManager.messages, this.memory_list)) {
+        if (isHeartbeat && this.llmAssistant.resolveHeartbeatReview(this.toolInfos, this.llmService.chatManager.messages, this.hadToolCallsInHeartbeat)) {
             this.state = LLMBase_1.State.FINAL;
             return;
         }
@@ -725,6 +710,7 @@ class ToolCall extends LLMBase_1.LLMBase {
                 break;
             case "add_subtasks":
             case "record_subtasks":
+            case "remove_tasks":
                 this.events.emitEvent('streamData', {
                     ...chat,
                     content: `\n\n\`\`\`json\n${observation.result}\n\`\`\``,
@@ -892,6 +878,7 @@ class ToolCall extends LLMBase_1.LLMBase {
                             break;
                         case "add_subtasks":
                         case "complete_subtasks":
+                        case "remove_tasks":
                             this.events.emitEvent('streamData', { ...chat, ...message, content: `\n\n\`\`\`json\n${message.content}\n\`\`\``, end: true });
                             break;
                     }

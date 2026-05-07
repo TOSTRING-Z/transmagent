@@ -85,6 +85,7 @@ const TOOL_POLICY: Record<string, ToolPolicyFn> = {
     'mcp_server': all(hasArg('mcpTool'), not(isMode('PLAN'))),
     'add_subtasks': all(hasArg('todolist'), not(any(isMode('PLAN'), isMode('FLASH')))),
     'record_subtasks': all(hasArg('todolist'), not(any(isMode('PLAN'), isMode('FLASH')))),
+    'remove_tasks': all(hasArg('todolist'), not(any(isMode('PLAN'), isMode('FLASH')))),
     'context_retrieval': not(isSubagent),
     'search_long_term_memory': not(isSubagent),
     'write_important_memory': not(isSubagent),
@@ -858,6 +859,7 @@ export class ToolCall extends LLMBase implements ISchedulableAgent {
                 break;
             case "add_subtasks":
             case "record_subtasks":
+            case "remove_tasks":
                 this.events.emitEvent('streamData', {
                     ...chat,
                     content: `\n\n\`\`\`json\n${observation.result}\n\`\`\``,
@@ -1040,6 +1042,7 @@ export class ToolCall extends LLMBase implements ISchedulableAgent {
                             break;
                         case "add_subtasks":
                         case "complete_subtasks":
+                        case "remove_tasks":
                             this.events.emitEvent('streamData', { ...chat, ...message, content: `\n\n\`\`\`json\n${message.content}\n\`\`\``, end: true });
                             break;
                     }

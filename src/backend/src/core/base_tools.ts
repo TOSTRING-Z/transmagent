@@ -372,6 +372,98 @@ You MUST NOT save any transient session state. DO NOT save:
                 }
             })
         },
+        "remove_tasks": {
+            func: async ({ task_ids, subtask_ids, toolCall }: { task_ids?: string[], subtask_ids?: number[], toolCall: any }) => {
+                const chatVars = toolCall.llmService.chatManager.chat.vars;
+                if (!chatVars.tasks) {
+                    return { status: "warning", message: "No tasks exist." };
+                }
+
+                const removedTasks: string[] = [];
+                const removedSubtasks: { taskId: string, subtaskId: number, description: string }[] = [];
+                let notFoundTasks: string[] = [];
+                let notFoundSubtasks: number[] = [];
+
+                // 删除指定任务（整体移除）
+                if (task_ids && task_ids.length > 0) {
+                    for (const tid of task_ids) {
+                        if (chatVars.tasks[tid]) {
+                            removedTasks.push(tid);
+                            delete chatVars.tasks[tid];
+                        } else {
+                            notFoundTasks.push(tid);
+                        }
+                    }
+                }
+
+                // 删除指定子任务（从所属任务中移除该子任务条目）
+                if (subtask_ids && subtask_ids.length > 0) {
+                    const subIdSet = new Set(subtask_ids);
+                    for (const [tid, task] of Object.entries(chatVars.tasks) as [string, any][]) {
+                        const before = task.subtasks.length;
+                        task.subtasks = task.subtasks.filter((sub: any) => {
+                            if (subIdSet.has(Number(sub.id))) {
+                                removedSubtasks.push({ taskId: tid, subtaskId: sub.id, description: sub.description });
+                                return false;
+                            }
+                            return true;
+                        });
+                        const removedCount = before - task.subtasks.length;
+                        // 如果任务下所有子任务都被删完了，也清理该任务
+                        if (removedCount > 0 && task.subtasks.length === 0) {
+                            removedTasks.push(tid);
+                            delete chatVars.tasks[tid];
+                        }
+                    }
+                    // 检查哪些 subtask_id 没匹配到
+                    const foundSubIds = new Set(removedSubtasks.map(s => s.subtaskId));
+                    for (const sid of subtask_ids) {
+                        if (!foundSubIds.has(sid)) {
+                            notFoundSubtasks.push(sid);
+                        }
+                    }
+                }
+
+                const summary: string[] = [];
+                if (removedTasks.length > 0) summary.push(`Removed ${removedTasks.length} task(s): [${removedTasks.join(', ')}]`);
+                if (removedSubtasks.length > 0) summary.push(`Removed ${removedSubtasks.length} subtask(s) from tasks.`);
+                if (notFoundTasks.length > 0) summary.push(`Task ID(s) not found: [${notFoundTasks.join(', ')}]`);
+                if (notFoundSubtasks.length > 0) summary.push(`Subtask ID(s) not found: [${notFoundSubtasks.join(', ')}]`);
+
+                if (removedTasks.length === 0 && removedSubtasks.length === 0) {
+                    return { status: "warning", message: summary.join('; ') || "No matching tasks or subtasks found to remove." };
+                }
+
+                return {
+                    status: "success",
+                    message: summary.join('; '),
+                    details: {
+                        removed_tasks: removedTasks,
+                        removed_subtasks: removedSubtasks.map(s => ({ task_id: s.taskId, subtask_id: s.subtaskId, description: s.description })),
+                        remaining_task_count: Object.keys(chatVars.tasks).length
+                    }
+                };
+            },
+            getPrompt: () => ({
+                name: "remove_tasks",
+                description: "[IN-SESSION WORKFLOW] Remove (delete) tasks and/or subtasks from the current session. Supports removing entire tasks by task_id (e.g., 'T-1'), or removing specific subtasks by their numeric IDs. If all subtasks of a task are removed, the parent task is also cleaned up automatically.",
+                parameters: {
+                    type: "object",
+                    properties: {
+                        task_ids: {
+                            type: "array",
+                            items: { type: "string" },
+                            description: "Array of task IDs to fully remove (e.g., ['T-1', 'T-2'])."
+                        },
+                        subtask_ids: {
+                            type: "array",
+                            items: { type: "integer" },
+                            description: "Array of subtask IDs to remove from their parent tasks."
+                        }
+                    }
+                }
+            })
+        },
         "send_message": {
             func: async ({ to, message, toolCall }: { to: string; message: string; toolCall: any }) => {
                 const sender = sendMessageMain({});
