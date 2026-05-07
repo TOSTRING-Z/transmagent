@@ -45,17 +45,24 @@ export declare class LLMAssistant {
     /**
      * 心跳审查结果裁决（在 LLM 回复之后调用）。
      *
-     * 委托 LLM 审查者判断是否有到期 recurring 任务：
-     * - 若 toolInfos 为空（LLM 输出 [STANDBY] 且无工具调用）→ 阻断：
+     * 根据本轮有无工具调用 & messages 历史中自最近一条心跳 user 消息后
+     * 是否存在过工具调用（tool_calls），来共同判决：
+     *
+     * - 若 toolInfos 为空（LLM 输出 [STANDBY] 且无工具调用）
+     *   且 messages 中心跳 user 消息后从未有过工具调用 → 阻断：
      *   移除心跳 user 消息及 [STANDBY] 回复，保持上下文清洁。
-     * - 若 toolInfos 非空（LLM 决定执行工具）→ 放行。
+     * - 否则（本轮有工具调用 / 有错误 / 曾调过工具）→ 放行。
      *
      * @param toolInfos     当前轮次解析出的工具调用列表
-     * @param messages               chatManager 的消息列表（会被原地修改）
-     * @param hadToolCallsInSession  本轮心跳会话中是否曾有任何工具调用
+     * @param messages      chatManager 的消息列表（会被原地修改）
      * @returns true 表示心跳被阻断（调用方应退出本轮），false 表示放行
      */
-    resolveHeartbeatReview(toolInfos: ToolInfo[], messages: Message[], hadToolCallsInSession: boolean): boolean;
+    resolveHeartbeatReview(toolInfos: ToolInfo[], messages: Message[]): boolean;
+    /**
+     * 判断自最近一条心跳 user 消息之后，是否有 assistant 消息包含 tool_calls。
+     * 从末尾向前找到最后一条心跳 user 消息，然后扫描其后的所有消息。
+     */
+    private hasToolCallsAfterLastHeartbeat;
     /**
      * 从 messages 中移除最后一条心跳 user 消息及其之后的所有内容。
      */

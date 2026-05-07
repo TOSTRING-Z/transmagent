@@ -59,8 +59,6 @@ export declare class ToolCall extends LLMBase implements ISchedulableAgent {
     response_repetitions: (string | null)[];
     repetitions_delay_empty: number;
     toolInfos: ToolInfo[];
-    /** 当前心跳会话中是否曾有任何工具调用（用于 resolveHeartbeatReview 裁决） */
-    private hadToolCallsInHeartbeat;
     currentToolInfo: ToolInfo | undefined;
     llmAssistant: LLMAssistant;
     tool_schemas?: any[];

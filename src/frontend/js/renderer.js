@@ -1283,6 +1283,15 @@ ${DOM.input.value}`;
     if (State.chat && State.chat.compress_context !== void 0) {
       DOM.compress_box.checked = State.chat.compress_context;
     }
+    const memoryLength = document.getElementById("memory-length");
+    if (memoryLength)
+      memoryLength.value = String(State.chat.memory_length ?? "");
+    const longMemoryLength = document.getElementById("long-memory-length");
+    if (longMemoryLength)
+      longMemoryLength.value = String(State.chat.long_memory_length ?? "");
+    const maxTokens = document.getElementById("max-tokens");
+    if (maxTokens)
+      maxTokens.value = String(State.chat.max_tokens ?? "");
     ai_model.onchange = (event) => {
       api_url.value = config.models[event.target.value]?.api_url || "";
       api_key.value = config.models[event.target.value]?.api_key || "";
@@ -1332,6 +1341,15 @@ ${DOM.input.value}`;
     config.models[ai_model].api_url = api_url;
     config.models[ai_model].api_key = api_key;
     State.chat.compress_context = DOM.compress_box.checked;
+    const memoryLength = document.getElementById("memory-length");
+    if (memoryLength)
+      State.chat.memory_length = Number(memoryLength.value) || 0;
+    const longMemoryLength = document.getElementById("long-memory-length");
+    if (longMemoryLength)
+      State.chat.long_memory_length = Number(longMemoryLength.value) || 0;
+    const maxTokens = document.getElementById("max-tokens");
+    if (maxTokens)
+      State.chat.max_tokens = Number(maxTokens.value) || 0;
     window.electronAPI.setChat(State.chat);
     if (!config.tool_call)
       config.tool_call = {};

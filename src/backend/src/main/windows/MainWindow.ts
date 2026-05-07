@@ -449,10 +449,13 @@ export class MainWindow extends BaseWindow {
         });
 
         ipcMain.on('setChat', (_, chat) => {
-            this.sessionManager.setSessionChat({ seconds: chat.seconds });
-            if (chat.compress_context !== undefined) {
-                this.sessionManager.setSessionChat({ compress_context: chat.compress_context });
-            }
+            this.sessionManager.setSessionChat({
+                seconds: chat.seconds,
+                compress_context: chat.compress_context,
+                memory_length: chat.memory_length,
+                long_memory_length: chat.long_memory_length,
+                max_tokens: chat.max_tokens,
+            });
             this.session().tool_call.setHistory();
         });
 
