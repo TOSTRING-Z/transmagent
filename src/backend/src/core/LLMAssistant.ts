@@ -557,7 +557,7 @@ ${currentContent}
     }
 
     /**
-     * 从 messages 和 memoryList 中移除心跳 user 消息及其对应的 [STANDBY] 回复。
+     * 从 messages 中移除最后一条心跳 user 消息及其之后的所有内容。
      */
     private removeHeartbeatMessages(messages: Message[]): void {
         // 1. 清理 messages 中最后一条心跳 user 消息
