@@ -234,6 +234,22 @@ class DisplayFile {
                 let encodedPath = encodeURI(resolvedPath);
                 content = `![${path.basename(filePath)}](${encodedPath})`;
 
+            } else if (options.fileType === 'binary') {
+                // Binary file: return a download link instead of garbled text
+                const resolvedPath = path.resolve(filePath).replace(/\\/g, '/');
+                let encodedPath = encodeURI(resolvedPath);
+                const fileName = path.basename(filePath);
+                const fileSize = this._formatFileSize(stats.size);
+                content = [
+                    `> **Binary File Detected**: \`${fileName}\``,
+                    `> **Type**: ${path.extname(filePath).toLowerCase()} file`,
+                    `> **Size**: ${fileSize}`,
+                    `> **Download**: [${fileName}](${encodedPath})`,
+                    `>`,
+                    `> ⚠️ This file type is not viewable as plain text. `,
+                    `> Please use the appropriate application (e.g., Excel, Word, PowerPoint) to open it locally.`,
+                ].join('\n');
+
             } else {
                 content = await this._handleTextStream(filePath, options, totalLines);
             }
@@ -276,6 +292,17 @@ class DisplayFile {
                 resolve(this._formatOutput(lines, startLine, endLine, totalLines, fileType));
             });
         });
+    }
+
+    private _formatFileSize(bytes: number): string {
+        const units = ['B', 'KB', 'MB', 'GB', 'TB'];
+        let size = bytes;
+        let unitIdx = 0;
+        while (size >= 1024 && unitIdx < units.length - 1) {
+            size /= 1024;
+            unitIdx++;
+        }
+        return `${size.toFixed(unitIdx === 0 ? 0 : 2)} ${units[unitIdx]}`;
     }
 
     private _formatOutput(lines: string[], start: number, end: number, total: number, type: string): string {
@@ -338,10 +365,30 @@ class DisplayFile {
 
     private _detectFileType(filePath: string): string {
         const ext = path.extname(filePath).toLowerCase();
-        if (['.csv', '.tsv', '.xlsx'].includes(ext)) return 'table';
-        if (['.png', '.jpg', '.jpeg'].includes(ext)) return 'image';
+        if (['.csv', '.tsv'].includes(ext)) return 'table';
+        if (['.png', '.jpg', '.jpeg', '.gif', '.bmp', '.webp', '.svg'].includes(ext)) return 'image';
         if (ext === '.pdf') return 'pdf';
         if (ext === '.md') return 'markdown';
+
+        // Binary/non-text file extension blacklist
+        const binaryExts = [
+            '.xlsx', '.xls', '.xlsm', '.xlsb',
+            '.docx', '.doc', '.docm',
+            '.pptx', '.ppt', '.pptm',
+            '.zip', '.rar', '.7z', '.tar', '.gz', '.bz2',
+            '.bin', '.exe', '.dll', '.so', '.dylib',
+            '.o', '.obj', '.class',
+            '.pyc', '.pyo',
+            '.db', '.sqlite', '.sqlite3',
+            '.mdb', '.accdb',
+            '.vsd', '.vsdx',
+            '.psd', '.ai', '.eps',
+            '.ttf', '.otf', '.woff', '.woff2',
+            '.mp3', '.mp4', '.avi', '.mov', '.wav',
+            '.iso', '.img',
+        ];
+        if (binaryExts.includes(ext)) return 'binary';
+
         return 'text';
     }
 
@@ -427,7 +474,7 @@ export function main(params?: { local_path?: string }) {
 export function getPrompt() {
     return {
         "name": "display_file",
-        "description": "Reads file content with mandatory pagination. CRITICAL: For text-based files (code, logs, CSV, MD), it returns actual readable text content. For visual/binary files (images, PDFs), it ONLY returns markdown formatted links for UI rendering/display, and CANNOT extract internal text or pixels.",
+        "description": "Reads file content with mandatory pagination. CRITICAL: For text-based files (code, logs, CSV, MD), it returns actual readable text content. For visual files (images, PDFs), it returns markdown formatted links for UI rendering/display. Binary/non-text files (xlsx, docx, pptx, zip, exe, etc.) are automatically detected and blocked from text streaming to prevent garbled output.",
         "parameters": {
             "type": "object",
             "properties": {
