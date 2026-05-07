@@ -24,7 +24,7 @@ export declare class LLMBase {
     state: State;
     constructor(llmService: LLMService, window: (BrowserWindow | null) | undefined, utils: Utils);
     setUUID(data?: Record<string, any>): string;
-    private formatTemplate;
+    formatTemplate(template: string | null | undefined, data: Record<string, any>): string;
     setHistory(chat?: ChatState | null): boolean | undefined;
     retry(func: (data: Record<string, any>) => Promise<any>, data: any): Promise<any>;
     llmCall(data: Record<string, any>): Promise<AssistantMessage | null>;

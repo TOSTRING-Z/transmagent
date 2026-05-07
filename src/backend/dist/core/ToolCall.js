@@ -480,6 +480,33 @@ class ToolCall extends LLMBase_1.LLMBase {
     async step(data) {
         if (this.state === LLMBase_1.State.IDLE)
             this.state = LLMBase_1.State.RUNNING;
+        // ── 心跳任务审查中间件（阶段1：检测 + 直接持久化） ──
+        const isHeartbeat = this.llmAssistant.detectHeartbeat(data.query);
+        if (isHeartbeat) {
+            logger_1.logger.log('[HeartbeatGuard] Heartbeat message detected, delegating to LLM reviewer.');
+            // 直接写入 messages 数组，绕过 pushUserMessage 的 UUID 守卫
+            // 放行时保留，阻断时由 resolveHeartbeatReview 移除
+            const chat = this.llmService.chatManager.chat;
+            const hbContent = data.query;
+            const alreadyInMessages = this.llmService.chatManager.messages.some((m) => m.role === 'user' && typeof m.content === 'string' && m.content === hbContent);
+            if (!alreadyInMessages) {
+                const hbMsg = {
+                    role: 'user',
+                    content: hbContent,
+                    group_id: chat.group_id,
+                    context_id: chat.context_id,
+                    show: true,
+                    react: false,
+                };
+                this.llmService.chatManager.messages.push(hbMsg);
+                this.llmService.chatManager.updateChat?.();
+                // 同步写入 memory_list
+                if (this.memory_list) {
+                    this.memory_list.push({ ...hbMsg });
+                }
+                logger_1.logger.log('[HeartbeatGuard] Heartbeat user message pushed directly (bypass UUID guard).');
+            }
+        }
         if (!this.mcp_prompt) {
             await this.mcp_client.initMcp();
             this.mcp_prompt = this.mcp_client.mcpPrompt;
@@ -533,6 +560,11 @@ class ToolCall extends LLMBase_1.LLMBase {
         // ── 消息类型判断 ────────────────────────────────────────────────────
         const hasTool = this.toolInfos.some(t => t.tool_call_name);
         const hasError = this.toolInfos.some(t => t.error);
+        // ── 心跳任务审查中间件（阶段2：LLM审查者结果判定） ──
+        if (isHeartbeat && this.llmAssistant.resolveHeartbeatReview(this.toolInfos, this.llmService.chatManager.messages, this.memory_list)) {
+            this.state = LLMBase_1.State.FINAL;
+            return;
+        }
         if (hasTool || hasError) {
             this.llmService.chatManager.pushAssistantMessageWithToolCalls({
                 ...this.llmService.chatManager.chat, ...messageOutput, uuid: data.uuid,

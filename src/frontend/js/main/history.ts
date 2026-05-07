@@ -49,7 +49,6 @@ export function updateChat(chat: any) {
 
   // Update UI elements to reflect the current chat state
   toggleMode(State.chat.mode);
-  DOM.system_prompt.value = State.chat.system_prompt || "";
   DOM.tokens.innerText = String(State.chat.tokens || 0);
   DOM.msg_count.innerText = String(State.chat.msg_count || 0);
   DOM.seconds.innerText = (State.chat.seconds || 0).toFixed(1);

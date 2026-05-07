@@ -147,7 +147,7 @@ class ChatManager {
             model: this.utils.getConfig("default")["model"] || "deepseek[openai]",
             version: this.utils.getConfig("default")["version"] || "deepseek-chat",
             tool_format: this.utils.getConfig("default")["tool_format"] || "toolcalls",
-            is_plugin: this.utils.getConfig("default")["model"] === "plugins",
+            plugin: this.utils.getConfig("default")["plugin"],
             compress_context: this.utils.getConfig("default")["compress_context"] || false,
             memory_length: this.utils.getConfig('tool_call')["memory_length"] || 100,
             long_memory_length: this.utils.getConfig('tool_call')["long_memory_length"] || 200,

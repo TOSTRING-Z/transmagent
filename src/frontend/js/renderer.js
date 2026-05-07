@@ -392,7 +392,6 @@ $$
       return;
     State.chat = chat;
     toggleMode(State.chat.mode);
-    DOM.system_prompt.value = State.chat.system_prompt || "";
     DOM.tokens.innerText = String(State.chat.tokens || 0);
     DOM.msg_count.innerText = String(State.chat.msg_count || 0);
     DOM.seconds.innerText = (State.chat.seconds || 0).toFixed(1);
@@ -736,7 +735,7 @@ $$
       const message_content = messageSystem.getElementsByClassName("message")[0];
       const thinking = messageSystem.getElementsByClassName("thinking")[0];
       thinking?.classList.add("hidden");
-      if (!messageSystem.dataset?.event_stop) {
+      if (messageSystem.dataset?.event_stop !== "true") {
         messageSystem.dataset.event_stop = "true";
         if (message_content)
           menuEvent(messageSystem, message_content.dataset.content, chunk?.is_plugin);

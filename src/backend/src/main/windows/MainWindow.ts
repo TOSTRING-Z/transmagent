@@ -16,7 +16,7 @@ import { MainServer } from '../../server/MainServer';
 import { Session, SessionManager } from '../../core/SessionManager';
 import { BackgroundTaskRegistry } from '../../core/BackgroundTaskRegistry';
 import { AgentMode } from '../../types';
-import { formatDate, setDefaultConfig } from '../../utils/public';
+import { formatDate, getDefaultConfig, setDefaultConfig } from '../../utils/public';
 
 // 定义 FuncItems 结构以启用严格模式
 interface FuncItemNode {
@@ -519,7 +519,7 @@ export class MainWindow extends BaseWindow {
     private getReactEvent(e: FuncItemNode) {
         const extraReact = () => {
             this.window?.webContents.send('react-statu', e.statu);
-            if (this.sessionManager.getChat()?.is_plugin) {
+            if (this.sessionManager.getChat()?.model === "plugins") {
                 this.window?.webContents.send("extra_load", e.statu && this.session().plugins.getTool[this.sessionManager.getChat()?.version as string]?.extra);
             } else {
                 let extra = [{ "type": "act-plan" }];
@@ -565,7 +565,7 @@ export class MainWindow extends BaseWindow {
             last_clipboard_content: this.last_clipboard_content,
             model: this.sessionManager.getChat()?.model,
             version: this.sessionManager.getChat()?.version,
-            is_plugin: this.sessionManager.getChat()?.is_plugin,
+            plugin: this.sessionManager.getChat()?.plugin,
             chat: this.sessionManager.getChat(),
             chats: history_data.data
         });
@@ -584,7 +584,6 @@ export class MainWindow extends BaseWindow {
                 const modelConfig = this.session().utils.getConfig("models")[_model];
                 this.sessionManager.setSessionChat({
                     model: _model,
-                    is_plugin: _model === "plugins",
                     version: modelConfig?.versions[0].version,
                 })
 
@@ -598,7 +597,7 @@ export class MainWindow extends BaseWindow {
 
     private getVersionsSubmenu(): MenuItemConstructorOptions[] {
         let versions;
-        if (this.sessionManager.getChat()?.is_plugin) {
+        if (this.sessionManager.getChat()?.model === "plugins") {
             versions = Object.values(this.session().plugins.getTool() as Record<string, PluginItem>)
                 .filter((tool: PluginItem) => tool?.version && tool?.show)
                 .map((tool: PluginItem) => ({ version: tool.version, show: tool.show }));
@@ -619,7 +618,7 @@ export class MainWindow extends BaseWindow {
                     this.sessionManager.setSessionChat({ version: _version });
                     this.window?.webContents.send("handleSetChat", this.sessionManager.getChat());
                     if (this.session().tool_call.setHistory) this.session().tool_call.setHistory();
-                    if (this.sessionManager.getChat()?.is_plugin) this.window?.webContents.send("extra_load", version?.extra);
+                    if (this.sessionManager.getChat()?.model === "plugins") this.window?.webContents.send("extra_load", version?.extra);
                 },
                 label: _version
             };
