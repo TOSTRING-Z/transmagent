@@ -117,6 +117,8 @@ export class ToolCall extends LLMBase implements ISchedulableAgent {
     public response_repetitions: (string | null)[] = [];
     public repetitions_delay_empty: number = 0;
     public toolInfos: ToolInfo[] = [];
+    /** 当前心跳会话中是否曾有任何工具调用（用于 resolveHeartbeatReview 裁决） */
+    private hadToolCallsInHeartbeat: boolean = false;
     public currentToolInfo: ToolInfo | undefined;
     public llmAssistant: LLMAssistant;
     public tool_schemas?: any[];
@@ -580,34 +582,10 @@ export class ToolCall extends LLMBase implements ISchedulableAgent {
     public async step(data: Record<string, any>) {
         if (this.state === State.IDLE) this.state = State.RUNNING;
 
-        // ── 心跳任务审查中间件（阶段1：检测 + 直接持久化） ──
+        // ── 心跳任务审查中间件（阶段1：检测 + 重置追踪状态） ──
         const isHeartbeat = this.llmAssistant.detectHeartbeat(data.query);
         if (isHeartbeat) {
-            logger.log('[HeartbeatGuard] Heartbeat message detected, delegating to LLM reviewer.');
-            // 直接写入 messages 数组，绕过 pushUserMessage 的 UUID 守卫
-            // 放行时保留，阻断时由 resolveHeartbeatReview 移除
-            const chat = this.llmService.chatManager.chat;
-            const hbContent = data.query;
-            const alreadyInMessages = this.llmService.chatManager.messages.some(
-                (m: any) => m.role === 'user' && typeof m.content === 'string' && m.content === hbContent
-            );
-            if (!alreadyInMessages) {
-                const hbMsg: any = {
-                    role: 'user',
-                    content: hbContent,
-                    group_id: chat.group_id,
-                    context_id: chat.context_id,
-                    show: true,
-                    react: false,
-                };
-                this.llmService.chatManager.messages.push(hbMsg);
-                (this.llmService.chatManager as any).updateChat?.();
-                // 同步写入 memory_list
-                if (this.memory_list) {
-                    this.memory_list.push({ ...hbMsg });
-                }
-                logger.log('[HeartbeatGuard] Heartbeat user message pushed directly (bypass UUID guard).');
-            }
+            this.hadToolCallsInHeartbeat = false;
         }
 
         if (!this.mcp_prompt) {
@@ -672,11 +650,16 @@ export class ToolCall extends LLMBase implements ISchedulableAgent {
         const hasTool = this.toolInfos.some(t => t.tool_call_name);
         const hasError = this.toolInfos.some(t => t.error);
 
+        // 心跳会话中若本轮有工具调用，标记为已调过工具
+        if (isHeartbeat && hasTool) {
+            this.hadToolCallsInHeartbeat = true;
+        }
+
         // ── 心跳任务审查中间件（阶段2：LLM审查者结果判定） ──
         if (isHeartbeat && this.llmAssistant.resolveHeartbeatReview(
             this.toolInfos,
             this.llmService.chatManager.messages,
-            this.memory_list
+            this.hadToolCallsInHeartbeat
         )) {
             this.state = State.FINAL;
             return;
