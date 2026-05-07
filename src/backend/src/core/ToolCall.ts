@@ -118,8 +118,6 @@ export class ToolCall extends LLMBase implements ISchedulableAgent {
     public response_repetitions: (string | null)[] = [];
     public repetitions_delay_empty: number = 0;
     public toolInfos: ToolInfo[] = [];
-    /** 当前心跳会话中是否曾有任何工具调用（用于 resolveHeartbeatReview 裁决） */
-    private hadToolCallsInHeartbeat: boolean = false;
     public currentToolInfo: ToolInfo | undefined;
     public llmAssistant: LLMAssistant;
     public tool_schemas?: any[];
@@ -583,11 +581,8 @@ export class ToolCall extends LLMBase implements ISchedulableAgent {
     public async step(data: Record<string, any>) {
         if (this.state === State.IDLE) this.state = State.RUNNING;
 
-        // ── 心跳任务审查中间件（阶段1：检测 + 重置追踪状态） ──
+        // ── 心跳检测 ──
         const isHeartbeat = this.llmAssistant.detectHeartbeat(data.query);
-        if (isHeartbeat) {
-            this.hadToolCallsInHeartbeat = false;
-        }
 
         if (!this.mcp_prompt) {
             await this.mcp_client.initMcp();
@@ -651,16 +646,10 @@ export class ToolCall extends LLMBase implements ISchedulableAgent {
         const hasTool = this.toolInfos.some(t => t.tool_call_name);
         const hasError = this.toolInfos.some(t => t.error);
 
-        // 心跳会话中若本轮有工具调用，标记为已调过工具
-        if (isHeartbeat && hasTool) {
-            this.hadToolCallsInHeartbeat = true;
-        }
-
-        // ── 心跳任务审查中间件（阶段2：LLM审查者结果判定） ──
+        // ── 心跳审查：resolveHeartbeatReview 内部通过 messages 历史判断是否有过工具调用 ──
         if (isHeartbeat && this.llmAssistant.resolveHeartbeatReview(
             this.toolInfos,
             this.llmService.chatManager.messages,
-            this.hadToolCallsInHeartbeat
         )) {
             this.state = State.FINAL;
             return;

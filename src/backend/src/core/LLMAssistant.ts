@@ -526,33 +526,74 @@ ${currentContent}
     /**
      * 心跳审查结果裁决（在 LLM 回复之后调用）。
      *
-     * 委托 LLM 审查者判断是否有到期 recurring 任务：
-     * - 若 toolInfos 为空（LLM 输出 [STANDBY] 且无工具调用）→ 阻断：
+     * 根据本轮有无工具调用 & messages 历史中自最近一条心跳 user 消息后
+     * 是否存在过工具调用（tool_calls），来共同判决：
+     *
+     * - 若 toolInfos 为空（LLM 输出 [STANDBY] 且无工具调用）
+     *   且 messages 中心跳 user 消息后从未有过工具调用 → 阻断：
      *   移除心跳 user 消息及 [STANDBY] 回复，保持上下文清洁。
-     * - 若 toolInfos 非空（LLM 决定执行工具）→ 放行。
+     * - 否则（本轮有工具调用 / 有错误 / 曾调过工具）→ 放行。
      *
      * @param toolInfos     当前轮次解析出的工具调用列表
-     * @param messages               chatManager 的消息列表（会被原地修改）
-     * @param hadToolCallsInSession  本轮心跳会话中是否曾有任何工具调用
+     * @param messages      chatManager 的消息列表（会被原地修改）
      * @returns true 表示心跳被阻断（调用方应退出本轮），false 表示放行
      */
     public resolveHeartbeatReview(
         toolInfos: ToolInfo[],
         messages: Message[],
-        hadToolCallsInSession: boolean
     ): boolean {
         const hasTool = toolInfos.some(t => t.tool_call_name);
         const hasError = toolInfos.some(t => t.error);
 
-        // 仅当当前轮无工具调用、无错误、且整个心跳会话从未调过工具时，才判定为纯 STANDBY
-        if (!hasTool && !hasError && !hadToolCallsInSession) {
+        // 本轮有工具/错误 → 直接放行
+        if (hasTool || hasError) {
+            logger.log('[HeartbeatGuard] Heartbeat passed (current round has tool/error).');
+            return false;
+        }
+
+        // 检查 messages 中自最近一条心跳 user 消息之后是否有 assistant 消息包含 tool_calls
+        const hasToolCallsInSession = this.hasToolCallsAfterLastHeartbeat(messages);
+
+        if (!hasToolCallsInSession) {
+            // 整个心跳会话中从未调过工具 → 纯 STANDBY，移除心跳消息
             this.removeHeartbeatMessages(messages);
             logger.log('[HeartbeatGuard] No tools called in session. STANDBY confirmed. Heartbeat blocked, messages cleaned.');
             return true;
         }
 
-        // 否则：有工具调用 / 有错误 / 曾调过工具 → 放行，保留消息
-        logger.log('[HeartbeatGuard] Heartbeat passed (messages preserved).');
+        // 曾调过工具，但本轮是纯文本回复 → 放行（保留上下文）
+        logger.log('[HeartbeatGuard] Heartbeat passed (previous rounds had tool calls, preserved for context).');
+        return false;
+    }
+
+    /**
+     * 判断自最近一条心跳 user 消息之后，是否有 assistant 消息包含 tool_calls。
+     * 从末尾向前找到最后一条心跳 user 消息，然后扫描其后的所有消息。
+     */
+    private hasToolCallsAfterLastHeartbeat(messages: Message[]): boolean {
+        let heartbeatIndex = -1;
+        for (let i = messages.length - 1; i >= 0; i--) {
+            const msg = messages[i];
+            if (
+                msg.role === 'user' &&
+                typeof msg.content === 'string' &&
+                msg.content.startsWith(HEARTBEAT_KEYWORD)
+            ) {
+                heartbeatIndex = i;
+                break;
+            }
+        }
+
+        if (heartbeatIndex === -1) return false;
+
+        // 扫描 heartbeatIndex 之后的所有消息
+        for (let i = heartbeatIndex + 1; i < messages.length; i++) {
+            const msg = messages[i];
+            if (msg.role === 'assistant' && (msg as any).tool_calls?.length > 0) {
+                return true;
+            }
+        }
+
         return false;
     }
 
@@ -560,9 +601,7 @@ ${currentContent}
      * 从 messages 中移除最后一条心跳 user 消息及其之后的所有内容。
      */
     private removeHeartbeatMessages(messages: Message[]): void {
-        // 1. 清理 messages 中最后一条心跳 user 消息
-        //    从末尾向前搜索，找到第一条（即最近的一条）就 break，
-        //    之前放行保留的历史心跳消息不受影响。
+        // 从末尾向前搜索，找到最后一条心跳 user 消息就 splice
         for (let i = messages.length - 1; i >= 0; i--) {
             const msg = messages[i];
             if (
