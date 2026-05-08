@@ -814,12 +814,8 @@ export class MainWindow extends BaseWindow {
                                     store.set('lastLoadPath', path.dirname(result.filePaths[0]));
                                     this.session().tool_call.initVar();
                                     this.session().tool_call.loadMessage(result.filePaths[0]);
-                                    let id_exist = this.session().tool_call.setHistory();
-                                    if (id_exist) {
-                                        this.window?.webContents.send('handleloadChat', this.sessionManager.getChat());
-                                    } else {
-                                        this.window?.webContents.send('handleSetChat', this.sessionManager.getChat());
-                                    };
+                                    this.session().tool_call.setHistory();
+                                    this.window?.webContents.send('handleloadChat', this.sessionManager.getChat());
                                 }
                             });
                         }

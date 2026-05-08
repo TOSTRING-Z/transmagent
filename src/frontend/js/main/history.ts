@@ -72,6 +72,11 @@ export async function loadChat(chatId: string) {
 
 export async function handleloadChat(chat: any) {
   updateChat(chat);
+  // 如果侧边栏中不存在该对话项，则立即添加到历史列表
+  const existingItem = document.getElementById(chat.id);
+  if (!existingItem) {
+    addChatItem(chat);
+  }
   selectChat(chat.id);
 }
 
