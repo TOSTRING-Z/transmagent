@@ -448,6 +448,26 @@ export class MainWindow extends BaseWindow {
             return [];
         });
 
+        ipcMain.handle('bgtask-details', async (_, data) => {
+            const { type, taskId } = data;
+            switch (type) {
+                case 'getOutput':
+                    return await BackgroundTaskRegistry.getTaskOutput(taskId, 200);
+                case 'getDetails':
+                    return BackgroundTaskRegistry.getTaskDetails(taskId);
+                case 'openFolder': {
+                    const details = BackgroundTaskRegistry.getTaskDetails(taskId);
+                    if (details?.outputFilePath) {
+                        const folderPath = path.dirname(details.outputFilePath);
+                        shell.openPath(folderPath);
+                    }
+                    return true;
+                }
+                default:
+                    return null;
+            }
+        });
+
         ipcMain.on('setChat', (_, chat) => {
             this.sessionManager.setSessionChat({
                 seconds: chat.seconds,
@@ -757,10 +777,10 @@ export class MainWindow extends BaseWindow {
                             this.session().tool_call.initVar();
                             const chat_id = this.sessionManager.getChat()?.id;
                             this.session().llmService.chatManager.initMessages();
-                            // 清空 Task List
+                            // 清空 Task List 和环境变量
                             let vars = this.sessionManager.getChat()?.vars || {};
                             vars.tasks = [];
-                            this.sessionManager.setSessionChat({ id: chat_id, vars });
+                            this.sessionManager.setSessionChat({ id: chat_id, vars, envs: {} });
                             this.session().tool_call.changeMode();
                             this.updateVersionsSubmenu();
                             this.window?.webContents.send('handleSetChat', this.sessionManager.getChat());
