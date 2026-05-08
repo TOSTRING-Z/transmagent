@@ -192,6 +192,13 @@ async function renderBGTasks() {
     `;
   }).join('');
 
+  // 保存已展开面板的 innerHTML，避免重建时闪烁
+  const savedPanels: Record<string, string> = {};
+  for (const tid of expandedTasks) {
+    const panel = document.getElementById('bg-details-panel-' + tid);
+    if (panel) savedPanels[tid] = panel.innerHTML;
+  }
+
   container.innerHTML = rows;
 
   // 绑定 Stop 按钮事件（innerHTML 后需重新挂载）
@@ -206,16 +213,16 @@ async function renderBGTasks() {
     });
   });
 
-  // 恢复已展开任务的详情面板
+  // 从缓存恢复已展开任务的详情面板（无 IPC 调用，不闪烁）
   for (const tid of expandedTasks) {
     const panel = document.getElementById('bg-details-panel-' + tid);
-    if (panel) {
+    if (panel && savedPanels[tid]) {
+      panel.innerHTML = savedPanels[tid];
       panel.style.display = 'block';
-      await loadTaskDetails(tid);
     }
   }
 
-  // 对运行中的展开任务启动 2s 刷新
+  // 对运行中的展开任务启动 2s 刷新（仅更新文本内容，不重建 DOM）
   if ((window as any)._bgOutputRefreshInterval) {
     clearInterval((window as any)._bgOutputRefreshInterval);
     (window as any)._bgOutputRefreshInterval = null;

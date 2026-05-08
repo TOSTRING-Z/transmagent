@@ -1250,6 +1250,12 @@ ${DOM.input.value}`;
       </div>
     `;
     }).join("");
+    const savedPanels = {};
+    for (const tid of expandedTasks) {
+      const panel = document.getElementById("bg-details-panel-" + tid);
+      if (panel)
+        savedPanels[tid] = panel.innerHTML;
+    }
     container.innerHTML = rows;
     container.querySelectorAll(".bg-stop-btn").forEach((btn) => {
       btn.addEventListener("click", async () => {
@@ -1264,9 +1270,9 @@ ${DOM.input.value}`;
     });
     for (const tid of expandedTasks) {
       const panel = document.getElementById("bg-details-panel-" + tid);
-      if (panel) {
+      if (panel && savedPanels[tid]) {
+        panel.innerHTML = savedPanels[tid];
         panel.style.display = "block";
-        await loadTaskDetails(tid);
       }
     }
     if (window._bgOutputRefreshInterval) {
