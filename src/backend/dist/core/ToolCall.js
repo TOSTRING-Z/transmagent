@@ -275,12 +275,13 @@ class ToolCall extends LLMBase_1.LLMBase {
                 // 4. 自动唤醒 ReAct 循环（skipInitialPush=true，消息已在上方注入）
                 const wakeReason = msg.type === 'task_result' ? `task "${msg.taskId}"` : 'incoming agent message';
                 logger_1.logger.log(`[ToolCall] Waking agent from "${this.state}" state for ${wakeReason}`);
-                this.llmService.startLoop();
+                this.llmService.stopFlag = false; // 确保 stopFlag 被重置，允许继续处理
                 const wakeData = this.getDataDefault({
-                    query: '',
+                    // 修复：使用明确的系统指令作为 query，确保 LLM 会响应并产生可见输出
+                    // 空 query 会导致 LLM 不采取行动，用户看不到任何反馈
+                    query: '[SYSTEM: A background task or agent message has been delivered above. Please review the injected information and respond to the user with a summary or acknowledgment.]',
                 });
-                wakeData.uuid = this.llmService.chatManager.uuid;
-                this.callReAct(wakeData, false, true).catch((err) => {
+                this.callReAct(wakeData, true, true).catch((err) => {
                     logger_1.logger.error('[ToolCall] Background wake-up callReAct error:', err);
                 });
             });

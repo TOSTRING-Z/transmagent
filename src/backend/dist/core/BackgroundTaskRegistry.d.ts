@@ -8,7 +8,7 @@
  *   2. 任务完成时调用 addMessage() → 自动将任务标记为 completed。
  *   3. 前端实时展示 running/completed/failed 状态列表。
  */
-export type BgTaskStatus = 'running' | 'completed' | 'failed';
+export type BgTaskStatus = 'running' | 'completed' | 'failed' | 'idle';
 export interface BgTaskInfo {
     taskId: string;
     sessionId: string;
@@ -98,6 +98,12 @@ export declare class BackgroundTaskRegistry {
      *  @param skipMarkCompleted - 若为 true，不标记任务完成（用于非瞬态子代理）
      */
     static addMessage(sessionId: string, taskId: string, content: string, skipMarkCompleted?: boolean): void;
+    /**
+     * 子代理完成任务通知：将任务标记为 idle（存活但空闲），同时投递消息到主会话。
+     * 与 addMessage 的区别：不会标记为 completed，而是标记为 idle，表示子代理已完成主任务
+     * 但保持存活，可以继续接收消息。
+     */
+    static addAgentCompletionNotice(sessionId: string, taskId: string, content: string): void;
     static registerHandler(sessionId: string, handler: SessionMessageHandler): void;
     static unregisterHandler(sessionId: string): void;
     static drainMessages(sessionId: string): PendingMessage[];
