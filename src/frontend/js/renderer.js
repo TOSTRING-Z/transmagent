@@ -1166,6 +1166,7 @@ ${DOM.input.value}`;
     const container = document.getElementById("bg_tasks_list");
     if (!container)
       return;
+    const expandedTasks = window._expandedTasks ? Array.from(window._expandedTasks) : [];
     const tasks = await window.electronAPI.BGTasks({ type: "get" });
     const emptyEl = document.getElementById("bg_tasks_empty");
     if (!tasks || tasks.length === 0) {
@@ -1205,12 +1206,17 @@ ${DOM.input.value}`;
         " onmouseover="this.style.background='#ef444422'" onmouseout="this.style.background='transparent'">
           <i class="fas fa-stop"></i> Stop
         </button>` : "";
+      const detailsBtn = t.status === "running" || t.status === "completed" || t.status === "failed" ? `<button class="bg-details-toggle-btn" data-taskid="${escapeHtml(t.taskId)}" onclick="toggleTaskDetails('${escapeHtml(t.taskId)}')">
+          <i class="fas fa-terminal"></i> Details
+        </button>` : "";
+      const isExpanded = expandedTasks.includes(t.taskId);
+      const detailsPanel = `<div class="bg-task-details-panel" id="bg-details-panel-${escapeHtml(t.taskId)}" style="display: ${isExpanded ? "block" : "none"};"></div>`;
       return `
       <div style="
         padding: 12px 16px;
         border-bottom: 1px solid rgba(139, 92, 246, 0.08);
         font-size: 13px;
-      ">
+      " data-taskid="${escapeHtml(t.taskId)}">
         <div style="display: flex; align-items: center; justify-content: space-between;">
           <div style="display: flex; align-items: center; gap: 10px;">
             <i class="fas ${icon}" style="color: ${color}; font-size: 16px;"></i>
@@ -1226,6 +1232,7 @@ ${DOM.input.value}`;
             ">${t.status}</span>
           </div>
           <div style="display: flex; align-items: center; gap: 10px;">
+            ${detailsBtn}
             ${stopBtn}
             <span style="color: #888; font-size: 12px;">${elapsed}</span>
           </div>
@@ -1239,6 +1246,7 @@ ${DOM.input.value}`;
           Started: ${startStr}
         </div>
         ${result}
+        ${detailsPanel}
       </div>
     `;
     }).join("");
@@ -1254,12 +1262,117 @@ ${DOM.input.value}`;
         await renderBGTasks();
       });
     });
+    for (const tid of expandedTasks) {
+      const panel = document.getElementById("bg-details-panel-" + tid);
+      if (panel) {
+        panel.style.display = "block";
+        await loadTaskDetails(tid);
+      }
+    }
+    if (window._bgOutputRefreshInterval) {
+      clearInterval(window._bgOutputRefreshInterval);
+      window._bgOutputRefreshInterval = null;
+    }
+    const runningExpanded = expandedTasks.filter((tid) => {
+      const t = tasks.find((t2) => t2.taskId === tid);
+      return t && t.status === "running";
+    });
+    if (runningExpanded.length > 0) {
+      window._bgOutputRefreshInterval = setInterval(async () => {
+        for (const tid of runningExpanded) {
+          await refreshTaskOutput(tid);
+        }
+      }, 2e3);
+    }
   }
   function escapeHtml(text) {
     const div = document.createElement("div");
     div.textContent = text;
     return div.innerHTML;
   }
+  window.toggleTaskDetails = async (taskId) => {
+    const panel = document.getElementById("bg-details-panel-" + taskId);
+    if (!panel)
+      return;
+    window._expandedTasks = window._expandedTasks || /* @__PURE__ */ new Set();
+    if (panel.style.display === "none" || panel.style.display === "") {
+      panel.style.display = "block";
+      window._expandedTasks.add(taskId);
+      await loadTaskDetails(taskId);
+    } else {
+      panel.style.display = "none";
+      window._expandedTasks.delete(taskId);
+      window._loadedDetails = window._loadedDetails || /* @__PURE__ */ new Set();
+      window._loadedDetails.delete(taskId);
+    }
+  };
+  async function loadTaskDetails(taskId) {
+    const panel = document.getElementById("bg-details-panel-" + taskId);
+    if (!panel)
+      return;
+    window._loadedDetails = window._loadedDetails || /* @__PURE__ */ new Set();
+    try {
+      const details = await window.electronAPI.BGTaskDetails({ type: "getDetails", taskId });
+      const output = await window.electronAPI.BGTaskDetails({ type: "getOutput", taskId });
+      const outputFilePath = details?.outputFilePath || "N/A";
+      panel.innerHTML = `
+      <div class="bg-task-details">
+        <div class="bg-details-header">
+          <span class="bg-details-title"><i class="fas fa-terminal"></i> Task Output</span>
+          <div class="bg-details-actions">
+            <button class="bg-details-btn" onclick="copyOutputPath('${escapeHtml(taskId)}')">
+              <i class="fas fa-copy"></i> Copy Path
+            </button>
+            <button class="bg-details-btn" onclick="openOutputFolder('${escapeHtml(taskId)}')">
+              <i class="fas fa-folder-open"></i> Open Folder
+            </button>
+            <button class="bg-details-btn" onclick="toggleTaskDetails('${escapeHtml(taskId)}')">
+              <i class="fas fa-chevron-up"></i> Collapse
+            </button>
+          </div>
+        </div>
+        <div class="bg-details-meta">
+          <span><i class="fas fa-file"></i> Output: <code class="bg-details-path">${escapeHtml(outputFilePath)}</code></span>
+        </div>
+        <pre class="bg-details-output"><code>${escapeHtml(output)}</code></pre>
+      </div>
+    `;
+      window._loadedDetails.add(taskId);
+    } catch (err) {
+      panel.innerHTML = `<div class="bg-task-details" style="color: #ef4444; font-size: 12px;">Failed to load details: ${escapeHtml(err.message || "Unknown error")}</div>`;
+    }
+  }
+  async function refreshTaskOutput(taskId) {
+    const panel = document.getElementById("bg-details-panel-" + taskId);
+    if (!panel)
+      return;
+    const codeEl = panel.querySelector(".bg-details-output code");
+    if (!codeEl)
+      return;
+    try {
+      const output = await window.electronAPI.BGTaskDetails({ type: "getOutput", taskId });
+      codeEl.textContent = output;
+    } catch (_err) {
+    }
+  }
+  window.copyOutputPath = async (taskId) => {
+    try {
+      const details = await window.electronAPI.BGTaskDetails({ type: "getDetails", taskId });
+      if (details?.outputFilePath) {
+        await navigator.clipboard.writeText(details.outputFilePath);
+        showLog("success", "Path copied to clipboard");
+      }
+    } catch (_err) {
+      showLog("error", "Failed to copy path");
+    }
+  };
+  window.openOutputFolder = async (taskId) => {
+    try {
+      await window.electronAPI.BGTaskDetails({ type: "openFolder", taskId });
+    } catch (_err) {
+      showLog("error", "Failed to open folder");
+    }
+  };
   async function showConfig() {
     const mConfig = document.querySelector("#m-config");
     if (mConfig)
