@@ -1162,14 +1162,26 @@ ${DOM.input.value}`;
       await renderBGTasks();
     });
   }
+  var _lastTasksSnapshot = "";
   async function renderBGTasks() {
     const container = document.getElementById("bg_tasks_list");
     if (!container)
       return;
     const expandedTasks = window._expandedTasks ? Array.from(window._expandedTasks) : [];
     const tasks = await window.electronAPI.BGTasks({ type: "get" });
+    const newSnapshot = JSON.stringify(tasks.map((t) => ({
+      id: t.taskId,
+      status: t.status,
+      summary: t.resultSummary || ""
+    })));
+    if (newSnapshot === _lastTasksSnapshot && tasks.length > 0) {
+      updateElapsedTimes(tasks);
+      return;
+    }
+    _lastTasksSnapshot = newSnapshot;
     const emptyEl = document.getElementById("bg_tasks_empty");
     if (!tasks || tasks.length === 0) {
+      _lastTasksSnapshot = "";
       container.innerHTML = "";
       const div = document.createElement("div");
       div.id = "bg_tasks_empty";
@@ -1234,7 +1246,7 @@ ${DOM.input.value}`;
           <div style="display: flex; align-items: center; gap: 10px;">
             ${detailsBtn}
             ${stopBtn}
-            <span style="color: #888; font-size: 12px;">${elapsed}</span>
+            <span style="color: #888; font-size: 12px;" data-elapsed="${escapeHtml(t.taskId)}">${elapsed}</span>
           </div>
         </div>
         <div style="margin-top: 6px; color: #aab; font-size: 12px; font-family: monospace;">
@@ -1290,6 +1302,22 @@ ${DOM.input.value}`;
         }
       }, 2e3);
     }
+  }
+  function updateElapsedTimes(tasks) {
+    const container = document.getElementById("bg_tasks_list");
+    if (!container)
+      return;
+    const cards = container.querySelectorAll("[data-taskid]");
+    cards.forEach((card) => {
+      const tid = card.dataset.taskid;
+      const t = tasks.find((t2) => t2.taskId === tid);
+      if (!t)
+        return;
+      const elapsed = t.endTime ? `${((t.endTime - t.startTime) / 1e3).toFixed(1)}s` : `${((Date.now() - t.startTime) / 1e3).toFixed(0)}s running`;
+      const span = card.querySelector(`[data-elapsed="${tid}"]`);
+      if (span)
+        span.textContent = elapsed;
+    });
   }
   function escapeHtml(text) {
     const div = document.createElement("div");

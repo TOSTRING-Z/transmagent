@@ -74,6 +74,8 @@ export function initConfigEvents() {
 
 // ─── 后台任务列表渲染 ─────────────────────────────────────────────────────
 
+let _lastTasksSnapshot = '';
+
 async function renderBGTasks() {
   const container = document.getElementById('bg_tasks_list');
   if (!container) return;
@@ -93,9 +95,22 @@ async function renderBGTasks() {
     resultSummary?: string;
   }> = await window.electronAPI.BGTasks({ type: "get" });
 
+  // 计算快照：仅比对会影响 DOM 结构的关键字段
+  const newSnapshot = JSON.stringify(tasks.map(t => ({
+    id: t.taskId, status: t.status, summary: t.resultSummary || ''
+  })));
+
+  if (newSnapshot === _lastTasksSnapshot && tasks.length > 0) {
+    // 无结构性变化，仅内联更新 elapsed 时间，不重建 DOM（消除闪烁）
+    updateElapsedTimes(tasks);
+    return;
+  }
+  _lastTasksSnapshot = newSnapshot;
+
   const emptyEl = document.getElementById('bg_tasks_empty');
 
   if (!tasks || tasks.length === 0) {
+    _lastTasksSnapshot = '';
     container.innerHTML = '';
     const div = document.createElement('div');
     div.id = 'bg_tasks_empty';
@@ -175,7 +190,7 @@ async function renderBGTasks() {
           <div style="display: flex; align-items: center; gap: 10px;">
             ${detailsBtn}
             ${stopBtn}
-            <span style="color: #888; font-size: 12px;">${elapsed}</span>
+            <span style="color: #888; font-size: 12px;" data-elapsed="${escapeHtml(t.taskId)}">${elapsed}</span>
           </div>
         </div>
         <div style="margin-top: 6px; color: #aab; font-size: 12px; font-family: monospace;">
@@ -238,6 +253,22 @@ async function renderBGTasks() {
       }
     }, 2000);
   }
+}
+
+function updateElapsedTimes(tasks: Array<{ taskId: string; status: string; startTime: number; endTime?: number }>) {
+  const container = document.getElementById('bg_tasks_list');
+  if (!container) return;
+  const cards = container.querySelectorAll<HTMLElement>('[data-taskid]');
+  cards.forEach(card => {
+    const tid = card.dataset.taskid;
+    const t = tasks.find(t2 => t2.taskId === tid);
+    if (!t) return;
+    const elapsed = t.endTime
+      ? `${((t.endTime - t.startTime) / 1000).toFixed(1)}s`
+      : `${((Date.now() - t.startTime) / 1000).toFixed(0)}s running`;
+    const span = card.querySelector(`[data-elapsed="${tid}"]`);
+    if (span) span.textContent = elapsed;
+  });
 }
 
 function escapeHtml(text: string): string {
