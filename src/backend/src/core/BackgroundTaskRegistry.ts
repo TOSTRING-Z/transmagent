@@ -11,7 +11,7 @@
 
 import { logger } from '../utils/logger';
 
-export type BgTaskStatus = 'running' | 'completed' | 'failed';
+export type BgTaskStatus = 'running' | 'completed' | 'failed' | 'idle';
 
 export interface BgTaskInfo {
     taskId: string;
@@ -236,6 +236,33 @@ export class BackgroundTaskRegistry {
             taskId, 
             content, 
             timestamp: Date.now() 
+        };
+        this.deliverToMainSession(sessionId, msg);
+    }
+
+    /**
+     * 子代理完成任务通知：将任务标记为 idle（存活但空闲），同时投递消息到主会话。
+     * 与 addMessage 的区别：不会标记为 completed，而是标记为 idle，表示子代理已完成主任务
+     * 但保持存活，可以继续接收消息。
+     */
+    static addAgentCompletionNotice(
+        sessionId: string,
+        taskId: string,
+        content: string,
+    ): void {
+        const task = this.tasks.get(taskId);
+        if (task) {
+            task.status = 'idle';
+            task.endTime = Date.now();
+            task.resultSummary = content.replace(/\n/g, ' ').substring(0, 200);
+            logger.log(`[BackgroundTaskRegistry] Task "${taskId}" marked as idle (sub-agent alive)`);
+        }
+
+        const msg: PendingMessage = {
+            type: 'task_result',
+            taskId,
+            content,
+            timestamp: Date.now()
         };
         this.deliverToMainSession(sessionId, msg);
     }

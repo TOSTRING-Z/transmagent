@@ -284,12 +284,12 @@ async function runSubAgentInBackground(
         const resJson = parseJsonContent(resultData.output_format);
         const result = resJson[0]?.content || resultData.output_format || 'Sub-agent completed with no output.';
 
-        // 【任务核销通道】子代理生命周期结束，必须调用 addMessage 附带 taskId，触发 markCompleted 消除前端 Loading。
-        BackgroundTaskRegistry.addMessage(
+        // 【任务完成通知】使用 addAgentCompletionNotice 将任务标记为 idle（存活但空闲），
+        // 同时投递完成消息到主会话。这样既通知了主代理，又保持子代理存活。
+        BackgroundTaskRegistry.addAgentCompletionNotice(
             parentSessionId,
             taskId,
-            `✅ **Background sub-agent \`${agentName}\` completed.**\n\n**Result:**\n${result}`,
-            true  // skipMarkCompleted: 非瞬态生命周期，任务保持可见
+            `✅ **Background sub-agent \`${agentName}\` completed and is now idle, awaiting messages.**\n\n**Result:**\n${result}`
         );
 
         logger.log(`[SubAgentLauncher] Agent "${agentName}" completed successfully`);
@@ -300,23 +300,48 @@ async function runSubAgentInBackground(
     } catch (error: any) {
         logger.error(`[SubAgentLauncher] Agent "${agentName}" failed: ${error.message}`);
         
-        // 【任务异常核销】同上，发送错误信息给主代理并核销 taskId
+        // 【任务异常核销】任务失败，标记为 failed 并通知主代理
         BackgroundTaskRegistry.addMessage(
             parentSessionId,
             taskId,
-            `❌ **Background sub-agent \`${agentName}\` failed.**\n\n**Error:** ${error.message}`,
-            true  // skipMarkCompleted: 非瞬态生命周期，任务保持可见
+            `❌ **Background sub-agent \`${agentName}\` failed.**\n\n**Error:** ${error.message}`
         );
     }
 
     // ── NON-TRANSIENT LIFECYCLE ──────────────────────────────────────────
     // 子代理主任务完成后不退出，保持存活以接收后续消息。
-    // Listener 回调处理消息投递 + callReAct 唤醒；此 Promise 永不 resolve，
-    // 函数不返回，finally 逻辑被跳过，listener 保持注册。
+    // 启动一个定时轮询机制，检查是否有新的 pending 消息需要处理。
     logger.log(`[SubAgentLauncher] Agent "${agentName}" entering idle mode, awaiting messages...`);
+
+    const idleCheckInterval = setInterval(async () => {
+        const pendingMsgs = BackgroundTaskRegistry.drainMessages(
+            subAgentToolCall!.llmService.chatManager.chat.id
+        );
+        if (pendingMsgs && pendingMsgs.length > 0) {
+            logger.log(
+                `[SubAgentLauncher] Agent "${agentName}" idle watcher found ${pendingMsgs.length} pending message(s)`
+            );
+            for (const pm of pendingMsgs) {
+                const msgs = subAgentToolCall!.llmService.chatManager.messages;
+                const last = msgs[msgs.length - 1];
+                if (last) {
+                    last.content = (last.content || '') + '\n' + pm.content;
+                }
+            }
+            subAgentToolCall!.llmService.stopFlag = false;
+            const wd = subAgentToolCall!.getDataDefault({ query: '', model, version });
+            wd.uuid = subAgentToolCall!.llmService.chatManager.uuid;
+            try {
+                await subAgentToolCall!.callReAct(wd, false, true);
+            } catch (err: any) {
+                logger.error(`[SubAgentLauncher] Agent "${agentName}" idle wake-up error:`, err);
+            }
+        }
+    }, 2000); // 每 2 秒检查一次
 
     await new Promise<void>(() => {
         // 永不 resolve —— 保持异步函数存活，直至 session 清理或进程终止
+        // idleCheckInterval 会持续运行，处理 incoming 消息
     });
 }
 
