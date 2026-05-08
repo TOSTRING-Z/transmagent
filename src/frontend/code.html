@@ -1,18 +1,96 @@
 <!DOCTYPE html>
 <html lang="zh-CN" data-theme="dark">
-
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Code IDE</title>
     <link rel="stylesheet" href="css/fontawesome-free/css/all.min.css" />
-
-    <!-- CodeMirror 资源 -->
     <link href="css/codemirror.min.css" rel="stylesheet">
     <link href="css/dracula.min.css" rel="stylesheet">
     <link href="css/neo.min.css" rel="stylesheet">
     <link href="css/code.css" rel="stylesheet">
+    
+    <style>
+        /* Core Layout Variables */
+        :root {
+            --bg-root: #1e1e1e;
+            --bg-nav: #252526;
+            --bg-editor: #1e1e1e;
+            --accent: #007acc;
+            --text-primary: #cccccc;
+            --hover-bg: rgba(255, 255, 255, 0.1);
+        }
 
+        /* Resets */
+        * { box-sizing: border-box; }
+        body, html { margin: 0; padding: 0; width: 100%; height: 100%; overflow: hidden; background-color: var(--bg-root); font-family: 'Segoe UI', sans-serif; }
+        
+        /* Layout Structure */
+        .title-bar { position: fixed; top: 0; left: 0; width: 100%; height: 32px; z-index: 9999; }
+        .vscode-layout { display: flex; flex-direction: column; height: calc(100vh - 32px); padding-top: 32px; overflow: hidden; color: var(--text-primary); }
+        .vscode-main-area { flex: 1; display: flex; flex-direction: column; overflow: hidden; position: relative; }
+        .editor-wrapper { flex: 1; position: relative; background-color: var(--bg-editor); overflow: hidden; }
+        
+        /* Scrollbars */
+        ::-webkit-scrollbar { width: 10px; height: 10px; }
+        ::-webkit-scrollbar-track { background: transparent; }
+        ::-webkit-scrollbar-thumb { background: #424242; border-radius: 5px; border: 2px solid var(--bg-root); }
+        ::-webkit-scrollbar-thumb:hover { background: #4f4f4f; }
+
+        /* Navigation Bar */
+        .vscode-nav-bar { height: 40px; background-color: var(--bg-nav); display: flex; align-items: center; padding: 0 12px; }
+        .nav-items { display: flex; gap: 8px; }
+        .nav-btn { background: transparent; border: none; color: var(--text-primary); padding: 6px 12px; cursor: pointer; font-size: 13px; border-radius: 4px; display: flex; align-items: center; gap: 6px; transition: background-color 0.2s; }
+        .nav-btn:hover { background-color: var(--hover-bg); color: #fff; }
+        .nav-btn.active { color: #4ec9b0; background: rgba(78, 201, 176, 0.2); }
+
+        /* Status Bar */
+        .vscode-status-bar { height: 24px; background-color: #1a1a1a; color: #ffffff; display: flex; align-items: center; padding: 0 12px; font-size: 12px; justify-content: space-between; user-select: none; z-index: 10; border-top: 1px solid #333333; }
+        .status-right { display: flex; gap: 16px; }
+        .status-item { cursor: pointer; display: flex; align-items: center; gap: 6px; opacity: 0.9; }
+
+        /* CodeMirror Overrides */
+        .CodeMirror { position: absolute; top: 0; left: 0; right: 0; bottom: 0; height: 100%; width: 100%; font-family: 'Consolas', monospace; font-size: 14px; line-height: 1.5; background: transparent; }
+        .CodeMirror-scroll { overflow: auto; margin-bottom: 0; margin-right: 0; padding-bottom: 0; height: 100%; outline: none; }
+        .CodeMirror-vscrollbar, .CodeMirror-hscrollbar { display: none; }
+
+        /* Search Widget & Match Highlights */
+        #search-widget { z-index: 2000; top: 80px; right: 20px; box-shadow: 0 4px 12px rgba(0,0,0,0.3); border-radius: 4px; }
+        .cm-search-match { background-color: #515c6a; border: 1px solid #6199ff2f; border-radius: 2px; }
+        .cm-search-current-match { background-color: #007acc; border: 2px solid #4ec9b0; border-radius: 3px; box-shadow: 0 0 8px rgba(0, 122, 204, 0.6); animation: search-pulse 1.5s ease-in-out infinite; }
+        @keyframes search-pulse { 0%, 100% { box-shadow: 0 0 8px rgba(0, 122, 204, 0.6); } 50% { box-shadow: 0 0 12px rgba(0, 122, 204, 0.8); } }
+        
+        /* AI Modify UI */
+        .ai-modify-btn { position: absolute; z-index: 999; cursor: pointer; background: var(--accent); color: white; padding: 4px 8px; border-radius: 4px; font-size: 12px; box-shadow: 0 2px 4px rgba(0,0,0,0.5); }
+        .ai-modify-dialog { position: absolute; z-index: 999; display: flex; background: var(--bg-nav); padding: 4px; border-radius: 4px; box-shadow: 0 4px 8px rgba(0,0,0,0.5); border: 1px solid #444; }
+        .ai-modify-dialog input { background: #333; color: white; border: 1px solid #555; padding: 4px 8px; border-radius: 2px; outline: none; }
+        .ai-modify-dialog button { background: var(--accent); color: white; border: none; padding: 4px 8px; margin-left: 4px; cursor: pointer; border-radius: 2px; }
+
+        /* Search Widget Core Styles */
+        .search-widget { position: absolute; background-color: var(--bg-nav); border: 1px solid #444; color: var(--text-primary); padding: 6px; display: flex; flex-direction: column; gap: 6px; font-size: 13px; z-index: 2000; top: 80px; right: 20px; box-shadow: 0 4px 12px rgba(0,0,0,0.3); border-radius: 4px; width: 320px; transition: width 0.2s ease; }
+        .search-row { display: flex; align-items: center; gap: 6px; }
+        .input-wrapper { display: flex; align-items: center; background: #3c3c3c; border: 1px solid transparent; border-radius: 2px; flex: 1; padding: 0 4px; position: relative; }
+        .input-wrapper:focus-within { border-color: var(--accent); }
+        .input-wrapper input { background: transparent; border: none; color: white; outline: none; padding: 4px; width: 100%; font-family: inherit; font-size: 13px; }
+        
+        .search-options { display: flex; gap: 2px; }
+        .opt-btn { cursor: pointer; padding: 2px 4px; border-radius: 2px; opacity: 0.6; font-size: 11px; font-weight: bold; user-select: none; }
+        .opt-btn:hover { background: #555; opacity: 1; }
+        .opt-btn.active { background: rgba(0, 122, 204, 0.4); color: #61afef; opacity: 1; outline: 1px solid var(--accent); }
+        
+        .action-buttons { display: flex; gap: 2px; }
+        .action-buttons button { background: transparent; border: none; color: var(--text-primary); cursor: pointer; padding: 4px 6px; border-radius: 2px; outline: none; }
+        .action-buttons button:hover { background: #555; color: white; }
+        
+        .toggle-btn { background: transparent; border: none; color: var(--text-primary); cursor: pointer; padding: 4px; display: flex; align-items: center; justify-content: center; width: 24px; transition: transform 0.2s; outline: none; }
+        .toggle-btn.expanded { transform: rotate(90deg); }
+        .toggle-btn:hover { color: white; }
+        
+        .search-status { font-size: 11px; opacity: 0.7; min-width: 60px; text-align: right; white-space: nowrap; }
+        .search-status.no-results { color: #f48771; }
+    </style>
+
+    <!-- CodeMirror Dependencies -->
     <script src="js/codemirror.min.js"></script>
     <script src="js/javascript.min.js"></script>
     <script src="js/python.min.js"></script>
@@ -27,9 +105,7 @@
     <script src="js/shell.min.js"></script>
     <script src="js/searchcursor.min.js"></script>
 </head>
-
 <body>
-    <!-- 自定义标题栏 -->
     <div class="title-bar">
         <div class="title"><i class="fas fa-code"></i> <b id="info-name">Code IDE</b></div>
         <div class="window-controls">
@@ -38,7 +114,7 @@
         </div>
     </div>
 
-    <!-- 搜索/替换 浮窗组件 -->
+<!-- 搜索/替换 浮窗组件 -->
     <div id="search-widget" class="search-widget" style="display: none;">
         <div class="search-container">
             <!-- 第一行：查找 -->
@@ -77,1149 +153,582 @@
         </div>
     </div>
 
-    <!-- 内容区域 -->
-    <!-- VS Code Style CSS (Modern Flat) -->
-    <style>
-        :root {
-            --bg-root: #1e1e1e;
-            --bg-nav: #252526;
-            --bg-editor: #1e1e1e;
-            --bg-status: #2d2d2d;
-            --accent: #007acc;
-            --text-primary: #cccccc;
-            --text-secondary: #969696;
-            --border-color: #333333;
-            --hover-bg: rgba(255, 255, 255, 0.1);
-        }
-
-        * { box-sizing: border-box; }
-        body, html { margin: 0; padding: 0; width: 100%; height: 100%; overflow: hidden !important; background-color: var(--bg-root); font-family: 'Segoe UI', 'SF Pro Text', sans-serif; -webkit-font-smoothing: antialiased; }
-        
-        /* Fixed Title Bar */
-        .title-bar { position: fixed; top: 0; left: 0; width: 100%; height: 32px; z-index: 9999; }
-
-        /* Layout Adjustment for Title Bar */
-        .vscode-layout { 
-            display: flex; 
-            flex-direction: column; 
-            height: calc(100vh - 32px); 
-            padding-top: 32px; /* Space for fixed title bar */
-            overflow: hidden !important;
-            color: var(--text-primary);
-        }
-        
-        /* Ensure all outer containers have no scrollbars */
-        .content, .app-container, .vscode-main-area { 
-            width: 100%; 
-            height: 100%; 
-            margin: 0; 
-            padding: 0; 
-            overflow: hidden !important; 
-        }
-        
-        /* Modern Scrollbar */
-        ::-webkit-scrollbar { width: 10px; height: 10px; }
-        ::-webkit-scrollbar-track { background: transparent; }
-        ::-webkit-scrollbar-thumb { background: #424242; border-radius: 5px; border: 2px solid var(--bg-root); }
-        ::-webkit-scrollbar-thumb:hover { background: #4f4f4f; }
-
-        /* Reset old container styles */
-        .app-container { max-width: none !important; padding: 0 !important; margin: 0 !important; box-shadow: none !important; }
-        
-        /* Ensure Search Widget stays on top */
-        #search-widget { z-index: 2000 !important; top: 80px !important; right: 20px !important; box-shadow: 0 4px 12px rgba(0,0,0,0.3) !important; border-radius: 4px; }
-        
-        /* Modern Navigation Bar */
-        .vscode-nav-bar { 
-            height: 40px; 
-            background-color: var(--bg-nav); 
-            display: flex; 
-            align-items: center; 
-            padding: 0 12px; 
-        }
-        .nav-brand { font-weight: 600; margin-right: 20px; color: var(--accent); font-size: 14px; letter-spacing: 0.5px; }
-        .nav-items { display: flex; gap: 8px; }
-        .nav-btn { 
-            background: transparent; 
-            border: none; 
-            color: var(--text-primary); 
-            padding: 6px 12px; 
-            cursor: pointer; 
-            font-size: 13px; 
-            border-radius: 4px; 
-            display: flex; 
-            align-items: center; 
-            gap: 6px; 
-            transition: background-color 0.2s;
-        }
-        .nav-btn:hover { background-color: var(--hover-bg); color: #fff; }
-        .nav-btn:active { transform: translateY(1px); }
-        
-        /* Main Area */
-        .vscode-main-area { flex: 1; display: flex; flex-direction: column; overflow: hidden; position: relative; height: 100%; }
-        
-        /* Modern Tabs Bar */
-        .vscode-tabs-bar { 
-            height: 36px; 
-            background-color: var(--bg-nav); 
-            display: flex; 
-            align-items: center; 
-            overflow-x: auto; 
-        }
-        .tab { 
-            background-color: #2d2d2d; 
-            color: var(--text-secondary); 
-            padding: 0 15px; 
-            height: 100%; 
-            display: flex; 
-            align-items: center; 
-            font-size: 13px; 
-            border-right: 1px solid var(--border-color);
-            min-width: 140px; 
-            cursor: default; 
-            position: relative;
-        }
-        .tab.active { 
-            background-color: var(--bg-editor); 
-            color: #fff; 
-            border-top: 2px solid var(--accent); 
-        }
-        .tab-icon { margin-right: 8px; font-size: 14px; opacity: 0.8; }
-        .tab-close { margin-left: auto; opacity: 0; transition: opacity 0.2s; border-radius: 4px; width: 20px; height: 20px; display: flex; align-items: center; justify-content: center; }
-        .tab:hover .tab-close { opacity: 1; }
-        .tab-close:hover { background-color: var(--hover-bg); color: #fff; }
-        
-        /* Editor Wrapper - Fix Scroll Issues */
-        .editor-wrapper { 
-            flex: 1; 
-            position: relative; 
-            background-color: var(--bg-editor); 
-            overflow: hidden !important; /* Ensure no scrollbar on wrapper */
-        }
-        
-        .CodeMirror { 
-            position: absolute !important; 
-            top: 0; left: 0; right: 0; bottom: 0; 
-            height: 100% !important; 
-            width: 100% !important;
-            font-family: 'Consolas', 'Monaco', 'Courier New', monospace; 
-            font-size: 14px; 
-            line-height: 1.5;
-            background: transparent;
-        }
-        
-        /* Ensure internal scrollbar uses our style and no duplicates */
-        .CodeMirror-scroll {
-            overflow-y: auto !important;
-            overflow-x: auto !important;
-            margin-bottom: 0 !important;
-            margin-right: 0 !important;
-            padding-bottom: 0 !important;
-            height: 100% !important;
-            outline: none;
-            position: relative;
-        }
-        
-        /* Hide CodeMirror's vscrollbar if it conflicts */
-        .CodeMirror-vscrollbar, .CodeMirror-hscrollbar {
-            display: none !important;
-        }
-        
-        /* Modern Status Bar - Black Background (Flat Modern) */
-        .vscode-status-bar { 
-            height: 24px; 
-            background-color: #1a1a1a; 
-            color: #ffffff;
-            display: flex; 
-            align-items: center; 
-            padding: 0 12px; 
-            font-size: 12px; 
-            justify-content: space-between; 
-            user-select: none; 
-            z-index: 10; 
-            border-top: 1px solid #333333;
-        } 
-        
-        .status-right { display: flex; gap: 16px; }
-        .status-item { cursor: pointer; display: flex; align-items: center; gap: 6px; opacity: 0.9; }
-        .status-item:hover { opacity: 1; }
-    </style>
-
-    <div class="content" style="padding: 0; margin-top: 30px;">
-        <div class="app-container vscode-layout">
-            <!-- Top Navigation -->
-            <div class="vscode-nav-bar">
-                <div class="nav-items">
-                    <button class="nav-btn" onclick="openFile()" title="Open File">📂 Open</button>
-                    <button class="nav-btn" onclick="toggleTheme()" title="Toggle Theme">🎨 Theme</button>
-                    <button class="nav-btn" onclick="autoDetectLanguage()" title="Detect Language">⚡ Detect</button>
-                    <button class="nav-btn" id="toggle-wrap-btn" onclick="toggleWordWrap()" title="Toggle Word Wrap">↩ Wrap</button>
-                    <button class="nav-btn" id="toggle-auto-complete-btn" onclick="toggleAutoComplete()" title="Toggle Auto AI Completion">✨ AI</button>
-                    <button class="nav-btn" id="toggle-auto-error-btn" onclick="toggleAutoErrorCorrect()" title="Toggle Auto Error Correction">🔧 Fix</button>
-                </div>
+    <div class="vscode-layout">
+        <div class="vscode-nav-bar">
+            <div class="nav-items">
+                <button class="nav-btn" id="btn-open-file"><i class="fas fa-folder-open"></i> Open</button>
+                <button class="nav-btn" id="btn-toggle-theme"><i class="fas fa-palette"></i> Theme</button>
+                <button class="nav-btn" id="btn-detect-lang"><i class="fas fa-bolt"></i> Detect</button>
+                <button class="nav-btn" id="btn-toggle-wrap"><i class="fas fa-level-down-alt fa-rotate-90"></i> Wrap</button>
+                <button class="nav-btn" id="btn-toggle-ai"><i class="fas fa-magic"></i> AI</button>
+                <button class="nav-btn" id="btn-toggle-fix"><i class="fas fa-wrench"></i> Fix</button>
             </div>
+        </div>
 
-            <!-- Main Editor Area -->
-            <div class="vscode-main-area">
-                <!-- Editor -->
-                <div class="editor-wrapper">
-                    <textarea id="code-editor" style="display: none;"></textarea>
-                </div>
+        <div class="vscode-main-area">
+            <div class="editor-wrapper">
+                <textarea id="code-editor" style="display: none;"></textarea>
             </div>
+        </div>
 
-            <!-- Status Bar -->
-            <div id="status-bar" class="vscode-status-bar">
-                <div class="status-left">Ready</div>
-                <div class="status-right">
-                    <span class="status-item" title="Spaces: 4">Spaces: 4</span>
-                    <span class="status-item" title="Encoding">UTF-8</span>
-                    <span class="status-item" id="language-mode" title="Language Mode">javascript</span>
-                    <span class="status-item" style="opacity: 0.8; margin-left: 10px;">Refactor: 5s idle</span>
-                </div>
+        <div id="status-bar" class="vscode-status-bar">
+            <div class="status-left" id="status-msg">Ready</div>
+            <div class="status-right">
+                <span class="status-item">Spaces: 4</span>
+                <span class="status-item">UTF-8</span>
+                <span class="status-item" id="language-mode">javascript</span>
             </div>
         </div>
     </div>
 
     <script>
-        // 窗口控制逻辑
-        const { ipcRenderer, webUtils } = require('electron')
+        const { ipcRenderer, webUtils } = require('electron');
+        const fs = require('fs');
 
-        document.getElementById('minimize-btn').addEventListener('click', () => {
-            ipcRenderer.send('minimize-window')
-        })
-
-        document.getElementById('close-btn').addEventListener('click', () => {
-            ipcRenderer.send('close-window')
-        })
-
-        // 文件拖放支持 - 全局拦截
-        // 使用 capture: true 确保在 CodeMirror 之前捕获事件
-        document.addEventListener('dragover', (e) => {
-            e.preventDefault();
-            e.stopPropagation();
-        }, true);
-
-        document.addEventListener('drop', (e) => {
-            e.preventDefault();
-            e.stopPropagation();
-            
-            const files = e.dataTransfer.files;
-            if (files.length > 0) {
-                const file = files[0];
+        // --- Core Application Logic ---
+        class AppCore {
+            constructor() {
+                this.config = {
+                    completion: { trigger_time: 2000, timeout: 20000 },
+                    refactor: { trigger_time: 5000, timeout: 20000 }
+                };
+                this.isDark = true;
                 
-                // 尝试获取文件路径，兼容不同版本的 Electron
-                let filePath = file.path;
+                this.initWindowControls();
+                this.loadConfig();
+            }
+
+            initWindowControls() {
+                document.getElementById('minimize-btn').onclick = () => ipcRenderer.send('minimize-window');
+                document.getElementById('close-btn').onclick = () => ipcRenderer.send('close-window');
+            }
+
+            async loadConfig() {
+                const cfg = await ipcRenderer.invoke('get-code-config');
+                this.config = { ...this.config, ...cfg };
+            }
+
+            toggleTheme(editor) {
+                this.isDark = !this.isDark;
+                document.documentElement.setAttribute('data-theme', this.isDark ? 'dark' : 'light');
+                editor.setOption('theme', this.isDark ? 'dracula' : 'neo');
+            }
+
+            static updateStatus(msg) {
+                const el = document.getElementById('status-msg');
+                if (el) el.textContent = msg;
+            }
+        }
+
+        // --- Editor Management ---
+        class EditorManager {
+            constructor(app) {
+                this.app = app;
+                this.cm = null;
+                this.isComposing = false;
                 
-                // 如果 file.path 无效，尝试使用 webUtils (Electron >= 12)
-                if (!filePath && webUtils && typeof webUtils.getPathForFile === 'function') {
-                    try {
-                        filePath = webUtils.getPathForFile(file);
-                    } catch (err) {
-                        console.error("Failed to get path from webUtils:", err);
+                this.initCodeMirror();
+            }
+
+            initCodeMirror() {
+                const textarea = document.getElementById("code-editor");
+                const initialMode = EditorManager.inferModeFromContent(textarea.value) || 'javascript';
+                document.getElementById('language-mode').textContent = initialMode;
+
+                this.cm = CodeMirror.fromTextArea(textarea, {
+                    theme: "dracula",
+                    lineNumbers: true,
+                    indentUnit: 4,
+                    mode: initialMode,
+                    extraKeys: {
+                        "Ctrl-Space": () => window.aiAssistant.forceCompletion(),
+                        "Tab": (cm) => {
+                            if (window.aiAssistant.hasPrediction()) window.aiAssistant.acceptCompletion(cm);
+                            else cm.execCommand("defaultTab");
+                        },
+                        "Esc": () => window.aiAssistant.clearCompletion()
                     }
-                }
+                });
 
-                if (filePath) {
-                    ipcRenderer.invoke('open-dropped-file', filePath).then(result => {
-                        if (result.success) {
-                            console.log('文件拖放加载成功:', result.message);
-                        } else {
-                            console.error('文件拖放加载失败:', result.message);
-                        }
-                    }).catch(error => {
-                        console.error('文件拖放处理错误:', error);
-                    });
-                } else {
-                    console.error("无法获取文件路径，请检查 Electron 配置或版本。File object:", file);
-                }
+                this.cm.on("compositionStart", () => this.isComposing = true);
+                this.cm.on("compositionEnd", () => {
+                    this.isComposing = false;
+                    window.aiAssistant.triggerDebouncedCompletion();
+                    window.aiAssistant.triggerDebouncedRefactor();
+                });
+
+                this.cm.on("change", (cm, change) => {
+                    const aiOrigins = ["ai-completion", "ai-fix", "search-replace", "ai-modify", "setValue"];
+                    if (aiOrigins.includes(change.origin)) {
+                        if (change.origin === "ai-completion") AppCore.updateStatus("Completion Applied");
+                        window.aiAssistant.clearTimers();
+                        return;
+                    }
+
+                    window.aiAssistant.clearUI();
+                    if (this.isComposing) return;
+
+                    if (change.origin !== "+delete" && cm.getValue().trim().length > 0) {
+                        window.aiAssistant.triggerDebouncedCompletion();
+                    }
+                    window.aiAssistant.triggerDebouncedRefactor();
+                });
             }
-        }, true);
 
-        const code_config = {
-            completion: {
-                trigger_time: 2000,
-                timeout: 10000
-            },
-            refactor: {
-                trigger_time: 5000,
-                timeout: 20000
-            },
-            ...ipcRenderer.send('get-code-config')
-        };
-
-        // 自动AI补全和错误纠正开关状态
-        let autoCompleteEnabled = false;
-        let autoErrorCorrectEnabled = false;
-
-        // 初始化开关状态
-        async function initAutoFeatures() {
-            try {
-                const features = await ipcRenderer.invoke('get-auto-features');
-                autoCompleteEnabled = features.auto_complete;
-                autoErrorCorrectEnabled = features.auto_error_correct;
-                updateToggleButtonStates();
-            } catch (e) {
-                console.error('Failed to load auto features:', e);
+            toggleWordWrap() {
+                const current = this.cm.getOption('lineWrapping');
+                this.cm.setOption('lineWrapping', !current);
+                document.getElementById('btn-toggle-wrap').classList.toggle('active', !current);
             }
-        }
 
-        // 更新按钮状态显示
-        function updateToggleButtonStates() {
-            const completeBtn = document.getElementById('toggle-auto-complete-btn');
-            const errorBtn = document.getElementById('toggle-auto-error-btn');
-            
-            if (completeBtn) {
-                completeBtn.style.color = autoCompleteEnabled ? '#4ec9b0' : '';
-                completeBtn.style.background = autoCompleteEnabled ? 'rgba(78, 201, 176, 0.2)' : '';
-            }
-            if (errorBtn) {
-                errorBtn.style.color = autoErrorCorrectEnabled ? '#4ec9b0' : '';
-                errorBtn.style.background = autoErrorCorrectEnabled ? 'rgba(78, 201, 176, 0.2)' : '';
-            }
-        }
-
-        // 切换自动AI补全
-        async function toggleAutoComplete() {
-            autoCompleteEnabled = !autoCompleteEnabled;
-            try {
-                await ipcRenderer.invoke('set-auto-complete', autoCompleteEnabled);
-                updateToggleButtonStates();
-                console.log('Auto completion:', autoCompleteEnabled ? 'ON' : 'OFF');
-            } catch (e) {
-                console.error('Failed to toggle auto complete:', e);
-            }
-        }
-
-        // 切换自动错误纠正
-        async function toggleAutoErrorCorrect() {
-            autoErrorCorrectEnabled = !autoErrorCorrectEnabled;
-            try {
-                await ipcRenderer.invoke('set-auto-error-correct', autoErrorCorrectEnabled);
-                updateToggleButtonStates();
-                console.log('Auto error correct:', autoErrorCorrectEnabled ? 'ON' : 'OFF');
-            } catch (e) {
-                console.error('Failed to toggle auto error correct:', e);
-            }
-        }
-
-        // 页面加载时初始化
-        initAutoFeatures();
-
-        let isDark = true;
-        // --- 新增变量 ---
-        let completionRequestId = 0; // 用于追踪补全请求 ID
-        // --- 新增工具函数：超时控制 ---
-        const withTimeout = (promise, ms) => {
-            const timeout = new Promise((_, reject) =>
-                setTimeout(() => reject(new Error(`Timeout after ${ms}ms`)), ms)
-            );
-            return Promise.race([promise, timeout]);
-        };
-        // 定时器管理
-        let refactorTimer = null;   // 用于错误检查（慢）
-        let completionTimer = null; // 用于自动补全（快）
-
-        let activeRefactorItems = [];
-        let lastAnalyzedContent = "";
-
-        // 补全状态
-        let completionWidget = null;
-        let loadingWidget = null;
-        let currentPrediction = "";
-        let isCompleting = false;
-
-        const statusEl = document.querySelector("#status-bar .status-left");
-
-        let isComposing = false; // 标记是否正在输入中文
-
-        // 内容语言检测函数
-        function getModeFromContent(content) {
-            if (!content) return null;
-            const firstLine = content.split('\n', 1)[0] || '';
-            // shebang
-            if (/^#!.*\bpython\b/.test(firstLine)) return 'python';
-            if (/^#!.*\bnode\b/.test(firstLine) || /^#!.*\bjs\b/.test(firstLine)) return 'javascript';
-            // fenced code block
-            const fence = content.match(/^\s*```(\w+)/m);
-            if (fence && fence[1]) {
-                const map = { js: 'javascript', javascript: 'javascript', jsx: 'jsx', ts: 'text/typescript', py: 'python', json: 'application/json', html: 'htmlmixed', css: 'css', md: 'markdown', sh: 'shell' };
-                return map[fence[1].toLowerCase()] || fence[1].toLowerCase();
-            }
-            // simple heuristics
-            if (/\bfunction\s+\w+\(|=>/.test(content)) return 'javascript';
-            if (/^\s*def\s+\w+\(/m.test(content)) return 'python';
-            if (/^\s*<\!DOCTYPE|<html|<div|<meta /i.test(content)) return 'htmlmixed';
-            return null;
-        }
-
-        // 自动推断语言函数 (Powered by LLM)
-        async function autoDetectLanguage() {
-            if (!window.editor) return;
-            
-            const status = document.querySelector('#status-bar .status-left') || document.getElementById('status-bar');
-            if (status) status.textContent = "⚡ Detecting language...";
-
-            const content = window.editor.getValue();
-            
-            try {
-                // 调用后端 LLM 进行检测
-                const result = await ipcRenderer.invoke('detect-language', content);
+            async detectLanguage() {
+                AppCore.updateStatus("⚡ Detecting language...");
+                const result = await ipcRenderer.invoke('detect-language', this.cm.getValue());
                 
                 if (result.error) {
-                    if (status) status.textContent = `Detection failed: ${result.error}`;
+                    AppCore.updateStatus(`Detection failed: ${result.error}`);
                     return;
                 }
 
                 const lang = result.language;
-                let mode = 'text/plain';
-
-                // 语言名称映射表
-                const modeMap = {
-                    'javascript': 'javascript',
-                    'js': 'javascript',
-                    'typescript': 'text/typescript',
-                    'ts': 'text/typescript',
-                    'python': 'python',
-                    'py': 'python',
-                    'html': 'htmlmixed',
-                    'css': 'css',
-                    'java': 'text/x-java',
-                    'c': 'text/x-csrc',
-                    'cpp': 'text/x-c++src',
-                    'c++': 'text/x-c++src',
-                    'c#': 'text/x-csharp',
-                    'go': 'text/x-go',
-                    'sql': 'sql',
-                    'json': 'application/json',
-                    'markdown': 'markdown',
-                    'md': 'markdown',
-                    'shell': 'shell',
-                    'bash': 'shell',
-                    'sh': 'shell',
-                    'xml': 'xml',
-                    'yaml': 'yaml',
-                    'php': 'php',
-                    'ruby': 'ruby',
-                    'rust': 'rust',
-                    'lua': 'lua'
+                // 直接与后端的枚举值一一对应
+                const modeMap = { 
+                    javascript: 'javascript', 
+                    typescript: 'text/typescript', 
+                    python: 'python', 
+                    html: 'htmlmixed', 
+                    markdown: 'markdown', 
+                    shell: 'shell',
+                    plaintext: 'text/plain'
                 };
-
-                if (modeMap[lang]) {
-                    mode = modeMap[lang];
-                } else {
-                    // 尝试直接使用返回的名称，或回退到 plaintext
-                    mode = lang || 'text/plain';
-                }
+                
+                // 如果后端抽风返回了不在枚举里的词，直接 fallback 到 text/plain
+                const mode = modeMap[lang] || 'text/plain';
 
                 document.getElementById('language-mode').textContent = lang;
-                window.editor.setOption("mode", mode);
-                if (status) status.textContent = `Language detected: ${lang} (${mode})`;
-                
-            } catch (err) {
-                console.error("Language detection error:", err);
-                if (status) status.textContent = "Error detecting language";
+                this.cm.setOption("mode", mode);
+                AppCore.updateStatus(`Language detected: ${lang}`);
+            }
+
+            static inferModeFromContent(content) {
+                if (!content) return null;
+                const firstLine = content.split('\n', 1)[0] || '';
+                if (/^#!.*\bpython\b/.test(firstLine)) return 'python';
+                if (/^#!.*\bnode\b/.test(firstLine)) return 'javascript';
+                const fence = content.match(/^\s*```(\w+)/m);
+                if (fence && fence[1]) return fence[1].toLowerCase();
+                return null;
             }
         }
 
-        window.onload = async function () {
-            // helper: simple language detection
-            function getModeFromFilename(path) {
-                if (!path) return null;
-                const m = path.split('.').pop().toLowerCase();
-                switch (m) {
-                    case 'js':
-                    case 'mjs':
-                    case 'cjs': return 'javascript';
-                    case 'ts': return 'text/typescript';
-                    case 'jsx': return 'jsx';
-                    case 'json': return 'application/json';
-                    case 'py': return 'python';
-                    case 'rb': return 'ruby';
-                    case 'java': return 'text/x-java';
-                    case 'php': return 'php';
-                    case 'html': return 'htmlmixed';
-                    case 'htm': return 'htmlmixed';
-                    case 'css': return 'css';
-                    case 'md': return 'markdown';
-                    case 'sh':
-                    case 'bash': return 'shell';
-                    case 'xml': return 'xml';
-                    case 'r': return 'r';
-                    default: return null;
-                }
-            }
-
-            // 初始模式优先从 textarea 内容检测，其次回退到 javascript
-            const initialText = document.getElementById("code-editor").value || "";
-            const initialMode = getModeFromContent(initialText) || 'javascript';
-            document.getElementById('language-mode').textContent = initialMode;
-
-            window.editor = CodeMirror.fromTextArea(document.getElementById("code-editor"), {
-                theme: "dracula",
-                lineNumbers: true,
-                indentUnit: 4,
-                mode: initialMode,
-                extraKeys: {
-                    // 1. 触发补全
-                    "Ctrl-Space": () => runCompletion(),
-                    "Tab": (cm) => {
-                        if (currentPrediction) acceptCompletion(cm);
-                        else cm.execCommand("defaultTab");
-                    },
-                    "Esc": () => clearCompletion()
-                }
-            });
-
-            // 当打开文件或外部传入内容时，尝试自动设置 mode
-            ipcRenderer.on('open-file', (event, filePath) => {
-                const mode = getModeFromFilename(filePath) || getModeFromContent(window.editor.getValue());
-                if (mode) window.editor.setOption('mode', mode);
-            });
-
-            ipcRenderer.on('open-content', (event, content) => {
-                const mode = getModeFromContent(content) || getModeFromContent(window.editor.getValue());
-                if (mode) window.editor.setOption('mode', mode);
-            });
-
-            lastAnalyzedContent = window.editor.getValue().trim();
-
-            // --- 1. 输入法(IME) 事件监听 ---
-
-            window.editor.on("compositionStart", () => {
-                isComposing = true;
-                // 开始打拼音时，清理界面干扰
-                clearRefactorUI();
-                clearCompletion();
-            });
-
-            window.editor.on("compositionEnd", () => {
-                isComposing = false;
-                // 【关键修复】中文上屏后，立即强制触发补全
-                // 这样即使 change 事件被拦截，补全也能运行
-                triggerCompletionDebounce();
-                triggerRefactorDebounce();
-            });
-
-            // --- 2. 通用内容变更监听 ---
-            window.editor.on("change", (cm, change) => {
-                // A. 过滤 AI 自动操作及搜索替换
-                if (change.origin === "ai-completion" || change.origin === "ai-fix" || change.origin === "search-replace" || change.origin === "ai-modify") {
-                    if (change.origin === "ai-completion") statusEl.textContent = "Completion Applied";
-                    clearTimeout(refactorTimer);
-                    clearTimeout(completionTimer);
-                    return;
-                }
-
-                // 【修复点 1】：如果是 setValue (初始化、打开文件)，直接清理并返回，不触发补全
-                if (change.origin === "setValue") {
-                    clearRefactorUI();
-                    clearCompletion();
-                    return;
-                }
-
-                // B. 用户手动操作：立即清理旧 UI
-                clearRefactorUI();
-                clearCompletion(); // 只要有变动就清理旧的补全建议
-
-                // C. 如果正在打拼音，彻底忽略
-                if (isComposing) return;
-
-                // D. 触发逻辑 【修改了这里】
-                // 排除 "删除" 和 "初始化赋值(setValue)"
-                // 并且检查当前编辑器如果不为空才触发
-                if (change.origin !== "+delete" && change.origin !== "setValue") {
-                    // 简单检查：如果是完全空白的文件，也不要触发
-                    if (cm.getValue().trim().length > 0) {
-                        triggerCompletionDebounce();
-                    }
-                }
-
-                // E. 触发重构检查
-                triggerRefactorDebounce();
-            });
-
-            // --- 封装定时器逻辑，避免重复代码 ---
-
-            function triggerCompletionDebounce() {
-                clearTimeout(completionTimer);
-                completionTimer = setTimeout(() => {
-                    // 检查自动AI补全开关是否开启
-                    if (!autoCompleteEnabled) {
-                        console.log('Auto completion is disabled');
-                        return;
-                    }
-                    runCompletion();
-                }, code_config.completion.trigger_time); // 2秒后补全
-            }
-
-            function triggerRefactorDebounce() {
-                clearTimeout(refactorTimer);
-                refactorTimer = setTimeout(() => {
-                    // 检查自动错误纠正开关是否开启
-                    if (!autoErrorCorrectEnabled) {
-                        console.log('Auto error correct is disabled');
-                        return;
-                    }
-                    lastAnalyzedContent = window.editor.getValue().trim();
-                    runRefactorAnalysis(window.editor);
-                }, code_config.refactor.trigger_time); // 5秒后检查错误
-            }
-
-            // 新增：光标移动时清除补全
-            window.editor.on("cursorActivity", () => {
-                if (completionWidget || loadingWidget) {
-                    clearCompletion();
-                }
-            });
-
-            window.openFile = async function () {
-                const filePath = await ipcRenderer.invoke('open-file-dialog');
-                if (filePath) {
-                    ipcRenderer.send('open-file', filePath);
-                }
-            };
-
-            window.toggleTheme = function () {
-                isDark = !isDark;
-                document.documentElement.setAttribute('data-theme', isDark ? 'dark' : 'light');
-                window.editor.setOption('theme', isDark ? 'dracula' : 'neo');
-            };
-
-            if (typeof CodeMirrorSearchManager !== 'undefined') {
-                window.searchManager = new CodeMirrorSearchManager(window.editor);
-                console.log("Search Manager Initialized");
-            } else {
-                console.error("CodeMirrorSearchManager class not found");
-            }
-
-            initAIModifyFeature(window.editor);
-        };
-
-        // --- AI 智能修改功能 ---
-        function initAIModifyFeature(cm) {
-            let modifyBtn = null;
-            let modifyDialog = null;
-            let currentSelectionRange = null;
-
-            function removeElement(el) {
-                if (el && el.parentNode) {
-                    el.parentNode.removeChild(el);
-                }
-            }
-
-            function clearWidgets() {
-                if (modifyBtn) { removeElement(modifyBtn); modifyBtn = null; }
-                if (modifyDialog) { removeElement(modifyDialog); modifyDialog = null; }
-            }
-
-            // 更新位置逻辑
-            function updatePosition() {
-                if (!currentSelectionRange) return;
-                const coords = cm.cursorCoords(currentSelectionRange.from, "window");
-                // 基础位置：光标左侧 28px
-                const top = coords.top - 2;
-                const left = coords.left - 28;
-
-                if (modifyBtn) {
-                    modifyBtn.style.top = top + "px";
-                    modifyBtn.style.left = left + "px";
-                }
-                if (modifyDialog) {
-                    modifyDialog.style.top = top + "px";
-                    modifyDialog.style.left = left + "px";
-                }
-            }
-
-            // 监听滚动，实时更新位置
-            cm.on("scroll", () => {
-                if (modifyBtn || modifyDialog) {
-                    updatePosition();
-                }
-            });
-
-            // 监听光标/选区变化
-            cm.on("cursorActivity", () => {
-                // 仅当选区消失时清理
-                if (cm.getSelection().length === 0) {
-                    clearWidgets();
-                }
-            });
-
-            // 监听鼠标抬起：选区完成后显示按钮
-            cm.getWrapperElement().addEventListener("mouseup", (e) => {
-                setTimeout(() => {
-                    if (modifyDialog) return;
-                    
-                    if (cm.getSelection().length > 0) {
-                        currentSelectionRange = {
-                            from: cm.getCursor("from"),
-                            to: cm.getCursor("to")
-                        };
-                        showModifyButton();
-                    }
-                }, 10);
-            });
-
-            cm.on("mousedown", (cm, e) => {
-                // 如果点击发生在编辑器内，且不是在我们的组件上（由于组件在body上，mousedown事件可能不会冒泡到editor，除非穿透）
-                // 这里简单策略：点击编辑器就清理，稍后 cursorActivity 会决定是否重新显示
-                if (modifyDialog) {
-                     // 检查点击目标是否是 dialog 内部
-                     // 由于 dialog 在 body 上，CodeMirror 的 mousedown 事件可能通过 document 捕获？
-                     // 不，editor.on("mousedown") 只响应编辑器区域。
-                     // 所以如果触发了这个事件，说明点击了编辑器背景，应该关闭 dialog。
-                     clearWidgets();
-                }
-            });
-
-            function showModifyButton() {
-                if (modifyBtn || modifyDialog) {
-                    if (modifyBtn) updatePosition();
-                    return;
-                }
-
-                modifyBtn = document.createElement("div");
-                modifyBtn.className = "ai-modify-btn";
-                modifyBtn.innerHTML = '<i class="fas fa-magic"></i>';
-                modifyBtn.title = "AI Modify";
+        // --- AI Assistant Logic ---
+        class AIAssistant {
+            constructor(editorManager, appCore) {
+                this.editorManager = editorManager;
+                this.app = appCore;
+                this.cm = editorManager.cm;
                 
-                modifyBtn.onclick = (e) => {
-                    e.stopPropagation(); 
-                    showModifyDialog();
+                this.enabled = { complete: false, fix: false };
+                this.state = {
+                    reqId: 0,
+                    prediction: "",
+                    isCompleting: false,
+                    timers: { completion: null, refactor: null },
+                    widgets: { completion: null, loading: null },
+                    refactorItems: [],
+                    modifyUI: { btn: null, dialog: null, range: null }
                 };
 
-                document.body.appendChild(modifyBtn);
-                updatePosition();
+                this.initFeatures();
+                this.initModifyFeature();
             }
 
-            function showModifyDialog() {
-                if (modifyBtn) { removeElement(modifyBtn); modifyBtn = null; }
+            async initFeatures() {
+                const features = await ipcRenderer.invoke('get-auto-features');
+                this.enabled.complete = features.auto_complete;
+                this.enabled.fix = features.auto_error_correct;
+                this.updateButtons();
+            }
 
-                modifyDialog = document.createElement("div");
-                modifyDialog.className = "ai-modify-dialog";
+            updateButtons() {
+                document.getElementById('btn-toggle-ai').classList.toggle('active', this.enabled.complete);
+                document.getElementById('btn-toggle-fix').classList.toggle('active', this.enabled.fix);
+            }
+
+            async toggleFeature(type) {
+                this.enabled[type] = !this.enabled[type];
+                await ipcRenderer.invoke(type === 'complete' ? 'set-auto-complete' : 'set-auto-error-correct', this.enabled[type]);
+                this.updateButtons();
+            }
+
+            clearTimers() {
+                clearTimeout(this.state.timers.completion);
+                clearTimeout(this.state.timers.refactor);
+            }
+
+            clearUI() {
+                this.clearCompletion();
+                this.state.refactorItems.forEach(item => {
+                    item.mark.clear();
+                    item.widget.remove();
+                });
+                this.state.refactorItems = [];
+            }
+
+            // --- Completion ---
+            hasPrediction() { return !!this.state.prediction; }
+
+            triggerDebouncedCompletion() {
+                clearTimeout(this.state.timers.completion);
+                if (!this.enabled.complete) return;
+                this.state.timers.completion = setTimeout(() => this.forceCompletion(), this.app.config.completion.trigger_time);
+            }
+
+            async forceCompletion() {
+                this.state.isCompleting = true;
+                const cursor = this.cm.getCursor();
+                const prefix = this.cm.getRange({ line: 0, ch: 0 }, cursor).slice(-1000);
+                if (!prefix.trim()) return;
+
+                const suffix = this.cm.getRange(cursor, { line: this.cm.lineCount(), ch: 0 }).slice(0, 1000);
+                const reqId = ++this.state.reqId;
+
+                this.showLoadingSpinner(cursor);
+
+                try {
+                    const promise = ipcRenderer.invoke('code-completion', { prefix, suffix, isMidWord: /^[a-zA-Z0-9_]/.test(suffix) });
+                    let text = await this.timeoutPromise(promise, this.app.config.completion.timeout);
+
+                    if (reqId !== this.state.reqId || !this.state.isCompleting) return this.clearLoadingSpinner();
+
+                    text = text.replace(/^\n```[\w]+|```$/gm, "");
+                    if (text) {
+                        this.state.prediction = text;
+                        this.renderCompletionGhost(text, this.cm.getCursor());
+                    } else {
+                        this.clearCompletion();
+                    }
+                } catch (e) {
+                    if (reqId === this.state.reqId) this.clearCompletion();
+                }
+            }
+
+            acceptCompletion(cm) {
+                if (!this.state.prediction) return;
+                cm.replaceRange(this.state.prediction, cm.getCursor(), cm.getCursor(), "ai-completion");
+                this.clearCompletion();
+            }
+
+            clearCompletion() {
+                this.clearLoadingSpinner();
+                if (this.state.widgets.completion) this.state.widgets.completion.clear();
+                this.state.prediction = "";
+                this.state.isCompleting = false;
+                ipcRenderer.send('clear-completion');
+            }
+
+            showLoadingSpinner(cursor) {
+                this.clearLoadingSpinner();
+                const spin = document.createElement("span");
+                spin.className = "loading-spinner";
+                this.state.widgets.loading = this.cm.setBookmark(cursor, { widget: spin, insertLeft: true });
+            }
+
+            clearLoadingSpinner() {
+                if (this.state.widgets.loading) {
+                    this.state.widgets.loading.clear();
+                    this.state.widgets.loading = null;
+                }
+            }
+
+            renderCompletionGhost(text, cursor) {
+                this.clearLoadingSpinner();
+                const ghost = document.createElement("span");
+                ghost.className = "ghost-text";
+                ghost.innerText = text;
+                this.state.widgets.completion = this.cm.setBookmark(cursor, { widget: ghost, insertLeft: true });
+                AppCore.updateStatus("Press TAB to accept");
+            }
+
+            // --- Refactor ---
+            triggerDebouncedRefactor() {
+                clearTimeout(this.state.timers.refactor);
+                if (!this.enabled.fix) return;
+                this.state.timers.refactor = setTimeout(() => this.runRefactorAnalysis(), this.app.config.refactor.trigger_time);
+            }
+
+            async runRefactorAnalysis() {
+                const code = this.cm.getValue();
+                if (!code.trim()) return;
+                AppCore.updateStatus("Analyzing structure...");
+
+                try {
+                    const promise = ipcRenderer.invoke('code-refactor', code);
+                    let text = await this.timeoutPromise(promise, this.app.config.refactor.timeout);
+                    if (this.cm.getValue().length === 0) return;
+
+                    text = text.replace(/```json|\n```/g, "");
+                    const errors = (JSON.parse(text)?.errors || []).filter(item => 
+                        item.text.replace(/\s+/g, '') !== item.fix.replace(/\s+/g, '') && item.text.trim() !== ""
+                    );
+
+                    AppCore.updateStatus(errors.length ? `${errors.length} issues found` : "Code looks good");
+                    this.renderRefactorUI(errors);
+                } catch (e) {
+                    AppCore.updateStatus("Analysis Error/Timeout");
+                }
+            }
+
+            renderRefactorUI(errors) {
+                errors.forEach(item => {
+                    const cursor = this.cm.getSearchCursor(item.text);
+                    while (cursor.findNext()) {
+                        this.createRefactorWidget(cursor.from(), cursor.to(), item.fix);
+                    }
+                });
+            }
+
+            createRefactorWidget(from, to, fixText) {
+                const mark = this.cm.markText(from, to, { className: "lint-highlight" });
+                const widgetEl = document.createElement("div");
+                widgetEl.className = "widget-anchor";
+                widgetEl.innerHTML = `<div class="suggestion-container"><div class="connector-line"></div><div class="suggestion-pill" title="Click to fix"><span>⚡ ${fixText}</span></div></div>`;
+                
+                const itemObj = { mark, widget: widgetEl };
+                this.state.refactorItems.push(itemObj);
+
+                widgetEl.querySelector(".suggestion-pill").addEventListener("mousedown", (e) => {
+                    e.preventDefault(); e.stopPropagation();
+                    this.cm.replaceRange(fixText, from, to, "ai-fix");
+                    mark.clear();
+                    widgetEl.remove();
+                    this.state.refactorItems = this.state.refactorItems.filter(i => i !== itemObj);
+                    AppCore.updateStatus("Fixed");
+                });
+                
+                this.cm.addWidget(to, widgetEl, false);
+            }
+
+            // --- Modify (Inline Chat) ---
+            initModifyFeature() {
+                this.cm.on("scroll", () => this.updateModifyPosition());
+                this.cm.on("cursorActivity", () => {
+                    if (this.cm.getSelection().length === 0) this.clearModifyWidgets();
+                });
+                this.cm.getWrapperElement().addEventListener("mouseup", () => {
+                    setTimeout(() => {
+                        if (this.state.modifyUI.dialog) return;
+                        if (this.cm.getSelection().length > 0) {
+                            this.state.modifyUI.range = { from: this.cm.getCursor("from"), to: this.cm.getCursor("to") };
+                            this.showModifyButton();
+                        }
+                    }, 10);
+                });
+            }
+
+            clearModifyWidgets() {
+                if (this.state.modifyUI.btn) { this.state.modifyUI.btn.remove(); this.state.modifyUI.btn = null; }
+                if (this.state.modifyUI.dialog) { this.state.modifyUI.dialog.remove(); this.state.modifyUI.dialog = null; }
+            }
+
+            updateModifyPosition() {
+                if (!this.state.modifyUI.range) return;
+                const coords = this.cm.cursorCoords(this.state.modifyUI.range.from, "window");
+                const pos = { top: coords.top - 2 + "px", left: coords.left - 28 + "px" };
+                
+                if (this.state.modifyUI.btn) Object.assign(this.state.modifyUI.btn.style, pos);
+                if (this.state.modifyUI.dialog) Object.assign(this.state.modifyUI.dialog.style, pos);
+            }
+
+            showModifyButton() {
+                if (this.state.modifyUI.btn || this.state.modifyUI.dialog) return this.updateModifyPosition();
+
+                const btn = document.createElement("div");
+                btn.className = "ai-modify-btn";
+                btn.innerHTML = '<i class="fas fa-magic"></i>';
+                btn.onclick = (e) => { e.stopPropagation(); this.showModifyDialog(); };
+                
+                document.body.appendChild(btn);
+                this.state.modifyUI.btn = btn;
+                this.updateModifyPosition();
+            }
+
+            showModifyDialog() {
+                if (this.state.modifyUI.btn) { this.state.modifyUI.btn.remove(); this.state.modifyUI.btn = null; }
+
+                const dialog = document.createElement("div");
+                dialog.className = "ai-modify-dialog";
                 
                 const input = document.createElement("input");
-                input.type = "text";
-                input.placeholder = "Ask AI to modify selection...";
-                
+                input.placeholder = "Ask AI to modify...";
                 setTimeout(() => input.focus(), 50);
-
-                input.onkeydown = (e) => {
-                    if (e.key === 'Enter') submitBtn.click();
-                    if (e.key === 'Escape') {
-                         clearWidgets();
-                         cm.focus();
-                    }
-                    e.stopPropagation(); 
-                };
 
                 const submitBtn = document.createElement("button");
                 submitBtn.innerHTML = '<i class="fas fa-paper-plane"></i>';
-                submitBtn.title = "Submit";
-                submitBtn.onclick = async (e) => {
-                    e.stopPropagation();
-                    const instruction = input.value.trim();
-                    if (!instruction) return;
 
-                    const selectedText = cm.getRange(currentSelectionRange.from, currentSelectionRange.to);
-                    
+                const executeMod = async () => {
+                    const inst = input.value.trim();
+                    if (!inst) return;
                     input.disabled = true;
                     submitBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i>';
 
                     try {
-                        const result = await ipcRenderer.invoke('code-modify', { selectedText, instruction });
+                        const selText = this.cm.getRange(this.state.modifyUI.range.from, this.state.modifyUI.range.to);
+                        const result = await ipcRenderer.invoke('code-modify', { selectedText: selText, instruction: inst });
                         
                         if (result && typeof result === 'string') {
-                            let cleanCode = result.replace(/^```[\w]*\n?|```$/gm, "");
-                            cm.replaceRange(cleanCode, currentSelectionRange.from, currentSelectionRange.to, "ai-modify");
-                        } else if (result.error) {
-                            alert("AI Modify Failed: " + result.error);
+                            this.cm.replaceRange(result.replace(/^```[\w]*\n?|```$/gm, ""), this.state.modifyUI.range.from, this.state.modifyUI.range.to, "ai-modify");
                         }
-                    } catch (err) {
-                        console.error("AI Modify Exception:", err);
                     } finally {
-                        clearWidgets();
-                        cm.focus();
+                        this.clearModifyWidgets();
+                        this.cm.focus();
                     }
                 };
 
-                modifyDialog.appendChild(input);
-                modifyDialog.appendChild(submitBtn);
-                document.body.appendChild(modifyDialog);
-                updatePosition();
+                input.onkeydown = (e) => {
+                    if (e.key === 'Enter') executeMod();
+                    if (e.key === 'Escape') { this.clearModifyWidgets(); this.cm.focus(); }
+                    e.stopPropagation();
+                };
+                submitBtn.onclick = (e) => { e.stopPropagation(); executeMod(); };
+
+                dialog.append(input, submitBtn);
+                document.body.appendChild(dialog);
+                this.state.modifyUI.dialog = dialog;
+                this.updateModifyPosition();
+            }
+
+            timeoutPromise(promise, ms) {
+                return Promise.race([promise, new Promise((_, r) => setTimeout(() => r(new Error("Timeout")), ms))]);
             }
         }
 
-        // --- 修改后的补全逻辑 ---
-        async function runCompletion() {
-            // 如果正在补全，不要直接 return，而是取消上一次状态（视情况而定），
-            // 这里为了简单，我们使用 Request ID 来废弃旧请求的结果
-            isCompleting = true;
-
-            // 【新增优化】：如果当前行是空的，且文档内容极少，不进行补全（避免乱猜）
-            const currentLineContent = window.editor.getLine(window.editor.getCursor().line);
-            if (!currentLineContent.trim() && window.editor.getValue().length < 10) {
-                isCompleting = false;
-                return;
+        // --- File Management ---
+        class FileManager {
+            constructor(editorManager) {
+                this.em = editorManager;
+                this.currentFilePath = null;
+                this.initListeners();
             }
 
-            // 1. 生成本次请求的唯一 ID
-            const requestId = ++completionRequestId;
-
-            const cursor = window.editor.getCursor();
-
-            // 【新增】获取光标前的所有内容，进行非空检查
-            // 如果光标前什么都没有（或者只有空格），直接停止，不请求 AI
-            const rawPrefix = window.editor.getRange({ line: 0, ch: 0 }, cursor);
-            if (!rawPrefix.trim()) {
-                return;
-            }
-
-            // 取光标前最多1000字符作为前缀上下文
-            const prefix = window.editor.getRange({ line: 0, ch: 0 }, cursor).slice(-1000);
-            // 取光标后最多1000字符作为后缀上下文
-            const suffix = window.editor.getRange(cursor, { line: window.editor.lineCount(), ch: 0 }).slice(0, 1000);
-            // 判断光标后第一个字符是否为单词字符（英数字或下划线）
-            const isMidWord = /^[a-zA-Z0-9_]/.test(suffix);
-
-            const spin = document.createElement("span");
-            spin.className = "loading-spinner";
-
-            // 清除可能存在的旧 loading
-            if (loadingWidget) loadingWidget.clear();
-            loadingWidget = window.editor.setBookmark(cursor, { widget: spin, insertLeft: true });
-
-            try {
-                // 2. 引入超时机制 (例如 10秒超时)
-                let text = await withTimeout(
-                    ipcRenderer.invoke('code-completion', { prefix, suffix, isMidWord }),
-                    code_config.completion.timeout
-                );
-
-                // 3. 关键修复：检查 ID 是否过期
-                // 如果在等待期间用户移动了光标、删除了文字或触发了新补全，
-                // requestId 就不再等于 completionRequestId，此时必须丢弃结果，防止错位插入
-                if (requestId !== completionRequestId) {
-                    if (loadingWidget) loadingWidget.clear();
-                    return;
-                }
-
-                if (!isCompleting) return; // 双重检查标志位
-
-                text = text.replace(/^```[\w]+|```$/gm, "");
-
-                // 后缀去重逻辑 (保持不变)
-                if (text && suffix) {
-                    const trimmedSuffix = suffix.trim();
-                    for (let i = text.length; i > 0; i--) {
-                        if (trimmedSuffix.startsWith(text.slice(-i))) {
-                            text = text.slice(0, -i);
-                            break;
-                        }
-                    }
-                }
-
-                if (loadingWidget) loadingWidget.clear();
-
-                if (text) {
-                    currentPrediction = text;
-                    const ghost = document.createElement("span");
-                    ghost.className = "ghost-text";
-                    ghost.innerText = text;
-
-                    // 再次获取当前光标位置，确保 Widget 插入在最新位置 (虽然有 ID 保护，但这更安全)
-                    const currentCursor = window.editor.getCursor();
-                    completionWidget = window.editor.setBookmark(currentCursor, { widget: ghost, insertLeft: true });
-                    statusEl.textContent = "Press TAB to accept";
-                } else {
-                    isCompleting = false;
-                }
-
-            } catch (e) {
-                // 4. 处理超时或错误
-                console.log("Completion error or timeout:", e.message);
-                if (requestId === completionRequestId) {
-                    if (loadingWidget) loadingWidget.clear();
-                    isCompleting = false;
-                    statusEl.textContent = "Ready"; // 重置状态
-                }
-            }
-        }
-
-        // --- 核心修改：接受补全 ---
-        function acceptCompletion(cm) {
-            if (!currentPrediction) return;
-            const cursor = cm.getCursor();
-
-            // 关键：传入第四个参数 "ai-completion" 作为 origin
-            // 这会被 change 监听器捕获，从而阻止触发 Refactor
-            cm.replaceRange(currentPrediction, cursor, cursor, "ai-completion");
-
-            clearCompletion();
-        }
-
-        function clearCompletion() {
-            if (loadingWidget) { loadingWidget.clear(); loadingWidget = null; }
-            if (completionWidget) { completionWidget.clear(); completionWidget = null; }
-            currentPrediction = "";
-            isCompleting = false;
-            ipcRenderer.send('clear-completion');
-        }
-
-        // --- 修改后的重构/检查逻辑 ---
-        async function runRefactorAnalysis(cm) {
-            const code = cm.getValue();
-            if (!code.trim()) return;
-            statusEl.textContent = "Analyzing structure...";
-
-            try {
-                // 1. 引入超时机制 (重构通常较慢，给 20秒)
-                let text = await withTimeout(
-                    ipcRenderer.invoke('code-refactor', code),
-                    code_config.refactor.timeout
-                );
-
-                // 这里虽然不需要像补全那样严格的 ID 校验（因为是针对全文），
-                // 但如果文档内容在这期间被大幅清空，校验一下长度也是好的。
-                if (cm.getValue().length === 0) return;
-
-                text = text.replace(/```json|```/g, "");
-                let errors = (JSON.parse(text)?.errors || []).filter(item => {
-                    const original = item.text.replace(/\s+/g, '');
-                    const fixed = item.fix.replace(/\s+/g, '');
-                    return original !== fixed && item.text.trim() !== "";
+            initListeners() {
+                ipcRenderer.on('open-file', (_, filePath) => {
+                    this.currentFilePath = filePath;
+                    fs.readFile(filePath, 'utf-8', (err, content) => {
+                        if (err) return AppCore.updateStatus('Error opening file');
+                        this.em.cm.setValue(content);
+                        AppCore.updateStatus(`Opened: ${filePath}`);
+                    });
                 });
 
-                statusEl.textContent = errors.length ? `${errors.length} issues found` : "Code looks good";
-                renderRefactorUI(cm, errors);
+                ipcRenderer.on('open-content', (_, content) => {
+                    this.currentFilePath = null;
+                    this.em.cm.setValue(content);
+                    AppCore.updateStatus('Opened: Temporary Content');
+                });
 
-            } catch (error) {
-                console.log("Refactor error or timeout:", error.message);
-                statusEl.textContent = error.message.includes("Timeout") ? "Analysis Timeout" : "Analysis Error";
-            }
-        }
+                document.addEventListener('keydown', (e) => {
+                    if ((e.ctrlKey || e.metaKey) && e.key === 's') {
+                        e.preventDefault();
+                        this.saveFile();
+                    }
+                });
 
-        function renderRefactorUI(cm, errors) {
-            errors.forEach(item => {
-                const cursor = cm.getSearchCursor(item.text);
-                while (cursor.findNext()) {
-                    const from = cursor.from();
-                    const to = cursor.to();
-                    createWidget(cm, from, to, item.fix);
-                }
-            });
-        }
-
-        function createWidget(cm, from, to, fixText) {
-            const mark = cm.markText(from, to, { className: "lint-highlight" });
-            const widgetEl = document.createElement("div");
-            widgetEl.className = "widget-anchor";
-            widgetEl.innerHTML = `
-            <div class="suggestion-container">
-                <div class="connector-line"></div>
-                <div class="suggestion-pill" title="Click to fix"><span>⚡ ${fixText}</span></div>
-            </div>
-        `;
-            const item = { mark, widget: widgetEl };
-            activeRefactorItems.push(item);
-
-            widgetEl.querySelector(".suggestion-pill").addEventListener("mousedown", (e) => {
-                e.preventDefault(); e.stopPropagation();
-                // 这里 origin 为 ai-fix，也会被 change 监听器忽略
-                cm.replaceRange(fixText, from, to, "ai-fix");
-
-                mark.clear();
-                if (widgetEl.parentNode) widgetEl.parentNode.removeChild(widgetEl);
-                activeRefactorItems = activeRefactorItems.filter(i => i !== item);
-                statusEl.textContent = "Fixed";
-            });
-            cm.addWidget(to, widgetEl, false);
-        }
-
-        function clearRefactorUI() {
-            activeRefactorItems.forEach(item => {
-                item.mark.clear();
-                if (item.widget.parentNode) item.widget.parentNode.removeChild(item.widget);
-            });
-            activeRefactorItems = [];
-        }
-
-        // File Management Logic
-
-        const fs = require('fs');
-        let currentFilePath = null;
-
-        ipcRenderer.on('open-file', (event, filePath) => {
-            console.log('Opening file:', filePath);
-            currentFilePath = filePath;
-            fs.readFile(filePath, 'utf-8', (err, content) => {
-                if (err) {
-                    console.log('Failed to read file:', err);
-                    statusEl.textContent = 'Error opening file';
-                    return;
-                }
-                window.editor.setValue(content);
-                statusEl.textContent = `Opened: ${filePath}`;
-            });
-        });
-
-        ipcRenderer.on('open-content', (event, content) => {
-            console.log('Opening content');
-            currentFilePath = null;
-            window.editor.setValue(content);
-            statusEl.textContent = 'Opened: Temporary Content';
-        });
-
-        // Save on Ctrl+S / Cmd+S
-        document.addEventListener('keydown', (e) => {
-            if ((e.ctrlKey || e.metaKey) && e.key === 's') {
-                e.preventDefault();
-                if (currentFilePath) {
-                    fs.writeFile(currentFilePath, window.editor.getValue(), 'utf-8', (err) => {
-                        if (err) {
-                            console.log('Failed to save file:', err);
-                            statusEl.textContent = 'Error saving file';
-                            ipcRenderer.send('show-log', { type: 'error', content: 'Save Error: ' + err.message });
-                        } else {
-                            statusEl.textContent = `Saved: ${currentFilePath}`;
-                            ipcRenderer.send('show-log', { type: 'success', content: `File saved: ${currentFilePath}` });
-                            setTimeout(() => statusEl.textContent = 'Ready', 2000);
-                        }
-                    });
-                } else {
-                    // 保存为新文件
+                document.addEventListener('dragover', e => e.preventDefault(), true);
+                document.addEventListener('drop', e => {
                     e.preventDefault();
-                    ipcRenderer.invoke('save-as-dialog').then(filePath => {
-                        if (filePath) {
-                            fs.writeFile(filePath, window.editor.getValue(), 'utf-8', (err) => {
-                                if (err) {
-                                    console.log('Failed to save file:', err);
-                                    statusEl.textContent = 'Error saving file';
-                                    ipcRenderer.send('show-log', { type: 'error', content: 'Save Error: ' + err.message });
-                                } else {
-                                    currentFilePath = filePath;
-                                    statusEl.textContent = `Saved: ${currentFilePath}`;
-                                    ipcRenderer.send('show-log', { type: 'success', content: `File saved: ${currentFilePath}` });
-                                    setTimeout(() => statusEl.textContent = 'Ready', 2000);
-                                }
-                            });
-                        }
-                    });
-                }
+                    const file = e.dataTransfer.files[0];
+                    const filePath = file?.path || (webUtils && webUtils.getPathForFile(file));
+                    if (filePath) ipcRenderer.invoke('open-dropped-file', filePath);
+                }, true);
             }
 
-        });
-    </script>
+            async saveFile() {
+                let savePath = this.currentFilePath;
+                if (!savePath) {
+                    savePath = await ipcRenderer.invoke('save-as-dialog');
+                    if (!savePath) return;
+                }
 
-    <script>
+                fs.writeFile(savePath, this.em.cm.getValue(), 'utf-8', (err) => {
+                    if (err) return AppCore.updateStatus('Error saving file');
+                    this.currentFilePath = savePath;
+                    AppCore.updateStatus(`Saved: ${savePath}`);
+                    setTimeout(() => AppCore.updateStatus('Ready'), 2000);
+                });
+            }
+
+            async openFileDialog() {
+                const filePath = await ipcRenderer.invoke('open-file-dialog');
+                if (filePath) ipcRenderer.send('open-file', filePath);
+            }
+        }
+
         class CodeMirrorSearchManager {
             constructor(codeMirrorInstance) {
                 this.cm = codeMirrorInstance;
-                if (!this.cm || !this.cm.getSearchCursor) {
-                    console.log('CodeMirror instance not found or invalid');
-                    return;
-                }
+                if (!this.cm || !this.cm.getSearchCursor) return;
 
-                // 绑定 UI 元素
                 this.widget = document.getElementById('search-widget');
                 this.findInput = document.getElementById('find-input');
                 this.replaceInput = document.getElementById('replace-input');
                 this.replaceRow = document.getElementById('replace-row');
                 this.statusEl = document.getElementById('search-status');
 
-                // 状态
                 this.state = {
-                    currentCursor: null, // CodeMirror 搜索游标
+                    currentCursor: null,
                     useCase: false,
                     useRegex: false,
                     useFuzzy: false,
-                    query: '',
-                    totalMatches: 0,
-                    currentMatch: 0
+                    query: ''
                 };
 
-                // 搜索标记 (用于高亮所有匹配项)
                 this.searchMarks = [];
-                // 当前选中匹配项标记
                 this.currentMatchMark = null;
 
                 this.init();
             }
 
             init() {
-                // 1. 全局快捷键监听
-                const handleKeydown = (cm, event) => {
-                    if ((event.ctrlKey || event.metaKey) && !event.altKey) {
-                        if (event.key.toLowerCase() === 'f') {
-                            event.preventDefault();
-                            this.open('find');
-                            return true;
-                        }
-                        if (event.key.toLowerCase() === 'h') {
-                            event.preventDefault();
-                            this.open('replace');
-                            return true;
-                        }
-                    }
-                    if (event.key === 'Escape' && this.widget.style.display !== 'none') {
-                        event.preventDefault();
-                        this.close();
-                        return true;
-                    }
-                    return false;
-                };
-
-                // 注册快捷键处理器
+                // 快捷键绑定
                 this.cm.addKeyMap({
-                    'Ctrl-F': (cm) => { this.open('find'); },
-                    'Cmd-F': (cm) => { this.open('find'); },
-                    'Ctrl-H': (cm) => { 
-                        this.open('replace'); 
-                        // 确保替换框展开
-                        this.toggleReplace();
-                    },
-                    'Cmd-H': (cm) => { 
-                        this.open('replace');
-                        this.toggleReplace();
-                    },
-                    'Esc': (cm) => { this.close(); }
+                    'Ctrl-F': () => this.open('find'),
+                    'Cmd-F': () => this.open('find'),
+                    'Ctrl-H': () => { this.open('replace'); this.toggleReplace(true); },
+                    'Cmd-H': () => { this.open('replace'); this.toggleReplace(true); },
+                    'Esc': () => this.close()
                 });
 
-                // 2. 输入框事件
-                this.findInput.addEventListener('input', () => this.performSearch());
+                // 输入框事件：输入新查询时，跳转到第一个结果
+                this.findInput.addEventListener('input', () => this.performSearch(true));
                 this.findInput.addEventListener('keydown', (e) => {
-                    if (e.key === 'Enter') {
-                        if (e.shiftKey) this.navigate(-1);
-                        else this.navigate(1);
-                    }
+                    if (e.key === 'Enter') this.navigate(e.shiftKey ? -1 : 1);
+                    if (e.key === 'Escape') this.close();
                 });
-
-                // 【新增】展开按钮事件
-                document.getElementById('toggle-replace').onclick = () => this.toggleReplace();
-                
-                // 【修改】替换输入框的按键事件
                 this.replaceInput.addEventListener('keydown', (e) => {
-                    if (e.key === 'Enter') {
-                        this.replaceCurrent();
-                    }
+                    if (e.key === 'Enter') this.replaceCurrent();
+                    if (e.key === 'Escape') this.close();
                 });
 
-                // 3. 按钮点击事件
+                // 按钮事件
+                document.getElementById('toggle-replace').onclick = () => this.toggleReplace();
                 document.getElementById('btn-close').onclick = () => this.close();
                 document.getElementById('btn-next').onclick = () => this.navigate(1);
                 document.getElementById('btn-prev').onclick = () => this.navigate(-1);
                 document.getElementById('btn-replace').onclick = () => this.replaceCurrent();
                 document.getElementById('btn-replace-all').onclick = () => this.replaceAll();
 
-                // 4. 选项切换
+                // 选项切换
                 this.bindToggle('opt-case', 'useCase');
                 this.bindToggle('opt-regex', 'useRegex');
                 this.bindToggle('opt-fuzzy', 'useFuzzy');
 
-                // 5. 编辑器内容变化时重新搜索
-                this.cm.on('change', () => {
+                // 编辑器内容改变时更新高亮和计数，但不强制跳转光标（防吸附Bug）
+                this.cm.on('change', (cm, changeObj) => {
                     if (this.widget.style.display !== 'none' && this.state.query) {
-                        this.performSearch();
+                        // 如果是由我们自己的替换操作引发的修改，跳过自动检测，由 replaceCurrent 手动接管
+                        if (changeObj.origin === 'search-replace') return;
+                        this.performSearch(false);
                     }
                 });
             }
@@ -1228,12 +737,9 @@
                 const el = document.getElementById(id);
                 el.onclick = () => {
                     this.state[prop] = !this.state[prop];
+                    el.classList.toggle('active', this.state[prop]);
 
-                    // 更新 UI 样式
-                    if (this.state[prop]) el.classList.add('active');
-                    else el.classList.remove('active');
-
-                    // 互斥逻辑：模糊搜索和正则搜索不能同时开启
+                    // 互斥逻辑
                     if (prop === 'useFuzzy' && this.state.useFuzzy) {
                         this.state.useRegex = false;
                         document.getElementById('opt-regex').classList.remove('active');
@@ -1242,49 +748,28 @@
                         this.state.useFuzzy = false;
                         document.getElementById('opt-fuzzy').classList.remove('active');
                     }
-
-                    this.performSearch();
+                    // 切换选项后重新搜索并跳转
+                    this.performSearch(true);
                 };
             }
 
             open(mode) {
                 this.widget.style.display = 'block';
-                this.widget.classList.add('active');
-
-                const toggleBtn = document.getElementById('toggle-replace');
-                
                 if (mode === 'replace') {
-                    // 强制展开替换框
-                    this.replaceRow.style.display = 'flex';
-                    toggleBtn.classList.add('expanded');
-                    this.widget.style.width = '360px';
+                    this.toggleReplace(true);
                 } else {
-                    // 查找模式：保持上次的状态
-                    const wasExpanded = toggleBtn.classList.contains('expanded');
-                    if (wasExpanded) {
-                        this.replaceRow.style.display = 'flex';
-                        this.widget.style.width = '360px';
-                    } else {
-                        this.replaceRow.style.display = 'none';
-                        this.widget.style.width = '320px';
-                    }
+                    const wasExpanded = document.getElementById('toggle-replace').classList.contains('expanded');
+                    this.toggleReplace(wasExpanded);
                 }
 
-                // 自动填入当前选中的文本
                 const selection = this.cm.getSelection();
                 if (selection && selection.indexOf('\n') === -1) {
                     this.findInput.value = selection;
-                    // 添加选中文字的高亮效果
-                    this.findInput.classList.add('has-selection');
-                    // 2秒后移除高亮效果
-                    setTimeout(() => {
-                        this.findInput.classList.remove('has-selection');
-                    }, 2000);
                 }
-
+                
                 this.findInput.focus();
                 this.findInput.select();
-                this.performSearch();
+                this.performSearch(true);
             }
 
             close() {
@@ -1293,231 +778,183 @@
                 this.cm.focus();
             }
 
-            // 切换替换框显示/隐藏
-            toggleReplace() {
-                const replaceRow = this.replaceRow;
+            toggleReplace(forceShow = null) {
                 const toggleBtn = document.getElementById('toggle-replace');
-                const icon = toggleBtn.querySelector('i');
-                
-                if (replaceRow.style.display === 'none') {
-                    // 展开替换框
-                    replaceRow.style.display = 'flex';
+                const isHidden = this.replaceRow.style.display === 'none';
+                const shouldShow = forceShow !== null ? forceShow : isHidden;
+
+                if (shouldShow) {
+                    this.replaceRow.style.display = 'flex';
                     toggleBtn.classList.add('expanded');
-                    this.widget.style.width = '360px'; // 展开时增加宽度
-                    
-                    // 焦点转移到替换输入框
-                    setTimeout(() => {
-                        this.replaceInput.focus();
-                    }, 100);
+                    this.widget.style.width = '360px';
                 } else {
-                    // 收起替换框
-                    replaceRow.style.display = 'none';
+                    this.replaceRow.style.display = 'none';
                     toggleBtn.classList.remove('expanded');
-                    this.widget.style.width = '320px'; // 恢复原宽度
-                    
-                    // 焦点回到查找输入框
-                    this.findInput.focus();
+                    this.widget.style.width = '320px';
                 }
             }
 
-            // 清除所有搜索高亮
             clearHighlights() {
                 this.searchMarks.forEach(mark => mark.clear());
                 this.searchMarks = [];
-                
-                // 清除当前选中标记
                 if (this.currentMatchMark) {
                     this.currentMatchMark.clear();
                     this.currentMatchMark = null;
                 }
             }
 
-            // 构建搜索查询
             getSearchQuery(query) {
                 if (!query) return null;
-
                 if (this.state.useRegex) {
-                    try {
-                        return new RegExp(query, this.state.useCase ? 'g' : 'gi');
-                    } catch (e) {
-                        return null; // 正则表达式错误
-                    }
+                    try { return new RegExp(query, this.state.useCase ? 'g' : 'gi'); } catch (e) { return null; }
                 } else if (this.state.useFuzzy) {
-                    // 模糊搜索：将查询转换为正则模式
-                    const fuzzyPattern = query.split('').map(char => {
-                        return char.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-                    }).join('.*');
-                    try {
-                        return new RegExp(fuzzyPattern, this.state.useCase ? 'g' : 'gi');
-                    } catch (e) {
-                        return null;
-                    }
-                } else {
-                    // 普通文本搜索
-                    return query;
+                    const fuzzyPattern = query.split('').map(char => char.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')).join('.*');
+                    try { return new RegExp(fuzzyPattern, this.state.useCase ? 'g' : 'gi'); } catch (e) { return null; }
                 }
+                return query;
             }
 
-            performSearch() {
+            // 核心修改：增加 jumpToFirst 和 startPos 参数
+            performSearch(jumpToFirst = true, startPos = null) {
                 const query = this.findInput.value.trim();
                 this.state.query = query;
-
-                // 清除之前的高亮
                 this.clearHighlights();
 
-                if (!query) {
-                    this.updateStatus(0, 0);
-                    return;
-                }
+                if (!query) return this.updateStatus(0, 0);
 
                 const searchQuery = this.getSearchQuery(query);
-                if (!searchQuery) {
-                    this.updateStatus(-1, 0); // 错误状态
-                    return;
-                }
+                if (!searchQuery) return this.updateStatus(-1, 0);
 
-                // 1. 统计总数并添加高亮
+                // 1. 扫描全局，高亮所有匹配项并统计总数
                 let totalMatches = 0;
                 let cursor = this.cm.getSearchCursor(searchQuery, null, !this.state.useCase);
                 
                 while (cursor.findNext()) {
                     totalMatches++;
-                    const mark = this.cm.markText(cursor.from(), cursor.to(), {
-                        className: 'cm-search-match'
-                    });
-                    this.searchMarks.push(mark);
+                    this.searchMarks.push(this.cm.markText(cursor.from(), cursor.to(), { className: 'cm-search-match' }));
                 }
 
-                // 2. 定位到第一个匹配项
                 if (totalMatches > 0) {
-                    this.state.currentCursor = this.cm.getSearchCursor(searchQuery, null, !this.state.useCase);
-                    this.state.currentCursor.findNext();
-                    this.highlightCurrent();
-                    this.updateStatus(totalMatches, 1);
+                    if (jumpToFirst || startPos) {
+                        // 2A. 需要跳转焦点的情况 (输入新查询 或 刚刚完成一次替换)
+                        if (startPos) {
+                            // 替换后，从替换文本的末尾开始寻找下一个目标
+                            this.state.currentCursor = this.cm.getSearchCursor(searchQuery, startPos, !this.state.useCase);
+                            if (!this.state.currentCursor.findNext()) {
+                                // 触底反弹，从头开始
+                                this.state.currentCursor = this.cm.getSearchCursor(searchQuery, null, !this.state.useCase);
+                                this.state.currentCursor.findNext();
+                            }
+                        } else {
+                            // 默认寻找文件中的第一个目标
+                            this.state.currentCursor = this.cm.getSearchCursor(searchQuery, null, !this.state.useCase);
+                            this.state.currentCursor.findNext();
+                        }
+                        this.highlightCurrent();
+                        this.updateCurrentMatchIndex(totalMatches);
+                    } else {
+                        // 2B. 仅仅是文档被普通编辑，不要抢夺用户的光标焦点，只更新计数
+                        if (this.state.currentCursor) {
+                            this.updateCurrentMatchIndex(totalMatches);
+                        } else {
+                            this.updateStatus(totalMatches, '?');
+                        }
+                    }
                 } else {
                     this.state.currentCursor = null;
                     this.updateStatus(0, 0);
                 }
             }
 
+            updateCurrentMatchIndex(totalMatches) {
+                if (!this.state.currentCursor || !this.state.query) return;
+                const searchQuery = this.getSearchQuery(this.state.query);
+                if (!searchQuery) return;
+
+                let count = 1;
+                const currentPos = this.state.currentCursor.from();
+                let tempCursor = this.cm.getSearchCursor(searchQuery, null, !this.state.useCase);
+                
+                while (tempCursor.findNext()) {
+                    // 判断当前游标是否达到了我们选中的那个匹配项的位置
+                    if (tempCursor.from().line === currentPos.line && tempCursor.from().ch === currentPos.ch) break;
+                    count++;
+                }
+                this.updateStatus(totalMatches, count);
+            }
+
             navigate(direction) {
                 if (!this.state.currentCursor || !this.state.query) return;
 
-                let found = false;
-
-                if (direction > 0) {
-                    found = this.state.currentCursor.findNext();
-                } else {
-                    found = this.state.currentCursor.findPrevious();
-                }
+                let found = direction > 0 ? this.state.currentCursor.findNext() : this.state.currentCursor.findPrevious();
 
                 if (found) {
                     this.highlightCurrent();
-
-                    // 计算当前是第几个匹配项
-                    const currentPos = this.state.currentCursor.from();
-                    let count = 1;
-                    let tempCursor = this.cm.getSearchCursor(
-                        this.getSearchQuery(this.state.query),
-                        null,
-                        !this.state.useCase
-                    );
-
-                    while (tempCursor.findNext()) {
-                        if (this.comparePositions(tempCursor.from(), currentPos) === 0) {
-                            break;
-                        }
-                        count++;
-                    }
-
-                    this.updateStatus(this.searchMarks.length + 1, count);
+                    this.updateCurrentMatchIndex(this.searchMarks.length);
                 } else {
                     // 循环搜索：到达末尾时回到开头，到达开头时跳到末尾
                     if (direction > 0) {
-                        this.state.currentCursor = this.cm.getSearchCursor(
-                            this.getSearchQuery(this.state.query),
-                            { line: 0, ch: 0 },
-                            !this.state.useCase
-                        );
+                        this.state.currentCursor = this.cm.getSearchCursor(this.getSearchQuery(this.state.query), { line: 0, ch: 0 }, !this.state.useCase);
                         this.state.currentCursor.findNext();
                     } else {
                         const lastLine = this.cm.lastLine();
-                        this.state.currentCursor = this.cm.getSearchCursor(
-                            this.getSearchQuery(this.state.query),
-                            { line: lastLine, ch: this.cm.getLine(lastLine).length },
-                            !this.state.useCase
-                        );
+                        this.state.currentCursor = this.cm.getSearchCursor(this.getSearchQuery(this.state.query), { line: lastLine, ch: this.cm.getLine(lastLine).length }, !this.state.useCase);
                         this.state.currentCursor.findPrevious();
                     }
-
                     this.highlightCurrent();
-                    this.updateStatus(this.searchMarks.length + 1, direction > 0 ? 1 : this.searchMarks.length + 1);
+                    this.updateCurrentMatchIndex(this.searchMarks.length);
                 }
             }
 
             highlightCurrent() {
                 if (!this.state.currentCursor) return;
+                if (this.currentMatchMark) this.currentMatchMark.clear();
 
-                // 清除之前的当前选中标记
-                if (this.currentMatchMark) {
-                    this.currentMatchMark.clear();
-                }
-
-                // 设置选中区域
-                this.cm.setSelection(this.state.currentCursor.from(), this.state.currentCursor.to());
-
-                // 添加当前选中匹配项的高亮
-                this.currentMatchMark = this.cm.markText(
-                    this.state.currentCursor.from(), 
-                    this.state.currentCursor.to(), 
-                    { 
-                        className: 'cm-search-current-match' 
-                    }
-                );
-
-                // 滚动到可见区域
-                this.cm.scrollIntoView(this.state.currentCursor.from(), {
-                    margin: 20
-                });
+                const from = this.state.currentCursor.from();
+                const to = this.state.currentCursor.to();
+                
+                this.cm.setSelection(from, to);
+                this.currentMatchMark = this.cm.markText(from, to, { className: 'cm-search-current-match' });
+                this.cm.scrollIntoView(from, { margin: 20 });
             }
 
+            // 核心修改：修复替换后跳转问题
             replaceCurrent() {
                 if (!this.state.currentCursor) return;
-
+                
                 const replacement = this.replaceInput.value || "";
                 this.state.currentCursor.replace(replacement, "search-replace");
-
-                // 重新搜索以更新状态
-                this.performSearch();
+                
+                // 关键点：replace 之后，currentCursor.to() 会指向替换后的新字符串的末尾
+                // 我们获取这个末尾位置，作为下一轮搜索的起点。
+                // 这样既防止了无限循环（比如把 a 替换成 aa），又实现了原地的继续下探。
+                const nextPos = this.state.currentCursor.to(); 
+                
+                // 强制从刚才替换的结束位置继续向后搜
+                this.performSearch(true, nextPos); 
             }
-			
+            
             replaceAll() {
                 if (!this.state.query) return;
-
                 const searchQuery = this.getSearchQuery(this.state.query);
                 if (!searchQuery) return;
 
                 const replacement = this.replaceInput.value || "";
                 let cursor = this.cm.getSearchCursor(searchQuery, null, !this.state.useCase);
-                let found = cursor.findNext();
                 let replaceCount = 0;
 
-                while (found) {
+                while (cursor.findNext()) {
                     cursor.replace(replacement, "search-replace");
                     replaceCount++;
-                    found = cursor.findNext();
                 }
-
-                // 重新搜索以更新 UI
-                this.performSearch();
-
-                // 显示替换统计
-                this.statusEl.textContent = `Replaced ${replaceCount} occurrences`;
+                
+                this.performSearch(true); // 替换完重新回到头
+                this.statusEl.textContent = `Rep: ${replaceCount}`;
             }
 
             updateStatus(totalMatches, currentMatch) {
-                // 重置状态类
-                this.statusEl.classList.remove('has-results', 'no-results');
+                this.statusEl.classList.remove('no-results');
+                this.findInput.style.borderColor = 'transparent';
                 
                 if (totalMatches === -1) {
                     this.statusEl.textContent = 'Invalid regex';
@@ -1529,76 +966,29 @@
                     this.findInput.style.borderColor = '#f48771';
                 } else {
                     this.statusEl.textContent = `${currentMatch} of ${totalMatches}`;
-                    this.statusEl.classList.add('has-results');
-                    this.findInput.style.borderColor = '#3c3c3c';
-                }
-            }
-
-            // 比较两个位置是否相同
-            comparePositions(a, b) {
-                return a.line - b.line || a.ch - b.ch;
-            }
-        }
-
-        // 添加搜索匹配的高亮样式
-        const style = document.createElement('style');
-        style.textContent = `
-    .cm-search-match {
-        background-color: #515c6a;
-        border: 1px solid #6199ff2f;
-        border-radius: 2px;
-    }
-    
-    .cm-search-current-match {
-        background-color: #007acc !important;
-        border: 2px solid #4ec9b0 !important;
-        border-radius: 3px;
-        box-shadow: 0 0 8px rgba(0, 122, 204, 0.6);
-        animation: search-pulse 1.5s ease-in-out infinite;
-    }
-    
-    @keyframes search-pulse {
-        0% {
-            box-shadow: 0 0 8px rgba(0, 122, 204, 0.6);
-        }
-        50% {
-            box-shadow: 0 0 12px rgba(0, 122, 204, 0.8);
-        }
-        100% {
-            box-shadow: 0 0 8px rgba(0, 122, 204, 0.6);
-        }
-    }
-`;
-        document.head.appendChild(style);
-
-        // 自动换行切换功能
-        function toggleWordWrap() {
-            if (!window.editor) {
-                console.error('CodeMirror editor not initialized');
-                return;
-            }
-            const current = window.editor.getOption('lineWrapping');
-            const newValue = !current;
-            window.editor.setOption('lineWrapping', newValue);
-            const btn = document.getElementById('toggle-wrap-btn');
-            if (btn) {
-                if (newValue) {
-                    btn.classList.add('active');
-                } else {
-                    btn.classList.remove('active');
                 }
             }
         }
 
-        // 初始化按钮状态
-        if (window.editor) {
-            const isWrapping = window.editor.getOption('lineWrapping') || false;
-            const btn = document.getElementById('toggle-wrap-btn');
-            if (btn && isWrapping) {
-                btn.classList.add('active');
+        // --- Initialization ---
+        window.onload = () => {
+            const app = new AppCore();
+            const editorManager = new EditorManager(app);
+            window.aiAssistant = new AIAssistant(editorManager, app);
+            const fileManager = new FileManager(editorManager);
+            
+            if (typeof CodeMirrorSearchManager !== 'undefined') {
+                window.searchManager = new CodeMirrorSearchManager(editorManager.cm);
             }
-        }
+
+            // Bind UI Buttons
+            document.getElementById('btn-open-file').onclick = () => fileManager.openFileDialog();
+            document.getElementById('btn-toggle-theme').onclick = () => app.toggleTheme(editorManager.cm);
+            document.getElementById('btn-detect-lang').onclick = () => editorManager.detectLanguage();
+            document.getElementById('btn-toggle-wrap').onclick = () => editorManager.toggleWordWrap();
+            document.getElementById('btn-toggle-ai').onclick = () => window.aiAssistant.toggleFeature('complete');
+            document.getElementById('btn-toggle-fix').onclick = () => window.aiAssistant.toggleFeature('fix');
+        };
     </script>
 </body>
-
 </html>

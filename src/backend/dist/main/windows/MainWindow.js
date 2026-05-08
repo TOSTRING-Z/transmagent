@@ -827,6 +827,7 @@ class MainWindow extends BaseWindow_1.BaseWindow {
                             this.windowManager.subAgentWindow?.windows?.forEach(window => window?.webContents?.openDevTools());
                             this.windowManager.modelWindow?.window?.webContents.openDevTools();
                             this.windowManager.toolWindow?.window?.webContents.openDevTools();
+                            this.windowManager.codeWindow?.window?.webContents.openDevTools();
                         }
                     },
                 ]
