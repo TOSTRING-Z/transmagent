@@ -440,6 +440,25 @@ class MainWindow extends BaseWindow_1.BaseWindow {
             }
             return [];
         });
+        electron_1.ipcMain.handle('bgtask-details', async (_, data) => {
+            const { type, taskId } = data;
+            switch (type) {
+                case 'getOutput':
+                    return await BackgroundTaskRegistry_1.BackgroundTaskRegistry.getTaskOutput(taskId, 200);
+                case 'getDetails':
+                    return BackgroundTaskRegistry_1.BackgroundTaskRegistry.getTaskDetails(taskId);
+                case 'openFolder': {
+                    const details = BackgroundTaskRegistry_1.BackgroundTaskRegistry.getTaskDetails(taskId);
+                    if (details?.outputFilePath) {
+                        const folderPath = path.dirname(details.outputFilePath);
+                        electron_1.shell.openPath(folderPath);
+                    }
+                    return true;
+                }
+                default:
+                    return null;
+            }
+        });
         electron_1.ipcMain.on('setChat', (_, chat) => {
             this.sessionManager.setSessionChat({
                 seconds: chat.seconds,
@@ -741,10 +760,10 @@ class MainWindow extends BaseWindow_1.BaseWindow {
                             this.session().tool_call.initVar();
                             const chat_id = this.sessionManager.getChat()?.id;
                             this.session().llmService.chatManager.initMessages();
-                            // 清空 Task List
+                            // 清空 Task List 和环境变量
                             let vars = this.sessionManager.getChat()?.vars || {};
                             vars.tasks = [];
-                            this.sessionManager.setSessionChat({ id: chat_id, vars });
+                            this.sessionManager.setSessionChat({ id: chat_id, vars, envs: {} });
                             this.session().tool_call.changeMode();
                             this.updateVersionsSubmenu();
                             this.window?.webContents.send('handleSetChat', this.sessionManager.getChat());
@@ -778,14 +797,8 @@ class MainWindow extends BaseWindow_1.BaseWindow {
                                     globals_1.store.set('lastLoadPath', path.dirname(result.filePaths[0]));
                                     this.session().tool_call.initVar();
                                     this.session().tool_call.loadMessage(result.filePaths[0]);
-                                    let id_exist = this.session().tool_call.setHistory();
-                                    if (id_exist) {
-                                        this.window?.webContents.send('handleloadChat', this.sessionManager.getChat());
-                                    }
-                                    else {
-                                        this.window?.webContents.send('handleSetChat', this.sessionManager.getChat());
-                                    }
-                                    ;
+                                    this.session().tool_call.setHistory();
+                                    this.window?.webContents.send('handleloadChat', this.sessionManager.getChat());
                                 }
                             });
                         }

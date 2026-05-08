@@ -20,6 +20,8 @@ export interface BgTaskInfo {
     endTime?: number;
     /** 完成时的输出摘要（截断后的前 200 字符） */
     resultSummary?: string;
+    /** 完整输出文件路径 */
+    outputFilePath?: string;
 }
 /** 投递给主会话（前端）的消息结构 */
 export interface PendingMessage {
@@ -81,6 +83,12 @@ export declare class BackgroundTaskRegistry {
     static getAll(): BgTaskInfo[];
     /** 返回指定会话的任务列表 */
     static getBySession(sessionId: string): BgTaskInfo[];
+    /** 设置任务的输出文件路径 */
+    static setTaskOutputFile(taskId: string, outputFilePath: string): void;
+    /** 获取任务详情 */
+    static getTaskDetails(taskId: string): BgTaskInfo | undefined;
+    /** 读取指定任务的完整输出（最后N行） */
+    static getTaskOutput(taskId: string, maxLines?: number): Promise<string>;
     /** 清空已完成/失败的任务（保留 running） */
     static clearFinished(): void;
     /**

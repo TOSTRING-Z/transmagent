@@ -24,6 +24,8 @@ export interface BgTaskInfo {
     endTime?: number;
     /** 完成时的输出摘要（截断后的前 200 字符） */
     resultSummary?: string;
+    /** 完整输出文件路径 */
+    outputFilePath?: string;
 }
 
 /** 投递给主会话（前端）的消息结构 */
@@ -168,6 +170,41 @@ export class BackgroundTaskRegistry {
     /** 返回指定会话的任务列表 */
     static getBySession(sessionId: string): BgTaskInfo[] {
         return this.getAll().filter((t) => t.sessionId === sessionId);
+    }
+
+    /** 设置任务的输出文件路径 */
+    static setTaskOutputFile(taskId: string, outputFilePath: string): void {
+        const task = this.tasks.get(taskId);
+        if (task) {
+            task.outputFilePath = outputFilePath;
+        }
+    }
+
+    /** 获取任务详情 */
+    static getTaskDetails(taskId: string): BgTaskInfo | undefined {
+        return this.tasks.get(taskId);
+    }
+
+    /** 读取指定任务的完整输出（最后N行） */
+    static async getTaskOutput(taskId: string, maxLines: number = 200): Promise<string> {
+        const task = this.tasks.get(taskId);
+        if (!task || !task.outputFilePath) {
+            return '[Output file not available]';
+        }
+        try {
+            const fs = await import('fs');
+            if (!fs.existsSync(task.outputFilePath)) {
+                return '[Output file not yet created or already removed]';
+            }
+            const content = fs.readFileSync(task.outputFilePath, 'utf-8');
+            const lines = content.split(/\r?\n/);
+            if (lines.length > maxLines) {
+                return lines.slice(-maxLines).join('\n');
+            }
+            return content;
+        } catch (err: any) {
+            return `[Failed to read output: ${err.message}]`;
+        }
     }
 
     /** 清空已完成/失败的任务（保留 running） */

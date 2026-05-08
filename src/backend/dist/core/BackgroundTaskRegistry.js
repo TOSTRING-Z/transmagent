@@ -9,6 +9,39 @@
  *   2. 任务完成时调用 addMessage() → 自动将任务标记为 completed。
  *   3. 前端实时展示 running/completed/failed 状态列表。
  */
+var __createBinding = (this && this.__createBinding) || (Object.create ? (function(o, m, k, k2) {
+    if (k2 === undefined) k2 = k;
+    var desc = Object.getOwnPropertyDescriptor(m, k);
+    if (!desc || ("get" in desc ? !m.__esModule : desc.writable || desc.configurable)) {
+      desc = { enumerable: true, get: function() { return m[k]; } };
+    }
+    Object.defineProperty(o, k2, desc);
+}) : (function(o, m, k, k2) {
+    if (k2 === undefined) k2 = k;
+    o[k2] = m[k];
+}));
+var __setModuleDefault = (this && this.__setModuleDefault) || (Object.create ? (function(o, v) {
+    Object.defineProperty(o, "default", { enumerable: true, value: v });
+}) : function(o, v) {
+    o["default"] = v;
+});
+var __importStar = (this && this.__importStar) || (function () {
+    var ownKeys = function(o) {
+        ownKeys = Object.getOwnPropertyNames || function (o) {
+            var ar = [];
+            for (var k in o) if (Object.prototype.hasOwnProperty.call(o, k)) ar[ar.length] = k;
+            return ar;
+        };
+        return ownKeys(o);
+    };
+    return function (mod) {
+        if (mod && mod.__esModule) return mod;
+        var result = {};
+        if (mod != null) for (var k = ownKeys(mod), i = 0; i < k.length; i++) if (k[i] !== "default") __createBinding(result, mod, k[i]);
+        __setModuleDefault(result, mod);
+        return result;
+    };
+})();
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.BackgroundTaskRegistry = void 0;
 const logger_1 = require("../utils/logger");
@@ -94,6 +127,39 @@ class BackgroundTaskRegistry {
     /** 返回指定会话的任务列表 */
     static getBySession(sessionId) {
         return this.getAll().filter((t) => t.sessionId === sessionId);
+    }
+    /** 设置任务的输出文件路径 */
+    static setTaskOutputFile(taskId, outputFilePath) {
+        const task = this.tasks.get(taskId);
+        if (task) {
+            task.outputFilePath = outputFilePath;
+        }
+    }
+    /** 获取任务详情 */
+    static getTaskDetails(taskId) {
+        return this.tasks.get(taskId);
+    }
+    /** 读取指定任务的完整输出（最后N行） */
+    static async getTaskOutput(taskId, maxLines = 200) {
+        const task = this.tasks.get(taskId);
+        if (!task || !task.outputFilePath) {
+            return '[Output file not available]';
+        }
+        try {
+            const fs = await Promise.resolve().then(() => __importStar(require('fs')));
+            if (!fs.existsSync(task.outputFilePath)) {
+                return '[Output file not yet created or already removed]';
+            }
+            const content = fs.readFileSync(task.outputFilePath, 'utf-8');
+            const lines = content.split(/\r?\n/);
+            if (lines.length > maxLines) {
+                return lines.slice(-maxLines).join('\n');
+            }
+            return content;
+        }
+        catch (err) {
+            return `[Failed to read output: ${err.message}]`;
+        }
     }
     /** 清空已完成/失败的任务（保留 running） */
     static clearFinished() {

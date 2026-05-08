@@ -55,6 +55,8 @@ async function runInBackground(code, params, toolCall, taskId, sessionId) {
     (0, fs_1.writeFileSync)(tempFile, code);
     const outputFile = path.join((0, os_1.tmpdir)(), `bg_output_${timestamp}_${randomStr}.txt`);
     const outStream = (0, fs_1.createWriteStream)(outputFile, { encoding: 'utf8', flags: 'a' });
+    // 注册输出文件路径到 Registry
+    BackgroundTaskRegistry_1.BackgroundTaskRegistry.setTaskOutputFile(taskId, outputFile);
     let tailBuffer = '';
     let errorBuffer = '';
     const MAX_TAIL_CHARS = 50000;

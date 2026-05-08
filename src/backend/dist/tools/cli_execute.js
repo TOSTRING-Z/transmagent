@@ -223,6 +223,8 @@ async function runInBackground(code, params, toolCall, taskId, sessionId) {
                     }
                     finalOutputFilePath = `/tmp/bg_output_${timestamp}_${randomStr}.txt`;
                     outStream = sftp.createWriteStream(finalOutputFilePath, { encoding: 'utf8', flags: 'a' });
+                    // 注册输出文件路径到 Registry
+                    BackgroundTaskRegistry_1.BackgroundTaskRegistry.setTaskOutputFile(taskId, finalOutputFilePath);
                     outStream.on('error', (err) => {
                         logger_1.logger.warn(`[BackgroundTask] Remote stream error: ${err.message}`);
                     });
@@ -278,6 +280,8 @@ async function runInBackground(code, params, toolCall, taskId, sessionId) {
             // =========== 本地后台执行 ===========
             finalOutputFilePath = path.join(os.tmpdir(), `bg_output_${timestamp}_${randomStr}.txt`);
             localTempScriptFile = path.join(os.tmpdir(), `bg_temp_${timestamp}_${randomStr}.sh`);
+            // 注册输出文件路径到 Registry
+            BackgroundTaskRegistry_1.BackgroundTaskRegistry.setTaskOutputFile(taskId, finalOutputFilePath);
             try {
                 outStream = fs.createWriteStream(finalOutputFilePath, { encoding: 'utf8', flags: 'a' });
                 outStream.on('error', (err) => {

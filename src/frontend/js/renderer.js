@@ -414,6 +414,10 @@ $$
   }
   async function handleloadChat(chat) {
     updateChat(chat);
+    const existingItem = document.getElementById(chat.id);
+    if (!existingItem) {
+      addChatItem(chat);
+    }
     selectChat(chat.id);
   }
   async function deleteChat(chatId) {
