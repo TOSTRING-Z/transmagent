@@ -429,10 +429,18 @@ class MainWindow extends BaseWindow_1.BaseWindow {
         });
         electron_1.ipcMain.handle('bgtasks', (_, data) => {
             if (data.type === "get") {
+                if (data.sessionId) {
+                    return BackgroundTaskRegistry_1.BackgroundTaskRegistry.getBySession(data.sessionId);
+                }
                 return BackgroundTaskRegistry_1.BackgroundTaskRegistry.getAll();
             }
             if (data.type === "clear") {
-                BackgroundTaskRegistry_1.BackgroundTaskRegistry.clearFinished();
+                if (data.sessionId) {
+                    BackgroundTaskRegistry_1.BackgroundTaskRegistry.clearFinishedBySession(data.sessionId);
+                }
+                else {
+                    BackgroundTaskRegistry_1.BackgroundTaskRegistry.clearFinished();
+                }
                 return true;
             }
             if (data.type === "interrupt") {

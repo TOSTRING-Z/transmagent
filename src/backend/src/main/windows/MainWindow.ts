@@ -436,10 +436,17 @@ export class MainWindow extends BaseWindow {
 
         ipcMain.handle('bgtasks', (_, data) => {
             if (data.type === "get") {
+                if (data.sessionId) {
+                    return BackgroundTaskRegistry.getBySession(data.sessionId);
+                }
                 return BackgroundTaskRegistry.getAll();
             }
             if (data.type === "clear") {
-                BackgroundTaskRegistry.clearFinished();
+                if (data.sessionId) {
+                    BackgroundTaskRegistry.clearFinishedBySession(data.sessionId);
+                } else {
+                    BackgroundTaskRegistry.clearFinished();
+                }
                 return true;
             }
             if (data.type === "interrupt") {

@@ -91,6 +91,8 @@ export declare class BackgroundTaskRegistry {
     static getTaskOutput(taskId: string, maxLines?: number): Promise<string>;
     /** 清空已完成/失败的任务（保留 running） */
     static clearFinished(): void;
+    /** 按 session 清空已完成/失败的任务（保留 running） */
+    static clearFinishedBySession(sessionId: string): void;
     /**
      * 内部方法：负责将消息投递给主代理（前端），处理即时投递和队列暂存
      */

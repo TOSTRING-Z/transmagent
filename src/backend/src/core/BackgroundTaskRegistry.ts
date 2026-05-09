@@ -221,6 +221,15 @@ export class BackgroundTaskRegistry {
         }
     }
 
+    /** 按 session 清空已完成/失败的任务（保留 running） */
+    static clearFinishedBySession(sessionId: string): void {
+        for (const [id, task] of this.tasks) {
+            if (task.sessionId === sessionId && task.status !== 'running') {
+                this.tasks.delete(id);
+            }
+        }
+    }
+
     // ─── 主会话消息投递核心逻辑 ───────────────────────────────────────────────────
 
     /** 
