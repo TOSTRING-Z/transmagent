@@ -333,21 +333,24 @@ export class ToolCall extends LLMBase implements ISchedulableAgent {
                 appendedText = `\n${msg.content}`;
             }
 
-            // 2. 追加内容到上一条消息的 content 末尾
+            // 2. 先同步 UUID（生成新的并通知前端），确保后续 streamData 与 callReAct 使用同一 uuid
+            const currentUUID = this.setUUID();
+
+            // 3. 追加内容到上一条消息的 content 末尾
             const messages = this.llmService.chatManager.messages;
             const lastMsg = messages[messages.length - 1];
             if (lastMsg) {
                 lastMsg.content = (lastMsg.content || '') + appendedText;
             }
 
-            // 3. 前端 streamData 展示
+            // 4. 前端 streamData 展示（使用已同步的 uuid）
             this.events.emitEvent('streamData', {
                 ...this.llmService.chatManager.chat,
                 content: appendedText,
-                uuid: this.llmService.chatManager.uuid,
+                uuid: currentUUID,
             });
 
-            // 4. 自动唤醒 ReAct 循环（skipInitialPush=true，消息已在上方注入）
+            // 5. 自动唤醒 ReAct 循环（skipInitialPush=true，消息已在上方注入；setUUID=false，避免重复生成 uuid）
             const wakeReason = msg.type === 'task_result' ? `task "${msg.taskId}"` : 'incoming agent message';
             logger.log(`[ToolCall] Waking agent from "${this.state}" state for ${wakeReason}`);
 
@@ -357,8 +360,10 @@ export class ToolCall extends LLMBase implements ISchedulableAgent {
                 // 空 query 会导致 LLM 不采取行动，用户看不到任何反馈
                 query: '[SYSTEM: A background task or agent message has been delivered above. Please review the injected information and respond to the user with a summary or acknowledgment.]',
             });
+            // 将已同步的 uuid 注入 wakeData，确保 callReAct 内部不再重新生成
+            wakeData.uuid = currentUUID;
             
-            this.callReAct(wakeData, true, true).catch((err) => {
+            this.callReAct(wakeData, false, true).catch((err) => {
                 logger.error('[ToolCall] Background wake-up callReAct error:', err);
             });
         });
@@ -387,7 +392,7 @@ export class ToolCall extends LLMBase implements ISchedulableAgent {
                     lastMsg.content = (lastMsg.content || '') + appendedText;
                 }
 
-                // 前端 streamData 展示
+                // 前端 streamData 展示（使用当前 chatManager 的 uuid，确保与前端同步）
                 this.events.emitEvent('streamData', {
                     ...this.llmService.chatManager.chat,
                     content: appendedText,
