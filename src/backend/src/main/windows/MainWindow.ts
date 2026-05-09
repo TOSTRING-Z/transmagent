@@ -435,15 +435,16 @@ export class MainWindow extends BaseWindow {
         });
 
         ipcMain.handle('bgtasks', (_, data) => {
+            const sessionId = data.sessionId || this.sessionManager.getChat()?.id;
             if (data.type === "get") {
-                if (data.sessionId) {
-                    return BackgroundTaskRegistry.getBySession(data.sessionId);
+                if (sessionId) {
+                    return BackgroundTaskRegistry.getBySession(sessionId);
                 }
                 return BackgroundTaskRegistry.getAll();
             }
             if (data.type === "clear") {
-                if (data.sessionId) {
-                    BackgroundTaskRegistry.clearFinishedBySession(data.sessionId);
+                if (sessionId) {
+                    BackgroundTaskRegistry.clearFinishedBySession(sessionId);
                 } else {
                     BackgroundTaskRegistry.clearFinished();
                 }

@@ -428,15 +428,16 @@ class MainWindow extends BaseWindow_1.BaseWindow {
             }
         });
         electron_1.ipcMain.handle('bgtasks', (_, data) => {
+            const sessionId = data.sessionId || this.sessionManager.getChat()?.id;
             if (data.type === "get") {
-                if (data.sessionId) {
-                    return BackgroundTaskRegistry_1.BackgroundTaskRegistry.getBySession(data.sessionId);
+                if (sessionId) {
+                    return BackgroundTaskRegistry_1.BackgroundTaskRegistry.getBySession(sessionId);
                 }
                 return BackgroundTaskRegistry_1.BackgroundTaskRegistry.getAll();
             }
             if (data.type === "clear") {
-                if (data.sessionId) {
-                    BackgroundTaskRegistry_1.BackgroundTaskRegistry.clearFinishedBySession(data.sessionId);
+                if (sessionId) {
+                    BackgroundTaskRegistry_1.BackgroundTaskRegistry.clearFinishedBySession(sessionId);
                 }
                 else {
                     BackgroundTaskRegistry_1.BackgroundTaskRegistry.clearFinished();

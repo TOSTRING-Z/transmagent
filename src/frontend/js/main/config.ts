@@ -67,7 +67,7 @@ export function initConfigEvents() {
   });
 
   DOM.btn_clear_bgtasks.addEventListener('click', async () => {
-    await window.electronAPI.BGTasks({ type: "clear", sessionId: State.uuid });
+    await window.electronAPI.BGTasks({ type: "clear" });
     await renderBGTasks();
   });
 }
@@ -93,7 +93,7 @@ async function renderBGTasks() {
     startTime: number;
     endTime?: number;
     resultSummary?: string;
-  }> = await window.electronAPI.BGTasks({ type: "get", sessionId: State.uuid });
+  }> = await window.electronAPI.BGTasks({ type: "get" });
 
   // 计算快照：仅比对会影响 DOM 结构的关键字段
   const newSnapshot = JSON.stringify(tasks.map(t => ({

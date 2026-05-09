@@ -1158,7 +1158,7 @@ ${DOM.input.value}`;
       window._bgAutoRefresh = autoRefresh;
     });
     DOM.btn_clear_bgtasks.addEventListener("click", async () => {
-      await window.electronAPI.BGTasks({ type: "clear", sessionId: State.uuid });
+      await window.electronAPI.BGTasks({ type: "clear" });
       await renderBGTasks();
     });
   }
@@ -1168,7 +1168,7 @@ ${DOM.input.value}`;
     if (!container)
       return;
     const expandedTasks = window._expandedTasks ? Array.from(window._expandedTasks) : [];
-    const tasks = await window.electronAPI.BGTasks({ type: "get", sessionId: State.uuid });
+    const tasks = await window.electronAPI.BGTasks({ type: "get" });
     const newSnapshot = JSON.stringify(tasks.map((t) => ({
       id: t.taskId,
       status: t.status,
