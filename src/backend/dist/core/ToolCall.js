@@ -672,6 +672,7 @@ class ToolCall extends LLMBase_1.LLMBase {
                 ask: response?.ask,
                 options: response?.options,
                 subagent_tool: response?.subagent_tool,
+                questions: response?.questions,
             };
         }
         catch (error) {
