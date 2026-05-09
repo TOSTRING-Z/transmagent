@@ -12,6 +12,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
   startAgentLoop: (callback: (data: Record<string, any>) => void) => ipcRenderer.on('startAgentLoop', (_event, data) => callback(data)),
   handleExtraLoad: (callback: (data: Record<string, any>) => void) => ipcRenderer.on('extra_load', (_event, data) => callback(data)),
   handleOptions: (callback: (data: Record<string, any>) => void) => ipcRenderer.on('handleOptions', (_event, data) => callback(data)),
+  handleQuestions: (callback: (data: Record<string, any>) => void) => ipcRenderer.on('handleQuestions', (_event, data) => callback(data)),
   handleClear: (callback: (value: any) => void) => ipcRenderer.on('clear', (_event, value) => callback(value)),
   initInfo: (callback: (info: any) => void) => ipcRenderer.on('init-info', (_event, info) => callback(info)),
   setPrompt: (callback: (prompt: any) => void) => ipcRenderer.on('prompt', (_event, prompt) => callback(prompt)),

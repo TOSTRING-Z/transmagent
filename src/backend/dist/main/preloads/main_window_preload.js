@@ -13,6 +13,7 @@ electron_1.contextBridge.exposeInMainWorld('electronAPI', {
     startAgentLoop: (callback) => electron_1.ipcRenderer.on('startAgentLoop', (_event, data) => callback(data)),
     handleExtraLoad: (callback) => electron_1.ipcRenderer.on('extra_load', (_event, data) => callback(data)),
     handleOptions: (callback) => electron_1.ipcRenderer.on('handleOptions', (_event, data) => callback(data)),
+    handleQuestions: (callback) => electron_1.ipcRenderer.on('handleQuestions', (_event, data) => callback(data)),
     handleClear: (callback) => electron_1.ipcRenderer.on('clear', (_event, value) => callback(value)),
     initInfo: (callback) => electron_1.ipcRenderer.on('init-info', (_event, info) => callback(info)),
     setPrompt: (callback) => electron_1.ipcRenderer.on('prompt', (_event, prompt) => callback(prompt)),
