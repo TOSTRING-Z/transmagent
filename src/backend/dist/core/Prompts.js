@@ -118,6 +118,7 @@ class Prompts {
             const isTransagent = this.toolCall.agentConfigs.agentMode === "transagent";
             const hasMcpPrompt = !!this.toolCall.agentConfigs.mcpPrompt;
             const usePromptFormat = this.toolCall.llmService.chatManager.chat.tool_format === 'prompt';
+            const isPlan = this.toolCall.llmService.environment_details.mode === "plan";
             let identityPrompt = "";
             if (isSubagent) {
                 identityPrompt = this.toolCall.agentConfigs.agentPrompt || `You are **${this.toolCall.agentConfigs.agentName}**, a specialized execution sub-agent. Your sole purpose is to execute your assigned tasks efficiently and return the results without attempting to orchestrate other agents.`;
@@ -272,17 +273,17 @@ ${baseToolPrompt}
 ${tool_prompt}
 ` : ""}
 
-${(!isSubagent && isTransagent) ? `
+${(!isSubagent && isTransagent && !isPlan) ? `
 ## 💻 CLI / BASH EXECUTION PROTOCOL (STRICT)
 {cli_prompt}
 ` : ""}
 
-${hasMcpPrompt ? `
+${hasMcpPrompt && !isPlan ? `
 ## MCP Services
 {mcp_prompt}
 ` : ""}
 
-${hasSkill ? `
+${hasSkill && !isPlan ? `
 # 🌟 Active Agent Skills
 {skill_prompt}
 ` : ""}

@@ -2,6 +2,7 @@ import { logger } from '../utils/logger';
 import * as fs from 'fs';
 import { ToolCall } from './ToolCall';
 import { WindowManager } from '../main/windows/WindowManager';
+
 export const MODE_CONSTRAINTS: Record<string, string> = {
   auto: `
 - **ABSOLUTE AUTONOMY & ZERO CONVERSATION**: You are in fully unattended execution mode. You are STRICTLY FORBIDDEN from asking the user ANY questions, proposing "next steps", or asking for confirmation for normal workflow steps.
@@ -89,6 +90,7 @@ class Prompts {
       const isTransagent = this.toolCall.agentConfigs.agentMode === "transagent";
       const hasMcpPrompt = !!this.toolCall.agentConfigs.mcpPrompt;
       const usePromptFormat = this.toolCall.llmService.chatManager.chat.tool_format === 'prompt';
+      const isPlan = this.toolCall.llmService.environment_details.mode === "plan";
 
       let identityPrompt = "";
       if (isSubagent) {
@@ -244,17 +246,17 @@ ${baseToolPrompt}
 ${tool_prompt}
 ` : ""}
 
-${(!isSubagent && isTransagent) ? `
+${(!isSubagent && isTransagent && !isPlan) ? `
 ## 💻 CLI / BASH EXECUTION PROTOCOL (STRICT)
 {cli_prompt}
 ` : ""}
 
-${hasMcpPrompt ? `
+${hasMcpPrompt && !isPlan ? `
 ## MCP Services
 {mcp_prompt}
 ` : ""}
 
-${hasSkill ? `
+${hasSkill  && !isPlan? `
 # 🌟 Active Agent Skills
 {skill_prompt}
 ` : ""}
