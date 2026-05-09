@@ -104,6 +104,7 @@ async function runInBackground(code, params, toolCall, taskId, sessionId) {
         const env = { ...process.env, PYTHONIOENCODING: 'utf-8' };
         const child = (0, child_process_1.spawn)(params.python_bin || 'python', [tempFile], { env });
         killProcess = (force) => {
+            isInterrupted = true;
             if (child && child.exitCode === null) {
                 child.kill(force ? 'SIGKILL' : 'SIGINT');
             }

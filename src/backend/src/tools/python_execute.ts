@@ -110,6 +110,7 @@ async function runInBackground(
         const child = spawn(params.python_bin || 'python', [tempFile], { env });
 
         killProcess = (force?: boolean) => {
+            isInterrupted = true;
             if (child && child.exitCode === null) {
                 child.kill(force ? 'SIGKILL' : 'SIGINT');
             }

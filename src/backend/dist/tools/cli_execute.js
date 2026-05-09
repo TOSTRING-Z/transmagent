@@ -241,6 +241,7 @@ async function runInBackground(code, params, toolCall, taskId, sessionId) {
                                 return sendToRegistry({ success: false, error: `Execution error: ${execErr.message}` });
                             }
                             killProcess = (force) => {
+                                isInterrupted = true;
                                 try {
                                     stream.close();
                                 }
@@ -296,6 +297,7 @@ async function runInBackground(code, params, toolCall, taskId, sessionId) {
             }
             const child = (0, child_process_1.exec)(`${params.bash} ${localTempScriptFile}`);
             killProcess = (force) => {
+                isInterrupted = true;
                 if (child && child.exitCode === null) {
                     child.kill(force ? 'SIGKILL' : 'SIGINT');
                 }

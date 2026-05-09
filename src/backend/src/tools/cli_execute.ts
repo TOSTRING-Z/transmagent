@@ -258,6 +258,7 @@ async function runInBackground(
                             }
 
                             killProcess = (force?: boolean) => {
+                                isInterrupted = true;
                                 try { stream.close(); } catch (e) { /* ignore */ }
                                 if (force && conn) {
                                     try { conn.end(); } catch (e) { /* ignore */ }
@@ -313,6 +314,7 @@ async function runInBackground(
             const child: ChildProcess = exec(`${params.bash} ${localTempScriptFile}`);
 
             killProcess = (force?: boolean) => {
+                isInterrupted = true;
                 if (child && child.exitCode === null) {
                     child.kill(force ? 'SIGKILL' : 'SIGINT');
                 }

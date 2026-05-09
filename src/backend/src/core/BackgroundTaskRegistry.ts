@@ -197,6 +197,11 @@ export class BackgroundTaskRegistry {
                 return '[Output file not yet created or already removed]';
             }
             const content = fs.readFileSync(task.outputFilePath, 'utf-8');
+            if (!content || content.trim().length === 0) {
+                return task.status === 'running'
+                    ? '[Task is running, no output yet...]'
+                    : '[No output captured]';
+            }
             const lines = content.split(/\r?\n/);
             if (lines.length > maxLines) {
                 return lines.slice(-maxLines).join('\n');

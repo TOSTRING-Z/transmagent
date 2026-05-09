@@ -1345,6 +1345,21 @@ ${DOM.input.value}`;
     if (!panel)
       return;
     window._loadedDetails = window._loadedDetails || /* @__PURE__ */ new Set();
+    panel.innerHTML = `
+    <div class="bg-task-details">
+      <div class="bg-details-header">
+        <span class="bg-details-title"><i class="fas fa-terminal"></i> Task Output</span>
+        <div class="bg-details-actions">
+          <button class="bg-details-btn" onclick="toggleTaskDetails('${escapeHtml(taskId)}')">
+            <i class="fas fa-chevron-up"></i> Collapse
+          </button>
+        </div>
+      </div>
+      <div style="padding: 20px; text-align: center; color: #888; font-size: 13px;">
+        <i class="fas fa-spinner fa-spin" style="margin-right: 8px;"></i> Loading task output...
+      </div>
+    </div>
+  `;
     try {
       const details = await window.electronAPI.BGTaskDetails({ type: "getDetails", taskId });
       const output = await window.electronAPI.BGTaskDetails({ type: "getOutput", taskId });
