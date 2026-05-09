@@ -47,6 +47,7 @@ export interface AgentEventMap {
     userData: [payload: StreamPayload];
     infoData: [payload: StreamPayload];
     handleOptions: [payload: any];
+    handleQuestions: [payload: any];
     agentRunning: [payload: any];
     agentIdle: [payload: any];
     handleRenameChat: [payload: any];
@@ -114,6 +115,7 @@ export class ElectronUIController {
         emitter.onEvent('userData', (p) => this.send('userData', p));
         emitter.onEvent('infoData', (p) => this.send('infoData', p));
         emitter.onEvent('handleOptions', (p) => this.send('handleOptions', p));
+        emitter.onEvent('handleQuestions', (p) => this.send('handleQuestions', p));
         emitter.onEvent('agentRunning', (p) => this.send('agentRunning', p));
         emitter.onEvent('agentIdle', (p) => this.send('agentIdle', p));
         emitter.onEvent('handleRenameChat', (p) => this.send('handleRenameChat', p));

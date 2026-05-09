@@ -15,6 +15,13 @@ export interface Observation {
     result: string;
     options?: string[];
     ask?: string;
+    questions?: Array<{
+        id: string;
+        question: string;
+        type: 'choice' | 'text' | 'confirm';
+        options?: string[];
+        required?: boolean;
+    }>;
     subagent_tool?: boolean;
 }
 export interface AgentConfigs {

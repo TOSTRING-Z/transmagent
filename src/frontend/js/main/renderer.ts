@@ -264,40 +264,85 @@ window.electronAPI.handleExtraLoad((data) => {
   init_size();
 });
 
-window.electronAPI.handleOptions(({ options, group_id, uuid }) => {
+window.electronAPI.handleQuestions(({ questions, group_id, uuid }) => {
   if (uuid && uuid !== State.uuid) {
     return;
   }
   DOM.pause.style.display = "flex";
-  let option_querys: string[] = [];
+  DOM.pause.innerHTML = "";
 
-  options.forEach(value => {
-    const option = document.createElement("div");
-    option.className = "btn";
-    option.dataset.id = group_id;
-    option.innerText = value;
-    option.addEventListener("click", function () {
-      if (this.classList.contains("active")) {
-        this.classList.remove("active");
-        option_querys = option_querys.filter(item => item !== value);
-        return;
+  const answers: Record<string, any> = {};
+
+  questions.forEach((q) => {
+    const container = document.createElement("div");
+    container.className = "question-block";
+
+    const label = document.createElement("div");
+    label.className = "question-label";
+    label.innerText = q.question + (q.required !== false ? " *" : "");
+    container.appendChild(label);
+
+    switch (q.type) {
+      case "choice": {
+        const optionsContainer = document.createElement("div");
+        optionsContainer.className = "question-options";
+        q.options?.forEach(opt => {
+          const btn = document.createElement("div");
+          btn.className = "btn option-btn";
+          btn.innerText = opt;
+          btn.addEventListener("click", () => {
+            optionsContainer.querySelectorAll(".option-btn").forEach((b: any) => b.classList.remove("active"));
+            btn.classList.add("active");
+            answers[q.id] = opt;
+          });
+          optionsContainer.appendChild(btn);
+        });
+        container.appendChild(optionsContainer);
+        break;
       }
-      this.classList.add("active");
-      option_querys.push(value);
-    });
-    DOM.pause.appendChild(option);
+      case "text": {
+        const input = document.createElement("textarea") as HTMLTextAreaElement;
+        input.className = "question-input";
+        input.placeholder = "Type your answer…";
+        input.addEventListener("input", () => {
+          answers[q.id] = input.value;
+        });
+        container.appendChild(input);
+        break;
+      }
+      case "confirm": {
+        const optionsContainer = document.createElement("div");
+        optionsContainer.className = "question-options";
+        ["Yes", "No"].forEach(opt => {
+          const btn = document.createElement("div");
+          btn.className = "btn option-btn";
+          btn.innerText = opt;
+          btn.addEventListener("click", () => {
+            optionsContainer.querySelectorAll(".option-btn").forEach((b: any) => b.classList.remove("active"));
+            btn.classList.add("active");
+            answers[q.id] = opt === "Yes";
+          });
+          optionsContainer.appendChild(btn);
+        });
+        container.appendChild(optionsContainer);
+        break;
+      }
+    }
+    DOM.pause.appendChild(container);
   });
 
   const send = document.createElement("div");
-  send.className = "btn success";
+  send.className = "btn success submit-btn";
   send.dataset.id = group_id;
   send.innerText = "Send";
   send.addEventListener("click", async function () {
-    State.formData.query = option_querys.join("\n");
+    const formatted = Object.entries(answers)
+      .map(([id, val]) => `[${id}]: ${val}`)
+      .join("\n");
+    State.formData.query = formatted;
     State.formData.prompt = DOM.system_prompt.value;
     startAgentLoop(State.formData);
     window.electronAPI.agentLoop(State.formData);
-    option_querys = [];
   });
   DOM.pause.appendChild(send);
 

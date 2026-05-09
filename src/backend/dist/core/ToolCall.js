@@ -260,19 +260,21 @@ class ToolCall extends LLMBase_1.LLMBase {
                     logger_1.logger.log(`[ToolCall] Background handler: delivering agent message to session "${sessionId}"`);
                     appendedText = `\n${msg.content}`;
                 }
-                // 2. 追加内容到上一条消息的 content 末尾
+                // 2. 先同步 UUID（生成新的并通知前端），确保后续 streamData 与 callReAct 使用同一 uuid
+                const currentUUID = this.setUUID();
+                // 3. 追加内容到上一条消息的 content 末尾
                 const messages = this.llmService.chatManager.messages;
                 const lastMsg = messages[messages.length - 1];
                 if (lastMsg) {
                     lastMsg.content = (lastMsg.content || '') + appendedText;
                 }
-                // 3. 前端 streamData 展示
+                // 4. 前端 streamData 展示（使用已同步的 uuid）
                 this.events.emitEvent('streamData', {
                     ...this.llmService.chatManager.chat,
                     content: appendedText,
-                    uuid: this.llmService.chatManager.uuid,
+                    uuid: currentUUID,
                 });
-                // 4. 自动唤醒 ReAct 循环（skipInitialPush=true，消息已在上方注入）
+                // 5. 自动唤醒 ReAct 循环（skipInitialPush=true，消息已在上方注入；setUUID=false，避免重复生成 uuid）
                 const wakeReason = msg.type === 'task_result' ? `task "${msg.taskId}"` : 'incoming agent message';
                 logger_1.logger.log(`[ToolCall] Waking agent from "${this.state}" state for ${wakeReason}`);
                 this.llmService.stopFlag = false; // 确保 stopFlag 被重置，允许继续处理
@@ -281,7 +283,9 @@ class ToolCall extends LLMBase_1.LLMBase {
                     // 空 query 会导致 LLM 不采取行动，用户看不到任何反馈
                     query: '[SYSTEM: A background task or agent message has been delivered above. Please review the injected information and respond to the user with a summary or acknowledgment.]',
                 });
-                this.callReAct(wakeData, true, true).catch((err) => {
+                // 将已同步的 uuid 注入 wakeData，确保 callReAct 内部不再重新生成
+                wakeData.uuid = currentUUID;
+                this.callReAct(wakeData, false, true).catch((err) => {
                     logger_1.logger.error('[ToolCall] Background wake-up callReAct error:', err);
                 });
             });
@@ -304,7 +308,7 @@ class ToolCall extends LLMBase_1.LLMBase {
             if (lastMsg) {
                 lastMsg.content = (lastMsg.content || '') + appendedText;
             }
-            // 前端 streamData 展示
+            // 前端 streamData 展示（使用当前 chatManager 的 uuid，确保与前端同步）
             this.events.emitEvent('streamData', {
                 ...this.llmService.chatManager.chat,
                 content: appendedText,
@@ -717,12 +721,23 @@ class ToolCall extends LLMBase_1.LLMBase {
         }
         if (this.state === LLMBase_1.State.PAUSE) {
             // ask_user：输出问题并挂起等待
-            this.events.emitEvent('streamData', {
-                ...chat, content: `\n\n${observation.ask}`, uuid: data.uuid, end: true,
-            });
-            this.events.emitEvent('handleOptions', {
-                ...chat, ...toolInfo, options: observation.options, uuid: data.uuid,
-            });
+            if (observation.questions) {
+                // 新格式：多问题数组
+                this.events.emitEvent('handleQuestions', {
+                    ...chat, questions: observation.questions, uuid: data.uuid,
+                });
+            }
+            else {
+                // 兼容：旧格式降级
+                this.events.emitEvent('streamData', {
+                    ...chat, content: `\n\n${observation.ask || 'Please provide your input.'}`, uuid: data.uuid, end: true,
+                });
+                if (observation.options) {
+                    this.events.emitEvent('handleOptions', {
+                        ...chat, ...toolInfo, options: observation.options, uuid: data.uuid,
+                    });
+                }
+            }
         }
         else if (this.state === LLMBase_1.State.FINAL) {
             this.llmService.chatManager.pushToolMessage({
@@ -907,12 +922,20 @@ class ToolCall extends LLMBase_1.LLMBase {
                                     });
                                 if (["ask_user"].includes(toolInfo.tool_call_name)) {
                                     state = LLMBase_1.State.PAUSE;
-                                    this.events.emitEvent('streamData', { ...chat, ...message, content: `\n\n${toolInfo.params.ask}`, end: true });
-                                    if (toolInfo.params?.options && i === (messages.length - 1)) {
+                                    if (toolInfo.params?.questions) {
                                         this.state = state;
-                                        this.events.emitEvent('handleOptions', {
-                                            ...chat, ...toolInfo, options: toolInfo.params.options, end: true,
+                                        this.events.emitEvent('handleQuestions', {
+                                            ...chat, questions: toolInfo.params.questions, end: true,
                                         });
+                                    }
+                                    else {
+                                        this.events.emitEvent('streamData', { ...chat, ...message, content: `\n\n${toolInfo.params.ask || 'Please provide your input.'}`, end: true });
+                                        if (toolInfo.params?.options && i === (messages.length - 1)) {
+                                            this.state = state;
+                                            this.events.emitEvent('handleOptions', {
+                                                ...chat, ...toolInfo, options: toolInfo.params.options, end: true,
+                                            });
+                                        }
                                     }
                                 }
                             });

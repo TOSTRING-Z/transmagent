@@ -28,6 +28,11 @@ export interface ElectronAPI {
   agentLoop: (data: any) => void;
   handleExtraLoad: (callback: (data: any[]) => void) => void;
   handleOptions: (callback: (data: { options: string[]; group_id: string, uuid: string }) => void) => void;
+  handleQuestions: (callback: (data: { 
+    questions: Array<{ id: string; question: string; type: 'choice' | 'text' | 'confirm'; options?: string[]; required?: boolean }>; 
+    group_id: string; 
+    uuid: string 
+  }) => void) => void;
   setPrompt: (callback: (prompt: string) => void) => void;
   handleClear: (callback: () => void) => void;
   uploadProgress: (callback: (info: any) => void) => void;

@@ -41,6 +41,7 @@ export interface Observation {
     result: string;
     options?: string[];
     ask?: string;
+    questions?: Array<{ id: string; question: string; type: 'choice' | 'text' | 'confirm'; options?: string[]; required?: boolean }>;
     subagent_tool?: boolean;
 }
 
@@ -871,12 +872,22 @@ export class ToolCall extends LLMBase implements ISchedulableAgent {
 
         if (this.state === State.PAUSE) {
             // ask_user：输出问题并挂起等待
-            this.events.emitEvent('streamData', {
-                ...chat, content: `\n\n${observation.ask}`, uuid: data.uuid, end: true,
-            });
-            this.events.emitEvent('handleOptions', {
-                ...chat, ...toolInfo, options: observation.options, uuid: data.uuid,
-            });
+            if (observation.questions) {
+                // 新格式：多问题数组
+                this.events.emitEvent('handleQuestions', {
+                    ...chat, questions: observation.questions, uuid: data.uuid,
+                });
+            } else {
+                // 兼容：旧格式降级
+                this.events.emitEvent('streamData', {
+                    ...chat, content: `\n\n${observation.ask || 'Please provide your input.'}`, uuid: data.uuid, end: true,
+                });
+                if (observation.options) {
+                    this.events.emitEvent('handleOptions', {
+                        ...chat, ...toolInfo, options: observation.options, uuid: data.uuid,
+                    });
+                }
+            }
         } else if (this.state === State.FINAL) {
             this.llmService.chatManager.pushToolMessage({
                 ...chat, ...toolInfo, content: observation.result, uuid: data.uuid,
@@ -1077,12 +1088,19 @@ export class ToolCall extends LLMBase implements ISchedulableAgent {
                                     });
                                 if (["ask_user"].includes(toolInfo.tool_call_name as string)) {
                                     state = State.PAUSE;
-                                    this.events.emitEvent('streamData', { ...chat, ...message, content: `\n\n${toolInfo.params.ask}`, end: true });
-                                    if (toolInfo.params?.options && i === (messages.length - 1)) {
+                                    if (toolInfo.params?.questions) {
                                         this.state = state;
-                                        this.events.emitEvent('handleOptions', {
-                                            ...chat, ...toolInfo, options: toolInfo.params.options, end: true,
+                                        this.events.emitEvent('handleQuestions', {
+                                            ...chat, questions: toolInfo.params.questions, end: true,
                                         });
+                                    } else {
+                                        this.events.emitEvent('streamData', { ...chat, ...message, content: `\n\n${toolInfo.params.ask || 'Please provide your input.'}`, end: true });
+                                        if (toolInfo.params?.options && i === (messages.length - 1)) {
+                                            this.state = state;
+                                            this.events.emitEvent('handleOptions', {
+                                                ...chat, ...toolInfo, options: toolInfo.params.options, end: true,
+                                            });
+                                        }
                                     }
                                 }
                             })

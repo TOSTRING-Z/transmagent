@@ -633,35 +633,43 @@ $$
   }
   var compression_tasks = {};
   async function compressionGroupMessage(group_id) {
+    if (compression_tasks[group_id])
+      return;
     let elements = document.querySelectorAll(`[data-id="${group_id}"]`);
     showLog("log", `Compressing message (id: ${group_id})...`);
     compression_tasks[group_id] = true;
     if (DOM.submit.classList.contains("running") == false) {
       DOM.submit.classList.add("running");
     }
-    let { compression_content } = await window.electronAPI.compressionGroupMessage({ group_id });
-    showLog("success", `Message compressed (id: ${group_id}).`);
-    let keptUser = false;
-    elements.forEach(async function(message_element) {
-      if (!keptUser) {
-        keptUser = true;
-        let messageSystem = await formatMessage(system_message_template, {
-          "icon": getIcon(false),
-          "id": group_id,
-          "message": compression_content
-        }, "system");
-        addRunning(messageSystem);
-        const message_content = messageSystem.getElementsByClassName("message")[0];
-        menuEvent(messageSystem, message_content, false);
-        message_element.parentElement.insertBefore(messageSystem, message_element.nextSibling);
-        delete compression_tasks[group_id];
-        if (Object.keys(compression_tasks).length == 0) {
-          DOM.submit.classList.remove("running");
+    try {
+      let { compression_content } = await window.electronAPI.compressionGroupMessage({ group_id });
+      showLog("success", `Message compressed (id: ${group_id}).`);
+      let keptUser = false;
+      elements.forEach(async function(message_element) {
+        if (!keptUser) {
+          keptUser = true;
+          let messageSystem = await formatMessage(system_message_template, {
+            "icon": getIcon(false),
+            "id": group_id,
+            "message": compression_content
+          }, "system");
+          const thinking = messageSystem.getElementsByClassName("thinking")[0];
+          thinking?.classList.add("hidden");
+          messageSystem.dataset.event_stop = "true";
+          const message_content = messageSystem.getElementsByClassName("message")[0];
+          if (message_content)
+            menuEvent(messageSystem, message_content, false);
+          message_element.parentElement.insertBefore(messageSystem, message_element.nextSibling);
+        } else {
+          message_element.remove();
         }
-      } else {
-        message_element.remove();
+      });
+    } finally {
+      delete compression_tasks[group_id];
+      if (Object.keys(compression_tasks).length == 0) {
+        DOM.submit.classList.remove("running");
       }
-    });
+    }
   }
   async function thumbMessageGroup(up, down, data) {
     let thumb = await window.electronAPI.thumbMessageGroup(data);
@@ -1766,38 +1774,78 @@ ${DOM.input.value}`;
     });
     init_size();
   });
-  window.electronAPI.handleOptions(({ options, group_id, uuid }) => {
+  window.electronAPI.handleQuestions(({ questions, group_id, uuid }) => {
     if (uuid && uuid !== State.uuid) {
       return;
     }
     DOM.pause.style.display = "flex";
-    let option_querys = [];
-    options.forEach((value) => {
-      const option = document.createElement("div");
-      option.className = "btn";
-      option.dataset.id = group_id;
-      option.innerText = value;
-      option.addEventListener("click", function() {
-        if (this.classList.contains("active")) {
-          this.classList.remove("active");
-          option_querys = option_querys.filter((item) => item !== value);
-          return;
+    DOM.pause.innerHTML = "";
+    const answers = {};
+    questions.forEach((q) => {
+      const container = document.createElement("div");
+      container.className = "question-block";
+      const label = document.createElement("div");
+      label.className = "question-label";
+      label.innerText = q.question + (q.required !== false ? " *" : "");
+      container.appendChild(label);
+      switch (q.type) {
+        case "choice": {
+          const optionsContainer = document.createElement("div");
+          optionsContainer.className = "question-options";
+          q.options?.forEach((opt) => {
+            const btn = document.createElement("div");
+            btn.className = "btn option-btn";
+            btn.innerText = opt;
+            btn.addEventListener("click", () => {
+              optionsContainer.querySelectorAll(".option-btn").forEach((b) => b.classList.remove("active"));
+              btn.classList.add("active");
+              answers[q.id] = opt;
+            });
+            optionsContainer.appendChild(btn);
+          });
+          container.appendChild(optionsContainer);
+          break;
         }
-        this.classList.add("active");
-        option_querys.push(value);
-      });
-      DOM.pause.appendChild(option);
+        case "text": {
+          const input = document.createElement("textarea");
+          input.className = "question-input";
+          input.placeholder = "Type your answer\u2026";
+          input.addEventListener("input", () => {
+            answers[q.id] = input.value;
+          });
+          container.appendChild(input);
+          break;
+        }
+        case "confirm": {
+          const optionsContainer = document.createElement("div");
+          optionsContainer.className = "question-options";
+          ["Yes", "No"].forEach((opt) => {
+            const btn = document.createElement("div");
+            btn.className = "btn option-btn";
+            btn.innerText = opt;
+            btn.addEventListener("click", () => {
+              optionsContainer.querySelectorAll(".option-btn").forEach((b) => b.classList.remove("active"));
+              btn.classList.add("active");
+              answers[q.id] = opt === "Yes";
+            });
+            optionsContainer.appendChild(btn);
+          });
+          container.appendChild(optionsContainer);
+          break;
+        }
+      }
+      DOM.pause.appendChild(container);
     });
     const send = document.createElement("div");
-    send.className = "btn success";
+    send.className = "btn success submit-btn";
     send.dataset.id = group_id;
     send.innerText = "Send";
     send.addEventListener("click", async function() {
-      State.formData.query = option_querys.join("\n");
+      const formatted = Object.entries(answers).map(([id, val]) => `[${id}]: ${val}`).join("\n");
+      State.formData.query = formatted;
       State.formData.prompt = DOM.system_prompt.value;
       startAgentLoop(State.formData);
       window.electronAPI.agentLoop(State.formData);
-      option_querys = [];
     });
     DOM.pause.appendChild(send);
     if (State.scroll_top.data)

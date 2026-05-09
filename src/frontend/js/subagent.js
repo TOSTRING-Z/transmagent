@@ -520,35 +520,43 @@ $$
   }
   var compression_tasks = {};
   async function compressionGroupMessage(group_id) {
+    if (compression_tasks[group_id])
+      return;
     let elements = document.querySelectorAll(`[data-id="${group_id}"]`);
     showLog("log", `Compressing message (id: ${group_id})...`);
     compression_tasks[group_id] = true;
     if (DOM.submit.classList.contains("running") == false) {
       DOM.submit.classList.add("running");
     }
-    let { compression_content } = await window.electronAPI.compressionGroupMessage({ group_id });
-    showLog("success", `Message compressed (id: ${group_id}).`);
-    let keptUser = false;
-    elements.forEach(async function(message_element) {
-      if (!keptUser) {
-        keptUser = true;
-        let messageSystem = await formatMessage(system_message_template, {
-          "icon": getIcon(false),
-          "id": group_id,
-          "message": compression_content
-        }, "system");
-        addRunning(messageSystem);
-        const message_content = messageSystem.getElementsByClassName("message")[0];
-        menuEvent(messageSystem, message_content, false);
-        message_element.parentElement.insertBefore(messageSystem, message_element.nextSibling);
-        delete compression_tasks[group_id];
-        if (Object.keys(compression_tasks).length == 0) {
-          DOM.submit.classList.remove("running");
+    try {
+      let { compression_content } = await window.electronAPI.compressionGroupMessage({ group_id });
+      showLog("success", `Message compressed (id: ${group_id}).`);
+      let keptUser = false;
+      elements.forEach(async function(message_element) {
+        if (!keptUser) {
+          keptUser = true;
+          let messageSystem = await formatMessage(system_message_template, {
+            "icon": getIcon(false),
+            "id": group_id,
+            "message": compression_content
+          }, "system");
+          const thinking = messageSystem.getElementsByClassName("thinking")[0];
+          thinking?.classList.add("hidden");
+          messageSystem.dataset.event_stop = "true";
+          const message_content = messageSystem.getElementsByClassName("message")[0];
+          if (message_content)
+            menuEvent(messageSystem, message_content, false);
+          message_element.parentElement.insertBefore(messageSystem, message_element.nextSibling);
+        } else {
+          message_element.remove();
         }
-      } else {
-        message_element.remove();
+      });
+    } finally {
+      delete compression_tasks[group_id];
+      if (Object.keys(compression_tasks).length == 0) {
+        DOM.submit.classList.remove("running");
       }
-    });
+    }
   }
   async function thumbMessageGroup(up, down, data) {
     let thumb = await window.electronAPI.thumbMessageGroup(data);

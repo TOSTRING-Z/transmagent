@@ -33,6 +33,14 @@ export interface ToolResultContent {
 // 联合类型
 export type MessageContent = TextContent | ImageContent | ToolResultContent;
 
+export interface QuestionItem {
+    id: string;
+    question: string;
+    type: 'choice' | 'text' | 'confirm';
+    options?: string[];
+    required?: boolean;
+}
+
 export type AgentMode = 'transagent' | 'baseagent' | 'multagent'
 
 // openai内容

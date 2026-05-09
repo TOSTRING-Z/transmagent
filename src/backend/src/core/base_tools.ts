@@ -117,27 +117,52 @@ export default function getBaseTools(): Record<string, any> {
         },
 
         "ask_user": {
-            func: async ({ ask, options, toolCall }: { ask: string, options?: string[], toolCall: ToolCall }) => {
+            func: async ({ questions, toolCall }: { questions?: Array<{ id: string; question: string; type: 'choice' | 'text' | 'confirm'; options?: string[]; required?: boolean }>, toolCall: ToolCall }) => {
                 toolCall.state = State.PAUSE;
-                return { ask, options };
+                if (!questions || !Array.isArray(questions) || questions.length === 0) {
+                    return { questions: [{ id: 'q1', question: 'Please provide your input.', type: 'text', required: true }] };
+                }
+                return { questions };
             },
             getPrompt: () => ({
                 name: "ask_user",
-                description: "Pause execution to interact with the user for clarification, decisions, missing data, or final approvals.\n\nCRITICAL RULES (Adaptive Querying):\n1. DECISIONS & APPROVALS: For strategic choices, technical paths, error resolutions, or plan/destructive action approvals, you MUST provide the `options` array (e.g., ['Approve', 'Needs adjustments', 'Abort']).\n2. UNGUESSABLE DATA: For specific user data (e.g., file paths, URLs, API keys, raw text input), you MUST LEAVE `options` EMPTY (undefined) to allow open-ended text input.",
+                description: "Pause execution to ask the user one or more questions simultaneously. Use this for clarification, decisions, missing data, or final approvals.\n\nCRITICAL RULES:\n1. MULTI-QUESTION: You can ask multiple questions in a single call. Each question has its own type and options.\n2. USE 'choice' TYPE: For strategic choices, technical paths, error resolutions, or plan/destructive action approvals. Provide the `options` array.\n3. USE 'text' TYPE: For open-ended user data (file paths, URLs, API keys, raw text input). DO NOT provide `options`.\n4. USE 'confirm' TYPE: For yes/no confirmations. DO NOT provide `options` (frontend auto-generates yes/no).\n5. Each question MUST have a unique `id` (e.g., 'q1', 'db_choice').",
                 parameters: {
                     type: "object",
                     properties: {
-                        ask: {
-                            type: "string",
-                            description: "The clear, specific question, context, or summary presented to the user. Explain WHY you are asking."
-                        },
-                        options: {
+                        questions: {
                             type: "array",
-                            items: { type: "string" },
-                            description: "Actionable choices for the user. STRICTLY OMIT this parameter if asking for open-ended data like file paths, URLs, or keys."
+                            items: {
+                                type: "object",
+                                properties: {
+                                    id: {
+                                        type: "string",
+                                        description: "Unique identifier for this question (e.g., 'q1', 'db_choice'). Used to map answers back."
+                                    },
+                                    question: {
+                                        type: "string",
+                                        description: "The question text presented to the user. Be clear and explain WHY you are asking."
+                                    },
+                                    type: {
+                                        type: "string",
+                                        enum: ["choice", "text", "confirm"],
+                                        description: "Question type: 'choice' = select from options, 'text' = free-form input, 'confirm' = yes/no."
+                                    },
+                                    options: {
+                                        type: "array",
+                                        items: { type: "string" },
+                                        description: "Required for 'choice' type. Actionable choices for the user. OMIT for 'text' and 'confirm' types."
+                                    },
+                                    required: {
+                                        type: "boolean",
+                                        description: "Whether this question must be answered. Default: true."
+                                    }
+                                },
+                                required: ["id", "question", "type"]
+                            }
                         }
                     },
-                    required: ["ask"]
+                    required: ["questions"]
                 }
             })
         },
