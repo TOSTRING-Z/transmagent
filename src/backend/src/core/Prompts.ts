@@ -2,6 +2,7 @@ import { logger } from '../utils/logger';
 import * as fs from 'fs';
 import { ToolCall } from './ToolCall';
 import { WindowManager } from '../main/windows/WindowManager';
+import { MODE_KEYS, MODE_LABELS } from './LLMBase';
 
 export const MODE_CONSTRAINTS: Record<string, string> = {
   auto: `
@@ -90,7 +91,7 @@ class Prompts {
       const isTransagent = this.toolCall.agentConfigs.agentMode === "transagent";
       const hasMcpPrompt = !!this.toolCall.agentConfigs.mcpPrompt;
       const usePromptFormat = this.toolCall.llmService.chatManager.chat.tool_format === 'prompt';
-      const isPlan = this.toolCall.llmService.environment_details.mode === "plan";
+      const isPlan = this.toolCall.llmService.environment_details.mode === MODE_LABELS[MODE_KEYS.PLAN];
 
       let identityPrompt = "";
       if (isSubagent) {
