@@ -37,6 +37,7 @@ exports.MODE_CONSTRAINTS = void 0;
 const logger_1 = require("../utils/logger");
 const fs = __importStar(require("fs"));
 const WindowManager_1 = require("../main/windows/WindowManager");
+const LLMBase_1 = require("./LLMBase");
 exports.MODE_CONSTRAINTS = {
     auto: `
 - **ABSOLUTE AUTONOMY & ZERO CONVERSATION**: You are in fully unattended execution mode. You are STRICTLY FORBIDDEN from asking the user ANY questions, proposing "next steps", or asking for confirmation for normal workflow steps.
@@ -118,6 +119,7 @@ class Prompts {
             const isTransagent = this.toolCall.agentConfigs.agentMode === "transagent";
             const hasMcpPrompt = !!this.toolCall.agentConfigs.mcpPrompt;
             const usePromptFormat = this.toolCall.llmService.chatManager.chat.tool_format === 'prompt';
+            const isPlan = this.toolCall.llmService.environment_details.mode === LLMBase_1.MODE_LABELS[LLMBase_1.MODE_KEYS.PLAN];
             let identityPrompt = "";
             if (isSubagent) {
                 identityPrompt = this.toolCall.agentConfigs.agentPrompt || `You are **${this.toolCall.agentConfigs.agentName}**, a specialized execution sub-agent. Your sole purpose is to execute your assigned tasks efficiently and return the results without attempting to orchestrate other agents.`;
@@ -272,17 +274,17 @@ ${baseToolPrompt}
 ${tool_prompt}
 ` : ""}
 
-${(!isSubagent && isTransagent) ? `
+${(!isSubagent && isTransagent && !isPlan) ? `
 ## 💻 CLI / BASH EXECUTION PROTOCOL (STRICT)
 {cli_prompt}
 ` : ""}
 
-${hasMcpPrompt ? `
+${hasMcpPrompt && !isPlan ? `
 ## MCP Services
 {mcp_prompt}
 ` : ""}
 
-${hasSkill ? `
+${hasSkill && !isPlan ? `
 # 🌟 Active Agent Skills
 {skill_prompt}
 ` : ""}
