@@ -293,17 +293,20 @@ body {
 
 /* History item status indicator - hidden by default */
 .history-status {
-  position: absolute;
-  left: 6px;
-  top: 50%;
-  transform: translateY(-50%);
   width: 6px;
   height: 6px;
   border-radius: 50%;
   opacity: 0;
-  transition: opacity 0.3s ease;
+  transition: opacity 0.3s ease, width 0.2s ease, margin 0.2s ease;
   pointer-events: none;
-  z-index: 2;
+  flex-shrink: 0;
+  margin-right: 6px;
+}
+
+/* 默认隐藏时完全收起 */
+.history-item:not(.running):not(.completed) .history-status {
+  width: 0;
+  margin: 0;
 }
 
 /* Running state - green with pulse animation */

@@ -272,52 +272,89 @@ export class MainWindow extends BaseWindow {
         ipcMain.handle('get-file-path', async () => {
             return new Promise((resolve, reject) => {
                 const lastDirectory = store.get('lastFileDirectory') || this.session().utils.getDefault("config_transagent.json");
-                dialog.showOpenDialog(this.window!, { properties: ['openFile'], defaultPath: lastDirectory })
+
+                // Helper: call showOpenDialog with fallback for Linux portals that don't support defaultPath
+                const openDialog = (defaultPath: string | undefined) => {
+                    const options: Electron.OpenDialogOptions = { properties: ['openFile'] };
+                    if (defaultPath) (options as any).defaultPath = defaultPath;
+                    return dialog.showOpenDialog(this.window!, options);
+                };
+
+                openDialog(lastDirectory)
                     .then(result => {
-                        if (!result.canceled) {
-                            const filePath = result.filePaths[0];
-                            store.set('lastFileDirectory', path.dirname(filePath));
-                            if (this.funcItems.react.statu) {
-                                const ssh_config = this.session().utils.getSshConfig();
-                                if (ssh_config?.enabled) {
-                                    const conn = new Client();
-                                    conn.on('ready', () => {
-                                        conn.sftp((err, sftp) => {
-                                            if (err) throw err;
-                                            const remotePath = `/tmp/${path.basename(filePath)}`;
-                                            this.window?.webContents.send('upload-progress', { state: "start" });
+                        if (result.canceled) {
+                            resolve(null);
+                            return;
+                        }
+                        const filePath = result.filePaths[0];
+                        store.set('lastFileDirectory', path.dirname(filePath));
+                        if (this.funcItems.react.statu) {
+                            const ssh_config = this.session().utils.getSshConfig();
+                            if (ssh_config?.enabled) {
+                                const conn = new Client();
+                                conn.on('ready', () => {
+                                    conn.sftp((err, sftp) => {
+                                        if (err) {
+                                            conn.end();
+                                            reject(err);
+                                            return;
+                                        }
+                                        const remotePath = `/tmp/${path.basename(filePath)}`;
+                                        this.window?.webContents.send('upload-progress', { state: "start" });
 
-                                            const readStream = fs.createReadStream(filePath);
-                                            const writeStream = sftp.createWriteStream(remotePath);
-                                            const fileSize = fs.statSync(filePath).size;
-                                            let uploadedSize = 0;
+                                        const readStream = fs.createReadStream(filePath);
+                                        const writeStream = sftp.createWriteStream(remotePath);
+                                        const fileSize = fs.statSync(filePath).size;
+                                        let uploadedSize = 0;
 
-                                            readStream.on('data', (chunk) => {
-                                                uploadedSize += chunk.length;
-                                                this.window?.webContents.send('upload-progress', { state: "progress", progress: Math.round((uploadedSize / fileSize) * 100) });
-                                            });
-
-                                            writeStream.on('close', () => {
-                                                conn.end();
-                                                this.window?.webContents.send('upload-progress', { state: "end", filePath: remotePath });
-                                            });
-                                            writeStream.on('error', (err) => {
-                                                conn.end();
-                                                this.window?.webContents.send('upload-progress', { state: "error", error: err.message });
-                                            });
-                                            readStream.pipe(writeStream);
+                                        readStream.on('data', (chunk) => {
+                                            uploadedSize += chunk.length;
+                                            this.window?.webContents.send('upload-progress', { state: "progress", progress: Math.round((uploadedSize / fileSize) * 100) });
                                         });
-                                    }).on('error', (err) => {
-                                        this.window?.webContents.send('upload-progress', { state: "error", error: err.message });
-                                    }).connect(ssh_config);
-                                } else {
-                                    this.window?.webContents.send('upload-progress', { state: "end", filePath });
-                                };
+
+                                        writeStream.on('close', () => {
+                                            conn.end();
+                                            this.window?.webContents.send('upload-progress', { state: "end", filePath: remotePath });
+                                            resolve(remotePath);
+                                        });
+                                        writeStream.on('error', (err) => {
+                                            conn.end();
+                                            this.window?.webContents.send('upload-progress', { state: "error", error: err.message });
+                                            reject(err);
+                                        });
+                                        readStream.pipe(writeStream);
+                                    });
+                                }).on('error', (err) => {
+                                    this.window?.webContents.send('upload-progress', { state: "error", error: err.message });
+                                    reject(err);
+                                }).connect(ssh_config);
                             } else {
                                 this.window?.webContents.send('upload-progress', { state: "end", filePath });
-                            };
+                                resolve(filePath);
+                            }
+                        } else {
+                            this.window?.webContents.send('upload-progress', { state: "end", filePath });
+                            resolve(filePath);
                         }
-                    }).catch(err => reject(err));
+                    }).catch(err => {
+                        // If defaultPath caused the failure on Linux portal, retry without it
+                        if (lastDirectory && err.message?.includes?.('defaultPath')) {
+                            openDialog(undefined)
+                                .then(result => {
+                                    if (result.canceled) {
+                                        resolve(null);
+                                        return;
+                                    }
+                                    const filePath = result.filePaths[0];
+                                    store.set('lastFileDirectory', path.dirname(filePath));
+                                    this.window?.webContents.send('upload-progress', { state: "end", filePath });
+                                    resolve(filePath);
+                                })
+                                .catch(retryErr => reject(retryErr));
+                        } else {
+                            reject(err);
+                        }
+                    });
             });
         });
 

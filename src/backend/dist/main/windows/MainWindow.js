@@ -282,54 +282,88 @@ class MainWindow extends BaseWindow_1.BaseWindow {
         electron_1.ipcMain.handle('get-file-path', async () => {
             return new Promise((resolve, reject) => {
                 const lastDirectory = globals_1.store.get('lastFileDirectory') || this.session().utils.getDefault("config_transagent.json");
-                electron_1.dialog.showOpenDialog(this.window, { properties: ['openFile'], defaultPath: lastDirectory })
+                // Helper: call showOpenDialog with fallback for Linux portals that don't support defaultPath
+                const openDialog = (defaultPath) => {
+                    const options = { properties: ['openFile'] };
+                    if (defaultPath)
+                        options.defaultPath = defaultPath;
+                    return electron_1.dialog.showOpenDialog(this.window, options);
+                };
+                openDialog(lastDirectory)
                     .then(result => {
-                    if (!result.canceled) {
-                        const filePath = result.filePaths[0];
-                        globals_1.store.set('lastFileDirectory', path.dirname(filePath));
-                        if (this.funcItems.react.statu) {
-                            const ssh_config = this.session().utils.getSshConfig();
-                            if (ssh_config?.enabled) {
-                                const conn = new ssh2_1.Client();
-                                conn.on('ready', () => {
-                                    conn.sftp((err, sftp) => {
-                                        if (err)
-                                            throw err;
-                                        const remotePath = `/tmp/${path.basename(filePath)}`;
-                                        this.window?.webContents.send('upload-progress', { state: "start" });
-                                        const readStream = fs.createReadStream(filePath);
-                                        const writeStream = sftp.createWriteStream(remotePath);
-                                        const fileSize = fs.statSync(filePath).size;
-                                        let uploadedSize = 0;
-                                        readStream.on('data', (chunk) => {
-                                            uploadedSize += chunk.length;
-                                            this.window?.webContents.send('upload-progress', { state: "progress", progress: Math.round((uploadedSize / fileSize) * 100) });
-                                        });
-                                        writeStream.on('close', () => {
-                                            conn.end();
-                                            this.window?.webContents.send('upload-progress', { state: "end", filePath: remotePath });
-                                        });
-                                        writeStream.on('error', (err) => {
-                                            conn.end();
-                                            this.window?.webContents.send('upload-progress', { state: "error", error: err.message });
-                                        });
-                                        readStream.pipe(writeStream);
+                    if (result.canceled) {
+                        resolve(null);
+                        return;
+                    }
+                    const filePath = result.filePaths[0];
+                    globals_1.store.set('lastFileDirectory', path.dirname(filePath));
+                    if (this.funcItems.react.statu) {
+                        const ssh_config = this.session().utils.getSshConfig();
+                        if (ssh_config?.enabled) {
+                            const conn = new ssh2_1.Client();
+                            conn.on('ready', () => {
+                                conn.sftp((err, sftp) => {
+                                    if (err) {
+                                        conn.end();
+                                        reject(err);
+                                        return;
+                                    }
+                                    const remotePath = `/tmp/${path.basename(filePath)}`;
+                                    this.window?.webContents.send('upload-progress', { state: "start" });
+                                    const readStream = fs.createReadStream(filePath);
+                                    const writeStream = sftp.createWriteStream(remotePath);
+                                    const fileSize = fs.statSync(filePath).size;
+                                    let uploadedSize = 0;
+                                    readStream.on('data', (chunk) => {
+                                        uploadedSize += chunk.length;
+                                        this.window?.webContents.send('upload-progress', { state: "progress", progress: Math.round((uploadedSize / fileSize) * 100) });
                                     });
-                                }).on('error', (err) => {
-                                    this.window?.webContents.send('upload-progress', { state: "error", error: err.message });
-                                }).connect(ssh_config);
-                            }
-                            else {
-                                this.window?.webContents.send('upload-progress', { state: "end", filePath });
-                            }
-                            ;
+                                    writeStream.on('close', () => {
+                                        conn.end();
+                                        this.window?.webContents.send('upload-progress', { state: "end", filePath: remotePath });
+                                        resolve(remotePath);
+                                    });
+                                    writeStream.on('error', (err) => {
+                                        conn.end();
+                                        this.window?.webContents.send('upload-progress', { state: "error", error: err.message });
+                                        reject(err);
+                                    });
+                                    readStream.pipe(writeStream);
+                                });
+                            }).on('error', (err) => {
+                                this.window?.webContents.send('upload-progress', { state: "error", error: err.message });
+                                reject(err);
+                            }).connect(ssh_config);
                         }
                         else {
                             this.window?.webContents.send('upload-progress', { state: "end", filePath });
+                            resolve(filePath);
                         }
-                        ;
                     }
-                }).catch(err => reject(err));
+                    else {
+                        this.window?.webContents.send('upload-progress', { state: "end", filePath });
+                        resolve(filePath);
+                    }
+                }).catch(err => {
+                    // If defaultPath caused the failure on Linux portal, retry without it
+                    if (lastDirectory && err.message?.includes?.('defaultPath')) {
+                        openDialog(undefined)
+                            .then(result => {
+                            if (result.canceled) {
+                                resolve(null);
+                                return;
+                            }
+                            const filePath = result.filePaths[0];
+                            globals_1.store.set('lastFileDirectory', path.dirname(filePath));
+                            this.window?.webContents.send('upload-progress', { state: "end", filePath });
+                            resolve(filePath);
+                        })
+                            .catch(retryErr => reject(retryErr));
+                    }
+                    else {
+                        reject(err);
+                    }
+                });
             });
         });
         electron_1.ipcMain.handle('agentLoop', async (_event, data) => this.agentLoop(data));
