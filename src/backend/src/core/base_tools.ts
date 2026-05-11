@@ -148,6 +148,11 @@ export default function getBaseTools(): Record<string, any> {
                                         enum: ["choice", "text", "confirm"],
                                         description: "Question type: 'choice' = select from options, 'text' = free-form input, 'confirm' = yes/no."
                                     },
+                                    options: {
+                                        type: "array",
+                                        items: { type: "string" },
+                                        description: "Required for 'choice' type. Actionable choices for the user. OMIT for 'text' and 'confirm' types."
+                                    },
                                     required: {
                                         type: "boolean",
                                         description: "Whether this question must be answered. Default: true."
