@@ -1086,6 +1086,9 @@ export class ToolCall extends LLMBase implements ISchedulableAgent {
                                 if (["ask_user"].includes(toolInfo.tool_call_name as string)) {
                                     state = State.PAUSE;
                                     questions = toolInfo.params.questions
+                                } 
+                                else {
+                                    state = State.RUNNING;
                                 }
                             })
                         } else {

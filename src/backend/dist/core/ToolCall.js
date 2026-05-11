@@ -920,6 +920,9 @@ class ToolCall extends LLMBase_1.LLMBase {
                                     state = LLMBase_1.State.PAUSE;
                                     questions = toolInfo.params.questions;
                                 }
+                                else {
+                                    state = LLMBase_1.State.RUNNING;
+                                }
                             });
                         }
                         else {
