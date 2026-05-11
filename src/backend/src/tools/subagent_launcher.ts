@@ -299,7 +299,7 @@ async function runSubAgentInBackground(
 
     } catch (error: any) {
         logger.error(`[SubAgentLauncher] Agent "${agentName}" failed: ${error.message}`);
-        
+
         // 【任务异常核销】任务失败，标记为 failed 并通知主代理
         BackgroundTaskRegistry.addMessage(
             parentSessionId,
@@ -426,7 +426,6 @@ export function main(initialParams: SubAgentLauncherParams = {}) {
 export function getPrompt() {
     return {
         name: 'subagent_launcher',
-        // (保持原有的 description / parameters 不变) ...
         description:
             'Launch a generic sub-agent in the background (non-blocking).\n\n' +
             'The sub-agent runs asynchronously with a custom system prompt defining its identity and behavior. ' +
@@ -468,8 +467,7 @@ export function getPrompt() {
                     items: { type: 'string' },
                     description:
                         'List of tool names to grant the sub-agent. ' +
-                        'Default tools if not specified: cli_execute, python_execute, display_file, write_to_file, ' +
-                        'list_dir, grep_files, find_files, read_tools_prompt, web_crawler_toolkit, literature_search, replace_in_file. ' +
+                        'Default tools if not specified: all the tool names you currently have available. ' +
                         'The send_message tool is always included automatically.',
                 },
                 timeout: {
