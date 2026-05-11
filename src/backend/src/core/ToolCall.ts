@@ -302,72 +302,72 @@ export class ToolCall extends LLMBase implements ISchedulableAgent {
         // ── 后台消息 Handler：即时投递 + agent 空闲时自动唤醒 ────────────
         // 仅主代理注册会话级 handler；子代理使用 registerAgentListener 替代
         if (!this.agentConfigs.subagent) {
-        const sessionId = this.llmService.chatManager.chat.id;
+            const sessionId = this.llmService.chatManager.chat.id;
 
-        // 先注销旧 Handler（防止重复注册）
-        if (this.registeredBgSessionId) {
-            BackgroundTaskRegistry.unregisterHandler(this.registeredBgSessionId);
-        }
-        this.registeredBgSessionId = sessionId;
-
-        BackgroundTaskRegistry.registerHandler(sessionId, (msg) => {
-            // ── 活跃状态守卫：agent 正在处理工具调用，不可直接注入 chat ──
-            // 返回 false 告知 deliverToMainSession 将消息入队，
-            // 由 createBackgroundMessageMiddleware 在安全时机 drain。
-            if (this.state !== State.IDLE && this.state !== State.FINAL) {
-                logger.log(
-                    `[ToolCall] Background handler: agent is active (${this.state}), ` +
-                    `requeuing ${msg.type} message for middleware drain`
-                );
-                return false;
+            // 先注销旧 Handler（防止重复注册）
+            if (this.registeredBgSessionId) {
+                BackgroundTaskRegistry.unregisterHandler(this.registeredBgSessionId);
             }
+            this.registeredBgSessionId = sessionId;
 
-            // ── 空闲状态：直接注入 + 唤醒 ──
-            let appendedText = '';
+            BackgroundTaskRegistry.registerHandler(sessionId, (msg) => {
+                // ── 活跃状态守卫：agent 正在处理工具调用，不可直接注入 chat ──
+                // 返回 false 告知 deliverToMainSession 将消息入队，
+                // 由 createBackgroundMessageMiddleware 在安全时机 drain。
+                if (this.state !== State.IDLE && this.state !== State.FINAL) {
+                    logger.log(
+                        `[ToolCall] Background handler: agent is active (${this.state}), ` +
+                        `requeuing ${msg.type} message for middleware drain`
+                    );
+                    return false;
+                }
 
-            // 1. 根据消息类型格式化注入文本
-            if (msg.type === 'task_result') {
-                logger.log(`[ToolCall] Background handler: delivering task result "${msg.taskId}" to session "${sessionId}"`);
-                appendedText = this.prompts.getTaskResultPrompt(msg.taskId || 'unknown_task', msg.content);
-            } else if (msg.type === 'agent_message') {
-                logger.log(`[ToolCall] Background handler: delivering agent message to session "${sessionId}"`);
-                appendedText = `\n${msg.content}`;
-            }
+                // ── 空闲状态：直接注入 + 唤醒 ──
+                let appendedText = '';
 
-            // 2. 先同步 UUID（生成新的并通知前端），确保后续 streamData 与 callReAct 使用同一 uuid
-            const currentUUID = this.setUUID();
+                // 1. 根据消息类型格式化注入文本
+                if (msg.type === 'task_result') {
+                    logger.log(`[ToolCall] Background handler: delivering task result "${msg.taskId}" to session "${sessionId}"`);
+                    appendedText = this.prompts.getTaskResultPrompt(msg.taskId || 'unknown_task', msg.content);
+                } else if (msg.type === 'agent_message') {
+                    logger.log(`[ToolCall] Background handler: delivering agent message to session "${sessionId}"`);
+                    appendedText = `\n${msg.content}`;
+                }
 
-            // 3. 追加内容到上一条消息的 content 末尾
-            const messages = this.llmService.chatManager.messages;
-            const lastMsg = messages[messages.length - 1];
-            if (lastMsg) {
-                lastMsg.content = (lastMsg.content || '') + appendedText;
-            }
+                // 2. 先同步 UUID（生成新的并通知前端），确保后续 streamData 与 callReAct 使用同一 uuid
+                const currentUUID = this.setUUID();
 
-            // 4. 前端 streamData 展示（使用已同步的 uuid）
-            this.events.emitEvent('streamData', {
-                ...this.llmService.chatManager.chat,
-                content: appendedText,
-                uuid: currentUUID,
+                // 3. 追加内容到上一条消息的 content 末尾
+                const messages = this.llmService.chatManager.messages;
+                const lastMsg = messages[messages.length - 1];
+                if (lastMsg) {
+                    lastMsg.content = (lastMsg.content || '') + appendedText;
+                }
+
+                // 4. 前端 streamData 展示（使用已同步的 uuid）
+                this.events.emitEvent('streamData', {
+                    ...this.llmService.chatManager.chat,
+                    content: appendedText,
+                    uuid: currentUUID,
+                });
+
+                // 5. 自动唤醒 ReAct 循环（skipInitialPush=true，消息已在上方注入；setUUID=false，避免重复生成 uuid）
+                const wakeReason = msg.type === 'task_result' ? `task "${msg.taskId}"` : 'incoming agent message';
+                logger.log(`[ToolCall] Waking agent from "${this.state}" state for ${wakeReason}`);
+
+                this.llmService.stopFlag = false; // 确保 stopFlag 被重置，允许继续处理
+                const wakeData = this.getDataDefault({
+                    // 修复：使用明确的系统指令作为 query，确保 LLM 会响应并产生可见输出
+                    // 空 query 会导致 LLM 不采取行动，用户看不到任何反馈
+                    query: '[SYSTEM: A background task or agent message has been delivered above. Please review the injected information and respond to the user with a summary or acknowledgment.]',
+                });
+                // 将已同步的 uuid 注入 wakeData，确保 callReAct 内部不再重新生成
+                wakeData.uuid = currentUUID;
+
+                this.callReAct(wakeData, false, true).catch((err) => {
+                    logger.error('[ToolCall] Background wake-up callReAct error:', err);
+                });
             });
-
-            // 5. 自动唤醒 ReAct 循环（skipInitialPush=true，消息已在上方注入；setUUID=false，避免重复生成 uuid）
-            const wakeReason = msg.type === 'task_result' ? `task "${msg.taskId}"` : 'incoming agent message';
-            logger.log(`[ToolCall] Waking agent from "${this.state}" state for ${wakeReason}`);
-
-            this.llmService.stopFlag = false; // 确保 stopFlag 被重置，允许继续处理
-            const wakeData = this.getDataDefault({
-                // 修复：使用明确的系统指令作为 query，确保 LLM 会响应并产生可见输出
-                // 空 query 会导致 LLM 不采取行动，用户看不到任何反馈
-                query: '[SYSTEM: A background task or agent message has been delivered above. Please review the injected information and respond to the user with a summary or acknowledgment.]',
-            });
-            // 将已同步的 uuid 注入 wakeData，确保 callReAct 内部不再重新生成
-            wakeData.uuid = currentUUID;
-            
-            this.callReAct(wakeData, false, true).catch((err) => {
-                logger.error('[ToolCall] Background wake-up callReAct error:', err);
-            });
-        });
 
         } // end if (!this.agentConfigs.subagent)
 
@@ -1016,6 +1016,7 @@ export class ToolCall extends LLMBase implements ISchedulableAgent {
         }
         const chat = this.llmService.chatManager.chat;
         let state = State.IDLE;
+        let questions = null;
         if (messages.length > 0) {
             messages.forEach((message, i) => {
                 if (message.group_id && message.context_id) {
@@ -1058,6 +1059,7 @@ export class ToolCall extends LLMBase implements ISchedulableAgent {
                     let content_format = (message.content as string).replaceAll("`", "\\`");
                     this.events.emitEvent('infoData', { ...chat, ...message, content: `Step ${i}, group_id: ${message.group_id}, context_id: ${message.context_id}, Output:\n\n\`\`\`json\n${content_format}\n\`\`\`\n\n` });
                 }
+                
                 if (message.role === "assistant") {
                     try {
                         if (message.react) {
@@ -1078,17 +1080,12 @@ export class ToolCall extends LLMBase implements ISchedulableAgent {
                                     this.events.emitEvent('streamData', {
                                         ...chat,
                                         ...message,
-                                        content: `\n\n- 📋 **Task ${taskNumber}** | ${toolInfo.content && (j === 0 || toolInfo.content !== toolInfos[0].content) ? toolInfo.content: toolInfo.tool_call_name}`,
+                                        content: `\n\n- 📋 **Task ${taskNumber}** | ${toolInfo.content && (j === 0 || toolInfo.content !== toolInfos[0].content) ? toolInfo.content : toolInfo.tool_call_name}`,
                                         end: true
                                     });
                                 if (["ask_user"].includes(toolInfo.tool_call_name as string)) {
                                     state = State.PAUSE;
-                                    if (toolInfo.params?.questions) {
-                                        this.state = state;
-                                        this.events.emitEvent('handleQuestions', {
-                                            ...chat, questions: toolInfo.params.questions, end: true,
-                                        });
-                                    }
+                                    questions = toolInfo.params.questions
                                 }
                             })
                         } else {
@@ -1103,6 +1100,13 @@ export class ToolCall extends LLMBase implements ISchedulableAgent {
             });
             if (state as State !== State.PAUSE) {
                 this.window?.webContents.send('agentIdle', { group_id: chat.group_id });
+            } else {
+                if (questions) {
+                    this.state = state;
+                    this.events.emitEvent('handleQuestions', {
+                        ...chat, questions, end: true,
+                    });
+                }
             }
             this.changeMode(this.llmService.chatManager.chat.mode, false);
             logger.log(`Load success: ${filePath}`);

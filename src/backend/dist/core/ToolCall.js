@@ -856,6 +856,7 @@ class ToolCall extends LLMBase_1.LLMBase {
         }
         const chat = this.llmService.chatManager.chat;
         let state = LLMBase_1.State.IDLE;
+        let questions = null;
         if (messages.length > 0) {
             messages.forEach((message, i) => {
                 if (message.group_id && message.context_id) {
@@ -917,12 +918,7 @@ class ToolCall extends LLMBase_1.LLMBase {
                                     });
                                 if (["ask_user"].includes(toolInfo.tool_call_name)) {
                                     state = LLMBase_1.State.PAUSE;
-                                    if (toolInfo.params?.questions) {
-                                        this.state = state;
-                                        this.events.emitEvent('handleQuestions', {
-                                            ...chat, questions: toolInfo.params.questions, end: true,
-                                        });
-                                    }
+                                    questions = toolInfo.params.questions;
                                 }
                             });
                         }
@@ -939,6 +935,14 @@ class ToolCall extends LLMBase_1.LLMBase {
             });
             if (state !== LLMBase_1.State.PAUSE) {
                 this.window?.webContents.send('agentIdle', { group_id: chat.group_id });
+            }
+            else {
+                if (questions) {
+                    this.state = state;
+                    this.events.emitEvent('handleQuestions', {
+                        ...chat, questions, end: true,
+                    });
+                }
             }
             this.changeMode(this.llmService.chatManager.chat.mode, false);
             logger_1.logger.log(`Load success: ${filePath}`);
