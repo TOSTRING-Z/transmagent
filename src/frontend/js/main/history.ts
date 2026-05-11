@@ -5,6 +5,9 @@ import { toggleMode } from './ui';
 
 const new_item_template = `<div class="history-item" onclick="loadChat('@id')">
     <div class="history-status"></div>
+    <div class="history-star" onclick="toggleStar('@id')">
+      <i class="far fa-star"></i>
+    </div>
     <div class="history-text"></div>
     <div class="history-menu" onclick="showHistoryMenu(event, '@id')">
       <i class="fas fa-ellipsis-v"></i>
@@ -25,6 +28,16 @@ export function addChatItem(chat: any) {
   (item.getElementsByClassName("history-text")[0] as HTMLElement).title = chat.name || "New Chat";
   item.id = chat.id;
   DOM.history_list.insertBefore(item, DOM.history_list.firstChild);
+
+  // 星标按钮：根据 starred 状态设置初始图标和常驻显示
+  const starEl = item.querySelector('.history-star') as HTMLElement;
+  const starIcon = starEl.querySelector('i') as HTMLElement;
+  if (chat.starred) {
+    starIcon.classList.remove('far');
+    starIcon.classList.add('fas');
+    item.classList.add('starred');
+  }
+  starEl.onclick = (e) => { e.stopPropagation(); toggleStar(chat.id); };
 
   item.onclick = () => loadChat(chat.id);
   const menu = item.querySelector('.history-menu') as HTMLElement;
@@ -136,4 +149,25 @@ export function setHistoryCompleted(chatId: string) {
     item.classList.remove('running');
     item.classList.add('completed');
   }
+}
+
+export async function toggleStar(chatId: string) {
+  const newState = await window.electronAPI.toggleStar(chatId);
+  const items = DOM.history_list.getElementsByClassName("history-item");
+  Array.from(items).forEach((item: any) => {
+    if (item.id == chatId) {
+      const starEl = item.querySelector('.history-star i') as HTMLElement;
+      if (starEl) {
+        if (newState) {
+          starEl.classList.remove('far');
+          starEl.classList.add('fas');
+          item.classList.add('starred');
+        } else {
+          starEl.classList.remove('fas');
+          starEl.classList.add('far');
+          item.classList.remove('starred');
+        }
+      }
+    }
+  });
 }

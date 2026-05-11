@@ -495,6 +495,16 @@ export class MainWindow extends BaseWindow {
             }
         });
 
+        ipcMain.handle('toggleStar', (_, chatId) => {
+            const hintChat = this.sessionManager.getChat(chatId);
+            if (hintChat) {
+                hintChat.starred = !hintChat.starred;
+                this.sessionManager.setChat(hintChat);
+                return hintChat.starred;
+            }
+            return false;
+        });
+
         ipcMain.on('show-log', (_, data) => this.windowManager.alertWindow?.create(data));
     }
 

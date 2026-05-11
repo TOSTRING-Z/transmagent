@@ -145,6 +145,8 @@ body {
 
 .history-item {
   position: relative;
+  display: flex;
+  align-items: center;
   padding: 10px 15px;
   margin: 8px 0;
   border-radius: 8px;
@@ -164,6 +166,7 @@ body {
 }
 
 .history-text {
+  flex: 1;
   overflow: hidden;
   text-overflow: ellipsis;
   position: relative;
@@ -291,14 +294,16 @@ body {
 /* History item status indicator - hidden by default */
 .history-status {
   position: absolute;
-  left: 8px;
+  left: 6px;
   top: 50%;
   transform: translateY(-50%);
-  width: 8px;
-  height: 8px;
+  width: 6px;
+  height: 6px;
   border-radius: 50%;
   opacity: 0;
   transition: opacity 0.3s ease;
+  pointer-events: none;
+  z-index: 2;
 }
 
 /* Running state - green with pulse animation */
@@ -314,11 +319,48 @@ body {
   opacity: 1;
 }
 
-/* Move text to make room for indicator - applies to both running and completed */
-.history-item.running .history-text,
-.history-item.completed .history-text {
-  margin-left: 16px;
+/* ─── History Star Button ─────────────────────────────────────── */
+.history-star {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  overflow: hidden;
+  width: 0;
+  height: 16px;
+  margin-right: 0;
+  cursor: pointer;
+  transition: width 0.18s ease, margin-right 0.18s ease, opacity 0.18s ease;
+  opacity: 0;
 }
+
+/* hover 或已标注时展开并显示 */
+.history-item:hover .history-star,
+.history-item.starred .history-star {
+  width: 16px;
+  margin-right: 5px;
+  opacity: 1;
+}
+
+.history-star i {
+  font-size: 13px;
+  color: #9ca3af;
+  flex-shrink: 0;
+  transition: color 0.18s ease, transform 0.15s ease;
+}
+
+.history-star i.fas {
+  color: #f59e0b;
+}
+
+.history-star:hover i {
+  transform: scale(1.3);
+}
+
+.history-star:active i {
+  transform: scale(0.9);
+}
+
 
 @keyframes pulse-green {
   0%, 100% {

@@ -322,10 +322,14 @@ export const setHistoryConfigChat = (chat: ChatState): boolean => {
         let hintData = defaultHistoryConfig.data.filter((h: any) => h.id === chat.id);
         let idExist = hintData.length > 0;
 
+        // 添加保存时间戳
+        (chat as any).savedAt = new Date().toISOString();
+
         if (!idExist) {
             defaultHistoryConfig.data.push(chat);
         } else {
-            defaultHistoryConfig.data = defaultHistoryConfig.data.map((hChat: any) => hChat.id === chat.id ? chat : hChat);
+            defaultHistoryConfig.data = defaultHistoryConfig.data.filter((hChat: any) => hChat.id !== chat.id);
+            defaultHistoryConfig.data.push(chat);
         }
         writeFile(defaultHistoryConfigPath, defaultHistoryConfig);
         console.log("历史配置文件保存成功：", chat.id);

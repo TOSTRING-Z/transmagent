@@ -169,6 +169,7 @@ export interface ChatState {
     long_memory_length: number;
     max_tokens: number;
     agentMode?: 'baseagent' | 'transagent' | 'multagent';
+    starred?: boolean;
 }
 
 export interface ChatRequestData {

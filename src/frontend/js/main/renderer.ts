@@ -337,9 +337,10 @@ window.electronAPI.handleQuestions(({ questions, group_id, uuid }) => {
   send.innerText = "Send";
   send.addEventListener("click", async function () {
     const formatted = Object.entries(answers)
-      .map(([id, val]) => `[${id}]: ${val}`)
+      .filter(([id, val]) => val)
+      .map(([id, val]) => `* **${id}**: ${val}`)
       .join("\n");
-    State.formData.query = formatted;
+    State.formData.query = `\n\n${formatted}\n\n---`;
     State.formData.prompt = DOM.system_prompt.value;
     startAgentLoop(State.formData);
     window.electronAPI.agentLoop(State.formData);

@@ -729,15 +729,9 @@ class ToolCall extends LLMBase_1.LLMBase {
                 });
             }
             else {
-                // 兼容：旧格式降级
                 this.events.emitEvent('streamData', {
                     ...chat, content: `\n\n${observation.ask || 'Please provide your input.'}`, uuid: data.uuid, end: true,
                 });
-                if (observation.options) {
-                    this.events.emitEvent('handleOptions', {
-                        ...chat, ...toolInfo, options: observation.options, uuid: data.uuid,
-                    });
-                }
             }
         }
         else if (this.state === LLMBase_1.State.FINAL) {
@@ -928,15 +922,6 @@ class ToolCall extends LLMBase_1.LLMBase {
                                         this.events.emitEvent('handleQuestions', {
                                             ...chat, questions: toolInfo.params.questions, end: true,
                                         });
-                                    }
-                                    else {
-                                        this.events.emitEvent('streamData', { ...chat, ...message, content: `\n\n${toolInfo.params.ask || 'Please provide your input.'}`, end: true });
-                                        if (toolInfo.params?.options && i === (messages.length - 1)) {
-                                            this.state = state;
-                                            this.events.emitEvent('handleOptions', {
-                                                ...chat, ...toolInfo, options: toolInfo.params.options, end: true,
-                                            });
-                                        }
                                     }
                                 }
                             });

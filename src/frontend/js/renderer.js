@@ -349,6 +349,9 @@ $$
   // main/history.ts
   var new_item_template = `<div class="history-item" onclick="loadChat('@id')">
     <div class="history-status"></div>
+    <div class="history-star" onclick="toggleStar('@id')">
+      <i class="far fa-star"></i>
+    </div>
     <div class="history-text"></div>
     <div class="history-menu" onclick="showHistoryMenu(event, '@id')">
       <i class="fas fa-ellipsis-v"></i>
@@ -368,6 +371,17 @@ $$
     item.getElementsByClassName("history-text")[0].title = chat.name || "New Chat";
     item.id = chat.id;
     DOM.history_list.insertBefore(item, DOM.history_list.firstChild);
+    const starEl = item.querySelector(".history-star");
+    const starIcon = starEl.querySelector("i");
+    if (chat.starred) {
+      starIcon.classList.remove("far");
+      starIcon.classList.add("fas");
+      item.classList.add("starred");
+    }
+    starEl.onclick = (e) => {
+      e.stopPropagation();
+      toggleStar(chat.id);
+    };
     item.onclick = () => loadChat(chat.id);
     const menu = item.querySelector(".history-menu");
     menu.onclick = (e) => showHistoryMenu(e, chat.id);
@@ -470,6 +484,26 @@ $$
       item.classList.remove("running");
       item.classList.add("completed");
     }
+  }
+  async function toggleStar(chatId) {
+    const newState = await window.electronAPI.toggleStar(chatId);
+    const items = DOM.history_list.getElementsByClassName("history-item");
+    Array.from(items).forEach((item) => {
+      if (item.id == chatId) {
+        const starEl = item.querySelector(".history-star i");
+        if (starEl) {
+          if (newState) {
+            starEl.classList.remove("far");
+            starEl.classList.add("fas");
+            item.classList.add("starred");
+          } else {
+            starEl.classList.remove("fas");
+            starEl.classList.add("far");
+            item.classList.remove("starred");
+          }
+        }
+      }
+    });
   }
 
   // main/chat.ts
@@ -1841,8 +1875,12 @@ ${DOM.input.value}`;
     send.dataset.id = group_id;
     send.innerText = "Send";
     send.addEventListener("click", async function() {
-      const formatted = Object.entries(answers).map(([id, val]) => `[${id}]: ${val}`).join("\n");
-      State.formData.query = formatted;
+      const formatted = Object.entries(answers).filter(([id, val]) => val).map(([id, val]) => `* **${id}**: ${val}`).join("\n");
+      State.formData.query = `
+
+${formatted}
+
+---`;
       State.formData.prompt = DOM.system_prompt.value;
       startAgentLoop(State.formData);
       window.electronAPI.agentLoop(State.formData);

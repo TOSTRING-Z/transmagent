@@ -38,7 +38,6 @@ export interface AgentEventMap {
     toolData: [payload: StreamPayload];
     userData: [payload: StreamPayload];
     infoData: [payload: StreamPayload];
-    handleOptions: [payload: any];
     handleQuestions: [payload: any];
     agentRunning: [payload: any];
     agentIdle: [payload: any];

@@ -485,6 +485,15 @@ class MainWindow extends BaseWindow_1.BaseWindow {
                 this.sessionManager.setChat(hintChat);
             }
         });
+        electron_1.ipcMain.handle('toggleStar', (_, chatId) => {
+            const hintChat = this.sessionManager.getChat(chatId);
+            if (hintChat) {
+                hintChat.starred = !hintChat.starred;
+                this.sessionManager.setChat(hintChat);
+                return hintChat.starred;
+            }
+            return false;
+        });
         electron_1.ipcMain.on('show-log', (_, data) => this.windowManager.alertWindow?.create(data));
     }
     startAgentLoop(data) {
