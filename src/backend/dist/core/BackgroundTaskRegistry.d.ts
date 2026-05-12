@@ -68,6 +68,7 @@ export declare class BackgroundTaskRegistry {
     /** "${sessionId}::${agentName}" → 待投递的代理消息队列（监听器注册前暂存） */
     private static agentMsgQueues;
     static addTaskStart(sessionId: string, taskId: string, toolName: string, command: string): void;
+    static markRunning(taskId: string): void;
     static markCompleted(taskId: string, resultSummary: string): void;
     static markFailed(taskId: string, errorSummary: string): void;
     /** 注册后台任务的进程中断函数（由 runInBackground 调用） */

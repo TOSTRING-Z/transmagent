@@ -103,6 +103,15 @@ export class BackgroundTaskRegistry {
         );
     }
 
+    static markRunning(taskId: string): void {
+        const task = this.tasks.get(taskId);
+        if (task) {
+            task.status = 'running';
+            task.endTime = undefined;
+            logger.log(`[BackgroundTaskRegistry] Task "${taskId}" marked as running`);
+        }
+    }
+
     static markCompleted(taskId: string, resultSummary: string): void {
         const task = this.tasks.get(taskId);
         if (task) {

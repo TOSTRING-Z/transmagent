@@ -18,6 +18,7 @@ import { BackgroundTaskRegistry } from '../core/BackgroundTaskRegistry';
 import type { PendingMessage } from '../core/BackgroundTaskRegistry';
 import { State } from '../core/LLMBase';
 import { parseJsonContent } from '../utils/public';
+import * as os from 'os';
 import { logger } from '../utils/logger';
 import { store } from '../utils/globals';
 
@@ -182,6 +183,24 @@ async function runSubAgentInBackground(
         // 注册代理消息监听器（接收主代理或其他子代理发来的 AgentMessage）
         // ── 滞留消息 drain：callReAct 最终迭代未触发工具调用时，
         //    中间件不会运行，pending 队列中的消息需主动取出处理 ──
+        const dumpChatToOutputFile = async (): Promise<void> => {
+            if (!subAgentToolCall) return;
+            try {
+                const fs = await import('fs');
+                const msgs = subAgentToolCall.llmService.chatManager.messages;
+                const lines: string[] = [];
+                for (const m of msgs) {
+                    const role = m.role || 'unknown';
+                    const c = typeof m.content === 'string' ? m.content : JSON.stringify(m.content);
+                    lines.push(`[${role}]: ${c}`);
+                }
+                const outPath = os.tmpdir() + '/subagent_' + taskId + '.log';
+                fs.writeFileSync(outPath, lines.join('\n\n'), 'utf-8');
+            } catch (err: any) {
+                logger.error(`[SubAgentLauncher] Failed to dump chat: ${err.message}`);
+            }
+        };
+
         const drainPendingAndWake = async (): Promise<void> => {
             const pendingMsgs = BackgroundTaskRegistry.drainMessages(
                 subAgentToolCall!.llmService.chatManager.chat.id,
@@ -201,11 +220,13 @@ async function runSubAgentInBackground(
                 }
             }
 
+            BackgroundTaskRegistry.markRunning(taskId);
             subAgentToolCall!.llmService.stopFlag = false;
             const wd = subAgentToolCall!.getDataDefault({ query: '', model, version });
             wd.uuid = subAgentToolCall!.llmService.chatManager.uuid;
             try {
                 await subAgentToolCall!.callReAct(wd, false, true);
+                await dumpChatToOutputFile();
                 await drainPendingAndWake(); // 递归
             } catch (err: any) {
                 logger.error(`[SubAgentLauncher] Agent "${agentName}" drain error:`, err);
@@ -252,10 +273,12 @@ async function runSubAgentInBackground(
                 }
 
                 logger.log(`[SubAgentLauncher] Waking agent "${agentName}" for incoming message`);
+                BackgroundTaskRegistry.markRunning(taskId);
                 subAgentToolCall.llmService.stopFlag = false;
                 const wakeData = subAgentToolCall.getDataDefault({ query: '', model, version });
                 wakeData.uuid = subAgentToolCall.llmService.chatManager.uuid;
                 subAgentToolCall.callReAct(wakeData, false, true)
+                    .then(() => dumpChatToOutputFile())
                     .then(() => drainPendingAndWake())
                     .catch((err: Error) => {
                         logger.error(`[SubAgentLauncher] Agent "${agentName}" wake-up error:`, err);
@@ -286,6 +309,9 @@ async function runSubAgentInBackground(
 
         // 防御性清洗：剥除基础设施层可能泄露的 SYSTEM STATE SNAPSHOT
         result = result.replace(/\n+={10,}\n[\s\S]*$/, '').trim();
+
+        // 转储对话到输出文件，供前端查看子代理运行细节
+        await dumpChatToOutputFile();
 
         // 【任务完成通知】使用 addAgentCompletionNotice 将任务标记为 idle（存活但空闲），
         // 同时投递完成消息到主会话。这样既通知了主代理，又保持子代理存活。
@@ -384,6 +410,8 @@ export function main(initialParams: SubAgentLauncherParams = {}) {
             'subagent_launcher',
             `agent: ${sanitizedName} | query: ${query.substring(0, 80)}`,
         );
+
+        BackgroundTaskRegistry.setTaskOutputFile(taskId, os.tmpdir() + '/subagent_' + taskId + '.log');
 
         logger.log(
             `[SubAgentLauncher] Launching agent "${sanitizedName}" (task: ${taskId}) in session "${sessionId}"`

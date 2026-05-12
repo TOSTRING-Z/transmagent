@@ -70,6 +70,14 @@ class BackgroundTaskRegistry {
         });
         logger_1.logger.log(`[BackgroundTaskRegistry] Task "${taskId}" (${toolName}) started for session "${sessionId}"`);
     }
+    static markRunning(taskId) {
+        const task = this.tasks.get(taskId);
+        if (task) {
+            task.status = 'running';
+            task.endTime = undefined;
+            logger_1.logger.log(`[BackgroundTaskRegistry] Task "${taskId}" marked as running`);
+        }
+    }
     static markCompleted(taskId, resultSummary) {
         const task = this.tasks.get(taskId);
         if (task) {

@@ -11,6 +11,39 @@
  *   4. 运行期间：子代理可通过 send_message (底层 addAgentMessage) 与主代理/其他代理实时通信。
  *   5. 运行结束：结果通过 BackgroundTaskRegistry.addMessage (携带 taskId) 核销任务并注入主会话。
  */
+var __createBinding = (this && this.__createBinding) || (Object.create ? (function(o, m, k, k2) {
+    if (k2 === undefined) k2 = k;
+    var desc = Object.getOwnPropertyDescriptor(m, k);
+    if (!desc || ("get" in desc ? !m.__esModule : desc.writable || desc.configurable)) {
+      desc = { enumerable: true, get: function() { return m[k]; } };
+    }
+    Object.defineProperty(o, k2, desc);
+}) : (function(o, m, k, k2) {
+    if (k2 === undefined) k2 = k;
+    o[k2] = m[k];
+}));
+var __setModuleDefault = (this && this.__setModuleDefault) || (Object.create ? (function(o, v) {
+    Object.defineProperty(o, "default", { enumerable: true, value: v });
+}) : function(o, v) {
+    o["default"] = v;
+});
+var __importStar = (this && this.__importStar) || (function () {
+    var ownKeys = function(o) {
+        ownKeys = Object.getOwnPropertyNames || function (o) {
+            var ar = [];
+            for (var k in o) if (Object.prototype.hasOwnProperty.call(o, k)) ar[ar.length] = k;
+            return ar;
+        };
+        return ownKeys(o);
+    };
+    return function (mod) {
+        if (mod && mod.__esModule) return mod;
+        var result = {};
+        if (mod != null) for (var k = ownKeys(mod), i = 0; i < k.length; i++) if (k[i] !== "default") __createBinding(result, mod, k[i]);
+        __setModuleDefault(result, mod);
+        return result;
+    };
+})();
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.main = main;
 exports.getPrompt = getPrompt;
@@ -20,6 +53,7 @@ const Plugins_1 = require("../core/Plugins");
 const BackgroundTaskRegistry_1 = require("../core/BackgroundTaskRegistry");
 const LLMBase_1 = require("../core/LLMBase");
 const public_1 = require("../utils/public");
+const os = __importStar(require("os"));
 const logger_1 = require("../utils/logger");
 const globals_1 = require("../utils/globals");
 // --- send_message 工具（内联创建，避免循环依赖）---
@@ -126,6 +160,25 @@ async function runSubAgentInBackground(taskId, parentSessionId, agentName, agent
         // 注册代理消息监听器（接收主代理或其他子代理发来的 AgentMessage）
         // ── 滞留消息 drain：callReAct 最终迭代未触发工具调用时，
         //    中间件不会运行，pending 队列中的消息需主动取出处理 ──
+        const dumpChatToOutputFile = async () => {
+            if (!subAgentToolCall)
+                return;
+            try {
+                const fs = await Promise.resolve().then(() => __importStar(require('fs')));
+                const msgs = subAgentToolCall.llmService.chatManager.messages;
+                const lines = [];
+                for (const m of msgs) {
+                    const role = m.role || 'unknown';
+                    const c = typeof m.content === 'string' ? m.content : JSON.stringify(m.content);
+                    lines.push(`[${role}]: ${c}`);
+                }
+                const outPath = os.tmpdir() + '/subagent_' + taskId + '.log';
+                fs.writeFileSync(outPath, lines.join('\n\n'), 'utf-8');
+            }
+            catch (err) {
+                logger_1.logger.error(`[SubAgentLauncher] Failed to dump chat: ${err.message}`);
+            }
+        };
         const drainPendingAndWake = async () => {
             const pendingMsgs = BackgroundTaskRegistry_1.BackgroundTaskRegistry.drainMessages(subAgentToolCall.llmService.chatManager.chat.id);
             if (!pendingMsgs || pendingMsgs.length === 0)
@@ -139,11 +192,13 @@ async function runSubAgentInBackground(taskId, parentSessionId, agentName, agent
                     last.content = (last.content || '') + '\n' + pm.content;
                 }
             }
+            BackgroundTaskRegistry_1.BackgroundTaskRegistry.markRunning(taskId);
             subAgentToolCall.llmService.stopFlag = false;
             const wd = subAgentToolCall.getDataDefault({ query: '', model, version });
             wd.uuid = subAgentToolCall.llmService.chatManager.uuid;
             try {
                 await subAgentToolCall.callReAct(wd, false, true);
+                await dumpChatToOutputFile();
                 await drainPendingAndWake(); // 递归
             }
             catch (err) {
@@ -177,10 +232,12 @@ async function runSubAgentInBackground(taskId, parentSessionId, agentName, agent
                 agentLastMsg.content = (agentLastMsg.content || '') + msgText;
             }
             logger_1.logger.log(`[SubAgentLauncher] Waking agent "${agentName}" for incoming message`);
+            BackgroundTaskRegistry_1.BackgroundTaskRegistry.markRunning(taskId);
             subAgentToolCall.llmService.stopFlag = false;
             const wakeData = subAgentToolCall.getDataDefault({ query: '', model, version });
             wakeData.uuid = subAgentToolCall.llmService.chatManager.uuid;
             subAgentToolCall.callReAct(wakeData, false, true)
+                .then(() => dumpChatToOutputFile())
                 .then(() => drainPendingAndWake())
                 .catch((err) => {
                 logger_1.logger.error(`[SubAgentLauncher] Agent "${agentName}" wake-up error:`, err);
@@ -204,6 +261,8 @@ async function runSubAgentInBackground(taskId, parentSessionId, agentName, agent
         let result = resJson[0]?.content || resultData.output_format || 'Sub-agent completed with no output.';
         // 防御性清洗：剥除基础设施层可能泄露的 SYSTEM STATE SNAPSHOT
         result = result.replace(/\n+={10,}\n[\s\S]*$/, '').trim();
+        // 转储对话到输出文件，供前端查看子代理运行细节
+        await dumpChatToOutputFile();
         // 【任务完成通知】使用 addAgentCompletionNotice 将任务标记为 idle（存活但空闲），
         // 同时投递完成消息到主会话。这样既通知了主代理，又保持子代理存活。
         BackgroundTaskRegistry_1.BackgroundTaskRegistry.addAgentCompletionNotice(parentSessionId, taskId, `✅ **Background sub-agent \`${agentName}\` completed and is now idle, awaiting messages.**\n\n**Result:**\n${result}`);
@@ -268,6 +327,7 @@ function main(initialParams = {}) {
         const mainLLMService = toolCall.mainLLMService || toolCall.llmService;
         // 【任务生命周期起点】注册 Task
         BackgroundTaskRegistry_1.BackgroundTaskRegistry.addTaskStart(sessionId, taskId, 'subagent_launcher', `agent: ${sanitizedName} | query: ${query.substring(0, 80)}`);
+        BackgroundTaskRegistry_1.BackgroundTaskRegistry.setTaskOutputFile(taskId, os.tmpdir() + '/subagent_' + taskId + '.log');
         logger_1.logger.log(`[SubAgentLauncher] Launching agent "${sanitizedName}" (task: ${taskId}) in session "${sessionId}"`);
         setImmediate(() => {
             runSubAgentInBackground(taskId, sessionId, sanitizedName, agent_prompt.trim(), query.trim(), toolNames, effectiveTimeout, toolCall.utils, toolCall, mainLLMService, mainChat.model || 'gpt-4o', mainChat.version || '', globals_1.store.get('agentMode', 'transagent'), mainChat.tool_format || 'toolcalls', mainChat.mode || 'auto').catch((err) => {
