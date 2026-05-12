@@ -166,18 +166,18 @@ class BackgroundTaskRegistry {
             return `[Failed to read output: ${err.message}]`;
         }
     }
-    /** 清空已完成/失败的任务（保留 running） */
+    /** 清空已完成/失败的任务（保留 running 和 idle） */
     static clearFinished() {
         for (const [id, task] of this.tasks) {
-            if (task.status !== 'running') {
+            if (task.status !== 'running' && task.status !== 'idle') {
                 this.tasks.delete(id);
             }
         }
     }
-    /** 按 session 清空已完成/失败的任务（保留 running） */
+    /** 按 session 清空已完成/失败的任务（保留 running 和 idle） */
     static clearFinishedBySession(sessionId) {
         for (const [id, task] of this.tasks) {
-            if (task.sessionId === sessionId && task.status !== 'running') {
+            if (task.sessionId === sessionId && task.status !== 'running' && task.status !== 'idle') {
                 this.tasks.delete(id);
             }
         }
