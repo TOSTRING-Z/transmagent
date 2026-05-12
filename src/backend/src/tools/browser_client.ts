@@ -1005,7 +1005,7 @@ export class ContentExtractor {
 export function getPrompt() {
     return {
         "name": "browser_client",
-        "description": "A high-level browser automation tool powered by Puppeteer. It can open pages, interact with elements, execute JavaScript, and extract cleaned content (HTML/Text) using selectors or regex.",
+        "description": "A high-level browser automation tool powered by Puppeteer. It can open pages, interact with elements, execute JavaScript, and extract cleaned content (HTML/Text) using selectors or regex.\n\n🔑 PREFERRED FOR:\n• Web search via DuckDuckGo — navigate to https://duckduckgo.com, type queries into the search box, submit, and extract results. Use this when web_crawler_toolkit fails or returns no results.\n• PubMed literature search — navigate to https://pubmed.ncbi.nlm.nih.gov and search biomedical articles. The only reliable way to query PubMed from China without VPN.\n• Any website blocked at the API/HTTP level but accessible via browser.",
         "parameters": {
             "type": "object",
             "properties": {
