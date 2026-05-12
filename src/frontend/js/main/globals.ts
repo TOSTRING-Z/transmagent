@@ -24,6 +24,7 @@ export const DOM = {
   bgtasks: document.getElementById("bgtasks") as HTMLElement,
   btn_clear_bgtasks: document.getElementById("btn_clear_bgtasks") as HTMLElement,
   history_list: document.getElementById("history-list") as HTMLElement,
+  history_filter: document.getElementById("history-filter") as HTMLElement,
   btn_new_chat: document.getElementById("new-chat") as HTMLElement,
   renameDialog: document.getElementById('renameDialog') as HTMLElement,
   renameInput: document.getElementById('renameInput') as HTMLInputElement,

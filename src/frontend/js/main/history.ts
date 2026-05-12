@@ -3,6 +3,8 @@ import { State } from './state';
 import { createElement } from './utils';
 import { toggleMode } from './ui';
 
+let historyFilter: 'all' | 'starred' = 'all';
+
 const new_item_template = `<div class="history-item" onclick="loadChat('@id')">
     <div class="history-status"></div>
     <div class="history-star" onclick="toggleStar('@id')">
@@ -151,6 +153,23 @@ export function setHistoryCompleted(chatId: string) {
   }
 }
 
+export function filterHistory(mode: 'all' | 'starred') {
+  historyFilter = mode;
+  const buttons = DOM.history_filter.querySelectorAll('.filter-btn');
+  buttons.forEach((btn: any) => {
+    btn.classList.toggle('active', btn.dataset.filter === mode);
+  });
+  const items = DOM.history_list.getElementsByClassName('history-item');
+  Array.from(items).forEach((item: any) => {
+    if (mode === 'all') {
+      item.style.display = '';
+    } else {
+      const isStarred = item.classList.contains('starred');
+      item.style.display = isStarred ? '' : 'none';
+    }
+  });
+}
+
 export async function toggleStar(chatId: string) {
   const newState = await window.electronAPI.toggleStar(chatId);
   const items = DOM.history_list.getElementsByClassName("history-item");
@@ -170,4 +189,8 @@ export async function toggleStar(chatId: string) {
       }
     }
   });
+  // Re-apply current filter after star state change
+  if (historyFilter === 'starred') {
+    filterHistory('starred');
+  }
 }

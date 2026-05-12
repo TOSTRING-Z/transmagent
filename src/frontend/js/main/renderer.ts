@@ -1,7 +1,7 @@
 import { DOM } from './globals';
 import { State, ChatState } from './state';
 import { init_size, autoResizeTextarea, handleClear, showLog, toggleMode, toggleSidebar, updateProgress, hideRenameDialog } from './ui';
-import { addChatItem, handleNewChat, deleteChat, renameChat, confirmRename, showHistoryMenu, updateChat, loadChat, handleloadChat } from './history';
+import { addChatItem, handleNewChat, deleteChat, renameChat, confirmRename, showHistoryMenu, updateChat, loadChat, handleloadChat, filterHistory } from './history';
 import { initConfigEvents, showConfig, saveConfig, hideConfig } from './config';
 import { userData, infoData, streamData, startAgentLoop, toolData, enterEnd } from './chat';
 import { initMermaid } from './markdown';
@@ -113,6 +113,13 @@ document.addEventListener("DOMContentLoaded", () => {
 
   DOM.btn_new_chat.addEventListener("click", async () => {
     window.electronAPI.newChat();
+  });
+
+  // History filter
+  DOM.history_filter.querySelectorAll('.filter-btn').forEach((btn: any) => {
+    btn.addEventListener('click', () => {
+      filterHistory(btn.dataset.filter as 'all' | 'starred');
+    });
   });
 
   // Rename Dialog

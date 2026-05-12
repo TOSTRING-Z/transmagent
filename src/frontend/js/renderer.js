@@ -27,6 +27,7 @@
     bgtasks: document.getElementById("bgtasks"),
     btn_clear_bgtasks: document.getElementById("btn_clear_bgtasks"),
     history_list: document.getElementById("history-list"),
+    history_filter: document.getElementById("history-filter"),
     btn_new_chat: document.getElementById("new-chat"),
     renameDialog: document.getElementById("renameDialog"),
     renameInput: document.getElementById("renameInput"),
@@ -347,6 +348,7 @@ $$
   };
 
   // main/history.ts
+  var historyFilter = "all";
   var new_item_template = `<div class="history-item" onclick="loadChat('@id')">
     <div class="history-status"></div>
     <div class="history-star" onclick="toggleStar('@id')">
@@ -485,6 +487,22 @@ $$
       item.classList.add("completed");
     }
   }
+  function filterHistory(mode) {
+    historyFilter = mode;
+    const buttons = DOM.history_filter.querySelectorAll(".filter-btn");
+    buttons.forEach((btn) => {
+      btn.classList.toggle("active", btn.dataset.filter === mode);
+    });
+    const items = DOM.history_list.getElementsByClassName("history-item");
+    Array.from(items).forEach((item) => {
+      if (mode === "all") {
+        item.style.display = "";
+      } else {
+        const isStarred = item.classList.contains("starred");
+        item.style.display = isStarred ? "" : "none";
+      }
+    });
+  }
   async function toggleStar(chatId) {
     const newState = await window.electronAPI.toggleStar(chatId);
     const items = DOM.history_list.getElementsByClassName("history-item");
@@ -504,6 +522,9 @@ $$
         }
       }
     });
+    if (historyFilter === "starred") {
+      filterHistory("starred");
+    }
   }
 
   // main/chat.ts
@@ -1668,6 +1689,11 @@ ${DOM.input.value}`;
       configBtn.addEventListener("click", showConfig);
     DOM.btn_new_chat.addEventListener("click", async () => {
       window.electronAPI.newChat();
+    });
+    DOM.history_filter.querySelectorAll(".filter-btn").forEach((btn) => {
+      btn.addEventListener("click", () => {
+        filterHistory(btn.dataset.filter);
+      });
     });
     const confirmRenameBtn = document.getElementById("confirmRename");
     if (confirmRenameBtn)
