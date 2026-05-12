@@ -85,6 +85,10 @@ function getPrompt() {
             '  - to: "main" → sends to the main (coordinator) agent\n' +
             '  - to: "all"  → broadcasts to the main agent AND all other sub-agents\n' +
             '  - to: "agent_name" → sends to a specific sub-agent by name\n\n' +
+            'PROTOCOLS:\n' +
+            '  - Sub-agents are REQUIRED to send_message to "main" upon task completion. If you have not received a result, send_message to the sub-agent to inquire.\n' +
+            '  - To stop a running sub-agent, send it a stop instruction via send_message.\n' +
+            '  - Idle sub-agents can be re-awakened by sending them a message.\n\n' +
             'Use this tool to collaborate with your fellow agents during long-running background tasks.',
         parameters: {
             type: 'object',

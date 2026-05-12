@@ -49,7 +49,12 @@ function createSendMessageTool(parentSessionId: string, agentName: string) {
                 'ROUTING:\n' +
                 '  - to: "main" → sends to the main (coordinator) agent\n' +
                 '  - to: "all"  → broadcasts to the main agent AND all other sub-agents\n' +
-                '  - to: "agent_name" → sends to a specific sub-agent by name',
+                '  - to: "agent_name" → sends to a specific sub-agent by name\n\n' +
+                'MANDATORY RULES:\n' +
+                '  - CRITICAL: When you complete your task, you MUST call send_message to "main" with your results. Do NOT just output a final summary — the main agent will NOT see it unless you send it.\n' +
+                '  - During long tasks, send intermediate progress updates to "main".\n' +
+                '  - If you receive a message from "main" asking you to stop, halt your work immediately and confirm via send_message.\n' +
+                '  - You may send messages to other sub-agents for peer-to-peer coordination.\n',
             parameters: {
                 type: 'object',
                 properties: {
@@ -161,7 +166,12 @@ async function runSubAgentInBackground(
             null,
             parentUtils,
             {
-                agentPrompt,
+                agentPrompt: agentPrompt.trim() + '\n\n' +
+                    '===\nMULTI-AGENT OPERATION RULES (MANDATORY)\n===\n' +
+                    '1. When you finish your task, you MUST call send_message to "main" with your results. Simply outputting a summary is NOT sufficient — the main agent cannot see it unless you explicitly send it.\n' +
+                    '2. For long-running tasks, send intermediate progress updates to "main" via send_message.\n' +
+                    '3. If "main" sends you a stop instruction, halt immediately and confirm via send_message.\n' +
+                    '4. After going idle, you remain alive and can be re-awakened by messages from "main".',
                 subagent: true,
                 todolist: false,
                 env: false,
@@ -471,6 +481,13 @@ export function getPrompt() {
             '  - Sub-agents do NOT have the ask_user tool (to prevent blocking)\n' +
             '  - Sub-agents do NOT have the subagent_launcher tool (to prevent recursion)\n' +
             '  - Sub-agents CAN use send_message to report back or communicate with peers\n\n' +
+            'MULTI-AGENT INTERACTION PROTOCOLS:\n' +
+            '  1. Sub-agents automatically report completion via background task notice. ' +
+            'You SHOULD also expect them to use send_message for detailed results.\n' +
+            '  2. If a sub-agent has not responded within a reasonable time, proactively send_message to the agent_name to inquire about progress.\n' +
+            '  3. To stop a sub-agent, send it a message via send_message instructing it to halt its current task.\n' +
+            '  4. Completed (idle) sub-agents remain alive — you can re-engage them by sending a new message via send_message.\n' +
+            '  5. Use send_message to coordinate with running sub-agents: exchange info, request intermediate results, or give new instructions.\n\n' +
             '⚠️ After launching a background sub-agent, the main agent MUST continue working. ' +
             'Results will be delivered automatically.',
         parameters: {
