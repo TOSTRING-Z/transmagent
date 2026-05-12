@@ -24,13 +24,21 @@ export interface ExecuteResult {
     message?: string;
     task_id?: string;
 }
-export declare function main(initialParams?: CliExecuteParams): ({ code, timeout, toolCall, background }: ExecuteArgs) => Promise<ExecuteResult>;
+export declare function main(initialParams?: CliExecuteParams): ({ code, timeout, toolCall, background, action, task_id }: ExecuteArgs & {
+    action?: string;
+    task_id?: string;
+}) => Promise<ExecuteResult>;
 export declare function getPrompt(): {
     name: string;
     description: string;
     parameters: {
         type: string;
         properties: {
+            action: {
+                type: string;
+                enum: string[];
+                description: string;
+            };
             code: {
                 type: string;
                 description: string;
@@ -43,7 +51,10 @@ export declare function getPrompt(): {
                 type: string;
                 description: string;
             };
+            task_id: {
+                type: string;
+                description: string;
+            };
         };
-        required: string[];
     };
 };

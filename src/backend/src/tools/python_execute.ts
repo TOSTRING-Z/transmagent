@@ -144,7 +144,29 @@ async function runInBackground(
 }
 
 export function main(params: PythonExecuteParams) {
-    return async ({ code, toolCall, background }: ExecuteArgs): Promise<string> => {
+    return async ({ code, toolCall, background, action, task_id }: ExecuteArgs & { action?: string; task_id?: string }): Promise<string> => {
+        // ── 终止任务分支 ──
+        if (action === 'stop') {
+            if (!task_id || typeof task_id !== 'string') {
+                return JSON.stringify({
+                    success: false,
+                    output: '',
+                    error: 'task_id is required for stop action'
+                });
+            }
+            const ok = BackgroundTaskRegistry.interruptTask(task_id);
+            const msg = ok
+                ? `Task "${task_id}" has been terminated.`
+                : `Failed to terminate task "${task_id}". It may have already completed or does not exist.`;
+            logger.log(`[PythonExecute] Stop action: ${msg}`);
+            return JSON.stringify({
+                success: ok,
+                output: msg,
+                error: ok ? '' : 'Task not found or already finished.'
+            });
+        }
+        // ── END ──
+
         const timestamp = Date.now();
         const randomStr = Math.floor(Math.random() * 1000);
 
@@ -379,20 +401,28 @@ export function main(params: PythonExecuteParams) {
 export function getPrompt() {
     return {
         "name": "python_execute",
-        "description": "Execute Python code locally. \n[CRITICAL TRIGGER RULES]: \n1. Simple/Single-line commands: Directly pass the executable snippet into the `code` parameter.\n2. Complex/Multi-line commands: DO NOT pass large blocks of code directly. You MUST first write the code into a local `.py` file (in batches if necessary) using file operations, and then use this tool to simply run the generated file (e.g., `import os; os.system('python your_script.py')`).\n\nBACKGROUND EXECUTION:\n- Set 'background' to true for long-running scripts (e.g., training loops, servers).\n- TRIGGER CONDITIONS:\n  1. User explicitly requests background/async execution.\n  2. Script is expected to run >30 seconds (e.g., model training, data processing, web scraping).\n  3. Server/daemon processes that run indefinitely.\n  4. Any script where the agent should NOT block waiting for the result.\n- The tool returns a 'task_id' immediately and runs the script asynchronously.\n- When complete, the result is automatically injected as a user message into the conversation.\n- ⚠️ CRITICAL: After launching a background task, you MUST complete any remaining work and then enter IDLE state. You are STRICTLY FORBIDDEN from looping to poll/check the background task status. The result will be delivered to you automatically.",
+        "description": "Execute Python code locally, or terminate a running background task. \n\nTASK TERMINATION:\n- Use action='stop' with a task_id to terminate a running background Python task.\n- The task_id is returned when launching a background task (e.g., 'py_1778561347235_h808ly').\n- This sends SIGKILL to the process and marks the task as failed.\n\n[CRITICAL TRIGGER RULES]: \n1. Simple/Single-line commands: Directly pass the executable snippet into the `code` parameter.\n2. Complex/Multi-line commands: DO NOT pass large blocks of code directly. You MUST first write the code into a local `.py` file (in batches if necessary) using file operations, and then use this tool to simply run the generated file (e.g., `import os; os.system('python your_script.py')`).\n\nBACKGROUND EXECUTION:\n- Set 'background' to true for long-running scripts (e.g., training loops, servers).\n- TRIGGER CONDITIONS:\n  1. User explicitly requests background/async execution.\n  2. Script is expected to run >30 seconds (e.g., model training, data processing, web scraping).\n  3. Server/daemon processes that run indefinitely.\n  4. Any script where the agent should NOT block waiting for the result.\n- The tool returns a 'task_id' immediately and runs the script asynchronously.\n- When complete, the result is automatically injected as a user message into the conversation.\n- ⚠️ CRITICAL: After launching a background task, you MUST complete any remaining work and then enter IDLE state. You are STRICTLY FORBIDDEN from looping to poll/check the background task status. The result will be delivered to you automatically.",
         "parameters": {
             "type": "object",
             "properties": {
+                "action": {
+                    "type": "string",
+                    "enum": ["execute", "stop"],
+                    "description": "Action to perform: 'execute' (default) to run Python code, 'stop' to terminate a running background task by its task_id."
+                },
                 "code": {
                     "type": "string",
-                    "description": "(Required) Executable Python code snippet. Follow the trigger rules strictly to decide whether to execute code directly or execute a pre-written script file."
+                    "description": "Python code to execute. REQUIRED when action is 'execute' or omitted. Follow the trigger rules strictly to decide whether to execute code directly or execute a pre-written script file."
                 },
                 "background": {
                     "type": "boolean",
-                    "description": "(Optional) If true, runs the script in background and returns a task_id immediately. The result is automatically injected into the conversation when the script completes."
+                    "description": "(Optional) If true, runs the script in background and returns a task_id immediately. Only valid when action is 'execute' (or omitted)."
+                },
+                "task_id": {
+                    "type": "string",
+                    "description": "The task ID of the background task to stop. REQUIRED when action is 'stop'. The task_id is returned when launching a background task (e.g., 'py_1778561347235_h808ly')."
                 }
-            },
-            "required": ["code"]
+            }
         }
     };
 }

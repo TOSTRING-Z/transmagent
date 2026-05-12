@@ -17,13 +17,21 @@ export interface ExecuteResult {
     error: string;
     task_id?: string;
 }
-export declare function main(params: PythonExecuteParams): ({ code, toolCall, background }: ExecuteArgs) => Promise<string>;
+export declare function main(params: PythonExecuteParams): ({ code, toolCall, background, action, task_id }: ExecuteArgs & {
+    action?: string;
+    task_id?: string;
+}) => Promise<string>;
 export declare function getPrompt(): {
     name: string;
     description: string;
     parameters: {
         type: string;
         properties: {
+            action: {
+                type: string;
+                enum: string[];
+                description: string;
+            };
             code: {
                 type: string;
                 description: string;
@@ -32,7 +40,10 @@ export declare function getPrompt(): {
                 type: string;
                 description: string;
             };
+            task_id: {
+                type: string;
+                description: string;
+            };
         };
-        required: string[];
     };
 };

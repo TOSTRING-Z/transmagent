@@ -343,7 +343,25 @@ async function runInBackground(
 
 // --- 主执行逻辑 ---
 export function main(initialParams: CliExecuteParams = {}) {
-    return async ({ code, timeout, toolCall, background }: ExecuteArgs): Promise<ExecuteResult> => {
+    return async ({ code, timeout, toolCall, background, action, task_id }: ExecuteArgs & { action?: string; task_id?: string }): Promise<ExecuteResult> => {
+        // ── 终止任务分支 ──
+        if (action === 'stop') {
+            if (!task_id || typeof task_id !== 'string') {
+                return { success: false, output: '', error: 'task_id is required for stop action' };
+            }
+            const ok = BackgroundTaskRegistry.interruptTask(task_id);
+            const msg = ok
+                ? `Task "${task_id}" has been terminated.`
+                : `Failed to terminate task "${task_id}". It may have already completed or does not exist.`;
+            logger.log(`[CliExecute] Stop action: ${msg}`);
+            return {
+                success: ok,
+                output: msg,
+                error: ok ? '' : 'Task not found or already finished.'
+            } as any;
+        }
+        // ── END ──
+
         let params: Required<CliExecuteParams>;
 
         try {
@@ -813,7 +831,12 @@ export function main(initialParams: CliExecuteParams = {}) {
 export function getPrompt() {
     return {
         "name": "cli_execute",
-        "description": `A command-line tool for executing bash commands. 
+        "description": `A command-line tool for executing bash commands, or terminating a running background task.
+
+TASK TERMINATION:
+- Use action='stop' with a task_id to terminate a running background CLI task.
+- The task_id is returned when launching a background task (e.g., 'bg_1778561347235_h808ly').
+- This sends SIGKILL to the process and marks the task as failed.
         
 CRITICAL LIMITATION: 
 This tool CANNOT execute scripts longer than 500 characters. 
@@ -840,9 +863,14 @@ If your execution fails due to a bug in a long script, use 'replace_in_file' to 
         "parameters": {
             "type": "object",
             "properties": {
+                "action": {
+                    "type": "string",
+                    "enum": ["execute", "stop"],
+                    "description": "Action to perform: 'execute' (default) to run a bash command, 'stop' to terminate a running background task by its task_id."
+                },
                 "code": {
                     "type": "string",
-                    "description": "(Required) The bash command to execute. MUST be under 500 characters."
+                    "description": "(Required) The bash command to execute. MUST be under 500 characters. REQUIRED when action is 'execute' or omitted."
                 },
                 "timeout": {
                     "type": "number",
@@ -850,10 +878,13 @@ If your execution fails due to a bug in a long script, use 'replace_in_file' to 
                 },
                 "background": {
                     "type": "boolean",
-                    "description": "(Optional) If true, runs the command in background and returns a task_id immediately. The result is automatically injected into the conversation when the command completes."
+                    "description": "(Optional) If true, runs the command in background and returns a task_id immediately. The result is automatically injected into the conversation when the command completes. Only valid when action is 'execute' (or omitted)."
+                },
+                "task_id": {
+                    "type": "string",
+                    "description": "The task ID of the background task to stop. REQUIRED when action is 'stop'. The task_id is returned when launching a background task (e.g., 'bg_1778561347235_h808ly')."
                 }
-            },
-            "required": ["code"]
+            }
         }
     };
 }
