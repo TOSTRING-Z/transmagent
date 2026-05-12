@@ -5,6 +5,7 @@ declare class Prompts {
     constructor(toolCall: ToolCall);
     getCliPrompt(): string;
     getExtraPrompt(extraPromptPath?: string | null): string;
+    getSoul(): string;
     getSystemPrompts(toolsData: any): string;
     getTodoListPrompt(): "" | "\n### 📋 PROGRESS: {todolist}\n";
     getEnvPrompts(): string;

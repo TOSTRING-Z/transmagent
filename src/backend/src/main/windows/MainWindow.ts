@@ -900,6 +900,14 @@ export class MainWindow extends BaseWindow {
                             WindowManager.instance.codeWindow.openFile(promptPath);
                         }
                     },
+                    {
+                        label: 'Open Soul',
+                        click: () => {
+                            const soulPath = this.session().utils.getDefault('prompts/soul.md');
+                            if (!fs.existsSync(soulPath)) fs.writeFileSync(soulPath, '');
+                            WindowManager.instance.codeWindow.openFile(soulPath);
+                        }
+                    },
                     { type: 'separator' },
                     {
                         label: 'Console',

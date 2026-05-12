@@ -883,6 +883,15 @@ class MainWindow extends BaseWindow_1.BaseWindow {
                             WindowManager_1.WindowManager.instance.codeWindow.openFile(promptPath);
                         }
                     },
+                    {
+                        label: 'Open Soul',
+                        click: () => {
+                            const soulPath = this.session().utils.getDefault('prompts/soul.md');
+                            if (!fs.existsSync(soulPath))
+                                fs.writeFileSync(soulPath, '');
+                            WindowManager_1.WindowManager.instance.codeWindow.openFile(soulPath);
+                        }
+                    },
                     { type: 'separator' },
                     {
                         label: 'Console',

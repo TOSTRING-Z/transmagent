@@ -99,6 +99,21 @@ class Prompts {
             return "";
         }
     }
+    getSoul() {
+        try {
+            const soulPath = this.toolCall.utils.getDefault('prompts/soul.md');
+            if (fs.existsSync(soulPath)) {
+                const soulContent = fs.readFileSync(soulPath, 'utf-8').trim();
+                if (soulContent)
+                    return soulContent;
+            }
+            return "";
+        }
+        catch (error) {
+            logger_1.logger.log(error.message);
+            return "";
+        }
+    }
     getSystemPrompts(toolsData) {
         const baseTools = Object.keys(this.toolCall.baseTools);
         const baseToolPrompt = Object.entries(toolsData)
@@ -125,9 +140,16 @@ class Prompts {
                 identityPrompt = this.toolCall.agentConfigs.agentPrompt || `You are **${this.toolCall.agentConfigs.agentName}**, a specialized execution sub-agent. Your sole purpose is to execute your assigned tasks efficiently and return the results without attempting to orchestrate other agents.`;
             }
             else {
-                identityPrompt = isMultagent
-                    ? `You are **${this.toolCall.agentConfigs.agentName}**, an elite bioinformatics and workflow orchestration assistant. You coordinate specialized sub-agents to solve complex scientific and engineering problems.`
-                    : `You are **${this.toolCall.agentConfigs.agentName}**, a versatile, high-efficiency AI assistant capable of solving complex user requests through strategic tool usage.`;
+                const soulContent = this.getSoul();
+                if (soulContent) {
+                    identityPrompt = soulContent;
+                }
+                else if (isMultagent) {
+                    identityPrompt = `You are **${this.toolCall.agentConfigs.agentName}**, an elite bioinformatics and workflow orchestration assistant. You coordinate specialized sub-agents to solve complex scientific and engineering problems.`;
+                }
+                else {
+                    identityPrompt = `You are **${this.toolCall.agentConfigs.agentName}**, a versatile, high-efficiency AI assistant capable of solving complex user requests through strategic tool usage.`;
+                }
             }
             return `${identityPrompt}
 
