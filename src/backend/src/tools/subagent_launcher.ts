@@ -163,7 +163,7 @@ async function runSubAgentInBackground(
                 agentPrompt,
                 subagent: true,
                 todolist: false,
-                env: true,
+                env: false,
                 skill: false,
                 mcpTool: false,
                 mcpPrompt: false,
@@ -282,7 +282,10 @@ async function runSubAgentInBackground(
         ]);
 
         const resJson = parseJsonContent(resultData.output_format);
-        const result = resJson[0]?.content || resultData.output_format || 'Sub-agent completed with no output.';
+        let result = resJson[0]?.content || resultData.output_format || 'Sub-agent completed with no output.';
+
+        // 防御性清洗：剥除基础设施层可能泄露的 SYSTEM STATE SNAPSHOT
+        result = result.replace(/\n+={10,}\n[\s\S]*$/, '').trim();
 
         // 【任务完成通知】使用 addAgentCompletionNotice 将任务标记为 idle（存活但空闲），
         // 同时投递完成消息到主会话。这样既通知了主代理，又保持子代理存活。

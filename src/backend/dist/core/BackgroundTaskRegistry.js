@@ -335,7 +335,7 @@ class BackgroundTaskRegistry {
      */
     static addAgentMessage(sessionId, from, to, content) {
         const msg = { from, content, timestamp: Date.now() };
-        const formatted = `\n\n📨 **[${from}] → [${to}]**:\n${content}`;
+        const formatted = `\n\n📨 **[${from}] → [${to}]**:\n\n${content}\n`;
         // 1. 如果需要发给主会话（前端），直接构造 agent_message 类型消息投递，跳过任务生命周期
         if (to === 'all' || to === 'main') {
             const mainSessionMsg = {
