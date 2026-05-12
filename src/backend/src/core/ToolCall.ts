@@ -533,7 +533,7 @@ export class ToolCall extends LLMBase implements ISchedulableAgent {
             const subtasks = taskObj.subtasks.map(
                 (sub: any) => `  - subtask id: ${sub.id}, description: ${sub.description}, status: ${sub.status}`
             );
-            return `- ${task_id}: ${taskObj.task}:\n${subtasks.join("\n")}`;
+            return `- ${task_id}: ${taskObj.task_title}:\n${subtasks.join("\n")}`;
         });
 
         this.llmService.environment_details.todolist = todolist.join("\n");

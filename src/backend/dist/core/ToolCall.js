@@ -436,7 +436,7 @@ class ToolCall extends LLMBase_1.LLMBase {
         const todolist = Object.keys(chatState.vars.tasks || {}).map(task_id => {
             const taskObj = chatState.vars.tasks[task_id];
             const subtasks = taskObj.subtasks.map((sub) => `  - subtask id: ${sub.id}, description: ${sub.description}, status: ${sub.status}`);
-            return `- ${task_id}: ${taskObj.task}:\n${subtasks.join("\n")}`;
+            return `- ${task_id}: ${taskObj.task_title}:\n${subtasks.join("\n")}`;
         });
         this.llmService.environment_details.todolist = todolist.join("\n");
         this.llmService.environment_details.envs = envs.length > 0 ? envs.join("\n") : "";
