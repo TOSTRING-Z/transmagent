@@ -193,7 +193,7 @@ export class ChatManager {
             for (const call of assistantMsg.tool_calls) {
                 if (!existingToolIds.has(call.id as string)) {
                     this.pushToolMessage({
-                        content: "The user interrupted the task.",
+                        content: "🛑[Tool] The user interrupted the task.",
                         tool_call_id: call.id,
                         tool_call_name: call.function?.name,
                         group_id: assistantMsg.group_id,
@@ -206,7 +206,7 @@ export class ChatManager {
 
             // 添加中断提示
             this.pushAssistantMessage({
-                content: "The user interrupted the task.",
+                content: "🛑[Assistant] The user interrupted the task.",
                 group_id: assistantMsg.group_id,
                 context_id: assistantMsg.context_id,
                 uuid: this.uuid,
