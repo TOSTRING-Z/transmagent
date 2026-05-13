@@ -359,6 +359,10 @@ window.electronAPI.handleQuestions(({ questions, group_id, uuid }) => {
 
 window.electronAPI.setPrompt((prompt) => DOM.system_prompt.value = prompt);
 
+window.electronAPI.onRequestSystemPrompt(() => {
+    window.electronAPI.send('response-system-prompt', DOM.system_prompt.value);
+});
+
 window.electronAPI.handleClear(() => handleClear());
 
 window.electronAPI.uploadProgress((info) => updateProgress(info));

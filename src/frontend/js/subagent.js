@@ -27,6 +27,7 @@
     bgtasks: document.getElementById("bgtasks"),
     btn_clear_bgtasks: document.getElementById("btn_clear_bgtasks"),
     history_list: document.getElementById("history-list"),
+    history_filter: document.getElementById("history-filter"),
     btn_new_chat: document.getElementById("new-chat"),
     renameDialog: document.getElementById("renameDialog"),
     renameInput: document.getElementById("renameInput"),

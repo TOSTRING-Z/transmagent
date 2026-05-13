@@ -71,7 +71,30 @@ class IconWindow extends BaseWindow_1.BaseWindow {
         electron_1.ipcMain.on('submit-clicked', () => {
             WindowManager_1.WindowManager.instance.mainWindow.concat = false;
             const mainWin = this.windowManager.mainWindow;
-            mainWin.sendQuery({ query: WindowManager_1.WindowManager.instance.mainWindow.last_clipboard_content || "" });
+            let handled = false;
+            const handlePromptResponse = (_event, promptValue) => {
+                if (handled)
+                    return;
+                handled = true;
+                clearTimeout(timeout);
+                electron_1.ipcMain.removeListener('response-system-prompt', handlePromptResponse);
+                mainWin.sendQuery({
+                    query: mainWin.last_clipboard_content || "",
+                    prompt: promptValue || "",
+                });
+            };
+            // Timeout safeguard: if renderer doesn't respond within 500ms, proceed without prompt
+            const timeout = setTimeout(() => {
+                if (handled)
+                    return;
+                handled = true;
+                electron_1.ipcMain.removeListener('response-system-prompt', handlePromptResponse);
+                mainWin.sendQuery({
+                    query: mainWin.last_clipboard_content || "",
+                });
+            }, 500);
+            electron_1.ipcMain.on('response-system-prompt', handlePromptResponse);
+            mainWin.window?.webContents.send('request-system-prompt');
             this.destroy();
         });
         electron_1.ipcMain.on('clear-clicked', () => {

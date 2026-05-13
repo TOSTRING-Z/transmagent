@@ -1916,6 +1916,9 @@ ${formatted}
       DOM.top_div.scrollTop = DOM.top_div.scrollHeight;
   });
   window.electronAPI.setPrompt((prompt) => DOM.system_prompt.value = prompt);
+  window.electronAPI.onRequestSystemPrompt(() => {
+    window.electronAPI.send("response-system-prompt", DOM.system_prompt.value);
+  });
   window.electronAPI.handleClear(() => handleClear());
   window.electronAPI.uploadProgress((info) => updateProgress(info));
   window.electronAPI.handleNewChat((chat) => handleNewChat(chat));
