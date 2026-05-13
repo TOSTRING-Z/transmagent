@@ -6,6 +6,7 @@ import * as path from 'path';
 import { Client } from 'ssh2';
 import { Worker } from 'worker_threads';
 
+import { State } from '../../core/LLMBase';
 import { BaseWindow } from "./BaseWindow";
 import { WindowManager } from "./WindowManager";
 import { store, CONSTANTS, sysConfig, extraPrompt } from '../../utils/globals';
@@ -372,7 +373,13 @@ export class MainWindow extends BaseWindow {
         ipcMain.handle("toggleMessageGroup", async (_event, data) => {
             let message_len = await this.session().llmService.chatManager.toggleMessageGroup({ ...data, del_mode: !!this.funcItems.del.statu });
             this.session().tool_call.setHistory();
-            logger.log(`delete id: ${data.id}, length: ${message_len}`)
+            logger.log(`delete id: ${data.id}, length: ${message_len}`);
+            // 用户删除消息时，若代理正处于 PAUSE 状态（如 ask_user 等待回复），立即终止循环
+            const toolCall = this.session().tool_call;
+            if (toolCall.state === State.PAUSE) {
+                toolCall.state = State.FINAL;
+                logger.log('Agent loop terminated due to message deletion (state was PAUSE)');
+            }
             return { del_mode: !!this.funcItems.del.statu };
         });
 
@@ -437,6 +444,12 @@ export class MainWindow extends BaseWindow {
         });
 
         ipcMain.on('delChat', (_event, id) => {
+            // 删除对话时，若代理处于 PAUSE 状态，立即终止循环
+            const toolCall = this.session().tool_call;
+            if (toolCall.state === State.PAUSE) {
+                toolCall.state = State.FINAL;
+                logger.log('Agent loop terminated due to chat deletion (state was PAUSE)');
+            }
             this.sessionManager.delChat(id);
         });
 

@@ -41,6 +41,7 @@ const fs = __importStar(require("fs"));
 const path = __importStar(require("path"));
 const ssh2_1 = require("ssh2");
 const worker_threads_1 = require("worker_threads");
+const LLMBase_1 = require("../../core/LLMBase");
 const BaseWindow_1 = require("./BaseWindow");
 const WindowManager_1 = require("./WindowManager");
 const globals_1 = require("../../utils/globals");
@@ -379,6 +380,12 @@ class MainWindow extends BaseWindow_1.BaseWindow {
             let message_len = await this.session().llmService.chatManager.toggleMessageGroup({ ...data, del_mode: !!this.funcItems.del.statu });
             this.session().tool_call.setHistory();
             logger_1.logger.log(`delete id: ${data.id}, length: ${message_len}`);
+            // 用户删除消息时，若代理正处于 PAUSE 状态（如 ask_user 等待回复），立即终止循环
+            const toolCall = this.session().tool_call;
+            if (toolCall.state === LLMBase_1.State.PAUSE) {
+                toolCall.state = LLMBase_1.State.FINAL;
+                logger_1.logger.log('Agent loop terminated due to message deletion (state was PAUSE)');
+            }
             return { del_mode: !!this.funcItems.del.statu };
         });
         electron_1.ipcMain.handle("thumbMessageGroup", async (_event, data) => {
@@ -430,6 +437,12 @@ class MainWindow extends BaseWindow_1.BaseWindow {
             this.updateVersionsSubmenu();
         });
         electron_1.ipcMain.on('delChat', (_event, id) => {
+            // 删除对话时，若代理处于 PAUSE 状态，立即终止循环
+            const toolCall = this.session().tool_call;
+            if (toolCall.state === LLMBase_1.State.PAUSE) {
+                toolCall.state = LLMBase_1.State.FINAL;
+                logger_1.logger.log('Agent loop terminated due to chat deletion (state was PAUSE)');
+            }
             this.sessionManager.delChat(id);
         });
         electron_1.ipcMain.handle('get-config-main', () => this.session().utils.getConfig());

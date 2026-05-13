@@ -916,45 +916,29 @@ export class ToolCall extends LLMBase implements ISchedulableAgent {
 
         const chat = this.llmService.chatManager.chat;
 
-        let contextIntact = false;
         if (this.state === State.PAUSE) {
-            // 校验 ask_user 上下文是否仍完整（用户可能已删除 ask_user 记录）
-            const msgs = this.llmService.chatManager.messages;
-            if (msgs && msgs.length > 0) {
-                contextIntact = [...msgs].reverse().some(
-                    (m: any) => m.role === 'assistant' && m.tool_calls?.some(
-                        (tc: any) => tc.function?.name === 'ask_user'
-                    )
-                );
-            }
-            if (contextIntact) {
-                // 上下文完整：正常 PAUSE 恢复
-                data.role = "tool";
-                const context_id = `${chat.group_id}${chat.step - 1}`;
-                this.llmService.chatManager.pushToolMessage({
-                    ...this.currentToolInfo, ...chat, context_id, content: data.query, uuid: data.uuid,
-                });
-                this.events.emitEvent('toolData', {
-                    ...chat, content: `\n\n---\n\n${data.query}`, uuid: data.uuid,
-                });
-            }
-            // 上下文已损坏 → 不处理，让下面的 new user message 路径接管
-        }
-        if (!(this.state === State.PAUSE && contextIntact)) {
-            if (!skipInitialPush) {
-                // 全新对话轮次
-                data.role = "user";
-                chat.step = 1;
-                chat.group_id = String(Date.now());
-                chat.context_id = `${chat.group_id}${chat.step}`;
-                this.llmService.chatManager.fixMessages();
-                this.llmService.chatManager.pushUserMessage({
-                    ...chat, content: data.query, uuid: data.uuid,
-                });
-                this.events.emitEvent('userData', {
-                    ...chat, content: data.query, uuid: data.uuid,
-                });
-            }
+            // 从挂起状态恢复：注入用户回复（skipInitialPush 不适用于 PAUSE 恢复）
+            data.role = "tool";
+            const context_id = `${chat.group_id}${chat.step - 1}`;
+            this.llmService.chatManager.pushToolMessage({
+                ...this.currentToolInfo, ...chat, context_id, content: data.query, uuid: data.uuid,
+            });
+            this.events.emitEvent('toolData', {
+                ...chat, content: `\n\n---\n\n${data.query}`, uuid: data.uuid,
+            });
+        } else if (!skipInitialPush) {
+            // 全新对话轮次
+            data.role = "user";
+            chat.step = 1;
+            chat.group_id = String(Date.now());
+            chat.context_id = `${chat.group_id}${chat.step}`;
+            this.llmService.chatManager.fixMessages();
+            this.llmService.chatManager.pushUserMessage({
+                ...chat, content: data.query, uuid: data.uuid,
+            });
+            this.events.emitEvent('userData', {
+                ...chat, content: data.query, uuid: data.uuid,
+            });
         }
         // skipInitialPush && state !== PAUSE：消息已由外部注入，直接进入主循环
 
