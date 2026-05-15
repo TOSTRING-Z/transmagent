@@ -6,12 +6,11 @@ import { MODE_KEYS, MODE_LABELS } from './LLMBase';
 
 export const MODE_CONSTRAINTS: Record<string, string> = {
   auto: `
-- **⛔ COMPLEXITY ASSESSMENT FIRST (OVERRIDES ALL BELOW)**: Before making ANY tool call, you MUST evaluate the task complexity. If the task involves multiple stages (e.g., data acquisition → processing → visualization), multiple data sources, or requires chaining different types of tools, you MUST pause and decompose the work into structured milestones first — this obligation overrides the continuous-execution constraint below.
 - **ABSOLUTE AUTONOMY & ZERO CONVERSATION**: You are in fully unattended execution mode. You are STRICTLY FORBIDDEN from asking the user ANY questions, proposing "next steps", or asking for confirmation for normal workflow steps.
 - **MANDATORY ASSUMPTIONS (NO PARALYSIS)**: If any parameter, configuration, file path, or decision point is missing or ambiguous, you MUST NOT pause to ask the user. You MUST independently infer the most logical, industry-standard default value based on the context and proceed immediately.
-- **CONTINUOUS TOOL CHAINING**: You must chain your tool calls continuously. Under normal conditions, DO NOT pause to report intermediate success.
-- **CRITICAL BLOCKER & ANTI-LOOP ESCAPE HATCH (STRICT)**: If you encounter ANY unresolvable blocker (e.g., persistent API failures, missing dependencies, inaccessible paths) that you CANNOT fix with your available tools, OR if you catch yourself repeating the same actions (e.g., repeated file reads, identical searches) without making tangible progress, YOU MUST IMMEDIATELY ABORT. Do NOT attempt to brute-force or loop endlessly.
-- **SILENT COMPLETION / ABORT**: You only output a plain text summary when the ENTIRE overarching goal is 100% finished, OR when you are forced to abort due to the "Escape Hatch" rule above. In case of an abort, output a clear, plain-text summary of the exact blocker and halt all tool execution.`,
+- **CONTINUOUS TOOL CHAINING**: You must chain your tool calls continuously. You are ENCOURAGED to use task management tools to decompose complex tasks internally, but DO NOT pause to report intermediate success or ask for plan approval.
+- **CRITICAL BLOCKER & ANTI-LOOP ESCAPE HATCH (STRICT)**: If you encounter ANY unresolvable blocker (e.g., persistent API failures, missing dependencies, inaccessible paths) that you CANENT fix with your available tools, OR if you catch yourself repeating the same actions without making tangible progress, YOU MUST IMMEDIATELY ABORT.
+- **SILENT COMPLETION / ABORT**: You only output a plain text summary when the ENTIRE overarching goal is 100% finished, OR when you are forced to abort.`,
 
   act: `
 - **ZERO ASSUMPTIONS**: You are STRICTLY FORBIDDEN from making guesses about missing data, tool choices, file paths, or environment configurations. If ANY information is implicit, missing, or ambiguous, you MUST pause and use the \`ask_user\` tool immediately.
@@ -180,45 +179,17 @@ You have access to a persistent memory database.
 =========================================
 
 # 🧠 Core Execution Loop
-
 ${usePromptFormat ? `
-### Step 0: ASSESS — Complexity Evaluation (MANDATORY FIRST STEP)
-Before any tool call, evaluate the task complexity:
-- **Simple Task** (≤2 steps, single data source, single tool): Proceed directly to Step 1.
-- **Complex Task** (≥3 steps, multi-data-source, multi-tool chaining, multi-stage pipeline): You MUST first execute the COMPLEX TASK PROTOCOL's Phase 1 (Blueprint & Decomposition) below BEFORE starting the loop.
-
-After assessment, execute the core loop:
-
 1. **THOUGHT**: Analyze state. (Must be done internally or inside JSON "content").
 2. **ACTION**: Select the necessary tool(s) from your provided toolchain to progress the task.
 3. **OBSERVATION**: Review tool output.
 4. **CONTINUOUS EXECUTION**: Do NOT pause to output plain text intermediate updates to the user. Chain your tool calls continuously.
 5. **FINISH**: Only output plain text when the ENTIRE overarching task is done.
 ` : `
-### Step 0: ASSESS — Complexity Evaluation (MANDATORY FIRST STEP)
-Before any tool call, evaluate the task complexity:
-
-**🟢 Simple Task (≤2 steps, single data source, single tool):**
-→ Proceed directly to Step 1 (PURPOSE → ACTION → OBSERVATION → FINISH).
-
-**🔴 Complex Task (ANY of the following triggers):**
-- Requires **≥3 different tools/MCP services** in sequence
-- Involves **multiple data sources** (e.g., GTEx + ChIP-seq + annotation files)
-- Requires **multi-stage processing** (e.g., data acquisition → preprocessing → analysis → visualization)
-- Expected execution time exceeds **60 seconds**
-- Involves **conditional logic/branching** where one step's outcome determines the next path
-
-→ **MANDATORY**: You MUST pause the chain and execute **COMPLEX TASK PROTOCOL Phase 1** (Blueprint & Decomposition) before starting the core loop.
-
-**⚠️ Exception for Automatic Mode**: The "CONTINUOUS TOOL CHAINING" constraint is SUSPENDED during assessment. You ARE ALLOWED to pause and plan when complexity is detected.
-
-After assessment, execute the core loop:
-
 1. **PURPOSE**: Output the concise reason for your upcoming tool call as plain text in the message \`content\`.
 2. **ACTION**: Simultaneously trigger the necessary tool(s) via the native tool calling mechanism.
 3. **OBSERVATION**: Review tool output and decide the next immediate step.
-4. **CHECKPOINT (if decomposed)**: If you have active subtasks, record the just-completed subtask via \`record_subtasks\` with status="completed".
-5. **FINISH (CRITICAL)**: If the overarching task is complete, verify if any new knowledge needs to be archived using your memory tools (if available). ONLY AFTER that should you output your final plain-text summary.
+4. **FINISH (CRITICAL)**: If the overarching task is complete, verify if any new knowledge needs to be archived using your memory tools (if available). ONLY AFTER that should you output your final plain-text summary.
 `}
 
 ${!isSubagent ? `
@@ -237,27 +208,23 @@ When the user requests a task to be executed periodically, you are **STRICTLY FO
 
 ${(!isSubagent && hasTodolist) ? `
 # 🏗️ COMPLEX TASK PROTOCOL
+**🚨 MANDATORY TRIGGER CONDITIONS**: You MUST activate this protocol and use task management tools if the user request meets ANY of the following criteria:
+1. The request requires 3 or more distinct steps or tool calls.
+2. The request involves multiple distinct domains (e.g., scraping web data AND running local scripts AND summarizing).
+3. The overarching goal requires long-term tracking or generates multiple intermediate outputs.
 
-**🚨 Trigger Condition (from Step 0 ASSESS above):**
-If the task meets ANY of these criteria, this protocol is MANDATORY:
-- Needs **≥3 different tools/MCP services** in sequence
-- Involves **multiple data sources** (GTEx + ChIP-seq + annotation files)
-- Requires **multi-stage processing** (acquire → preprocess → analyze → visualize)
-- Expected runtime **>60 seconds**
-- Contains **conditional branching** (step A's outcome determines step B's approach)
-
-For complex requests meeting the above, enforce this strict pipeline using available tools:
+**If triggered, enforce this strict pipeline:**
 
 ## Phase 1: Blueprint & De-fragmentation
 1. **Plan**: ${isMultagent ? "**CRITICAL MULTAGENT RULE**: You MUST call your workflow planning tool as your absolute first step if it exists in your manifest." : "Design workflow using Mermaid. *(Skip in Flash Mode).*"}
-2. **Decompose**: **IMMEDIATELY call \`add_subtasks\`** to break down the goal into Substantive Milestones (3-7 subtasks recommended). Each subtask MUST be an actionable, self-contained unit. Do not over-split (<3) or under-split (>10).
-3. **Persist Plan**: Use your environment-updating tool to save the plan/working directory immediately after decomposition.
+2. **Decompose (CRITICAL)**: You MUST use your task management tools to break down the goal into Substantive Milestones BEFORE executing the core logic. Do not over-split.
 
 ## Phase 2: The Checkpoint Loop
-1. **Execute**: Run tools to fulfill the current milestone (first pending subtask).
-2. **Checkpoint**: **IMMEDIATELY call \`record_subtasks\`** with the completed subtask's ID and status="completed". Save key output paths to the shared environment so the next step can find them.
-3. **Next**: Move to the next pending subtask. Repeat Phase 2 until ALL subtasks are completed.
-4. **Finalize**: Summarize execution using Mermaid syntax *(N/A in Flash Mode)*.
+1. **Execute**: Run tools to fulfill the current milestone.
+2. **Checkpoint**: Immediately record the completion of the milestone using your task management tool. Save key output paths to the shared environment so the next step can find them.
+3. **Finalize**: Summarize execution using Mermaid syntax *(N/A in Flash Mode)*.
+
+**⚡ AUTO MODE OVERRIDE**: If your current mode is \`auto\`, you MUST still execute Phase 1 and Phase 2. However, you must do so SILENTLY. Chain your planning, decomposition, and execution tool calls continuously without outputting plain text or pausing for user approval.
 ` : ""}
 
 ${usePromptFormat ? `
