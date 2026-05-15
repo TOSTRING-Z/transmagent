@@ -17,7 +17,7 @@ import { WindowManager } from '../main/windows/WindowManager';
 import { LLMAssistant } from './LLMAssistant';
 import { Utils } from './Utils';
 import { BrowserWindow } from 'electron/main';
-import { formatDate, getSessionId, parseJsonContent } from '../utils/public';
+import { formatDate, getHistoryChat, getSessionId, parseJsonContent } from '../utils/public';
 import { SkillManager } from './SkillManager';
 import { AgentEventEmitter, ElectronUIController } from './AgentEventEmitter';
 import { TaskScheduler, ISchedulableAgent } from './TaskScheduler';
@@ -1121,6 +1121,12 @@ export class ToolCall extends LLMBase implements ISchedulableAgent {
         }
         const history_path = this.utils.getHistoryPath(id);
         this.loadMessage(history_path, id);
+        // 从持久化的聊天数据中恢复 vars（包括 tasks、envs 等）
+        // 必须在 loadMessage 之后，因为 loadMessage 会调用 getChatInit 覆盖整个 chat
+        const historyChat = getHistoryChat(id);
+        if (historyChat?.vars) {
+            this.llmService.chatManager.chat.vars = historyChat.vars;
+        }
         return this.llmService.chatManager.chat;
     }
 

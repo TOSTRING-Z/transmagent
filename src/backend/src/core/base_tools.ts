@@ -189,7 +189,10 @@ export default function getBaseTools(): Record<string, any> {
         "add_subtasks": {
             func: async ({ task_id, task, subtasks, task_type = "standard", trigger_condition = null, update_mode = "append", toolCall }: { task_id?: string, task?: string, subtasks: string | string[], task_type?: string, trigger_condition?: string | null, update_mode?: string, toolCall: any }) => {
                 const chatVars = toolCall.llmService.chatManager.chat.vars;
-                chatVars.tasks = chatVars.tasks || {};
+                // 确保 tasks 始终是对象格式（防止被其他代码设置为数组）
+                if (!chatVars.tasks || Array.isArray(chatVars.tasks)) {
+                    chatVars.tasks = {};
+                }
                 chatVars.subtask_id = chatVars.subtask_id ?? 100;
                 chatVars.task_id_counter = chatVars.task_id_counter ?? 1;
 

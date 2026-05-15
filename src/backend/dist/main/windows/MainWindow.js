@@ -827,7 +827,7 @@ class MainWindow extends BaseWindow_1.BaseWindow {
                             this.session().llmService.chatManager.initMessages();
                             // 清空 Task List 和环境变量
                             let vars = this.sessionManager.getChat()?.vars || {};
-                            vars.tasks = [];
+                            vars.tasks = {};
                             this.sessionManager.setSessionChat({ id: chat_id, vars, envs: {} });
                             this.session().tool_call.changeMode();
                             this.updateVersionsSubmenu();

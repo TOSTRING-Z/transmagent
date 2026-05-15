@@ -954,6 +954,12 @@ class ToolCall extends LLMBase_1.LLMBase {
         }
         const history_path = this.utils.getHistoryPath(id);
         this.loadMessage(history_path, id);
+        // 从持久化的聊天数据中恢复 vars（包括 tasks、envs 等）
+        // 必须在 loadMessage 之后，因为 loadMessage 会调用 getChatInit 覆盖整个 chat
+        const historyChat = (0, public_1.getHistoryChat)(id);
+        if (historyChat?.vars) {
+            this.llmService.chatManager.chat.vars = historyChat.vars;
+        }
         return this.llmService.chatManager.chat;
     }
     newChat(id) {

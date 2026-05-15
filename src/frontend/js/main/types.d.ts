@@ -6,7 +6,8 @@ export interface ElectronAPI {
   initInfo: (callback: (info: any) => void) => void;
   Envs: (data: { type: string; envs?: any }) => Promise<any>;
   Tasks: (data: { type: string; tasks?: any }) => Promise<any>;
-  BGTasks: (data: { type: string }) => Promise<any>;
+  BGTasks: (data: { type: string; taskId?: string }) => Promise<any>;
+  BGTaskDetails: (data: { type: string; taskId: string }) => Promise<any>;
   changeMode: (mode: string) => void;
   getFilePath: () => Promise<string | null>;
   setChat: (chat: any) => Promise<void>;
