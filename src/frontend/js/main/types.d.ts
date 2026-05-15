@@ -33,6 +33,8 @@ export interface ElectronAPI {
     uuid: string 
   }) => void) => void;
   setPrompt: (callback: (prompt: string) => void) => void;
+  onRequestSystemPrompt: (callback: () => void) => void;
+  send: (channel: string, ...args: any[]) => void;
   handleClear: (callback: () => void) => void;
   uploadProgress: (callback: (info: any) => void) => void;
   getConfig: () => Promise<any>;

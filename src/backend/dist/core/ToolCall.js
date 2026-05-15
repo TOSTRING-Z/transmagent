@@ -348,12 +348,8 @@ class ToolCall extends LLMBase_1.LLMBase {
         else if (this.agentConfigs.subagent) {
             this.tools = { ...this.agentTools, ...this.baseTools };
         }
-        let agentConfigs = { ...this.agentConfigs };
         const toolCallConfig = this.utils.getConfig("tool_call");
-        if (!toolCallConfig.todolist_message)
-            agentConfigs.todolist = false;
-        if (!toolCallConfig.env_message)
-            agentConfigs.env = false;
+        let agentConfigs = { ...toolCallConfig["agent_configs"], ...this.agentConfigs };
         // 2. DSL 校验上下文
         const context = {
             args: agentConfigs || {},
@@ -445,14 +441,13 @@ class ToolCall extends LLMBase_1.LLMBase {
         const currentModeShort = chatState.mode || "act";
         this.llmService.environment_details.mode = LLMBase_1.MODE_LABELS[currentModeShort] || currentModeShort;
         this.llmService.environment_details.mode_constraint = Prompts_1.MODE_CONSTRAINTS[currentModeShort];
-        const toolCallConfig = this.utils.getConfig("tool_call");
-        if (this.agentConfigs.env && toolCallConfig.env_message) {
+        if (this.agentConfigs.env) {
             data.env_message = (0, format_1.formatString)(this.env_prompt, this.llmService.environment_details);
         }
         else {
             data.env_message = null;
         }
-        if (this.agentConfigs.todolist && toolCallConfig.todolist_message) {
+        if (this.agentConfigs.todolist) {
             data.todolist_message = (0, format_1.formatString)(this.todolist_prompt, this.llmService.environment_details);
         }
         else {

@@ -118,7 +118,15 @@ export class SubAgent {
     }
 
     private toolInit(): void {
-        if (!this.utils.getConfig()?.plugins?.cli_execute) return;
+        if (!this.utils.getConfig()?.plugins?.cli_execute) {
+            console.error(
+                `[SubAgent] CRITICAL: 'cli_execute' plugin is not configured. ` +
+                `All built-in sub-agents (tool_manager, task_executor, chart_plotter, ` +
+                `workflow_planner, deep_researcher, etc.) will NOT be available. ` +
+                `Please enable 'cli_execute' in your plugins configuration.`
+            );
+            return;
+        }
 
         this.plugins = new Plugins(this.utils);
         this.plugins.loadInit(sysConfig.baseagent, true);

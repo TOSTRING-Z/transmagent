@@ -805,7 +805,7 @@ $$
       if (messageSystem.dataset?.event_stop !== "true") {
         messageSystem.dataset.event_stop = "true";
         if (message_content)
-          menuEvent(messageSystem, message_content.dataset.content, chunk?.is_plugin);
+          menuEvent(messageSystem, message_content, chunk?.is_plugin);
       }
     }
     DOM.submit.classList.remove("running");
@@ -985,7 +985,7 @@ $$
     const optionDom = document.querySelector(".base-container");
     if (optionDom)
       optionDom.remove();
-    DOM.tokens.innerText = State.chat.tokens.toString();
+    DOM.tokens.innerText = (State.chat.tokens ?? 0).toString();
     DOM.version.innerText = data.version;
     data.prompt = DOM.system_prompt.value;
     DOM.top_div.scrollTop = DOM.top_div.scrollHeight;

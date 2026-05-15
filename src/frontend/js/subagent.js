@@ -638,7 +638,7 @@ $$
       if (messageSystem.dataset?.event_stop !== "true") {
         messageSystem.dataset.event_stop = "true";
         if (message_content)
-          menuEvent(messageSystem, message_content.dataset.content, chunk?.is_plugin);
+          menuEvent(messageSystem, message_content, chunk?.is_plugin);
       }
     }
     DOM.submit.classList.remove("running");

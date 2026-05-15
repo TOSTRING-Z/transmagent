@@ -138,8 +138,17 @@ export class SessionManager {
         const llmService = new LLMService([], this.window, utils, agentMode);
         const subAgent = new SubAgent(utils, llmService);
 
-        if (agentMode === 'transagent' && utils.getConfig("tool_call")?.subagent) {
-            agentTools = { "tool_manager": subAgent.getMainSubAgent()["tool_manager"] };
+        if (agentMode === 'transagent') {
+            const tm = subAgent.getMainSubAgent()["tool_manager"];
+            if (!tm) {
+                const errMsg =
+                    `[SubAgent] tool_manager is unavailable. ` +
+                    `The 'cli_execute' plugin may be missing or disabled in your configuration. ` +
+                    `Please enable 'plugins.cli_execute' in your config file.`;
+                console.error(errMsg);
+                this.window?.webContents.send('showLog', { type: 'error', content: errMsg });
+            }
+            agentTools = { "tool_manager": tm };
         }
         if (agentMode === 'multagent') {
             mcpTool = false;

@@ -439,10 +439,8 @@ export class ToolCall extends LLMBase implements ISchedulableAgent {
             this.tools = { ...this.agentTools, ...this.baseTools };
         }
 
-        let agentConfigs = { ...this.agentConfigs };
         const toolCallConfig = this.utils.getConfig("tool_call");
-        if (!toolCallConfig.todolist_message) agentConfigs.todolist = false;
-        if (!toolCallConfig.env_message) agentConfigs.env = false;
+        let agentConfigs = { ...toolCallConfig["agent_configs"], ...this.agentConfigs };
 
         // 2. DSL 校验上下文
         const context = {
@@ -545,13 +543,12 @@ export class ToolCall extends LLMBase implements ISchedulableAgent {
         (this.llmService.environment_details as any).mode = MODE_LABELS[currentModeShort] || currentModeShort;
         (this.llmService.environment_details as any).mode_constraint = MODE_CONSTRAINTS[currentModeShort];
 
-        const toolCallConfig = this.utils.getConfig("tool_call");
-        if (this.agentConfigs.env && toolCallConfig.env_message) {
+        if (this.agentConfigs.env) {
             data.env_message = formatString(this.env_prompt, this.llmService.environment_details as any);
         } else {
             data.env_message = null;
         }
-        if (this.agentConfigs.todolist && toolCallConfig.todolist_message) {
+        if (this.agentConfigs.todolist) {
             data.todolist_message = formatString(this.todolist_prompt, this.llmService.environment_details as any);
         } else {
             data.todolist_message = null;
