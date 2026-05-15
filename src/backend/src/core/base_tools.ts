@@ -169,17 +169,17 @@ export default function getBaseTools(): Record<string, any> {
 
         "context_retrieval": {
             func: async ({ context_id, toolCall }: { context_id: string | number, toolCall: ToolCall }) => {
-                const history = toolCall.llmService.chatManager.getMessages(true);
+                const history = toolCall.llmService.chatManager.getMessages(false);
                 const target = history.find(m => String(m.context_id) === String(context_id));
                 return target ? { role: target.role, content: target.content } : "Error: Context ID not found.";
             },
             getPrompt: () => ({
                 name: "context_retrieval",
-                description: "[IN-SESSION MEMORY] Fetch raw details of a specific past interaction within the CURRENT session. Use Case: When you see a Context ID in the '# 🗃️ Session Memory' block at the top of the chat.",
+                description: "[IN-SESSION MEMORY] Retrieve the FULL, unredacted original content of a message that was TRUNCATED from your context due to length limits.\n\nCRITICAL WORKFLOW: When the conversation grows too long, older messages are REMOVED from your context and replaced by the sanitized '# 🗃️ Session Memory' block above. That block contains ONLY lossy previews with tool params/thinking redacted. If you need the COMPLETE original content of any message listed there, call this tool with its Context ID.\n\nDO NOT assume the Session Memory preview is sufficient — it is deliberately stripped down. Use this tool whenever you need exact details from a truncated message.",
                 parameters: {
                     type: "object",
                     properties: {
-                        context_id: { type: "integer", description: "The Context ID extracted from the '# 🗃️ Session Memory' block at the top of the chat." }
+                        context_id: { type: "string", description: "The Context ID from the '# 🗃️ Session Memory' block. This message is NO LONGER in your context — this tool fetches it from persistent storage." }
                     },
                     required: ["context_id"]
                 }
