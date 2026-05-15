@@ -94,7 +94,7 @@ class SubAgentWindow {
             win.on('closed', () => {
                 if (this.agentTool) {
                     this.agentTool.toolCall.llmService.stopLoop();
-                    resolve("The user interrupted the task.");
+                    resolve("🛑[Tool] The user interrupted the task.");
                 }
             });
             win.webContents.on('did-finish-load', async () => {
@@ -188,7 +188,7 @@ class SubAgentWindow {
         catch (error) {
             console.error(`[SubAgentWindow-Silent] Error: ${error.message}`);
             return {
-                content: `Error executing subagent: ${error.message}`,
+                content: `❌[Tool] Error executing subagent: ${error.message}`,
                 subagent_tool: true,
                 error: true
             };
