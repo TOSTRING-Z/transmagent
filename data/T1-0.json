@@ -1,0 +1,152 @@
+[
+  {
+    "task": "I want to analyze differential gene expression in BRCA cancer samples from TCGA database and perform pathway enrichment analysis on the significant genes."
+  },
+  {
+    "task": "I have a list of genes from LUAD cancer (/data/example/geneset/LUAD.csv) and want to identify the top transcriptional regulators using TRAPT, then analyze their binding regions."
+  },
+  {
+    "task": "I need to analyze ADNP transcription factor binding regions (/data/trapt/TR_bed/ADNP@Sample_01_0380.bed) by extracting sequences, finding motifs with FIMO, and visualizing genomic distribution."
+  },
+  {
+    "task": "I want to compare gene expression patterns between cancer tissues (TCGA BRCA) and normal tissues (GTEx) for a set of apoptosis-related genes from Hallmark database."
+  },
+  {
+    "task": "/data/example/geneset/BRCA.csv[分析BRCA乳腺癌差异表达基因的转录调控机制]"
+  },
+  {
+    "task": "/data/example/geneset/LUAD.csv[分析LUAD肺腺癌差异基因的功能富集和通路]"
+  },
+  {
+    "task": "/data/trapt/TR_bed/ADNP@Sample_01_0380.bed[分析ADNP转录因子的靶基因和功能注释]"
+  },
+  {
+    "task": "/data/example/geneset/GBM.csv,/data/example/geneset/Disease_Type/Disease_Type_LncRNAWiki/glioma.txt[比较GBM胶质母细胞瘤差异基因与已知胶质瘤基因集的重叠]"
+  },
+  {
+    "task": "/data/example/geneset/BRCA.csv[对乳腺癌差异表达基因进行通路富集分析]"
+  },
+  {
+    "task": "/data/example/geneset/LUAD.csv[使用TRAPT识别肺腺癌差异基因的核心转录调控因子]"
+  },
+  {
+    "task": "/data/trapt/TR_bed/ADNP@Sample_01_0380.bed[对ADNP转录因子的结合区域进行序列提取和motif分析]"
+  },
+  {
+    "task": "/data/example/geneset/COAD.csv[对结肠癌差异基因进行富集分析，探索其在疾病相关通路中的功能]"
+  },
+  {
+    "task": "I have a list of differentially expressed genes from BRCA cancer (data path: /data/example/geneset/BRCA.csv) and want to identify the key transcriptional regulators controlling these genes, then analyze their binding regions and functional annotations"
+  },
+  {
+    "task": "I want to analyze the functional enrichment of glioma-related genes (data path: /data/example/geneset/Disease_Type/Disease_Type_Lnc2Cancer3_0/glioma.txt) across multiple categories including pathways, cancer functions, and chromatin regulation"
+  },
+  {
+    "task": "使用/data/example/geneset/BRCA.csv中的BRCA差异表达基因，通过ARACNe推断转录因子调控网络，并进行通路富集分析"
+  },
+  {
+    "task": "使用TRAPT识别/data/example/geneset/LUAD.csv中肺癌差异基因的核心转录调控因子，并获取其结合区域"
+  },
+  {
+    "task": "对/data/trapt/TR_bed/ADNP@Sample_01_0380.bed转录因子结合区域进行注释和可视化分析"
+  },
+  {
+    "task": "使用FIMO分析/data/trapt/TR_bed/AATF@TcoF_00_41072.bed区域中的转录因子结合motif"
+  },
+  {
+    "task": "I have a list of differentially expressed genes from BRCA cancer study (/data/example/geneset/BRCA.csv) and want to identify the key transcriptional regulators controlling these genes"
+  },
+  {
+    "task": "I need to analyze the genomic distribution of ADNP transcription factor binding sites (/data/trapt/TR_bed/ADNP@Sample_01_0380.bed) and visualize their annotation categories"
+  },
+  {
+    "task": "I want to perform pathway analysis on the differentially expressed genes from lung cancer study (/data/example/geneset/LUAD.csv) to understand biological pathways affected"
+  },
+  {
+    "task": "I want to analyze transcription factor binding motifs in the AATF co-factor binding regions (/data/trapt/TR_bed/AATF@TcoF_00_41072.bed) using motif enrichment analysis"
+  },
+  {
+    "task": "I have this BRCA differential gene set from /data/example/geneset/BRCA.csv and want to perform pathway analysis to understand the biological pathways involved."
+  },
+  {
+    "task": "I need to analyze transcriptional regulators for this prostate cancer gene set from /data/example/geneset/PRAD.csv using TRAPT and then visualize their binding regions."
+  },
+  {
+    "task": "I have a list of differentially expressed genes from BRCA cancer (/data/example/geneset/BRCA.csv) and want to identify the key transcriptional regulators controlling these genes, then visualize their binding regions and perform enrichment analysis"
+  },
+  {
+    "task": "I have this ADNP transcription factor binding regions (/data/trapt/TR_bed/ADNP@Sample_01_0380.bed) and want to analyze motif enrichment, annotate genomic features, and visualize the distribution"
+  },
+  {
+    "task": "我想对BRCA差异基因（/data/example/geneset/BRCA.csv）进行通路富集分析"
+  },
+  {
+    "task": "请帮我识别ADNP转录因子（/data/trapt/TR_bed/ADNP@Sample_01_0380.bed）的结合区域并注释其功能"
+  },
+  {
+    "task": "对肝癌差异基因（/data/example/geneset/LIHC.csv）进行转录调控因子预测"
+  },
+  {
+    "task": "I want to perform differential expression analysis on BRCA cancer data from /data/example/geneset/BRCA.csv and do pathway enrichment analysis"
+  },
+  {
+    "task": "I need to analyze transcriptional regulators for genes in /data/example/geneset/LUAD.csv and visualize their binding regions"
+  },
+  {
+    "task": "I want to analyze ADNP transcription factor binding regions from /data/trapt/TR_bed/ADNP@Sample_01_0380.bed and annotate the genomic features"
+  },
+  {
+    "task": "Identify transcriptional regulators for BRCA differential genes from /data/example/geneset/BRCA.csv and analyze their binding regions"
+  },
+  {
+    "task": "Analyze ADNP transcription factor binding regions from /data/trapt/TR_bed/ADNP@Sample_01_0380.bed for motif enrichment and target gene identification"
+  },
+  {
+    "task": "Perform differential expression analysis on LUAD cancer data from /data/example/geneset/LUAD.csv and pathway enrichment analysis"
+  },
+  {
+    "task": "Analyze differential gene expression in BRCA cancer using /data/example/geneset/BRCA.csv and perform enrichment analysis for Disease_Type category"
+  },
+  {
+    "task": "Identify transcriptional regulators for hepatocellular carcinoma genes from /data/example/geneset/LIHC.csv and analyze their binding regions"
+  },
+  {
+    "task": "Analyze ADNP transcription factor binding regions from /data/trapt/TR_bed/ADNP@Sample_01_0380.bed and perform motif enrichment with homer"
+  },
+  {
+    "task": "Perform comprehensive analysis of acute lymphoblastic leukemia genes from /data/example/geneset/Disease_Type/Disease_Type_Lnc2Cancer3_0/Acute_lymphoblastic_leukemia.txt including expression and enrichment"
+  },
+  {
+    "task": "/data/example/geneset/Disease_Type/Disease_Type_Lnc2Cancer3_0/Hepatocellular_Carcinoma.txt[分析肝癌相关基因的转录因子结合位点和功能富集]"
+  },
+  {
+    "task": "Analyze differential gene expression in BRCA cancer using TCGA data for genes TP53, BRCA1, and ESR1"
+  },
+  {
+    "task": "Perform pathway enrichment analysis for differentially expressed genes in LUAD cancer from /data/example/geneset/LUAD.csv"
+  },
+  {
+    "task": "Identify transcriptional regulators for ovarian cancer genes using TRAPT on /data/example/geneset/OV.csv"
+  },
+  {
+    "task": "Perform motif enrichment analysis on ADNP transcription factor binding regions from /data/trapt/TR_bed/ADNP@Sample_01_0380.bed"
+  },
+  {
+    "task": "Annotate genomic regions from ADNP binding sites (/data/trapt/TR_bed/ADNP@Sample_01_0380.bed) using chipseeker"
+  },
+  {
+    "task": "使用 /data/example/geneset/BRCA.csv 中的差异表达基因进行通路富集分析"
+  },
+  {
+    "task": "使用 TRAPT 分析 /data/example/geneset/LUAD.csv 中的基因，识别核心转录调控因子"
+  },
+  {
+    "task": "对 /data/trapt/TR_bed/ADNP@Sample_01_0380.bed 区域进行 motif 富集分析和靶基因预测"
+  },
+  {
+    "task": "/data/example/geneset/BRCA.csv [Perform differential expression and pathway analysis for BRCA cancer genes]"
+  },
+  {
+    "task": "/data/trapt/TR_bed/ADNP@Sample_01_0380.bed [Analyze ADNP transcription factor binding sites and identify target genes]"
+  }
+]
