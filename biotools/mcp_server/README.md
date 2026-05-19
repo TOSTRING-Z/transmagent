@@ -38,6 +38,14 @@ docker load -i biotools.tar
 
 ## Download Pre-built Docker Image
 
+### Pull from Docker Hub
+
+> The latest image has been uploaded to Docker Hub. You can pull it directly without building from scratch.
+
+```bash
+docker pull 1084337496/biotools:latest
+```
+
 ### Download basic environment data
 
 - [![DOI](https://zenodo.org/badge/DOI/10.5281/zenodo.15291175.svg)](https://doi.org/10.5281/zenodo.15291175)

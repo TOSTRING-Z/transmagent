@@ -4,10 +4,10 @@ import { store } from "../utils/globals";
 import { ChainCall } from "./ChainCall";
 import { LLMService } from "./LLMService";
 import { Plugins } from "./Plugins";
-import { Observation, ToolCall } from "./ToolCall";
+import { ToolCall } from "./ToolCall";
 import { Utils } from "./Utils";
 import { SubAgent } from "./SubAgent";
-import { delHistoryChat, getHistoryChat, getSessionId, setHistory } from "../utils/public";
+import { delHistoryChat, getHistoryChat, setHistory } from "../utils/public";
 import { State } from "./LLMBase";
 
 export interface Session {
@@ -182,8 +182,7 @@ export class SessionManager {
         if (id) {
             sessionId = id;
         } else {
-            sessionId = getSessionId();
-            session.llmService.chatManager.chat.id = sessionId;
+            sessionId = session.llmService.chatManager.chat.id;
             const uuid = session.tool_call.setUUID();
             const chat = session.llmService.chatManager.chat;
             this.window?.webContents.send('agentIdle', { group_id: chat.group_id, uuid });
