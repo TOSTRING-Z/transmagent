@@ -168,7 +168,7 @@ export class SessionManager {
             skill: skill,
             subagent: false,
             agentMode: agentMode!,
-            agentName: "TransMAgent"
+            agentName: "main"
         });
 
         const chain_call = new ChainCall(plugins, llmService, this.window, utils);

@@ -328,7 +328,8 @@ async function runSubAgentInBackground(
         BackgroundTaskRegistry.addAgentCompletionNotice(
             parentSessionId,
             taskId,
-            `✅ **Background sub-agent \`${agentName}\` completed and is now idle, awaiting messages.**\n\n**Result:**\n${result}`
+            agentName,
+            result
         );
 
         logger.log(`[SubAgentLauncher] Agent "${agentName}" completed successfully`);
@@ -351,32 +352,6 @@ async function runSubAgentInBackground(
     // 子代理主任务完成后不退出，保持存活以接收后续消息。
     // 启动一个定时轮询机制，检查是否有新的 pending 消息需要处理。
     logger.log(`[SubAgentLauncher] Agent "${agentName}" entering idle mode, awaiting messages...`);
-
-    const idleCheckInterval = setInterval(async () => {
-        const pendingMsgs = BackgroundTaskRegistry.drainMessages(
-            subAgentToolCall!.llmService.chatManager.chat.id
-        );
-        if (pendingMsgs && pendingMsgs.length > 0) {
-            logger.log(
-                `[SubAgentLauncher] Agent "${agentName}" idle watcher found ${pendingMsgs.length} pending message(s)`
-            );
-            for (const pm of pendingMsgs) {
-                const msgs = subAgentToolCall!.llmService.chatManager.messages;
-                const last = msgs[msgs.length - 1];
-                if (last) {
-                    last.content = (last.content || '') + '\n' + pm.content;
-                }
-            }
-            subAgentToolCall!.llmService.stopFlag = false;
-            const wd = subAgentToolCall!.getDataDefault({ query: '', model, version });
-            wd.uuid = subAgentToolCall!.llmService.chatManager.uuid;
-            try {
-                await subAgentToolCall!.callReAct(wd, false, true);
-            } catch (err: any) {
-                logger.error(`[SubAgentLauncher] Agent "${agentName}" idle wake-up error:`, err);
-            }
-        }
-    }, 2000); // 每 2 秒检查一次
 
     await new Promise<void>(() => {
         // 永不 resolve —— 保持异步函数存活，直至 session 清理或进程终止

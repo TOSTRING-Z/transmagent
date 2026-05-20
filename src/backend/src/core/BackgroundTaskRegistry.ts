@@ -308,9 +308,11 @@ export class BackgroundTaskRegistry {
     static addAgentCompletionNotice(
         sessionId: string,
         taskId: string,
+        agentName: string,
         content: string,
     ): void {
         const task = this.tasks.get(taskId);
+        
         if (task) {
             task.status = 'idle';
             task.endTime = Date.now();
@@ -318,13 +320,7 @@ export class BackgroundTaskRegistry {
             logger.log(`[BackgroundTaskRegistry] Task "${taskId}" marked as idle (sub-agent alive)`);
         }
 
-        const msg: PendingMessage = {
-            type: 'task_result',
-            taskId,
-            content,
-            timestamp: Date.now()
-        };
-        this.deliverToMainSession(sessionId, msg);
+        this.addAgentMessage(sessionId, agentName, 'main', content);
     }
 
     static registerHandler(sessionId: string, handler: SessionMessageHandler): void {
@@ -441,7 +437,7 @@ export class BackgroundTaskRegistry {
         content: string,
     ): boolean {
         const msg: AgentMessage = { from, content, timestamp: Date.now() };
-        const formatted = `\n\n📨 **[${from}] → [${to}]**:\n\n${content}\n`;
+        const formatted = `\n\n---\n\n📨 **[${from}] → [${to}]**:\n\n${content}\n\n---\n\n`;
 
         // 1. 如果需要发给主会话（前端），直接构造 agent_message 类型消息投递，跳过任务生命周期
         if (to === 'all' || to === 'main') {
