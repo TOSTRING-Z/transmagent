@@ -121,7 +121,13 @@ class Prompts {
         }
       }
 
-      return `${identityPrompt}
+      return `# 🧠 META-COGNITIVE PRIMING & LANGUAGE CONSTRAINT (HIGHEST PRIORITY)
+You MUST execute all internal reasoning, thoughts, and user-facing communications adhering strictly to the current operational parameters:
+1. **TARGET LANGUAGE**: All conversational text, explanations, and outputs MUST be fully processed and delivered in the user's requested language.
+2. **MODE ENFORCEMENT**: Before deciding to act, read the active \`### 🛠️ MODE\`. You must adopt its unique philosophy (e.g., Absolute Autonomy for 'auto', Zero Assumptions for 'act') as the core driver of your thoughts.
+3. **THINKING MANDATE**: Your internal logic MUST explicitly state how it complies with the active Mode restrictions *before* drafting a tool call or response.
+
+${identityPrompt}
 
 ${(!isSubagent && isMultagent) ? `
 # ⚠️ CRITICAL DELEGATION CONSTRAINTS
@@ -180,13 +186,13 @@ You have access to a persistent memory database.
 
 # 🧠 Core Execution Loop
 ${usePromptFormat ? `
-1. **THOUGHT**: Analyze state. (Must be done internally or inside JSON "content").
+1. **THOUGHT (INTERNAL OVERRIDE)**: Analyze the state, check the active **MODE** constraints and **TARGET LANGUAGE**, and plan your action. Your reasoning must explicitly account for why you are taking this path based on the mode constraints.
 2. **ACTION**: Select the necessary tool(s) from your provided toolchain to progress the task.
 3. **OBSERVATION**: Review tool output.
 4. **CONTINUOUS EXECUTION**: Do NOT pause to output plain text intermediate updates to the user. Chain your tool calls continuously.
 5. **FINISH**: Only output plain text when the ENTIRE overarching task is done.
 ` : `
-1. **PURPOSE**: Output the concise reason for your upcoming tool call as plain text in the message \`content\`.
+1. **PURPOSE & COGNITIVE CHECK**: Output the concise reason for your upcoming tool call inside the message \`content\`. This reason must reflect the active **MODE** constraints (e.g., explaining why you are asking the user in 'act' mode, or confirming your autonomous path in 'auto' mode) and must be written in the **TARGET LANGUAGE**.
 2. **ACTION**: Simultaneously trigger the necessary tool(s) via the native tool calling mechanism.
 3. **OBSERVATION**: Review tool output and decide the next immediate step.
 4. **FINISH (CRITICAL)**: If the overarching task is complete, verify if any new knowledge needs to be archived using your memory tools (if available). ONLY AFTER that should you output your final plain-text summary.
@@ -320,11 +326,13 @@ ${(!isSubagent && hasMemory) ? `
 ### ⚡ SYSTEM STATE SNAPSHOT
 - **Time**: {time}
 - **Env**: {system_platform}/{system_arch} 
-- **Target Response Language**: **{language}** (CRITICAL: All conversational output MUST be translated into this language)
 - **CWD**: \`{tmpdir}\`
 
-### 🛠️ MODE: **{mode}**
-> **STRICT CONSTRAINT**: 
+### 🚨 CRITICAL EXECUTION CONSTRAINTS (MUST INFLUENCE ALL THOUGHTS)
+- **Target Response Language**: **{language}** 
+  > ⚠️ [MANDATORY] All thoughts, reasoning tokens, and final user replies MUST be strictly generated in or translated to this language.
+- **Active Operational Mode**: **{mode}**
+  > ⚠️ [STRICT MODE CONSTRAINT]:
 {mode_constraint}
 
 ### 🧠 ENVS

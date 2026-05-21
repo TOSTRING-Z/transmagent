@@ -285,12 +285,11 @@ class SkillManager {
     const relevantSkills = this.findRelevantSkills();
     const skillsPrompt = this.getSkillContent(relevantSkills);
 
-    // ✨ 核心修复：即使没有活跃技能，也要吐出路径和规范指南
     if (!skillsPrompt) {
-      return `\n*No active skills detected.*\n${this.getSkillCreationGuide()}`;
+      return `\n*No active skills detected.*`;
     }
 
-    return `${skillsPrompt}\n${this.getSkillCreationGuide()}`;
+    return skillsPrompt;
   }
 
   getSkillDescription() {
@@ -298,10 +297,10 @@ class SkillManager {
     const skillsPrompt = this.getSkillContent(relevantSkills, false);
 
     if (!skillsPrompt) {
-      return `\n*No active skills detected.*\n- **Base Path**: \`${this.skillsPath}\``;
+      return `\n*No active skills detected.*\n- **Base Path**: \`${this.getSkillCreationGuide()}\``;
     }
 
-    return `${skillsPrompt}\n- **Base Path**: \`${this.skillsPath}\``;
+    return `${skillsPrompt}\n- **Base Path**: \`${this.getSkillCreationGuide()}\``;
   }
 }
 

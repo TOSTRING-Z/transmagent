@@ -132,6 +132,9 @@
     "read_tools_prompt": {
       "enabled": false
     },
+    "read_skill_instructions": {
+      "enabled": true
+    },
     "update_tool": {
       "enabled": false
     },
