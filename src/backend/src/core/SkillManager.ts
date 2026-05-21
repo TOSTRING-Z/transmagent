@@ -246,6 +246,27 @@ class SkillManager {
     return this.skills;
   }
 
+  /**
+   * 获取技能目录的元数据创建规范提示，供 LLM 想要新建技能时参考
+   */
+  private getSkillCreationGuide(): string {
+    return `
+### 🛠️ Skill Directory & Creation Guide
+- **Active Skills Base Path**: \`${this.skillsPath}\`
+- **How to install/create a new skill**:
+  1. Create a subfolder inside the base path named after your skill (e.g., \`${this.skillsPath}/your-skill-name\`).
+  2. Inside that subfolder, you MUST create a \`SKILL.md\` file.
+  3. The \`SKILL.md\` file MUST strictly follow this layout with front-matter delimiters (\`---\`):
+     \`\`\`markdown
+     ---
+     name: Concise Skill Name
+     description: Short overview of what this skill enables the agent to do.
+     ---
+     Detailed, step-by-step instructions, behavioral constraints, or script usage documentation for this skill.
+     \`\`\`
+`;
+  }
+
   getSkillContent(relevantSkills: Skill[], instructions = true) {
     if (relevantSkills.length === 0) return '';
 
@@ -263,13 +284,24 @@ class SkillManager {
   getSkillPrompt() {
     const relevantSkills = this.findRelevantSkills();
     const skillsPrompt = this.getSkillContent(relevantSkills);
-    return skillsPrompt || "\n*No active skills detected.*";
+
+    // ✨ 核心修复：即使没有活跃技能，也要吐出路径和规范指南
+    if (!skillsPrompt) {
+      return `\n*No active skills detected.*\n${this.getSkillCreationGuide()}`;
+    }
+
+    return `${skillsPrompt}\n${this.getSkillCreationGuide()}`;
   }
 
   getSkillDescription() {
     const relevantSkills = this.findRelevantSkills();
     const skillsPrompt = this.getSkillContent(relevantSkills, false);
-    return skillsPrompt || "\n*No active skills detected.*";
+
+    if (!skillsPrompt) {
+      return `\n*No active skills detected.*\n- **Base Path**: \`${this.skillsPath}\``;
+    }
+
+    return `${skillsPrompt}\n- **Base Path**: \`${this.skillsPath}\``;
   }
 }
 
