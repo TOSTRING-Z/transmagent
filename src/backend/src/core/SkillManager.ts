@@ -40,48 +40,27 @@ class SkillManager {
 
   // 修改点 2：将核心解析逻辑抽离，以便本地和远程共用
   private parseSkillContent(content: string, folderName: string, folderPath: string): Skill | null {
-    // Try YAML frontmatter format first: ---\n...\n---\n...
     const match = content.match(/^---\r?\n([\s\S]*?)\r?\n---\r?\n([\s\S]*)$/);
-    if (match) {
-      try {
-        const yamlText = match[1];
-        const meta: Record<string, string> = {};
-        yamlText.split('\n').forEach(line => {
-          const [key, ...val] = line.split(':');
-          if (key && val) meta[key.trim()] = val.join(':').trim();
-        });
+    if (!match) return null;
 
-        return {
-          name: meta['name'],
-          description: meta['description'],
-          instructions: match[2].trim(),
-          path: folderPath
-        };
-      } catch (e: any) {
-        logger.error(`Failed to parse skill YAML in ${folderName}`);
-        return null;
-      }
+    try {
+      const yamlText = match[1];
+      const meta: Record<string, string> = {};
+      yamlText.split('\n').forEach(line => {
+        const [key, ...val] = line.split(':');
+        if (key && val) meta[key.trim()] = val.join(':').trim();
+      });
+
+      return {
+        name: meta['name'],
+        description: meta['description'],
+        instructions: match[2].trim(),
+        path: folderPath
+      };
+    } catch (e: any) {
+      logger.error(`Failed to parse skill in ${folderName}`);
+      return null;
     }
-
-    // Fallback: no frontmatter — extract name from first # heading, description from first paragraph
-    const headingMatch = content.match(/^#\s+(.+?)(?:\r?\n|$)/m);
-    const name = headingMatch ? headingMatch[1].trim() : folderName;
-
-    // Extract first non-empty paragraph after the heading as description
-    const afterHeading = headingMatch
-      ? content.substring(headingMatch.index! + headingMatch[0].length)
-      : content;
-    const paraMatch = afterHeading.match(/\n\n(.+?)(?:\n\n|\n#|\n##|$)/s);
-    const description = paraMatch
-      ? paraMatch[1].replace(/\n/g, ' ').trim().substring(0, 200)
-      : '(no description)';
-
-    return {
-      name,
-      description,
-      instructions: content.trim(),
-      path: folderPath
-    };
   }
 
   // 同步本地加载，供 findRelevantSkills 每次调用时动态刷新
