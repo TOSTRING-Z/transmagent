@@ -20,6 +20,9 @@
     },
     "cli_execute": {
       "enabled": false
+    },
+    "read_skill_instructions": {
+      "enabled": false
     }
   }
 }

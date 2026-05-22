@@ -18,8 +18,6 @@ class SkillManager {
   skillsPath: string;
   skills: Skill[];
   sshConfig?: SshConfig;
-  private watcher: fs.FSWatcher | null = null;
-  private reloadTimer: NodeJS.Timeout | null = null;
 
   constructor(skillsPath?: string | null, sshConfig?: SshConfig) {
     this.sshConfig = sshConfig;
@@ -34,46 +32,10 @@ class SkillManager {
       this.skillsPath = isRemote ? '~/.transmagent/skills' : getDefault("skills");
     }
     this.loadSkills();
-    this.startWatching();
   }
 
   getSkillsPath() {
     return this.skillsPath;
-  }
-
-  // 动态监听 skills 目录变化，自动重载
-  private startWatching(): void {
-    const isRemote = !!(this.sshConfig?.enabled && this.sshConfig?.host);
-    if (isRemote) return; // 远程模式不适用 fs.watch
-
-    try {
-      this.watcher = fs.watch(this.skillsPath, { persistent: false }, (_eventType, _filename) => {
-        // 防抖：500ms 内多次变更合并为一次重载
-        if (this.reloadTimer) clearTimeout(this.reloadTimer);
-        this.reloadTimer = setTimeout(async () => {
-          logger.log(`[SkillManager] Skills directory changed, reloading...`);
-          await this.loadSkills();
-        }, 500);
-      });
-      this.watcher.on('error', (err) => {
-        logger.error(`[SkillManager] Watcher error: ${err.message}`);
-      });
-    } catch (err: any) {
-      // fs.watch 在某些平台/路径上可能不可用，静默降级
-      logger.log(`[SkillManager] fs.watch unavailable, skills will not auto-reload: ${err.message}`);
-    }
-  }
-
-  // 停止监听（在 SkillManager 生命周期结束时调用）
-  stopWatching(): void {
-    if (this.reloadTimer) {
-      clearTimeout(this.reloadTimer);
-      this.reloadTimer = null;
-    }
-    if (this.watcher) {
-      this.watcher.close();
-      this.watcher = null;
-    }
   }
 
   // 修改点 2：将核心解析逻辑抽离，以便本地和远程共用
@@ -98,6 +60,32 @@ class SkillManager {
     } catch (e: any) {
       logger.error(`Failed to parse skill in ${folderName}`);
       return null;
+    }
+  }
+
+  // 同步本地加载，供 findRelevantSkills 每次调用时动态刷新
+  private loadLocalSkillsSync(): void {
+    this.skills = [];
+    try {
+      fs.accessSync(this.skillsPath);
+    } catch {
+      fs.mkdirSync(this.skillsPath, { recursive: true });
+      return;
+    }
+
+    const folders = fs.readdirSync(this.skillsPath, { withFileTypes: true });
+    for (const item of folders) {
+      if (!item.isDirectory()) continue;
+      const folder = item.name;
+      const skillPath = path.join(this.skillsPath, folder);
+      const skillMdPath = path.join(skillPath, 'SKILL.md');
+      try {
+        const content = fs.readFileSync(skillMdPath, 'utf-8');
+        const skill = this.parseSkillContent(content, folder, skillPath);
+        if (skill) this.skills.push(skill);
+      } catch {
+        continue;
+      }
     }
   }
 
@@ -281,6 +269,12 @@ class SkillManager {
   }
 
   findRelevantSkills() {
+    const isRemote = !!(this.sshConfig?.enabled && this.sshConfig?.host);
+    if (isRemote) {
+      this.loadSkills(); // 触发异步重载，不等待，下次调用获取最新
+    } else {
+      this.loadLocalSkillsSync();
+    }
     return this.skills;
   }
 
