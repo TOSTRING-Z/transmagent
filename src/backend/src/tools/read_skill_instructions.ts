@@ -1,72 +1,96 @@
+import path from "path";
 import { ToolCall } from "../core/ToolCall";
 
 // --- 类型定义 ---
 export interface ReadSkillInstructionsParams {
-    query?: string;     // 可选关键词过滤技能
+    skill_name: string; // 变更：变为必填的具体技能名称
     toolCall: ToolCall;
 }
 
 export function getPrompt() {
     return {
         name: "read_skill_instructions",
-        description: "Read the full instructions (SKILL.md contents) of all active Agent Skills. Use this when you need to understand detailed skill capabilities, usage procedures, and behavioral constraints before invoking a skill. Supports optional keyword filtering by skill name or description.",
+        description: "Read the detailed instructions and behavioral constraints of a SPECIFIC agent skill by its name. Bulk loading or listing all skills at once is STRICTLY FORBIDDEN for performance and isolation stability. You must specify the exact skill name you wish to inspect.",
         parameters: {
             type: "object",
             properties: {
-                query: {
+                skill_name: {
                     type: "string",
-                    description: "Optional keyword(s) to filter skills by name or description. Supports space-separated multi-keyword matching. If omitted, returns instructions for ALL active skills."
+                    description: "The exact name or folder name of the skill you want to read (e.g., 'data-sync', 'bio-orchestrator')."
                 }
             },
-            required: []
+            required: ["skill_name"] // 🌟 核心变更：设定为必填项
         }
     }
 }
 
 export function main() {
     return async (params: ReadSkillInstructionsParams): Promise<any> => {
-        const query = (params?.query || "").toLowerCase().trim();
+        const targetSkillName = (params?.skill_name || "").trim();
         const toolCall = params.toolCall;
-
-        // --- 获取所有 Skill ---
         const skillManager = toolCall.skillManager;
+
+        // --- 防御性校验：如果模型绕过 schema 传了空值 ---
+        if (!targetSkillName) {
+            return {
+                skills: "",
+                status: "error",
+                notice: "Access denied. Parameter 'skill_name' is mandatory. You are not allowed to read all skills globally.",
+                guide: (skillManager as any).getSkillCreationGuide?.() || ""
+            };
+        }
+
+        const isRemote = !!(skillManager.sshConfig?.enabled && skillManager.sshConfig?.host);
+
+        // 🔴 SSH 模式: 热加载动态扫盘确保数据最新
+        if (isRemote) {
+            try {
+                await skillManager.loadRemoteSkillsAsync();
+            } catch (err: any) {
+                return {
+                    skills: "",
+                    status: "error",
+                    notice: `SSH skill load failed: ${err.message}`,
+                    guide: (skillManager as any).getSkillCreationGuide?.() || ""
+                };
+            }
+        }
+
         const allSkills = skillManager.findRelevantSkills();
 
         // --- 无激活技能 ---
         if (allSkills.length === 0) {
             return {
                 skills: "",
-                notice: "No active skills detected."
+                status: "empty",
+                notice: `No active skills found in the workspace. Target skill '${targetSkillName}' does not exist.`,
+                guide: (skillManager as any).getSkillCreationGuide?.() || ""
             };
         }
 
-        // --- 无 query：返回全部技能的完整 instructions ---
-        if (!query) {
-            return {
-                notice: "Returning full instructions for all active skills.",
-                skills: skillManager.getSkillContent(allSkills, true)
-            };
-        }
+        // --- 单一技能精确/文件夹名匹配 ---
+        const targetLower = targetSkillName.toLowerCase();
+        const matchedSkill = allSkills.find(s => {
+            // 同时匹配配置中的 name 字段或其所在的物理文件夹名
+            const folderName = path.basename(s.path).toLowerCase();
+            return s.name.toLowerCase() === targetLower || folderName === targetLower;
+        });
 
-        // --- 有关键词：模糊匹配过滤 ---
-        const keywords = query.split(/\s+/);
-        const matches = (text: string) => keywords.some(k => text.toLowerCase().includes(k));
-
-        const filteredSkills = allSkills.filter(
-            s => matches(s.name) || (s.description && matches(s.description))
-        );
-
-        if (filteredSkills.length === 0) {
+        // --- 未匹配到指定技能 ---
+        if (!matchedSkill) {
             return {
                 skills: "",
-                search_query: query,
-                notice: `No skills matching "${query}" were found.`
+                status: "not_found",
+                notice: `Requested skill '${targetSkillName}' was not found or failed to load. Ensure the name matches exactly.`,
+                guide: (skillManager as any).getSkillCreationGuide?.() || ""
             };
         }
 
+        // --- 成功返回：仅吐出这一根单独 Skill 的指令内容 ---
         return {
-            search_query: query,
-            skills: skillManager.getSkillContent(filteredSkills, true)
+            skill_name: matchedSkill.name,
+            status: "success",
+            skills: skillManager.getSkillContent([matchedSkill], true)
         };
     }
 }
