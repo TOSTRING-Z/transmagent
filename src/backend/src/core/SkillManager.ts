@@ -296,6 +296,10 @@ class SkillManager {
      ---
      Detailed, step-by-step instructions, behavioral constraints, or script usage documentation for this skill.
      \`\`\`
+  4. **Verify the new skill loads correctly**: After creating the SKILL.md, you MUST verify format compliance:
+     - Use the \`read_skill_instructions\` tool on the new skill to confirm it parses correctly
+     - If the tool returns no content for your skill, the YAML frontmatter is malformed — fix and retry
+     - A SKILL.md without \`---\` delimiters will be **silently ignored** and will not appear in tool results
 `;
   }
 
