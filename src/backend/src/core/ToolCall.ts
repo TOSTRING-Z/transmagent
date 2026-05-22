@@ -35,8 +35,6 @@ import { BackgroundTaskRegistry } from './BackgroundTaskRegistry';
 const { all, any, not, always } = ToolDSL;
 const { isSubagent, isMode, hasArg, isAgentMode } = Primitives;
 
-// ─── 公开类型 ─────────────────────────────────────────────────────────────────
-
 export interface Observation {
     result: string;
     options?: string[];
@@ -69,9 +67,6 @@ export interface EnvironmentDetails {
     skills?: string;
 }
 
-// ─── 工具策略注册表（模块级常量，避免每次 getToolsPrompt 调用时重新构造）─────
-
-/** 工具策略是"断言函数"，接收 context 返回 boolean。类型别名便于阅读。 */
 type ToolPolicyFn = (ctx: {
     args: Record<string, any>;
     env: Record<string, any>;
@@ -95,11 +90,7 @@ const TOOL_POLICY: Record<string, ToolPolicyFn> = {
     'deep_researcher': isMode('PLAN'),
 };
 
-// ─── ToolCall 主类 ────────────────────────────────────────────────────────────
-
 export class ToolCall extends LLMBase implements ISchedulableAgent {
-
-    // ── 公开属性 ─────────────────────────────────────────────────────────────
     public plugins: Plugins;
     public mcp_client: MCPClient;
     public agentConfigs: AgentConfigs;
@@ -125,21 +116,13 @@ export class ToolCall extends LLMBase implements ISchedulableAgent {
     public skillManager: SkillManager;
     public mainLLMService: LLMService | null;
 
-    // ── 架构新增 ─────────────────────────────────────────────────────────────
-    /** 对外暴露的事件总线：UI 层、测试层均可订阅 */
     public readonly events: AgentEventEmitter;
-    /** Electron UI 桥接控制器（仅主进程 Agent） */
     private uiController: ElectronUIController | null = null;
-    /** 心跳 / 定时任务调度器（仅非子代理） */
     private scheduler: TaskScheduler | null = null;
-    /** 工具执行管道（audit → confirmation → execution） */
     private pipeline!: ExecutionPipeline;
-    /** 高风险工具已记住的用户选择 */
     private rememberedChoices: Record<string, boolean> = {};
-    /** 当前已注册 BackgroundTaskRegistry handler 的会话 ID */
     private registeredBgSessionId: string | null = null;
 
-    // ─────────────────────────────────────────────────────────────────────────
     constructor(
         plugins: Plugins,
         agentTools: Record<string, any> = {},
@@ -156,6 +139,7 @@ export class ToolCall extends LLMBase implements ISchedulableAgent {
             subagent: false,
             agentMode: "transagent",
             agentName: "main",
+            toolFormat: "toolcalls",
         },
         mainLLMService: LLMService | null = null,
     ) {
@@ -181,23 +165,16 @@ export class ToolCall extends LLMBase implements ISchedulableAgent {
         this.env_prompt = this.prompts.getEnvPrompts();
         this.todolist_prompt = this.prompts.getTodoListPrompt();
 
-        // 初始化事件总线
         this.events = new AgentEventEmitter();
-
-        // 挂载 Electron UI 桥接
         this.uiController = new ElectronUIController(this.events, window);
 
-        // 启动心跳调度器（仅非子代理）
         if (!agentConfigs.subagent) {
             this.scheduler = new TaskScheduler(this);
             this.scheduler.start();
         }
 
-        // 构建执行管道
         this.buildPipeline();
     }
-
-    // ─── ISchedulableAgent 接口实现 ──────────────────────────────────────────
 
     public getChatVars(): Record<string, any> {
         return this.llmService.chatManager.chat.vars ?? {};
@@ -206,8 +183,6 @@ export class ToolCall extends LLMBase implements ISchedulableAgent {
     public getChatUUID(): string {
         return this.llmService.chatManager.uuid ?? '';
     }
-
-    // ─── 初始化与生命周期 ─────────────────────────────────────────────────────
 
     public initVar() {
         this.state = State.IDLE;
@@ -226,14 +201,9 @@ export class ToolCall extends LLMBase implements ISchedulableAgent {
         };
     }
 
-    /**
-     * 构建（或重建）执行管道：audit → confirmation → execution
-     * 三层中间件各自独立，可单独测试，新增拦截只需 .use(newMW)。
-     */
     private buildPipeline(): void {
         const getChatPayload = () => ({ ...this.llmService.chatManager.chat });
 
-        // 1. 审计中间件
         const auditMW = createAuditMiddleware(
             (toolInfo, data) => this.llmAssistant.auditToolCall(toolInfo, data, this),
             (toolInfo, message, chatPayload, uuid) => {
@@ -248,7 +218,6 @@ export class ToolCall extends LLMBase implements ISchedulableAgent {
             getChatPayload,
         );
 
-        // 2. 确认中间件（Human-in-the-loop）
         const gate: ConfirmationGate = {
             isRequired: (toolName) =>
                 !!this.getToolConfig(toolName)?.require_confirmation &&
@@ -292,28 +261,21 @@ export class ToolCall extends LLMBase implements ISchedulableAgent {
             getChatPayload,
         );
 
-        // 3. 执行中间件（管道末端）
         const executeMW = createExecutionMiddleware(
             (toolInfo) => this.act(toolInfo),
             (obs, toolInfo, data) => this.handleToolObservation(obs, toolInfo, data),
             () => this.state === State.PAUSE,
         );
 
-        // ── 后台消息 Handler：即时投递 + agent 空闲时自动唤醒 ────────────
-        // 仅主代理注册会话级 handler；子代理使用 registerAgentListener 替代
         if (!this.agentConfigs.subagent) {
             const sessionId = this.llmService.chatManager.chat.id;
 
-            // 先注销旧 Handler（防止重复注册）
             if (this.registeredBgSessionId) {
                 BackgroundTaskRegistry.unregisterHandler(this.registeredBgSessionId);
             }
             this.registeredBgSessionId = sessionId;
 
             BackgroundTaskRegistry.registerHandler(sessionId, (msg) => {
-                // ── 活跃状态守卫：agent 正在处理工具调用，不可直接注入 chat ──
-                // 返回 false 告知 deliverToMainSession 将消息入队，
-                // 由 createBackgroundMessageMiddleware 在安全时机 drain。
                 if (this.state !== State.IDLE && this.state !== State.FINAL) {
                     logger.log(
                         `[ToolCall] Background handler: agent is active (${this.state}), ` +
@@ -322,10 +284,7 @@ export class ToolCall extends LLMBase implements ISchedulableAgent {
                     return false;
                 }
 
-                // ── 空闲状态：直接注入 + 唤醒 ──
                 let appendedText = '';
-
-                // 1. 根据消息类型格式化注入文本
                 if (msg.type === 'task_result') {
                     logger.log(`[ToolCall] Background handler: delivering task result "${msg.taskId}" to session "${sessionId}"`);
                     appendedText = this.prompts.getTaskResultPrompt(msg.taskId || 'unknown_task', msg.content);
@@ -334,66 +293,50 @@ export class ToolCall extends LLMBase implements ISchedulableAgent {
                     appendedText = `\n${msg.content}`;
                 }
 
-                // 2. 先同步 UUID（生成新的并通知前端），确保后续 streamData 与 callReAct 使用同一 uuid
                 const currentUUID = this.setUUID();
-
-                // 3. 追加内容到上一条消息的 content 末尾
                 const messages = this.llmService.chatManager.messages;
                 const lastMsg = messages[messages.length - 1];
                 if (lastMsg) {
                     lastMsg.content = (lastMsg.content || '') + appendedText;
                 }
 
-                // 4. 前端 streamData 展示（使用已同步的 uuid）
                 this.events.emitEvent('streamData', {
                     ...this.llmService.chatManager.chat,
                     content: appendedText,
                     uuid: currentUUID,
                 });
 
-                // 5. 自动唤醒 ReAct 循环（skipInitialPush=true，消息已在上方注入；setUUID=false，避免重复生成 uuid）
                 const wakeReason = msg.type === 'task_result' ? `task "${msg.taskId}"` : 'incoming agent message';
                 logger.log(`[ToolCall] Waking agent from "${this.state}" state for ${wakeReason}`);
 
-                this.llmService.stopFlag = false; // 确保 stopFlag 被重置，允许继续处理
+                this.llmService.stopFlag = false;
                 const wakeData = this.getDataDefault({
-                    // 修复：使用明确的系统指令作为 query，确保 LLM 会响应并产生可见输出
-                    // 空 query 会导致 LLM 不采取行动，用户看不到任何反馈
                     query: '[SYSTEM: A background task or agent message has been delivered above. Please review the injected information and respond to the user with a summary or acknowledgment.]',
                 });
-                // 将已同步的 uuid 注入 wakeData，确保 callReAct 内部不再重新生成
                 wakeData.uuid = currentUUID;
 
                 this.callReAct(wakeData, false, true).catch((err) => {
                     logger.error('[ToolCall] Background wake-up callReAct error:', err);
                 });
             });
+        }
 
-        } // end if (!this.agentConfigs.subagent)
-
-        // 4. 后台消息接收中间件（安全兜底：在处理活跃工具调用前 drain 遗留消息）
         const bgMsgMW = createBackgroundMessageMiddleware(
             () => this.llmService.chatManager.chat.id,
             (msg) => {
                 let appendedText = '';
-
-                // 根据消息类型决定如何格式化注入的文本
                 if (msg.type === 'task_result') {
-                    // 后台任务结果
                     appendedText = this.prompts.getTaskResultPrompt(msg.taskId || 'unknown_task', msg.content);
                 } else if (msg.type === 'agent_message') {
-                    // 代理间通信消息
                     appendedText = `\n${msg.content}`;
                 }
 
-                // 注入到当前对话流的最后一条消息末尾
                 const messages = this.llmService.chatManager.messages;
                 const lastMsg = messages[messages.length - 1];
                 if (lastMsg) {
                     lastMsg.content = (lastMsg.content || '') + appendedText;
                 }
 
-                // 前端 streamData 展示（使用当前 chatManager 的 uuid，确保与前端同步）
                 this.events.emitEvent('streamData', {
                     ...this.llmService.chatManager.chat,
                     content: appendedText,
@@ -409,20 +352,16 @@ export class ToolCall extends LLMBase implements ISchedulableAgent {
             .use(executeMW);
     }
 
-    /** 更新 Electron 窗口引用（主窗口重建时调用） */
     public setWindow(window: BrowserWindow | null) {
         this.window = window;
         this.llmService.window = window;
         this.uiController?.setWindow(window);
     }
 
-    /** 销毁 Agent，释放定时器与事件监听 */
     public destroy() {
         this.scheduler?.stop();
         this.uiController?.destroy();
     }
-
-    // ─── 工具配置 ─────────────────────────────────────────────────────────────
 
     public getToolConfig(toolName: string): any {
         if (!this.plugins) return null;
@@ -431,7 +370,6 @@ export class ToolCall extends LLMBase implements ISchedulableAgent {
     }
 
     public getToolsPrompt(): any {
-        // 1. 工具初始化
         if (this.plugins && !this.agentConfigs.subagent) {
             this.plugins.loadInit();
             this.tools = { ...this.plugins.getTool(), ...this.agentTools, ...this.baseTools };
@@ -442,7 +380,6 @@ export class ToolCall extends LLMBase implements ISchedulableAgent {
         const toolCallConfig = this.utils.getConfig("tool_call");
         let agentConfigs = { ...toolCallConfig["agent_configs"], ...this.agentConfigs };
 
-        // 2. DSL 校验上下文
         const context = {
             args: agentConfigs || {},
             env: this.llmService.environment_details || {},
@@ -454,7 +391,6 @@ export class ToolCall extends LLMBase implements ISchedulableAgent {
 
         const format = this.llmService.chatManager.chat.tool_format;
 
-        // 3. 过滤 → 提取 Schema → 格式化
         this.tool_schemas = Object.entries(this.tools)
             .filter(([key, tool]) => {
                 if (!tool?.getPrompt) return false;
@@ -484,8 +420,6 @@ export class ToolCall extends LLMBase implements ISchedulableAgent {
         const adapter: IToolCallAdapter = ToolCallAdapterFactory.getAdapter(format);
         return adapter.formatTools(this.tool_schemas);
     }
-
-    // ─── 记忆管理 ─────────────────────────────────────────────────────────────
 
     public async saveLongTermMemory(user_content: string, final_answer: string) {
         try {
@@ -538,7 +472,6 @@ export class ToolCall extends LLMBase implements ISchedulableAgent {
         this.llmService.environment_details.envs = envs.length > 0 ? envs.join("\n") : "";
         this.llmService.environment_details.skills = this.skillManager.getSkillDescription();
 
-        // 从 chat.mode 动态注入 mode 信息，用于 env_prompt 模板的 {mode} 和 {mode_constraint} 占位符
         const currentModeShort = chatState.mode || "act";
         (this.llmService.environment_details as any).mode = MODE_LABELS[currentModeShort] || currentModeShort;
         (this.llmService.environment_details as any).mode_constraint = MODE_CONSTRAINTS[currentModeShort];
@@ -561,8 +494,6 @@ export class ToolCall extends LLMBase implements ISchedulableAgent {
         if (!this.agentConfigs.subagent && saveHistory) this.setHistory();
     }
 
-    // ─── 高风险工具记忆选择 ───────────────────────────────────────────────────
-
     private getRememberedChoice(toolName: string): boolean | null {
         return this.rememberedChoices.hasOwnProperty(toolName)
             ? this.rememberedChoices[toolName]
@@ -573,19 +504,13 @@ export class ToolCall extends LLMBase implements ISchedulableAgent {
         this.rememberedChoices[toolName] = confirmed;
     }
 
-    // ─── step()：单轮 ReAct 步骤 ──────────────────────────────────────────────
     /**
-     * 职责划分（重构后）：
-     * 1. MCP 初始化 / 环境更新 / System Prompt 构建
-     * 2. LLM 调用，获取 toolInfos
-     * 3. 重复响应检测（loop guard）
-     * 4. 遍历 toolInfos → pipeline（audit → confirmation → execution）
-     * 5. Token 上限检测
+     * 单轮 ReAct 步骤
+     * 🌟 修改返回值类型为 Promise<boolean>，显式反馈是否触发了挂起断流
      */
-    public async step(data: Record<string, any>) {
+    public async step(data: Record<string, any>): Promise<boolean> {
         if (this.state === State.IDLE) this.state = State.RUNNING;
 
-        // ── 心跳检测 ──
         const isHeartbeat = this.llmAssistant.detectHeartbeat(data.query);
 
         if (!this.mcp_prompt) {
@@ -599,7 +524,7 @@ export class ToolCall extends LLMBase implements ISchedulableAgent {
         data.prompt = await this.system_prompt();
 
         const messageOutput = await this.llmCall(data);
-        if (!messageOutput) return;
+        if (!messageOutput) return false;
 
         this.toolInfos = await this.getToolInfos(data, messageOutput);
 
@@ -610,10 +535,9 @@ export class ToolCall extends LLMBase implements ISchedulableAgent {
                 content: `Tool Info Error\n`,
                 uuid: data.uuid,
             });
-            return;
+            return false;
         }
 
-        // ── 重复响应检测 ────────────────────────────────────────────────────
         const currentResponse = JSON.stringify(this.toolInfos);
         if (
             this.response_repetitions.length === 0 ||
@@ -643,20 +567,18 @@ export class ToolCall extends LLMBase implements ISchedulableAgent {
                 ...this.llmService.chatManager.chat, content: error_message, uuid: data.uuid, end: true,
             });
             this.state = State.ERROR;
-            return;
+            return false;
         }
 
-        // ── 消息类型判断 ────────────────────────────────────────────────────
         const hasTool = this.toolInfos.some(t => t.tool_call_name);
         const hasError = this.toolInfos.some(t => t.error);
 
-        // ── 心跳审查：resolveHeartbeatReview 内部通过 messages 历史判断是否有过工具调用 ──
         if (isHeartbeat && this.llmAssistant.resolveHeartbeatReview(
             this.toolInfos,
             this.llmService.chatManager.messages,
         )) {
             this.state = State.FINAL;
-            return;
+            return false;
         }
 
         if (hasTool || hasError) {
@@ -664,7 +586,6 @@ export class ToolCall extends LLMBase implements ISchedulableAgent {
                 ...this.llmService.chatManager.chat, ...messageOutput, uuid: data.uuid,
             });
         } else {
-            // 纯思考，直接结束本轮
             this.llmService.chatManager.pushAssistantMessage({
                 ...this.llmService.chatManager.chat, ...messageOutput, uuid: data.uuid,
             });
@@ -672,10 +593,9 @@ export class ToolCall extends LLMBase implements ISchedulableAgent {
                 ...this.llmService.chatManager.chat, ...messageOutput, uuid: data.uuid, end: true,
             });
             this.state = State.FINAL;
-            return;
+            return false;
         }
 
-        // ── 遍历 toolInfos，每个工具经管道执行 ─────────────────────────────
         let prevContent: string | undefined;
         let prevReasoningContent: string | undefined;
 
@@ -685,7 +605,6 @@ export class ToolCall extends LLMBase implements ISchedulableAgent {
 
             this.currentToolInfo = toolInfo;
 
-            // 发送任务开始提示
             const taskNumber = String(j + 1).padStart(2, '0');
             const displayContent =
                 (toolInfo.content && toolInfo.content !== prevContent)
@@ -707,7 +626,6 @@ export class ToolCall extends LLMBase implements ISchedulableAgent {
                 uuid: data.uuid,
             });
 
-            // 解析错误直接 continue
             if (toolInfo.error) {
                 this.llmService.chatManager.pushToolMessage({
                     ...toolInfo, ...this.llmService.chatManager.chat, uuid: data.uuid,
@@ -718,7 +636,6 @@ export class ToolCall extends LLMBase implements ISchedulableAgent {
                 continue;
             }
 
-            // 经管道执行：audit → confirmation → execution
             const ctx = new ExecutionContext(toolInfo, data);
             try {
                 await this.pipeline.execute(ctx);
@@ -726,20 +643,22 @@ export class ToolCall extends LLMBase implements ISchedulableAgent {
                 logger.error(`[Pipeline] Unhandled error for tool "${toolInfo.tool_call_name}":`, err);
             }
 
-            // 管道要求挂起整个循环（ask_user 等）
-            if (ctx.suspendLoop || this.state === State.PAUSE) break;
+            // 🌟 核心拦截机制：若当前管道上下文返回挂起信号，或者 state 已经转换为 PAUSE，立刻强行拦截并返回中断标识
+            if (ctx.suspendLoop || this.state === State.PAUSE) {
+                this.state = State.PAUSE; // 强制校准状态机
+                return true;
+            }
         }
 
-        // ── Token 上限检测 ───────────────────────────────────────────────────
         const chat = this.llmService.chatManager.chat;
         if (chat.tokens >= chat.max_tokens) {
             this.llmAssistant.kvCacheSummary();
             chat.long_memory_length = Math.floor(chat.long_memory_length / 2);
             chat.memory_length = Math.floor(chat.memory_length / 2);
         }
-    }
 
-    // ─── getToolInfos ─────────────────────────────────────────────────────────
+        return false;
+    }
 
     public async getToolInfos(
         data: Record<string, any>,
@@ -750,7 +669,6 @@ export class ToolCall extends LLMBase implements ISchedulableAgent {
         );
         const toolInfos = adapter.getToolInfos(assistantMessage);
 
-        // 网络 / 内容容错
         if (
             toolInfos.length === 1 &&
             !toolInfos[0].content &&
@@ -768,8 +686,6 @@ export class ToolCall extends LLMBase implements ISchedulableAgent {
         return toolInfos;
     }
 
-    // ─── act()：执行单个工具 ──────────────────────────────────────────────────
-
     public async act(toolInfo: ToolInfo): Promise<Observation> {
         let observation: Observation;
         let checkInterval: NodeJS.Timeout | null = null;
@@ -784,7 +700,6 @@ export class ToolCall extends LLMBase implements ISchedulableAgent {
 
             const will_tool = this.tools[toolInfo.tool_call_name as string].func;
 
-            // 用户中断监听器
             const stopWatcher = new Promise<never>((_, reject) => {
                 checkInterval = setInterval(() => {
                     if (this.llmService.stopFlag) {
@@ -794,7 +709,6 @@ export class ToolCall extends LLMBase implements ISchedulableAgent {
                 }, 300);
             });
 
-            // 工具执行
             const executePromise = will_tool({ ...toolInfo?.params, toolCall: this }).then(
                 (res: any) => {
                     if (this.llmService.stopFlag) throw new Error("INTERRUPTED_BY_USER");
@@ -817,20 +731,21 @@ export class ToolCall extends LLMBase implements ISchedulableAgent {
             };
 
         } catch (error: any) {
-            if (error.message === "INTERRUPTED_BY_USER") {
+            // ✅ 核心修复：合并为一个健壮的错误捕获隔离区
+            if (error?.message === "INTERRUPTED_BY_USER") {
                 logger.log(`[ToolCall] Tool "${toolInfo.tool_call_name}" interrupted by user.`);
                 observation = { result: "Execution stopped by user." };
             } else {
                 console.error(error);
-                observation = { result: `Tool has been executed with error: ${error.message}` };
+                observation = {
+                    result: `Tool has been executed with error: ${error?.message || "Unknown operational crash."}`
+                };
             }
         } finally {
             if (checkInterval) clearInterval(checkInterval);
         }
         return observation!;
     }
-
-    // ─── handleToolObservation()：统一处理工具执行结果 ───────────────────────
 
     private handleToolObservation(
         observation: Observation,
@@ -844,7 +759,6 @@ export class ToolCall extends LLMBase implements ISchedulableAgent {
 
         const chat = this.llmService.chatManager.chat;
 
-        // 特殊工具的 UI 渲染差异
         switch (toolInfo.tool_call_name) {
             case "display_file":
                 this.events.emitEvent('streamData', {
@@ -869,9 +783,7 @@ export class ToolCall extends LLMBase implements ISchedulableAgent {
         }
 
         if (this.state === State.PAUSE) {
-            // ask_user：输出问题并挂起等待
             if (observation.questions) {
-                // 新格式：多问题数组
                 this.events.emitEvent('handleQuestions', {
                     ...chat, questions: observation.questions, uuid: data.uuid,
                 });
@@ -899,22 +811,12 @@ export class ToolCall extends LLMBase implements ISchedulableAgent {
         }
     }
 
-    // ─── callReAct()：ReAct 主循环 ───────────────────────────────────────────
-
-    /**
-     * @param data             ReAct 循环数据
-     * @param setUUID          是否自动设置 UUID（默认 true）
-     * @param skipInitialPush  跳过初始消息推送（后台任务唤醒用）。
-     *                         前置条件：消息已由外部注入 ChatManager。
-     *                         若 state === PAUSE 则忽略此参数（挂起恢复必须推送）。
-     */
     public async callReAct(data: Record<string, any>, setUUID: boolean = true, skipInitialPush: boolean = false): Promise<any> {
         if (setUUID) this.setUUID(data);
 
         const chat = this.llmService.chatManager.chat;
 
         if (this.state === State.PAUSE) {
-            // 从挂起状态恢复：注入用户回复（skipInitialPush 不适用于 PAUSE 恢复）
             data.role = "tool";
             const context_id = `${chat.group_id}${chat.step - 1}`;
             this.llmService.chatManager.pushToolMessage({
@@ -923,8 +825,9 @@ export class ToolCall extends LLMBase implements ISchedulableAgent {
             this.events.emitEvent('toolData', {
                 ...chat, content: `\n\n---\n\n${data.query}`, uuid: data.uuid,
             });
+            // 🌟 恢复运行前必须显式将状态机拨回 IDLE，否则无法进入下面的 while 主循环
+            this.state = State.IDLE;
         } else if (!skipInitialPush) {
-            // 全新对话轮次
             data.role = "user";
             chat.step = 1;
             chat.group_id = String(Date.now());
@@ -937,11 +840,8 @@ export class ToolCall extends LLMBase implements ISchedulableAgent {
                 ...chat, content: data.query, uuid: data.uuid,
             });
         }
-        // skipInitialPush && state !== PAUSE：消息已由外部注入，直接进入主循环
 
         this.events.emitEvent('agentRunning', { ...chat, uuid: data.uuid });
-        this.state = State.IDLE;
-        chat.seconds = 0;
         const tool_call = this.utils.getConfig("tool_call");
 
         // ── ReAct 主循环 ──────────────────────────────────────────────────────
@@ -966,13 +866,20 @@ export class ToolCall extends LLMBase implements ISchedulableAgent {
             };
 
             const t0 = Date.now() / 1000;
-            await this.step(data);
-            chat.seconds += (Date.now() / 1000 - t0);
+            
+            // 🌟 完美修复：捕获 step() 返回的强类型布尔断流标志
+            const isSuspended = await this.step(data);
+            
+            // ✅ 使用 isSuspended 代替直接的 state 比较，或者使用类型断言 (this.state as any) 规避收窄
+            if (isSuspended || (this.state as any) === State.PAUSE) {
+                logger.log(`[ToolCall] ReAct loop suspended successfully on step ${chat.step} for human input.`);
+                break; // 🛠️ 强行决裂，严禁执行下面的步数累加和后续迭代！
+            }
 
+            chat.seconds += (Date.now() / 1000 - t0);
             chat.step++;
             chat.context_id = `${chat.group_id}${chat.step}`;
 
-            // 自动命名对话
             if (!chat.name || chat.name === CHAT_CONST.DEFAULT_NAME) {
                 await this.setChatName(data).then(() => {
                     if (chat.name && chat.name !== CHAT_CONST.DEFAULT_NAME) {
@@ -985,7 +892,7 @@ export class ToolCall extends LLMBase implements ISchedulableAgent {
         }
 
         // ── 循环结束后的清理 ──────────────────────────────────────────────────
-        if (this.state === State.FINAL || (this.state as State) === State.ERROR) {
+        if (this.state === State.FINAL || this.state === State.ERROR) {
             if (!this.agentConfigs.subagent) {
                 this.setHistory();
                 this.saveLongTermMemory(data.query, data.output);
@@ -995,7 +902,7 @@ export class ToolCall extends LLMBase implements ISchedulableAgent {
             }
         }
 
-        if (!this.agentConfigs.subagent) {
+        if (!this.agentConfigs.subagent && (this.state as any) !== State.PAUSE) {
             this.events.emitEvent('agentIdle', { ...chat, uuid: data.uuid });
             this.sendData(data);
         }
@@ -1027,7 +934,6 @@ export class ToolCall extends LLMBase implements ISchedulableAgent {
 
                 if (message.role === "user" && message.react) {
                     this.events.emitEvent('infoData', { ...chat, ...message, content: `\n\n\`\`\`json\n${message.content}\n\`\`\``, end: true });
-                    // 非json内容
                     if (!parseJsonContent(message.content as string))
                         this.events.emitEvent('streamData', { ...chat, ...message, content: `\n\n${message.content}`, end: true });
                 }
@@ -1056,7 +962,7 @@ export class ToolCall extends LLMBase implements ISchedulableAgent {
                     let content_format = (message.content as string).replaceAll("`", "\\`");
                     this.events.emitEvent('infoData', { ...chat, ...message, content: `Step ${i}, group_id: ${message.group_id}, context_id: ${message.context_id}, Output:\n\n\`\`\`json\n${content_format}\n\`\`\`\n\n` });
                 }
-                
+
                 if (message.role === "assistant") {
                     try {
                         if (message.react) {
@@ -1072,7 +978,7 @@ export class ToolCall extends LLMBase implements ISchedulableAgent {
                                     content: `Step ${i}, group_id: ${message.group_id}, context_id: ${message.context_id}, Output:\n\n\`\`\`json\n${toolInfoStr}\n\`\`\``
                                 });
 
-                                const taskNumber = String(j).padStart(2, '0'); // 格式化为 01, 02...
+                                const taskNumber = String(j).padStart(2, '0');
                                 if (toolInfo.content || toolInfo.tool_call_name)
                                     this.events.emitEvent('streamData', {
                                         ...chat,
@@ -1083,8 +989,7 @@ export class ToolCall extends LLMBase implements ISchedulableAgent {
                                 if (["ask_user"].includes(toolInfo.tool_call_name as string)) {
                                     state = State.PAUSE;
                                     questions = toolInfo.params.questions
-                                } 
-                                else {
+                                } else {
                                     state = State.RUNNING;
                                 }
                             })
@@ -1111,7 +1016,6 @@ export class ToolCall extends LLMBase implements ISchedulableAgent {
             this.changeMode(this.llmService.chatManager.chat.mode, false);
             logger.log(`Load success: ${filePath}`);
         }
-        // 重新注册后台消息 Handler（会话可能已切换）
         this.buildPipeline();
     }
 
@@ -1121,8 +1025,6 @@ export class ToolCall extends LLMBase implements ISchedulableAgent {
         }
         const history_path = this.utils.getHistoryPath(id);
         this.loadMessage(history_path, id);
-        // 从持久化的聊天数据中恢复 vars（包括 tasks、envs 等）
-        // 必须在 loadMessage 之后，因为 loadMessage 会调用 getChatInit 覆盖整个 chat
         const historyChat = getHistoryChat(id);
         if (historyChat?.vars) {
             this.llmService.chatManager.chat.vars = historyChat.vars;
@@ -1134,7 +1036,7 @@ export class ToolCall extends LLMBase implements ISchedulableAgent {
         this.events.emitEvent('clear');
         this.initVar();
         this.llmService.chatManager.chat.id = id || getSessionId();
-        this.buildPipeline();  // 为新会话注册后台消息 Handler
+        this.buildPipeline();
         this.setHistory(this.llmService.chatManager.chat);
         return this.llmService.chatManager.chat;
     }

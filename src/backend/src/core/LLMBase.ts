@@ -37,10 +37,12 @@ export type Mode = string;
 export class LLMBase {
     public llmService: LLMService;
     public window: BrowserWindow | null;
-    public context_id?: string; // 用于记录当前的 memory id
-    public llmAssistant: LLMAssistant; // LLM对话辅助功能实例
+    public context_id?: string; 
+    public llmAssistant: LLMAssistant; 
     public utils: Utils;
-    public state: State;
+    
+    // 🌟 核心修复：显式将属性声明锁定为标准的 State 枚举全集，消除窄化隐患
+    public state: State = State.IDLE;
 
     constructor(
         llmService: LLMService,
@@ -48,7 +50,10 @@ export class LLMBase {
         utils: Utils
     ) {
         this.llmService = llmService;
-        this.state = State.IDLE;
+        
+        // 🌟 核心修复：确保构造函数内部赋初值行为具备完整的状态集合
+        this.state = State.IDLE; 
+        
         this.window = window;
         this.llmAssistant = new LLMAssistant(llmService, null, utils);
         this.utils = utils;
