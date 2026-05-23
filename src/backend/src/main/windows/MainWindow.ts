@@ -149,8 +149,14 @@ export class MainWindow extends BaseWindow {
         });
 
         this.sessionManager = new SessionManager(this.window);
-
         this.session = () => this.sessionManager.getActiveSession();
+        this.updateVersionsSubmenu();
+        const chat = this.session().llmService.chatManager.chat;
+        this.window?.webContents.send("clear");
+        this.window?.webContents.send(
+            'handleNewChat',
+            chat
+        );
 
         this.funcItems = {
             clip: {
