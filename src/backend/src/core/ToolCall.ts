@@ -842,6 +842,8 @@ export class ToolCall extends LLMBase implements ISchedulableAgent {
         }
 
         this.events.emitEvent('agentRunning', { ...chat, uuid: data.uuid });
+        this.state = State.IDLE;
+        chat.seconds = 0;
         const tool_call = this.utils.getConfig("tool_call");
 
         // ── ReAct 主循环 ──────────────────────────────────────────────────────
@@ -892,7 +894,7 @@ export class ToolCall extends LLMBase implements ISchedulableAgent {
         }
 
         // ── 循环结束后的清理 ──────────────────────────────────────────────────
-        if (this.state === State.FINAL || this.state === State.ERROR) {
+        if (this.state === State.FINAL || (this.state as any) === State.ERROR) {
             if (!this.agentConfigs.subagent) {
                 this.setHistory();
                 this.saveLongTermMemory(data.query, data.output);
