@@ -214,11 +214,6 @@ export class MainWindow extends BaseWindow {
 
         this.serverInit();
 
-        this.window.on('focus', () => {
-            this.window?.setAlwaysOnTop(true);
-            setTimeout(() => this.window?.setAlwaysOnTop(false), 0);
-        });
-
         this.window.webContents.on('will-navigate', (event, url) => {
             function isValidUrl(urlStr: string) {
                 try { new URL(urlStr); return true; } catch (e: any) { return false; }
