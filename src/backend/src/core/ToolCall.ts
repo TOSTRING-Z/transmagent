@@ -825,8 +825,6 @@ export class ToolCall extends LLMBase implements ISchedulableAgent {
             this.events.emitEvent('toolData', {
                 ...chat, content: `\n\n---\n\n${data.query}`, uuid: data.uuid,
             });
-            // 🌟 恢复运行前必须显式将状态机拨回 IDLE，否则无法进入下面的 while 主循环
-            this.state = State.IDLE;
         } else if (!skipInitialPush) {
             data.role = "user";
             chat.step = 1;

@@ -18,6 +18,7 @@ import { Session, SessionManager } from '../../core/SessionManager';
 import { BackgroundTaskRegistry } from '../../core/BackgroundTaskRegistry';
 import { AgentMode } from '../../types';
 import { formatDate, getDefaultConfig, setDefaultConfig } from '../../utils/public';
+import { group } from 'console';
 
 // 定义 FuncItems 结构以启用严格模式
 interface FuncItemNode {
@@ -150,13 +151,6 @@ export class MainWindow extends BaseWindow {
 
         this.sessionManager = new SessionManager(this.window);
         this.session = () => this.sessionManager.getActiveSession();
-        this.updateVersionsSubmenu();
-        const chat = this.session().llmService.chatManager.chat;
-        this.window?.webContents.send("clear");
-        this.window?.webContents.send(
-            'handleNewChat',
-            chat
-        );
 
         this.funcItems = {
             clip: {
@@ -219,6 +213,14 @@ export class MainWindow extends BaseWindow {
         };
 
         this.serverInit();
+
+        this.window.webContents.on('did-finish-load', () => {
+            const chat = this.sessionManager.getChat();
+            this.window?.webContents.send(
+                'handleNewChat',
+                chat
+            );
+        })
 
         this.window.webContents.on('will-navigate', (event, url) => {
             function isValidUrl(urlStr: string) {
@@ -423,7 +425,7 @@ export class MainWindow extends BaseWindow {
         ipcMain.handle('newChat', () => {
             this.sessionManager.updateSession();
             this.updateVersionsSubmenu();
-            const chat = this.session().llmService.chatManager.chat;
+            const chat = this.sessionManager.getChat();
             this.window?.webContents.send("clear");
             this.window?.webContents.send(
                 'handleNewChat',
@@ -433,7 +435,7 @@ export class MainWindow extends BaseWindow {
 
         ipcMain.handle('loadChat', (_event, id) => {
             this.sessionManager.checkoutSession(id);
-            const chat = this.session().llmService.chatManager.chat;
+            const chat = this.sessionManager.getChat();
             if (chat) {
                 this.session().llmService.chatManager.loadFromChat(chat);
                 this.window?.webContents.send(
@@ -844,12 +846,13 @@ export class MainWindow extends BaseWindow {
                             this.window?.webContents.send('clear');
                             this.session().subAgent.subAgentWindow?.destroy();
                             this.session().tool_call.initVar();
-                            const chat_id = this.sessionManager.getChat()?.id;
+                            const chat = this.sessionManager.getChat();
+                            this.session().llmService.stopLoop();
                             this.session().llmService.chatManager.initMessages();
                             // 清空 Task List 和环境变量
                             let vars = this.sessionManager.getChat()?.vars || {};
                             vars.tasks = {};
-                            this.sessionManager.setSessionChat({ id: chat_id, vars, envs: {} });
+                            this.sessionManager.setSessionChat({ id: chat?.id, vars, envs: {} });
                             this.session().tool_call.changeMode();
                             this.updateVersionsSubmenu();
                             this.window?.webContents.send('handleSetChat', this.sessionManager.getChat());
