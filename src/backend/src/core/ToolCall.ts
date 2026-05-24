@@ -902,7 +902,7 @@ export class ToolCall extends LLMBase implements ISchedulableAgent {
             }
         }
 
-        if (!this.agentConfigs.subagent && (this.state as any) !== State.PAUSE) {
+        if (!this.agentConfigs.subagent) {
             this.events.emitEvent('agentIdle', { ...chat, uuid: data.uuid });
             this.sendData(data);
         }
