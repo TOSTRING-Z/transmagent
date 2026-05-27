@@ -175,11 +175,23 @@ export default function getBaseTools(): Record<string, any> {
             },
             getPrompt: () => ({
                 name: "context_retrieval",
-                description: "[IN-SESSION MEMORY] Retrieve the FULL, unredacted original content of a message that was TRUNCATED from your context due to length limits.\n\nCRITICAL WORKFLOW: When the conversation grows too long, older messages are REMOVED from your context and replaced by the sanitized '# 🗃️ Session Memory' block above. That block contains ONLY lossy previews with tool params/thinking redacted. If you need the COMPLETE original content of any message listed there, call this tool with its Context ID.\n\nDO NOT assume the Session Memory preview is sufficient — it is deliberately stripped down. Use this tool whenever you need exact details from a truncated message.",
+                description: `[IN-SESSION MEMORY] Retrieve the FULL, unredacted original content of a message that was TRUNCATED from your current active context window.
+
+💡 UNDERLYING MECHANISM:
+This tool accesses the in-memory array of the CURRENT session. When context length explodes, the system rolling-prunes old messages from your active LLM context and compresses them into a visual Markdown section titled '# 🗃️ Session Memory'.
+
+🛑 STRICT PRE-CONDITIONS FOR CALLING (Zero Tolerance for Guessing):
+1. You MUST ONLY call this tool if you explicitly see the '# 🗃️ Session Memory' block present in the current system prompt or upper context.
+2. You MUST ONLY use a 'context_id' that is explicitly listed as an available string within that block.
+3. NEVER guess, hallucinate, or pass dummy values like "0", "1", "null", or active group IDs as the 'context_id'. 
+4. If '# 🗃️ Session Memory' does NOT exist in your current view, it means NO messages have been truncated yet. In this case, calling this tool is a critical logical error. If long term memory returned empty, simply acknowledge it to the user instead of triggering this tool.`,
                 parameters: {
                     type: "object",
                     properties: {
-                        context_id: { type: "string", description: "The Context ID from the '# 🗃️ Session Memory' block. This message is NO LONGER in your context — this tool fetches it from persistent storage." }
+                        context_id: {
+                            type: "string",
+                            description: "The EXACT Context ID string extracted from the active '# 🗃️ Session Memory' markdown table. Do not fabricate."
+                        }
                     },
                     required: ["context_id"]
                 }
@@ -357,11 +369,24 @@ export default function getBaseTools(): Record<string, any> {
             },
             getPrompt: () => ({
                 name: "search_long_term_memory",
-                description: "[CROSS-SESSION MEMORY] Retrieve historical knowledge from the persistent database across past sessions. Trigger: Call this BEFORE acting if the user refers to past projects, old tasks, or global configurations established in previous conversations.",
+                description: `[CROSS-SESSION MEMORY] Retrieve historical logs and core knowledge from the persistent database across past sessions.
+
+💡 UNDERLYING MECHANISM (How this tool works):
+1. Vector Semantic Search: Computes L2 distance of embeddings. It matches concepts, definitions, and implicit intents.
+2. BM25 Statistical Keyword Search: Matches exact keyword frequencies. It expects precise tokens, product names, error codes, or absolute dates.
+3. Temporal Fallback: If keywords lean heavily towards chronological recall (e.g., "recently", "latest"), the engine sorts logs by 'time' DESC to pull the freshest logs.
+
+⚠️ MODEL OPERATIONAL GUIDELINES Based on Mechanism:
+- If searching for a generic concept, formulate a dense semantic descriptive sentence.
+- If searching for specific files, errors, or technical configs, input exact technical key tokens.
+- CRITICAL FOR TIME-SENSITIVE QUERIES: If the user asks for "recent chats/history", DO NOT pass the word "recent". Because BM25/Vector search cannot evaluate relative time. You MUST explicitly look up the current system time from the environment, extract the corresponding year/month/date strings (e.g., '2026-05'), and append those absolute time blocks into your 'query' parameter to guide the database engine!`,
                 parameters: {
                     type: "object",
                     properties: {
-                        query: { type: "string", description: "Semantic search string representing the historical context you are looking for." },
+                        query: {
+                            type: "string",
+                            description: "The precision search query. Combine conceptual keywords with absolute dates (derived from the current environment time) if the intent is time-sensitive."
+                        },
                         top_k: { type: "integer", description: "Number of top results to return. Default: 5" }
                     },
                     required: ["query"]
