@@ -458,7 +458,10 @@ export class ToolCall extends LLMBase implements ISchedulableAgent {
 
         const envs = Object.keys(mainChatState.envs || {}).map(key => {
             const env = mainChatState.envs[key];
-            return `- ${key}: [${env._meta.agent} / ${env._meta.timestamp}] ${env.value}`;
+            if (env._meta && env.value) {
+                return `- ${key}: [${env._meta.agent} / ${env._meta.timestamp}] ${env.value}`;
+            }
+            return `- ${key}: ${env.value}`;
         });
         const todolist = Object.keys(chatState.vars.tasks || {}).map(task_id => {
             const taskObj = chatState.vars.tasks[task_id];
