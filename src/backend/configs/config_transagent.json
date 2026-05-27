@@ -130,7 +130,7 @@
       "enabled": false
     },
     "read_tools_prompt": {
-      "enabled": false
+      "enabled": true
     },
     "read_skill_instructions": {
       "enabled": true

@@ -10,13 +10,16 @@ export interface ReadToolsParams {
 export function getPrompt() {
     return {
         name: "read_tools_prompt",
-        description: "Retrieve all available bash tools, MCP tools, and Agent Skills to build a complete workflow architecture.",
+        // 🚀 核心优化：显式定义【双态机制】（Planning Mode vs Non-Planning Mode）
+        description: "CRITICAL (DUAL-MODE SPECIFICATION):\n" +
+                     "1. PLANNING MODE: If your current goal is to design, architect, or map out a workflow, you MUST call this tool to inspect available analytical and data assets. Under this mode, this tool is strictly for UNDERSTANDING. It DOES NOT grant execution privileges; you cannot execute the tools discovered herein directly.\n" +
+                     "2. NON-PLANNING MODE (EXECUTION ACTIVE): If you have already finalized the workflow blueprint and are now in the active task execution phase, this tool functions as an authoritative runtime catalog. In this mode, YOU HAVE FULL EXECUTION PRIVILEGES to invoke and drive the discovered bash tools, MCP tools, and skills to operate on data and systems.",
         parameters: {
             type: "object",
             properties: {
                 query: {
                     type: "string",
-                    description: "Optional keyword to filter tools. If omitted, returns the full catalog."
+                    description: "Optional keyword to filter tools. Leave blank during planning to scan the full system capabilities, or specify keywords during execution to pinpoint specific operational tools."
                 }
             },
             required: []
@@ -54,7 +57,10 @@ export function main() {
         // --- 4. 逻辑判断：如果 query 为空，直接返回全量内容 ---
         if (!query) {
             return {
-                notice: "Returning full tool catalog for workflow planning.",
+                // 🚀 返回中同步强化双态逻辑的提醒
+                notice: "SYSTEM CAPABILITY RESPONDED. Dual-mode notice: " +
+                        "[Planning Mode] Use this data solely for blueprinting; no immediate execution allowed within this view. " +
+                        "[Non-Planning Mode] Full execution privileges granted. You may proceed to actively route tasks to the specific runtimes described below.",
                 skills: matchedSkills,
                 bash_tools: fileContent,
                 mcp_tools: mcp_full_prompt
@@ -82,6 +88,7 @@ export function main() {
 
         return {
             search_query: query,
+            notice: "FILTERED CAPABILITY RESPONDED. If in Execution Mode, ensure the targeted operational tool is accurately fully matched.",
             skills: skillManager.getSkillContent(filteredSkills),
             bash_tools: filteredBash || "No matching bash tools found.",
             mcp_tools: filteredMcp || "No matching MCP tools found."

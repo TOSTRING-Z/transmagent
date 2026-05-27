@@ -21,6 +21,9 @@
     "cli_execute": {
       "enabled": false
     },
+    "read_tools_prompt": {
+      "enabled": false
+    },
     "read_skill_instructions": {
       "enabled": false
     }

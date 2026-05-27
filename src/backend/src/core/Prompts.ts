@@ -279,21 +279,6 @@ ${baseToolPrompt}
 ${tool_prompt}
 ` : ""}
 
-${(!isSubagent && isTransagent && !isPlan) ? `
-## 💻 CLI / BASH EXECUTION PROTOCOL (STRICT)
-{cli_prompt}
-` : ""}
-
-${hasMcpPrompt && !isPlan ? `
-## MCP Services
-{mcp_prompt}
-` : ""}
-
-${hasSkill  && !isPlan? `
-# 🌟 Active Agent Skills
-{skill_prompt}
-` : ""}
-
 {extra_prompt}
 
 ${!isSubagent ? `

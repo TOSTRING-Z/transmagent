@@ -3,6 +3,9 @@
     "python_execute": {
       "enabled": true
     },
+    "read_tools_prompt": {
+      "enabled": false
+    },
     "cli_execute": {
       "enabled": false
     }
