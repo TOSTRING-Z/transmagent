@@ -1,4 +1,5 @@
-import * as fs from 'fs';
+import * as fsNative from 'fs';
+import { promises as fs } from 'fs'; // 用于异步文件元数据操作
 import * as path from 'path';
 import * as readline from 'readline';
 import { logger } from '../utils/logger';
@@ -6,7 +7,7 @@ import { Client, ConnectConfig } from 'ssh2';
 import { ToolCall } from '../core/ToolCall';
 
 export interface GrepFilesParams {
-    target_files: string[]; // 改为只接收文件全路径数组
+    target_files: string[];
     regex: string;
     timeout_ms?: number;
     toolCall: ToolCall;
@@ -57,12 +58,12 @@ async function executeRemoteCommand(cmd: string, toolCall: ToolCall): Promise<st
             reject(new Error(`SSH Connection Error: ${err.message}`));
         });
 
-        // 注入你的连接逻辑与超时设置
         conn.connect({ ...sshConfig, readyTimeout: 20000 } as ConnectConfig);
     });
 }
 
-function isTextFile(filePath: string): boolean {
+// ✅ 修复点 1：将文本/二进制文件的安全检测完全改造为非阻塞异步函数
+async function isTextFile(filePath: string): Promise<boolean> {
     const ext = path.extname(filePath).toLowerCase();
 
     const BINARY_EXTENSIONS = new Set([
@@ -82,20 +83,23 @@ function isTextFile(filePath: string): boolean {
     ]);
     if (TEXT_EXTENSIONS.has(ext)) return true;
 
-    let fd: number | null = null;
+    let fileHandle: fsNative.promises.FileHandle | null = null;
     try {
-        fd = fs.openSync(filePath, 'r');
+        // 使用异步打开文件句柄
+        fileHandle = await fs.open(filePath, 'r');
         const buffer = Buffer.alloc(4096);
-        const bytesRead = fs.readSync(fd, buffer, 0, 4096, 0);
+        
+        // 异步读取文件前 4KB 字节
+        const { bytesRead } = await fileHandle.read(buffer, 0, 4096, 0);
         for (let i = 0; i < bytesRead; i++) {
-            if (buffer[i] === 0) return false; 
+            if (buffer[i] === 0) return false; // 包含空字节，判定为二进制
         }
         return true; 
     } catch (error: any) {
         return false; 
     } finally {
-        if (fd !== null) {
-            try { fs.closeSync(fd); } catch (e) {}
+        if (fileHandle !== null) {
+            try { await fileHandle.close(); } catch (e) {}
         }
     }
 }
@@ -113,14 +117,8 @@ export function main() {
             // ================= 1. SSH 远程模式 =================
             if (isRemote) {
                 logger.info(`[grep_files] Running in SSH mode against ${sshConfig.host}`);
-                
-                // 防御注入：转义单引号
                 const safeRegex = regex.replace(/'/g, "'\\''");
-                
-                // 拼接目标文件列表（外层包双引号以防路径中有空格）
                 const filesArg = validFiles.map(f => `"${f}"`).join(' ');
-
-                // 使用 Linux 原生 grep
                 const cmd = `grep -nHE '${safeRegex}' ${filesArg} | head -n ${MAX_RESULTS}`;
                 
                 const stdout = await executeRemoteCommand(cmd, toolCall);
@@ -133,7 +131,6 @@ export function main() {
                         const secondColon = lineStr.indexOf(':', firstColon + 1);
                         
                         if (firstColon > -1 && secondColon > -1) {
-                            // grep 返回的全路径就是我们传入的全路径
                             const file = lineStr.substring(0, firstColon);
                             const lineNum = parseInt(lineStr.substring(firstColon + 1, secondColon), 10);
                             const context = lineStr.substring(secondColon + 1).trim();
@@ -150,7 +147,7 @@ export function main() {
                 return results;
             }
 
-            // ================= 2. 本地执行模式 =================
+            // ================= 2. 本地执行模式 (已完成非阻塞改造) =================
             logger.info(`[grep_files] Running in Local mode`);
             const startTime = Date.now();
             const results: SearchResult[] = [];
@@ -168,18 +165,20 @@ export function main() {
             for (const fileItem of validFiles) {
                 if (globalTimeoutReached || results.length >= MAX_RESULTS) break;
 
-                // 直接使用绝对路径
                 const file = path.resolve(fileItem);
 
                 try {
-                    const stat = fs.statSync(file);
+                    // ✅ 修复点 2：使用异步的 fs.stat 检查文件大小
+                    const stat = await fs.stat(file);
                     if (!stat.isFile() || stat.size > MAX_FILE_SIZE) continue;
                 } catch (e) { continue; }
 
-                if (!isTextFile(file)) continue;
+                // ✅ 修复点 3：通过 await 挂起当前文件的文本类型检测，让出主线程控制权
+                if (!(await isTextFile(file))) continue;
 
                 try {
-                    const fileStream = fs.createReadStream(file, { encoding: 'utf8' });
+                    // 创建可读流以行读取（天然的非阻塞 I/O 块）
+                    const fileStream = fsNative.createReadStream(file, { encoding: 'utf8' });
                     const rl = readline.createInterface({ input: fileStream, crlfDelay: Infinity });
                     let currentLine = 0;
 
@@ -200,7 +199,7 @@ export function main() {
                             const end = Math.min(line.length, match.index + match[0].length + 20);
                             
                             results.push({
-                                file: file, // 直接返回文件全路径
+                                file: file, 
                                 match: match[0].substring(0, 150),
                                 context: line.substring(start, end).trim(),
                                 line: currentLine

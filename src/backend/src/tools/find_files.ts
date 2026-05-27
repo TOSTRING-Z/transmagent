@@ -1,7 +1,7 @@
 import * as path from 'path';
-import * as fs from 'fs';
-import { Client, ConnectConfig } from 'ssh2';
+import { promises as fs } from 'fs'; // 切换为异步 Promises API
 import { logger } from '../utils/logger';
+import { Client, ConnectConfig } from 'ssh2';
 import { ToolCall } from '../core/ToolCall';
 
 export interface FindFilesParams {
@@ -11,7 +11,7 @@ export interface FindFilesParams {
 }
 
 /**
- * 封装底层的 ssh2 执行逻辑
+ * 封装底层的 ssh2 执行逻辑 (保持不变，本身就是异步的)
  */
 async function executeRemoteCommand(cmd: string, toolCall: ToolCall): Promise<string> {
     const sshConfig = toolCall.utils.getSshConfig();
@@ -34,12 +34,9 @@ async function executeRemoteCommand(cmd: string, toolCall: ToolCall): Promise<st
 
                 stream.on('close', (code: number, signal: any) => {
                     conn.end();
-                    // grep/find 未找到结果时可能会返回代码 1，不能仅凭代码非 0 就抛错。
-                    // 只有当存在严重错误码 (>1) 且有报错输出时才拦截
                     if (code > 1 && stderr && !stdout) {
                         return reject(new Error(`Remote command failed (code ${code}): ${stderr}`));
                     }
-                    // 无论 code 是 0 还是 1，只要走完了，就把收到的标准输出返回
                     resolve(stdout);
                 }).on('data', (data: Buffer) => {
                     stdout += data.toString();
@@ -51,7 +48,6 @@ async function executeRemoteCommand(cmd: string, toolCall: ToolCall): Promise<st
             reject(new Error(`SSH Connection Error: ${err.message}`));
         });
 
-        // 注入你的连接逻辑与超时设置
         conn.connect({ ...sshConfig, readyTimeout: 20000 } as ConnectConfig);
     });
 }
@@ -66,8 +62,6 @@ export function main() {
             // ================= 1. SSH 远程模式 =================
             if (isRemote) {
                 logger.info(`[find_files] Running in SSH mode against ${sshConfig.host}`);
-                
-                // 将形如 **/*.ts 的 glob 转换为 find 命令的 -name "*.ts"
                 const namePattern = file_pattern.replace(/\*\*\//g, '');
                 const cmd = `find "${dir_path}" -type f -name "${namePattern}" | head -n ${MAX_FILES + 1}`;
                 
@@ -81,10 +75,12 @@ export function main() {
                 return files;
             }
 
-            // ================= 2. 本地执行模式 =================
+            // ================= 2. 本地执行模式 (已完成非阻塞改造) =================
             logger.info(`[find_files] Running in Local mode`);
             const resolvedTarget = path.resolve(dir_path);
-            const stats = fs.statSync(resolvedTarget);
+            
+            // ✅ 修复点 1：使用异步的 fs.stat 代替 fs.statSync
+            const stats = await fs.stat(resolvedTarget);
             
             if (!stats.isDirectory()) {
                 throw new Error(`Target must be a directory: ${resolvedTarget}`);
@@ -95,12 +91,18 @@ export function main() {
             const globOptions = { cwd: resolvedTarget, nodir: true, absolute: false };
 
             let files: string[] = [];
-            if (typeof globModule.globSync === 'function') {
-                files = globModule.globSync(file_pattern, globOptions);
-            } else if (typeof globModule.sync === 'function') {
-                files = globModule.sync(file_pattern, globOptions);
+
+            // ✅ 修复点 2：彻底移除同步的 globSync/sync 调用，一律封装为纯异步的 Promise 形式
+            if (typeof globModule.glob === 'function') {
+                files = await globModule.glob(file_pattern, globOptions);
             } else {
-                files = await globModule(file_pattern, globOptions);
+                // 兼容老版本 glob 的异步回调模式
+                files = await new Promise<string[]>((resolve, reject) => {
+                    globModule(file_pattern, globOptions, (err: any, matches: string[]) => {
+                        if (err) reject(err);
+                        else resolve(matches);
+                    });
+                });
             }
 
             if (files.length > MAX_FILES) {

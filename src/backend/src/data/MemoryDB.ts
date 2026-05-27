@@ -1,52 +1,5 @@
-import path from 'path';
-import fs from 'fs';
 import { logger } from '../utils/logger';
 import { getDefault } from '../utils/public';
-
-// ==================== BM25 工具函数 ====================
-
-function tokenize(text: string): string[] {
-    return text
-        .toLowerCase()
-        .replace(/[^\u4e00-\u9fa5a-z0-9]+/g, ' ')
-        .split(/\s+/)
-        .filter(t => t.length > 0);
-}
-
-function computeBM25Score(query: string, document: string, corpus: string[]): number {
-    const queryTerms = tokenize(query);
-    const docTerms = tokenize(document);
-    if (queryTerms.length === 0 || docTerms.length === 0) return 0;
-
-    const k1 = 1.5;
-    const b = 0.75;
-
-    const docLengths = corpus.map(d => tokenize(d).length);
-    const avgDocLen = docLengths.reduce((a, b) => a + b, 0) / docLengths.length || 1;
-
-    const docLen = docTerms.length;
-    const termFreq: Record<string, number> = {};
-    docTerms.forEach(t => { termFreq[t] = (termFreq[t] || 0) + 1; });
-
-    const docFreq: Record<string, number> = {};
-    corpus.forEach(d => {
-        const terms = new Set(tokenize(d));
-        terms.forEach(t => { docFreq[t] = (docFreq[t] || 0) + 1; });
-    });
-
-    const N = corpus.length || 1;
-
-    let score = 0;
-    for (const term of queryTerms) {
-        const tf = termFreq[term] || 0;
-        const df = docFreq[term] || 0;
-        const idf = Math.log((N - df + 0.5) / (df + 0.5) + 1);
-        const tfNorm = tf / (tf + k1 * (1 - b + b * (docLen / avgDocLen)));
-        score += idf * tfNorm;
-    }
-    return score;
-}
-
 
 // sqlite3 和 sqlite-vec 是原生模块，保持 require 引入
 const sqlite3 = require('sqlite3').verbose();
@@ -70,19 +23,16 @@ export class MemoryDB {
     private static initialized: boolean = false;
     private dbPath: string;
     private db: any;
-    private mdDir!: string;
-    
+
     constructor() {
         // Singleton pattern: return existing instance if already initialized
         if (MemoryDB.instance && MemoryDB.initialized) {
             this.dbPath = MemoryDB.instance.dbPath;
             this.db = MemoryDB.instance.db;
-            this.mdDir = MemoryDB.instance.mdDir;
             return;
         }
         this.dbPath = getDefault('long_memory/memory.db');
         this.db = null;
-        this.mdDir = getDefault('long_memory');
         MemoryDB.instance = this;
     }
 
@@ -91,7 +41,7 @@ export class MemoryDB {
         if (MemoryDB.initialized && this.db) {
             return Promise.resolve();
         }
-        
+
         return new Promise((resolve, reject) => {
             this.db = new sqlite3.Database(this.dbPath, async (err: Error | null) => {
                 if (err) {
@@ -128,6 +78,12 @@ export class MemoryDB {
                     embedding BLOB NOT NULL,
                     time TEXT NOT NULL
                 );
+                CREATE VIRTUAL TABLE IF NOT EXISTS memories_fts USING fts5(
+                    chat_id,
+                    content,
+                    time,
+                    tokenize='unicode61'
+                );
             `;
             this.db.exec(sql, (err: Error | null) => {
                 if (err) reject(err);
@@ -144,8 +100,23 @@ export class MemoryDB {
 
             const sql = `INSERT OR REPLACE INTO memories (chat_id, content, embedding, time) VALUES (?, ?, ?, ?)`;
             this.db.run(sql, [chat_id, content, buffer, time], function (this: any, err: Error | null) {
-                if (err) reject(err);
-                else resolve({ chat_id, changes: this.changes });
+                if (err) {
+                    reject(err);
+                    return;
+                }
+
+                // 同步写入 FTS5 全文索引表
+                this.db.run(
+                    `INSERT INTO memories_fts (chat_id, content, time) VALUES (?, ?, ?)`,
+                    [chat_id, content, time],
+                    (ftsErr: Error | null) => {
+                        if (ftsErr) {
+                            logger.warn("[MemoryDB] FTS5 sync insert error:", ftsErr);
+                        }
+                    }
+                );
+
+                resolve({ chat_id, changes: this.changes });
             });
         });
     }
@@ -181,20 +152,43 @@ export class MemoryDB {
         });
     }
 
+    /**
+     * BM25 全文检索 — 基于 SQLite FTS5 引擎
+     * FTS5 的 bm25() 返回负值（越小越相关），取绝对值后用于 RRF 融合
+     */
     public async queryBM25(text: string, top_k: number = 5): Promise<MemoryRecord[]> {
-        return new Promise((resolve, reject) => {
-            const mdFiles = fs.readdirSync(this.mdDir);
-            const mdContents = mdFiles.map(file => fs.readFileSync(path.join(this.mdDir, file), 'utf8'));
-            const scores = mdContents.map(content => computeBM25Score(text, content, mdContents));
-            const indexed = scores.map((score, index) => ({
-                chat_id: mdFiles[index],
-                content: mdContents[index],
-                time: mdFiles[index].split('-')[0],
-                similarity: score
-            }));
-            // 按相似度降序排列并截取 top_k
-            indexed.sort((a, b) => b.similarity - a.similarity);
-            resolve(indexed.slice(0, top_k));
+        return new Promise((resolve) => {
+            // 去除 FTS5 MATCH 语法中的特殊字符，防止查询报错
+            const sanitized = text.replace(/['"*()^~@:]/g, ' ').replace(/\s+/g, ' ').trim();
+
+            if (!sanitized) {
+                resolve([]);
+                return;
+            }
+
+            const sql = `
+                SELECT chat_id, content, time, bm25(memories_fts) AS score
+                FROM memories_fts
+                WHERE memories_fts MATCH ?
+                ORDER BY score
+                LIMIT ?
+            `;
+
+            this.db.all(sql, [sanitized, top_k], (err: Error | null, rows: any[]) => {
+                if (err) {
+                    logger.warn("[MemoryDB] FTS5 search error:", err);
+                    resolve([]);
+                    return;
+                }
+
+                const results: MemoryRecord[] = rows.map(row => ({
+                    chat_id: row.chat_id,
+                    content: row.content,
+                    time: row.time,
+                    similarity: Math.abs(row.score)
+                }));
+                resolve(results);
+            });
         });
     }
 
