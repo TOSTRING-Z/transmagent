@@ -28,7 +28,7 @@ export class MemoryDB {
         if (MemoryDB.instance) {
             return MemoryDB.instance;
         }
-        this.dbPath = getDefault('long_memory/memory.db');
+        this.dbPath = getDefault('long_memory/memory_v2.db');
         this.db = null;
         MemoryDB.instance = this;
     }
@@ -107,43 +107,47 @@ export class MemoryDB {
      * 写入记忆（性能优化版：显式事务 + 内部 RowID 绑定）
      */
     public async add(chat_id: string, content: string, embedding: number[] | Buffer | null, time: string): Promise<{ chat_id: string; changes: number }> {
+        // ✅ 关键修复：缓存 Class 级别的 this，防止在 sqlite3 的回调函数里被覆盖
+        const self = this; 
+
         return new Promise((resolve, reject) => {
             const buffer = Array.isArray(embedding)
                 ? Buffer.from(new Float32Array(embedding).buffer)
                 : embedding;
 
             // 使用 db.serialize 确保队列顺序，防止并发插入时 rowid 混乱
-            this.db.serialize(() => {
-                this.db.run("BEGIN IMMEDIATE TRANSACTION;"); // ✅ 开启排他性写事务
+            self.db.serialize(() => {
+                self.db.run("BEGIN IMMEDIATE TRANSACTION;"); // ✅ 使用 self
 
-                this.db.run(
+                self.db.run(
                     `INSERT INTO memories (chat_id, content, embedding, time) VALUES (?, ?, ?, ?)`,
                     [chat_id, content, buffer, time],
                     function (this: any, err: Error | null) {
                         if (err) {
-                            this.db.run("ROLLBACK;");
+                            // ✅ 修复：使用 self.db 确保在任何嵌套层级都能拿到数据库连接
+                            self.db.run("ROLLBACK;"); 
                             reject(err);
                             return;
                         }
 
-                        const lastId = this.lastID; // 获取当前线程安全的 rowid
+                        // 这里保留 `this.lastID`，因为这个特定的 this 需要指向 sqlite3 的当前执行上下文
+                        const lastId = this.lastID; 
 
                         // 写入全文检索表
-                        this.db.run(
+                        self.db.run(
                             `INSERT INTO memories_fts (rowid, chat_id, content, time) VALUES (?, ?, ?, ?)`,
                             [lastId, chat_id, content, time],
                             function (this: any, ftsErr: Error | null) {
                                 if (ftsErr) {
                                     logger.warn("[MemoryDB] FTS5 insert error:", ftsErr);
-                                    // 选择性回滚：FTS 失败则整个写入失败
-                                    this.db.run("ROLLBACK;");
+                                    self.db.run("ROLLBACK;");
                                     reject(ftsErr);
                                     return;
                                 }
 
-                                this.db.run("COMMIT;", (commitErr: Error | null) => {
+                                self.db.run("COMMIT;", (commitErr: Error | null) => {
                                     if (commitErr) {
-                                        this.db.run("ROLLBACK;");
+                                        self.db.run("ROLLBACK;");
                                         reject(commitErr);
                                     } else {
                                         resolve({ chat_id, changes: 1 });
