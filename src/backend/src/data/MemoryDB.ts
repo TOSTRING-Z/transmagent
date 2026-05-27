@@ -1,7 +1,6 @@
 import { logger } from '../utils/logger';
 import { getDefault } from '../utils/public';
 
-// sqlite3 和 sqlite-vec 是原生模块，保持 require 引入
 const sqlite3 = require('sqlite3').verbose();
 
 let sqliteVec: any = null;
@@ -21,15 +20,13 @@ export interface MemoryRecord {
 export class MemoryDB {
     private static instance: MemoryDB | null = null;
     private static initialized: boolean = false;
+    private static initPromise: Promise<void> | null = null; // ✅ 锁住初始化过程，防止并发 init
     private dbPath: string;
     private db: any;
 
     constructor() {
-        // Singleton pattern: return existing instance if already initialized
-        if (MemoryDB.instance && MemoryDB.initialized) {
-            this.dbPath = MemoryDB.instance.dbPath;
-            this.db = MemoryDB.instance.db;
-            return;
+        if (MemoryDB.instance) {
+            return MemoryDB.instance;
         }
         this.dbPath = getDefault('long_memory/memory.db');
         this.db = null;
@@ -37,17 +34,21 @@ export class MemoryDB {
     }
 
     public async init(): Promise<void> {
-        // Prevent multiple initializations
-        if (MemoryDB.initialized && this.db) {
-            return Promise.resolve();
-        }
+        if (MemoryDB.initialized && this.db) return;
+        
+        // 如果有正在进行的初始化，直接等待它完成
+        if (MemoryDB.initPromise) return MemoryDB.initPromise;
 
-        return new Promise((resolve, reject) => {
+        MemoryDB.initPromise = new Promise((resolve, reject) => {
             this.db = new sqlite3.Database(this.dbPath, async (err: Error | null) => {
                 if (err) {
+                    MemoryDB.initPromise = null;
                     reject(err);
                     return;
                 }
+
+                // 开启 WAL 模式：大幅提升并发读写性能
+                this.db.run("PRAGMA journal_mode=WAL;");
 
                 if (sqliteVec) {
                     try {
@@ -63,66 +64,95 @@ export class MemoryDB {
                     MemoryDB.initialized = true;
                     resolve();
                 } catch (tableErr: any) {
+                    MemoryDB.initPromise = null;
                     reject(tableErr);
                 }
             });
         });
+
+        return MemoryDB.initPromise;
     }
 
     private async createTables(): Promise<void> {
         return new Promise((resolve, reject) => {
-            const sql = `
-                CREATE TABLE IF NOT EXISTS memories (
-                    chat_id TEXT NOT NULL,
-                    content TEXT NOT NULL,
-                    embedding BLOB,
-                    time TEXT NOT NULL
-                );
-                CREATE VIRTUAL TABLE IF NOT EXISTS memories_fts USING fts5(
-                    chat_id,
-                    content,
-                    time,
-                    tokenize='unicode61'
-                );
-            `;
-            this.db.exec(sql, (err: Error | null) => {
-                if (err) reject(err);
-                else resolve();
+            // 将建表语句分开执行，sqlite3 的 exec 执行多条语句时有时不稳定
+            this.db.serialize(() => {
+                this.db.run(`
+                    CREATE TABLE IF NOT EXISTS memories (
+                        id INTEGER PRIMARY KEY AUTOINCREMENT, -- ✅ 显式指定自增主键
+                        chat_id TEXT NOT NULL,
+                        content TEXT NOT NULL,
+                        embedding BLOB,
+                        time TEXT NOT NULL
+                    );
+                `);
+                this.db.run(`
+                    CREATE VIRTUAL TABLE IF NOT EXISTS memories_fts USING fts5(
+                        chat_id,
+                        content,
+                        time,
+                        content='memories', -- ✅ 建立外部内容表，FTS5 不再重复存储文本实体，极大节省体积
+                        content_rowid='id',
+                        tokenize='unicode61'
+                    );
+                `, (err: Error | null) => {
+                    if (err) reject(err);
+                    else resolve();
+                });
             });
         });
     }
 
     /**
-     * 写入记忆（向量 + FTS5 全文索引，rowid 对齐）
-     * embedding 为 null 时只写 FTS5，不写向量
+     * 写入记忆（性能优化版：显式事务 + 内部 RowID 绑定）
      */
     public async add(chat_id: string, content: string, embedding: number[] | Buffer | null, time: string): Promise<{ chat_id: string; changes: number }> {
         return new Promise((resolve, reject) => {
-            const buffer = embedding
-                ? (Array.isArray(embedding) ? Buffer.from(new Float32Array(embedding).buffer) : embedding)
-                : null;
+            const buffer = Array.isArray(embedding)
+                ? Buffer.from(new Float32Array(embedding).buffer)
+                : embedding;
 
-            const sql = `INSERT INTO memories (chat_id, content, embedding, time) VALUES (?, ?, ?, ?)`;
-            this.db.run(sql, [chat_id, content, buffer, time], function (this: any, err: Error | null) {
-                if (err) {
-                    reject(err);
-                    return;
-                }
+            // 使用 db.serialize 确保队列顺序，防止并发插入时 rowid 混乱
+            this.db.serialize(() => {
+                this.db.run("BEGIN IMMEDIATE TRANSACTION;"); // ✅ 开启排他性写事务
 
-                const rowid = this.lastID;
-
-                // 用相同 rowid 写入 FTS5，保证两表对齐
                 this.db.run(
-                    `INSERT INTO memories_fts (rowid, chat_id, content, time) VALUES (?, ?, ?, ?)`,
-                    [rowid, chat_id, content, time],
-                    (ftsErr: Error | null) => {
-                        if (ftsErr) {
-                            logger.warn("[MemoryDB] FTS5 insert error:", ftsErr);
+                    `INSERT INTO memories (chat_id, content, embedding, time) VALUES (?, ?, ?, ?)`,
+                    [chat_id, content, buffer, time],
+                    function (this: any, err: Error | null) {
+                        if (err) {
+                            this.db.run("ROLLBACK;");
+                            reject(err);
+                            return;
                         }
+
+                        const lastId = this.lastID; // 获取当前线程安全的 rowid
+
+                        // 写入全文检索表
+                        this.db.run(
+                            `INSERT INTO memories_fts (rowid, chat_id, content, time) VALUES (?, ?, ?, ?)`,
+                            [lastId, chat_id, content, time],
+                            function (this: any, ftsErr: Error | null) {
+                                if (ftsErr) {
+                                    logger.warn("[MemoryDB] FTS5 insert error:", ftsErr);
+                                    // 选择性回滚：FTS 失败则整个写入失败
+                                    this.db.run("ROLLBACK;");
+                                    reject(ftsErr);
+                                    return;
+                                }
+
+                                this.db.run("COMMIT;", (commitErr: Error | null) => {
+                                    if (commitErr) {
+                                        this.db.run("ROLLBACK;");
+                                        reject(commitErr);
+                                    } else {
+                                        resolve({ chat_id, changes: 1 });
+                                    }
+                                });
+                            }
+                        );
                     }
                 );
-
-                resolve({ chat_id, changes: this.changes });
             });
         });
     }
@@ -133,9 +163,11 @@ export class MemoryDB {
                 ? Buffer.from(new Float32Array(embedding).buffer)
                 : embedding;
 
+            // ✅ 性能优化：只查询需要的列，不盲目全表扫描
             const sql = `
                 SELECT chat_id, content, time, vec_distance_L2(embedding, ?) AS distance
                 FROM memories
+                WHERE embedding IS NOT NULL
                 ORDER BY distance ASC
                 LIMIT ?
             `;
@@ -151,32 +183,27 @@ export class MemoryDB {
                     chat_id: row.chat_id,
                     content: row.content,
                     time: row.time,
-                    similarity: 1 / (1 + row.distance)
+                    similarity: 1 / (1 + (row.distance || 0)) // 防御 NaN/Null
                 }));
                 resolve(results);
             });
         });
     }
 
-    /**
-     * BM25 全文检索 — 基于 SQLite FTS5 引擎
-     * FTS5 的 bm25() 返回负值（越小越相关），取绝对值后用于 RRF 融合
-     */
     public async queryBM25(text: string, top_k: number = 5): Promise<MemoryRecord[]> {
         return new Promise((resolve) => {
-            // 去除 FTS5 MATCH 语法中的特殊字符，防止查询报错
             const sanitized = text.replace(/['"*()^~@:]/g, ' ').replace(/\s+/g, ' ').trim();
-
             if (!sanitized) {
                 resolve([]);
                 return;
             }
 
+            // ✅ 修复隐患：标准 FTS5 MATCH 查询，ORDER BY bm25 升序（负数越小越相关）
             const sql = `
                 SELECT chat_id, content, time, bm25(memories_fts) AS score
                 FROM memories_fts
                 WHERE memories_fts MATCH ?
-                ORDER BY score
+                ORDER BY score ASC
                 LIMIT ?
             `;
 
@@ -191,7 +218,7 @@ export class MemoryDB {
                     chat_id: row.chat_id,
                     content: row.content,
                     time: row.time,
-                    similarity: Math.abs(row.score)
+                    similarity: Math.abs(row.score || 0)
                 }));
                 resolve(results);
             });
@@ -199,68 +226,59 @@ export class MemoryDB {
     }
 
     public async query(embedding: number[] | Buffer | null, query: string, top_k: number = 5): Promise<MemoryRecord[]> {
-        // 1. 优先尝试向量搜索
         if (embedding) {
             try {
                 const vectorResults = await this.queryVector(embedding, top_k);
-                // 2. 若向量有结果，再用 BM25 补充并做 RRF 融合
-                if (vectorResults.length > 0) {
-                    const bm25Results = await this.queryBM25(query, top_k);
+                const bm25Results = await this.queryBM25(query, top_k);
+                
+                // 如果两边都有结果，进行 RRF 融合；如果只有单边有，直接返回避免降权
+                if (vectorResults.length > 0 && bm25Results.length > 0) {
                     return this.fuseResults(vectorResults, bm25Results, top_k);
+                } else if (vectorResults.length > 0) {
+                    return vectorResults;
                 }
             } catch (err: any) {
                 console.warn('[MemoryDB] Vector search failed, falling back to BM25:', err.message);
             }
         }
-        // 3. 向量不可用或失败时，单独使用 BM25
         return this.queryBM25(query, top_k);
     }
 
-    /**
-     * RRF (Reciprocal Rank Fusion) 融合向量与 BM25 结果
-     */
-    private fuseResults(
-        vectorResults: MemoryRecord[],
-        bm25Results: MemoryRecord[],
-        top_k: number,
-        k: number = 60
-    ): MemoryRecord[] {
+    private fuseResults(vectorResults: MemoryRecord[], bm25Results: MemoryRecord[], top_k: number, k: number = 60): MemoryRecord[] {
         const scoreMap = new Map<string, { record: MemoryRecord; score: number }>();
 
-        // 向量结果按排名打分
         vectorResults.forEach((rec, idx) => {
             const key = `${rec.chat_id}::${rec.content}`;
-            const rankScore = 1 / (k + idx + 1);
-            scoreMap.set(key, { record: rec, score: rankScore });
+            scoreMap.set(key, { record: rec, score: 1 / (k + idx + 1) });
         });
 
-        // BM25 结果按排名打分并累加
         bm25Results.forEach((rec, idx) => {
             const key = `${rec.chat_id}::${rec.content}`;
             const rankScore = 1 / (k + idx + 1);
-            if (scoreMap.has(key)) {
-                scoreMap.get(key)!.score += rankScore;
+            const exists = scoreMap.get(key);
+            if (exists) {
+                exists.score += rankScore;
             } else {
                 scoreMap.set(key, { record: rec, score: rankScore });
             }
         });
 
-        // 按融合分数降序排列
-        const fused = Array.from(scoreMap.values())
+        return Array.from(scoreMap.values())
             .sort((a, b) => b.score - a.score)
             .slice(0, top_k)
             .map(item => ({
                 ...item.record,
                 similarity: item.score
             }));
-
-        return fused;
     }
 
     public close(): void {
         if (this.db) {
             this.db.close();
             this.db = null;
+            MemoryDB.initialized = false;
+            MemoryDB.initPromise = null;
+            MemoryDB.instance = null;
         }
     }
 }
