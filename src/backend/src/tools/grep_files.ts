@@ -66,12 +66,12 @@ async function isTextFile(filePath: string): Promise<boolean> {
     const ext = path.extname(filePath).toLowerCase();
 
     const BINARY_EXTENSIONS = new Set([
-        '.mp4', '.avi', '.mkv', '.mov', '.wmv', '.flv', 
-        '.mp3', '.wav', '.flac', '.aac', '.ogg',        
-        '.png', '.jpg', '.jpeg', '.gif', '.bmp', '.webp', '.ico', 
-        '.pdf', '.doc', '.docx', '.xls', '.xlsx', '.ppt', '.pptx', 
-        '.zip', '.tar', '.gz', '.rar', '.7z', '.bz2',   
-        '.exe', '.dll', '.so', '.dylib', '.bin', '.class', '.pyc', '.wasm' 
+        '.mp4', '.avi', '.mkv', '.mov', '.wmv', '.flv',
+        '.mp3', '.wav', '.flac', '.aac', '.ogg',
+        '.png', '.jpg', '.jpeg', '.gif', '.bmp', '.webp', '.ico',
+        '.pdf', '.doc', '.docx', '.xls', '.xlsx', '.ppt', '.pptx',
+        '.zip', '.tar', '.gz', '.rar', '.7z', '.bz2',
+        '.exe', '.dll', '.so', '.dylib', '.bin', '.class', '.pyc', '.wasm'
     ]);
     if (BINARY_EXTENSIONS.has(ext)) return false;
 
@@ -86,17 +86,17 @@ async function isTextFile(filePath: string): Promise<boolean> {
     try {
         fileHandle = await fs.open(filePath, 'r');
         const buffer = Buffer.alloc(4096);
-        
+
         const { bytesRead } = await fileHandle.read(buffer, 0, 4096, 0);
         for (let i = 0; i < bytesRead; i++) {
-            if (buffer[i] === 0) return false; 
+            if (buffer[i] === 0) return false;
         }
-        return true; 
+        return true;
     } catch (error: any) {
-        return false; 
+        return false;
     } finally {
         if (fileHandle !== null) {
-            try { await fileHandle.close(); } catch (e) {}
+            try { await fileHandle.close(); } catch (e) { }
         }
     }
 }
@@ -116,25 +116,28 @@ export function main() {
                 logger.info(`[grep_files] Running in SSH mode against ${sshConfig.host}`);
                 const safeRegex = regex.replace(/'/g, "'\\''");
                 const filesArg = validFiles.map(f => `"${f}"`).join(' ');
-                const cmd = `grep -nHE '${safeRegex}' ${filesArg} | head -n ${MAX_RESULTS}`;
-                
+
+                // 1. 尝试使用 -P (PCRE 模式)，如果系统不支持，则通过 || 降级回 -E (POSIX 模式)
+                // 2. 同时在 grep 前面加上 LC_ALL=C 可以大幅提升大文件搜索时的性能，并避免编码报错
+                const cmd = `LC_ALL=C grep -nHP '${safeRegex}' ${filesArg} 2>/dev/null || LC_ALL=C grep -nHE '${safeRegex}' ${filesArg} | head -n ${MAX_RESULTS}`;
+
                 const stdout = await executeRemoteCommand(cmd, toolCall);
-                
+
                 const results: SearchResult[] = [];
                 if (stdout) {
                     const lines = stdout.split('\n').filter(Boolean);
                     for (const lineStr of lines) {
                         const firstColon = lineStr.indexOf(':');
                         const secondColon = lineStr.indexOf(':', firstColon + 1);
-                        
+
                         if (firstColon > -1 && secondColon > -1) {
                             const file = lineStr.substring(0, firstColon);
                             const lineNum = parseInt(lineStr.substring(firstColon + 1, secondColon), 10);
                             const context = lineStr.substring(secondColon + 1).trim();
 
                             results.push({
-                                file: file, 
-                                match: "Matched in text", 
+                                file: file,
+                                match: "Matched in text",
                                 context: context.substring(0, 200),
                                 line: lineNum || 0
                             });
@@ -148,12 +151,12 @@ export function main() {
             logger.info(`[grep_files] Running in Local mode`);
             const startTime = Date.now();
             const results: SearchResult[] = [];
-            const MAX_FILE_SIZE = 5 * 1024 * 1024; 
-            
+            const MAX_FILE_SIZE = 5 * 1024 * 1024;
+
             let regexObj: RegExp;
             try {
                 // ✅ 修复点 1：更严谨地解析内联修饰符（支持 i, m, s 等常见 grep/pcre 标志）
-                let flags = ''; 
+                let flags = '';
                 let pattern = regex;
                 const inlineFlagMatch = regex.match(/^\(\?([ims]+)\)/);
                 if (inlineFlagMatch) {
@@ -199,17 +202,17 @@ export function main() {
                             // 即使匹配到空字符串（如 .*），也属于有效匹配，提取其上下文
                             const start = Math.max(0, match.index - 20);
                             const end = Math.min(line.length, match.index + match[0].length + 20);
-                            
+
                             results.push({
-                                file: file, 
+                                file: file,
                                 match: match[0].substring(0, 150),
                                 context: line.substring(start, end).trim(),
                                 line: currentLine
                             });
 
-                            if (results.length >= MAX_RESULTS) { 
-                                rl.close(); 
-                                break; 
+                            if (results.length >= MAX_RESULTS) {
+                                rl.close();
+                                break;
                             }
                         }
                     }
