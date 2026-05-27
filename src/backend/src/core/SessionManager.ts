@@ -9,6 +9,7 @@ import { Utils } from "./Utils";
 import { SubAgent } from "./SubAgent";
 import { delHistoryChat, getHistoryChat, setHistory } from "../utils/public";
 import { State } from "./LLMBase";
+import { logger } from "../utils/logger";
 
 export interface Session {
     tool_call: ToolCall;
@@ -73,6 +74,12 @@ export class SessionManager {
     }
 
     delChat(id: string) {
+        // 删除对话时，若代理处于 PAUSE 状态，立即终止循环
+        const toolCall = this.getSession(id)?.tool_call;
+        if (toolCall?.state === State.PAUSE) {
+            toolCall.state = State.FINAL;
+            logger.log('Agent loop terminated due to chat deletion (state was PAUSE)');
+        }
         // 检查当前会话列表中是否存在该ID
         if (id in this.sessions) {
             this.sessions.delete(id);

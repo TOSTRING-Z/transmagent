@@ -382,20 +382,20 @@ $$
     }
     starEl.onclick = (e) => {
       e.stopPropagation();
-      toggleStar(chat.id);
+      toggleStar(item.id);
     };
-    item.onclick = () => loadChat(chat.id);
+    item.onclick = () => loadChat(item.id);
     const menu = item.querySelector(".history-menu");
-    menu.onclick = (e) => showHistoryMenu(e, chat.id);
+    menu.onclick = (e) => showHistoryMenu(e, item.id);
     const renameBtn = item.querySelector(".history-menu-item:nth-child(1)");
     renameBtn.onclick = (e) => {
       e.stopPropagation();
-      renameChat(chat.id);
+      renameChat(item.id);
     };
     const deleteBtn = item.querySelector(".history-menu-item:nth-child(2)");
     deleteBtn.onclick = (e) => {
       e.stopPropagation();
-      deleteChat(chat.id);
+      deleteChat(item.id);
     };
   }
   function handleNewChat(chat) {

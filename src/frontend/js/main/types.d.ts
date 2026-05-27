@@ -48,6 +48,7 @@ export interface ElectronAPI {
   delChat: (chatId: string) => Promise<void>;
   renameChat: (data: { id: string; name: string }) => Promise<void>;
   handleRenameChat: (callback: (chat: any) => void) => void;
+  toggleStar: (chatId: string) => Promise<boolean>;
   // subagent
   windowInfo: (callback: (data: any) => void) => void;
   minimizeWindow: (info: Record<string, any>) => void;

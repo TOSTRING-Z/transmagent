@@ -429,7 +429,7 @@ export class MainWindow extends BaseWindow {
             this.window?.webContents.send("clear");
             this.window?.webContents.send(
                 'handleNewChat',
-                chat
+                {...chat}
             );
         });
 
@@ -440,19 +440,13 @@ export class MainWindow extends BaseWindow {
                 this.session().llmService.chatManager.loadFromChat(chat);
                 this.window?.webContents.send(
                     'handleloadChat',
-                    chat
+                    {...chat}
                 );
             }
             this.updateVersionsSubmenu();
         });
 
         ipcMain.on('delChat', (_event, id) => {
-            // 删除对话时，若代理处于 PAUSE 状态，立即终止循环
-            const toolCall = this.session().tool_call;
-            if (toolCall.state === State.PAUSE) {
-                toolCall.state = State.FINAL;
-                logger.log('Agent loop terminated due to chat deletion (state was PAUSE)');
-            }
             this.sessionManager.delChat(id);
         });
 

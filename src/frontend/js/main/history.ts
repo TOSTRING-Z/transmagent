@@ -39,15 +39,15 @@ export function addChatItem(chat: any) {
     starIcon.classList.add('fas');
     item.classList.add('starred');
   }
-  starEl.onclick = (e) => { e.stopPropagation(); toggleStar(chat.id); };
+  starEl.onclick = (e) => { e.stopPropagation(); toggleStar(item.id); };
 
-  item.onclick = () => loadChat(chat.id);
+  item.onclick = () => loadChat(item.id);
   const menu = item.querySelector('.history-menu') as HTMLElement;
-  menu.onclick = (e) => showHistoryMenu(e, chat.id);
+  menu.onclick = (e) => showHistoryMenu(e, item.id);
   const renameBtn = item.querySelector('.history-menu-item:nth-child(1)') as HTMLElement;
-  renameBtn.onclick = (e) => { e.stopPropagation(); renameChat(chat.id); };
+  renameBtn.onclick = (e) => { e.stopPropagation(); renameChat(item.id); };
   const deleteBtn = item.querySelector('.history-menu-item:nth-child(2)') as HTMLElement;
-  deleteBtn.onclick = (e) => { e.stopPropagation(); deleteChat(chat.id); };
+  deleteBtn.onclick = (e) => { e.stopPropagation(); deleteChat(item.id); };
 }
 
 export function handleNewChat(chat: any) {
