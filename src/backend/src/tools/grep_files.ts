@@ -62,7 +62,6 @@ async function executeRemoteCommand(cmd: string, toolCall: ToolCall): Promise<st
     });
 }
 
-// ✅ 修复点 1：将文本/二进制文件的安全检测完全改造为非阻塞异步函数
 async function isTextFile(filePath: string): Promise<boolean> {
     const ext = path.extname(filePath).toLowerCase();
 
@@ -85,14 +84,12 @@ async function isTextFile(filePath: string): Promise<boolean> {
 
     let fileHandle: fsNative.promises.FileHandle | null = null;
     try {
-        // 使用异步打开文件句柄
         fileHandle = await fs.open(filePath, 'r');
         const buffer = Buffer.alloc(4096);
         
-        // 异步读取文件前 4KB 字节
         const { bytesRead } = await fileHandle.read(buffer, 0, 4096, 0);
         for (let i = 0; i < bytesRead; i++) {
-            if (buffer[i] === 0) return false; // 包含空字节，判定为二进制
+            if (buffer[i] === 0) return false; 
         }
         return true; 
     } catch (error: any) {
@@ -147,7 +144,7 @@ export function main() {
                 return results;
             }
 
-            // ================= 2. 本地执行模式 (已完成非阻塞改造) =================
+            // ================= 2. 本地执行模式 =================
             logger.info(`[grep_files] Running in Local mode`);
             const startTime = Date.now();
             const results: SearchResult[] = [];
@@ -155,14 +152,15 @@ export function main() {
             
             let regexObj: RegExp;
             try {
-                // 解析内联修饰符，例如 (?i)hello → /hello/gi
-                let flags = 'g';
+                // ✅ 修复点 1：更严谨地解析内联修饰符（支持 i, m, s 等常见 grep/pcre 标志）
+                let flags = ''; 
                 let pattern = regex;
-                const inlineFlagMatch = regex.match(/^\(\?([i]+)\)/);
+                const inlineFlagMatch = regex.match(/^\(\?([ims]+)\)/);
                 if (inlineFlagMatch) {
-                    flags += inlineFlagMatch[1];
+                    flags = inlineFlagMatch[1];
                     pattern = regex.slice(inlineFlagMatch[0].length);
                 }
+                // 不使用 'g' 标志，遵循标准 grep 行为：一行只匹配一次，规避跨行 lastIndex 污染问题
                 regexObj = new RegExp(pattern, flags);
             } catch (err: any) {
                 return `Error: Invalid Regular Expression - ${err.message}`;
@@ -176,16 +174,13 @@ export function main() {
                 const file = path.resolve(fileItem);
 
                 try {
-                    // ✅ 修复点 2：使用异步的 fs.stat 检查文件大小
                     const stat = await fs.stat(file);
                     if (!stat.isFile() || stat.size > MAX_FILE_SIZE) continue;
                 } catch (e) { continue; }
 
-                // ✅ 修复点 3：通过 await 挂起当前文件的文本类型检测，让出主线程控制权
                 if (!(await isTextFile(file))) continue;
 
                 try {
-                    // 创建可读流以行读取（天然的非阻塞 I/O 块）
                     const fileStream = fsNative.createReadStream(file, { encoding: 'utf8' });
                     const rl = readline.createInterface({ input: fileStream, crlfDelay: Infinity });
                     let currentLine = 0;
@@ -198,11 +193,10 @@ export function main() {
                             break;
                         }
 
-                        regexObj.lastIndex = 0;
-                        let match;
-                        while ((match = regexObj.exec(line)) !== null) {
-                            if (match[0].length === 0) { regexObj.lastIndex++; continue; }
-
+                        // ✅ 修复点 2：使用标准 .exec() 配合无 'g' 标志正则进行安全匹配
+                        const match = regexObj.exec(line);
+                        if (match !== null) {
+                            // 即使匹配到空字符串（如 .*），也属于有效匹配，提取其上下文
                             const start = Math.max(0, match.index - 20);
                             const end = Math.min(line.length, match.index + match[0].length + 20);
                             
@@ -213,9 +207,11 @@ export function main() {
                                 line: currentLine
                             });
 
-                            if (results.length >= MAX_RESULTS) { rl.close(); break; }
+                            if (results.length >= MAX_RESULTS) { 
+                                rl.close(); 
+                                break; 
+                            }
                         }
-                        if (results.length >= MAX_RESULTS) break;
                     }
                 } catch (e) {
                     logger.warn(`Failed to grep ${file}`);
