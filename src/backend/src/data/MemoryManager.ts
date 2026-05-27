@@ -61,11 +61,12 @@ class MemoryManager {
 
             await fs.appendFile(filePath, `${content}\n`, 'utf8');
 
-            // 2. 向量化并入库
+            // 2. 获取向量嵌入（可为 null）
             const embedding = await this.getEmbedding(content);
-            if (!embedding) return false;
 
+            // 3. 统一入库 —— FTS5 始终写入，向量有则写入，rowid 自动对齐
             await this.memoryDB.add(chatId, content, embedding, time);
+
             return true;
         } catch (error: any) {
             console.error("Failed to process long-term memory:", error);

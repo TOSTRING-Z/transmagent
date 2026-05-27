@@ -75,7 +75,7 @@ export class MemoryDB {
                 CREATE TABLE IF NOT EXISTS memories (
                     chat_id TEXT NOT NULL,
                     content TEXT NOT NULL,
-                    embedding BLOB NOT NULL,
+                    embedding BLOB,
                     time TEXT NOT NULL
                 );
                 CREATE VIRTUAL TABLE IF NOT EXISTS memories_fts USING fts5(
@@ -92,26 +92,32 @@ export class MemoryDB {
         });
     }
 
-    public async add(chat_id: string, content: string, embedding: number[] | Buffer, time: string): Promise<{ chat_id: string; changes: number }> {
+    /**
+     * 写入记忆（向量 + FTS5 全文索引，rowid 对齐）
+     * embedding 为 null 时只写 FTS5，不写向量
+     */
+    public async add(chat_id: string, content: string, embedding: number[] | Buffer | null, time: string): Promise<{ chat_id: string; changes: number }> {
         return new Promise((resolve, reject) => {
-            const buffer = Array.isArray(embedding)
-                ? Buffer.from(new Float32Array(embedding).buffer)
-                : embedding;
+            const buffer = embedding
+                ? (Array.isArray(embedding) ? Buffer.from(new Float32Array(embedding).buffer) : embedding)
+                : null;
 
-            const sql = `INSERT OR REPLACE INTO memories (chat_id, content, embedding, time) VALUES (?, ?, ?, ?)`;
+            const sql = `INSERT INTO memories (chat_id, content, embedding, time) VALUES (?, ?, ?, ?)`;
             this.db.run(sql, [chat_id, content, buffer, time], function (this: any, err: Error | null) {
                 if (err) {
                     reject(err);
                     return;
                 }
 
-                // 同步写入 FTS5 全文索引表
+                const rowid = this.lastID;
+
+                // 用相同 rowid 写入 FTS5，保证两表对齐
                 this.db.run(
-                    `INSERT INTO memories_fts (chat_id, content, time) VALUES (?, ?, ?)`,
-                    [chat_id, content, time],
+                    `INSERT INTO memories_fts (rowid, chat_id, content, time) VALUES (?, ?, ?, ?)`,
+                    [rowid, chat_id, content, time],
                     (ftsErr: Error | null) => {
                         if (ftsErr) {
-                            logger.warn("[MemoryDB] FTS5 sync insert error:", ftsErr);
+                            logger.warn("[MemoryDB] FTS5 insert error:", ftsErr);
                         }
                     }
                 );
