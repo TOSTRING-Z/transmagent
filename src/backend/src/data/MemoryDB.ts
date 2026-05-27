@@ -21,7 +21,7 @@ export class MemoryDB {
     private static instance: MemoryDB | null = null;
     private static initialized: boolean = false;
     private static initPromise: Promise<void> | null = null; // ✅ 锁住初始化过程，防止并发 init
-    private dbPath: string;
+    private dbPath!: string;
     private db: any;
 
     constructor() {
