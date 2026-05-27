@@ -155,7 +155,15 @@ export function main() {
             
             let regexObj: RegExp;
             try {
-                regexObj = new RegExp(regex, 'g');
+                // 解析内联修饰符，例如 (?i)hello → /hello/gi
+                let flags = 'g';
+                let pattern = regex;
+                const inlineFlagMatch = regex.match(/^\(\?([i]+)\)/);
+                if (inlineFlagMatch) {
+                    flags += inlineFlagMatch[1];
+                    pattern = regex.slice(inlineFlagMatch[0].length);
+                }
+                regexObj = new RegExp(pattern, flags);
             } catch (err: any) {
                 return `Error: Invalid Regular Expression - ${err.message}`;
             }
