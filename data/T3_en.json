@@ -1,0 +1,302 @@
+[
+  {
+    "id": 1,
+    "category": "Breast cancer",
+    "task": "Extract the differentially expressed gene set from breast cancer (BRCA) tumors compared to adjacent normal tissues, identify the core transcriptional regulators driving the malignant phenotype, and output the top 10 details file.",
+    "difficulty": "normal"
+  },
+  {
+    "id": 2,
+    "category": "Prostate cancer",
+    "task": "For the core targets of prostate cancer, search for transcription factors containing \"AR (androgen receptor)\" and extract their genome-wide binding region data.",
+    "difficulty": "normal"
+  },
+  {
+    "id": 3,
+    "category": "Glioblastoma",
+    "task": "Obtain TP53 binding region data in glioblastoma (GBM), perform de novo motif discovery analysis at the genomic level to identify potential co-binding sequences.",
+    "difficulty": "normal"
+  },
+  {
+    "id": 4,
+    "category": "Neuroblastoma",
+    "task": "Obtain the precise coordinates of the MYC gene and extract its promoter sequence, scan for specific transcription factor binding sites within this region to construct an upstream regulatory network.",
+    "difficulty": "normal"
+  },
+  {
+    "id": 5,
+    "category": "Heart failure",
+    "task": "Deduplicate and sort GATA4 binding region data from two different biological replicates in a mouse model of heart failure, and extract high-confidence overlapping regions.",
+    "difficulty": "normal"
+  },
+  {
+    "id": 6,
+    "category": "ER+ breast cancer",
+    "task": "Extract the promoter coordinates of known ESR1 target genes in the MCF-7 cell line, generate corresponding sequence files, and scan for specific known motifs associated with transcriptional repression.",
+    "difficulty": "normal"
+  },
+  {
+    "id": 7,
+    "category": "Metastatic melanoma",
+    "task": "Obtain a set of unknown transcription factor binding peak data derived from melanoma metastases, identify significantly enriched known motifs to infer the most likely transcription factor family (e.g., MITF).",
+    "difficulty": "normal"
+  },
+  {
+    "id": 8,
+    "category": "Lung adenocarcinoma",
+    "task": "After identifying the top-ranked core transcription factor in lung adenocarcinoma (LUAD), extract the expression matrix data for that factor across a multi-sample cohort.",
+    "difficulty": "normal"
+  },
+  {
+    "id": 9,
+    "category": "Chronic myeloid leukemia",
+    "task": "Given the coordinates of a specific active enhancer in K562 cells, extract its underlying sequence and output all predicted transcription factor binding sites with high statistical significance within this region.",
+    "difficulty": "normal"
+  },
+  {
+    "id": 10,
+    "category": "Liver development",
+    "task": "After identifying the top list of transcription factors maintaining hepatocyte fate, query the baseline average expression levels of these factors in normal liver tissue.",
+    "difficulty": "normal"
+  },
+  {
+    "id": 11,
+    "category": "Alzheimer's disease",
+    "task": "Input the chromatin open region peak data of microglia from postmortem brain tissue, perform peak annotation within a specific range upstream and downstream of the transcription start site (TSS), and output the distribution proportion statistics of each genomic element.",
+    "difficulty": "normal"
+  },
+  {
+    "id": 12,
+    "category": "Colorectal cancer",
+    "task": "Obtain the deduplicated alignment data of H3K27ac histone modification in the HCT116 cell line, perform depth normalization, and generate a continuous signal file reflecting the active chromatin state.",
+    "difficulty": "normal"
+  },
+  {
+    "id": 13,
+    "category": "Hepatocellular carcinoma",
+    "task": "Using the transcription start site as the reference center, plot a distribution heatmap of FOXA1 genome-wide binding intensity in the HepG2 cell line.",
+    "difficulty": "normal"
+  },
+  {
+    "id": 14,
+    "category": "Type 2 diabetes",
+    "task": "Compare the continuous signal files of wild-type and PDX1 knockout mouse islet cells, and plot the decay trend curves of their binding signal regions on diabetes-associated target gene sets.",
+    "difficulty": "normal"
+  },
+  {
+    "id": 15,
+    "category": "Gastric cancer",
+    "task": "Extract the coordinates of known super-enhancers in the human genome, and calculate their physical spatial overlap distribution with CDX2 binding peaks in gastric cancer cell lines.",
+    "difficulty": "normal"
+  },
+  {
+    "id": 16,
+    "category": "Rheumatoid arthritis",
+    "task": "Extract enhancer RNA and transcription factor binding site data related to synovial fibroblasts, and through regional cross-comparison, identify inflammatory regulatory hubs that are both actively transcribed and contain transcription factor binding.",
+    "difficulty": "normal"
+  },
+  {
+    "id": 17,
+    "category": "Ovarian cancer",
+    "task": "Precisely convert the PAX8 binding region coordinates based on the old genome version to the latest genome version coordinate system for modern functional annotation.",
+    "difficulty": "normal"
+  },
+  {
+    "id": 18,
+    "category": "Triple-negative breast cancer",
+    "task": "Obtain a list of extremely highly expressed mesenchymal genes, extract their coordinate positions, and use chromatin accessibility data to verify the true open state of the promoter regions of these genes.",
+    "difficulty": "normal"
+  },
+  {
+    "id": 19,
+    "category": "Macrophage inflammatory response",
+    "task": "For macrophage data under LPS stimulation, group and isolate promoter and enhancer regions, and separately visualize the binding signal abundance of the core inflammatory factor NF-κB on these two types of elements.",
+    "difficulty": "normal"
+  },
+  {
+    "id": 20,
+    "category": "BRAF-mutant melanoma",
+    "task": "Extract the intersection of high-throughput screening positive regions resistant to BRAF inhibitors and conventional enhancers, and comprehensively evaluate the genomic distribution characteristics of these key drug-resistant regulatory regions.",
+    "difficulty": "normal"
+  },
+  {
+    "id": 21,
+    "category": "Pancreatic ductal adenocarcinoma",
+    "task": "Perform standardized conversion of chromatin immunoprecipitation peak format for PANC-1 cells, integrate background control data, and systematically identify super-enhancers driving malignant proliferation of this tumor.",
+    "difficulty": "normal"
+  },
+  {
+    "id": 22,
+    "category": "Medulloblastoma",
+    "task": "After successfully identifying the super-enhancer distribution in medulloblastoma, further infer and reconstruct the core transcriptional regulatory circuit maintaining its neural stem cell characteristics.",
+    "difficulty": "normal"
+  },
+  {
+    "id": 23,
+    "category": "Osteosarcoma",
+    "task": "Extract the list of target genes driven by super-enhancers in osteosarcoma cell lines, and perform systematic functional enrichment analysis for disease classification.",
+    "difficulty": "normal"
+  },
+  {
+    "id": 24,
+    "category": "ER+ breast cancer",
+    "task": "Process ESR1 binding region data from T47D cell lines, and based on binding strength and distance potential models, predict the target gene networks directly transcriptionally upregulated and downregulated by estrogen receptor.",
+    "difficulty": "normal"
+  },
+  {
+    "id": 25,
+    "category": "Lung squamous cell carcinoma",
+    "task": "Obtain the list of core regulatory circuit transcription factors identified in lung squamous cell carcinoma samples, and extract their co-expression feature matrix in the corresponding tumor cohort.",
+    "difficulty": "normal"
+  },
+  {
+    "id": 26,
+    "category": "Systemic lupus erythematosus",
+    "task": "Analyze the overlap between super-enhancer regions identified in B cells and known disease risk single nucleotide polymorphisms (SNPs), searching for pathogenic variants disrupting autoimmune homeostasis.",
+    "difficulty": "normal"
+  },
+  {
+    "id": 27,
+    "category": "T-cell leukemia",
+    "task": "For the raw alignment data of Jurkat cells, independently and automatically complete the full epigenetic analysis cascade from peak identification, format conversion, to final super-enhancer extraction.",
+    "difficulty": "normal"
+  },
+  {
+    "id": 28,
+    "category": "Prostate cancer",
+    "task": "Obtain the set of target genes directly regulated with high potential by androgen receptor (AR) in LNCaP cell lines, and thoroughly evaluate the biological pathways dominated by these genes in tumor metabolic remodeling.",
+    "difficulty": "normal"
+  },
+  {
+    "id": 29,
+    "category": "Neuroendocrine prostate cancer",
+    "task": "Separately extract sequences of typical enhancers and super-enhancers from NEPC cell lines, and compare in parallel the significant differences in motif enrichment of specific lineage-determining factors (such as FOXA1 or REST) between the two types of regulatory elements.",
+    "difficulty": "normal"
+  },
+  {
+    "id": 30,
+    "category": "Multiple myeloma",
+    "task": "By writing efficient filtering logic, rapidly screen from genome-wide regulatory elements the top super-enhancers with length greater than a specific threshold (e.g., 50kb) and driving core oncogenes.",
+    "difficulty": "normal"
+  },
+  {
+    "id": 31,
+    "category": "Cervical cancer",
+    "task": "Provide a list of transcription factors related to the HeLa cell line, and use integrated enhancer activity and high-resolution chromatin three-dimensional contact data to precisely map their distal physical interaction target genes.",
+    "difficulty": "normal"
+  },
+  {
+    "id": 32,
+    "category": "Thyroid cancer",
+    "task": "Given an expression matrix containing thyroid tissue, based on mutual information and data processing inequality algorithms, purely computationally infer the downstream target gene network of thyroid-specific marker transcription factors.",
+    "difficulty": "normal"
+  },
+  {
+    "id": 33,
+    "category": "Acute myeloid leukemia",
+    "task": "Input acute myeloid leukemia transcriptome data, reconstruct a nonlinear co-expression prediction network of core myeloid factors based on machine learning regression algorithms, and cross-validate it with traditional mutual information networks.",
+    "difficulty": "normal"
+  },
+  {
+    "id": 34,
+    "category": "Glioma stem cells",
+    "task": "Using high-depth chromatin accessibility data from glioma stem cells, perform genome-wide transcription factor footprint analysis to find real physical occupancy evidence of protein-DNA binding.",
+    "difficulty": "normal"
+  },
+  {
+    "id": 35,
+    "category": "Type 2 diabetes",
+    "task": "Align the protected transcription factor footprint regions identified in pancreatic islet cells with expression quantitative trait locus (eQTL) data to precisely mine functional genetic variants that disrupt key factor binding.",
+    "difficulty": "normal"
+  },
+  {
+    "id": 36,
+    "category": "Clear cell renal cell carcinoma",
+    "task": "Input the standardized sequencing count matrix of clear cell renal cell carcinoma tumor and normal kidney tissue, and screen for highly significant differentially expressed genes through strict statistical thresholds.",
+    "difficulty": "normal"
+  },
+  {
+    "id": 37,
+    "category": "Bladder cancer",
+    "task": "Import the differentially expressed genes obtained from bladder cancer into a network inference model, combined with local co-expression data, to reverse trace and lock the upstream core transcription nodes that dominate the large-scale dysregulation of these genes.",
+    "difficulty": "normal"
+  },
+  {
+    "id": 38,
+    "category": "Breast cancer",
+    "task": "Compare the binding target genes identified based on three-dimensional physical contacts in breast cancer cell lines with the expression-correlated target genes predicted by machine learning, and extract and output the consensus intersection of these two independent strategies.",
+    "difficulty": "normal"
+  },
+  {
+    "id": 39,
+    "category": "Hepatocellular carcinoma",
+    "task": "Obtain non-coding RNA interaction regions related to hepatocellular carcinoma, perform spatial cross-validation with identified active enhancers, and systematically identify enhancer regulatory events mediated by non-coding RNA intervention.",
+    "difficulty": "normal"
+  },
+  {
+    "id": 40,
+    "category": "Lung squamous cell carcinoma",
+    "task": "Combine the chromatin footprint accessibility status of lung squamous cell carcinoma cells with direct binding data of known stemness factors to jointly predict the downstream driver gene set that is in an extremely open chromatin state and directly strongly activated by these factors.",
+    "difficulty": "normal"
+  },
+  {
+    "id": 41,
+    "category": "COVID-19 immune storm",
+    "task": "Receive raw sequencing paired-end read files from peripheral blood mononuclear cells of critically ill patients, automatically execute the full pipeline from quality control, adapter trimming, genome alignment, deduplication to final peak calling, and perform self-diagnosis and adjustment upon encountering errors.",
+    "difficulty": "normal"
+  },
+  {
+    "id": 42,
+    "category": "Colorectal cancer",
+    "task": "In the special case of providing single-end sequencing data from colorectal cancer cell lines, keenly identify data type characteristics and automatically adapt the underlying sequence alignment and quality control workflow processing logic.",
+    "difficulty": "normal"
+  },
+  {
+    "id": 43,
+    "category": "Melanoma",
+    "task": "Extract expression data of key transcription factors in melanoma, and programmatically generate box plots showing the expression distribution differences of these factors in skin-derived cell lines versus other tissue-derived cell lines.",
+    "difficulty": "normal"
+  },
+  {
+    "id": 44,
+    "category": "Ovarian cancer",
+    "task": "Extract multi-sample expression levels of the top-ranked core transcription factors identified in ovarian cancer, and automatically generate high-dimensional statistical scatter plots of expression correlations among these key factors.",
+    "difficulty": "normal"
+  },
+  {
+    "id": 45,
+    "category": "Idiopathic pulmonary fibrosis",
+    "task": "After performing differential expression analysis on the transcriptomes of pulmonary fibrosis and normal tissues, automatically capture significantly differentially expressed genes and seamlessly deliver them to subsequent pathway and disease enrichment modules to generate an integrated pathogenesis report.",
+    "difficulty": "normal"
+  },
+  {
+    "id": 46,
+    "category": "Alzheimer's disease",
+    "task": "Parse the raw text of complex regulatory networks inferred from Alzheimer's disease brain tissue transcriptomes, filter out core regulatory edges with connection weight scores in a very high confidence interval (e.g., top 5%), and perform formatted extraction.",
+    "difficulty": "normal"
+  },
+  {
+    "id": 47,
+    "category": "Pancreatic cancer",
+    "task": "Extract genome-wide pathogenic mutation data, identify variants precisely located within the promoter region of the KRAS gene, and then automatically extract the expression profile of the KRAS gene in corresponding tumor samples for functional validation.",
+    "difficulty": "normal"
+  },
+  {
+    "id": 48,
+    "category": "Osteoarthritis",
+    "task": "When detecting that the coordinate file of chondrocyte regions passed to the prediction model causes a format incompatibility error due to extra annotation columns, automatically perform data structure dimensionality reduction and cleaning, and rerun the blocked task node.",
+    "difficulty": "normal"
+  },
+  {
+    "id": 49,
+    "category": "Chronic myeloid leukemia",
+    "task": "For BCR-ABL positive cells, seamlessly execute the complete epigenomic discovery pipeline from peak calling to super-enhancer modeling, and deliver the final spatial coordinates to the visualization module to generate global signal histone modification peak profile plots.",
+    "difficulty": "normal"
+  },
+  {
+    "id": 50,
+    "category": "Heart failure",
+    "task": "Integrate results from dimensions such as genomic annotation distribution maps, core family motif enrichment scores, and metabolic remodeling-related differential expression volcano plots in heart failure model data, and automatically write and format a coherent comprehensive bioinformatics analysis conclusion report.",
+    "difficulty": "normal"
+  }
+]

@@ -1,0 +1,998 @@
+[
+  {
+    "id": 5,
+    "category": "Type 2 diabetes",
+    "task": "Subtask description: Perform precise overlap analysis of variants with transcription factor binding sites  \nAvailable data: /tmp/footprint_eqtl_simplified.bed, /tmp/islet_tf_footprints.bed",
+    "difficulty": "normal"
+  },
+  {
+    "id": 6,
+    "category": "Type 2 diabetes",
+    "task": "Subtask description: Calculate the distance between variants and transcription factor binding centers  \nAvailable data: /tmp/footprint_eqtl_simplified.bed, /tmp/islet_tf_footprints.bed",
+    "difficulty": "normal"
+  },
+  {
+    "id": 7,
+    "category": "Type 2 diabetes",
+    "task": "Subtask description: Screen key functional variants (distance < 100bp)  \nAvailable data: /tmp/footprint_eqtl_simplified.bed, /tmp/islet_tf_footprints.bed",
+    "difficulty": "normal"
+  },
+  {
+    "id": 8,
+    "category": "Type 2 diabetes",
+    "task": "Subtask description: Generate a list file of key functional variants  \nAvailable data: /tmp/footprint_eqtl_simplified.bed",
+    "difficulty": "normal"
+  },
+  {
+    "id": 9,
+    "category": "Type 2 diabetes",
+    "task": "Subtask description: Generate the final functional variant analysis report  \nAvailable data: /tmp/correct_key_variants.bed, /tmp/exact_overlap_results.bed",
+    "difficulty": "normal"
+  },
+  {
+    "id": 10,
+    "category": "Type 2 diabetes",
+    "task": "Subtask description: Calculate the decay trend of PDX1 signal in target gene regions  \nAvailable data: /tmp/pdx1_data/geo/GSM8554884_G1_IP_1.bw and /tmp/diabetes_genes_mm10_filtered.bed",
+    "difficulty": "normal"
+  },
+  {
+    "id": 11,
+    "category": "Type 2 diabetes",
+    "task": "Subtask description: Generate a visualization comparing wild-type and knockout signals  \nAvailable data: /tmp/pdx1_signal_values.txt and /tmp/diabetes_genes_list.txt",
+    "difficulty": "normal"
+  },
+  {
+    "id": 12,
+    "category": "BRAF-mutant melanoma",
+    "task": "Subtask description: Preprocess conventional enhancer data  \nAvailable data: /data/human/human_Enhancer.bed",
+    "difficulty": "normal"
+  },
+  {
+    "id": 13,
+    "category": "BRAF-mutant melanoma",
+    "task": "Subtask description: Analyze the intersection of drug resistance positive regions with enhancers  \nAvailable data: /tmp/enhancer_analysis/enhancer_preprocessed.bed",
+    "difficulty": "normal"
+  },
+  {
+    "id": 14,
+    "category": "BRAF-mutant melanoma",
+    "task": "Subtask description: Analyze the enhancer type characteristics of the intersection regions  \nAvailable data: /tmp/braf_resistance_enhancer_intersection/intersection_full.bed",
+    "difficulty": "normal"
+  },
+  {
+    "id": 15,
+    "category": "BRAF mutant melanoma",
+    "task": "Subtask description: Analyze the genomic distribution characteristics of drug resistance regulatory regions  \nAvailable data: /tmp/braf_resistance_enhancer_intersection/resistance_regions_with_overlap.bed",
+    "difficulty": "normal"
+  },
+  {
+    "id": 16,
+    "category": "ER+ breast cancer",
+    "task": "Subtask description: Extract promoter region coordinates of ESR1 target genes  \nAvailable data: /data/esr1_target_genes.bed",
+    "difficulty": "normal"
+  },
+  {
+    "id": 17,
+    "category": "ER+ breast cancer",
+    "task": "Subtask description: Extract promoter DNA sequences from the reference genome  \nAvailable data: /data/esr1_promoter_regions.bed",
+    "difficulty": "normal"
+  },
+  {
+    "id": 18,
+    "category": "ER+ breast cancer",
+    "task": "Subtask description: Scan promoter sequences for transcription factor binding motifs  \nAvailable data: /data/esr1_promoter_sequences.fasta",
+    "difficulty": "normal"
+  },
+  {
+    "id": 19,
+    "category": "ER+ breast cancer",
+    "task": "Subtask description: Preprocess ESR1 binding sites and prepare BETA model input  \nAvailable data: /tmp/esr1_t47d_results/ESR1_T47D_combined.bed",
+    "difficulty": "normal"
+  },
+  {
+    "id": 20,
+    "category": "ER+ breast cancer",
+    "task": "Subtask description: Run the BETA model to predict ESR1 direct target genes  \nAvailable data: /tmp/beta_model_preparation/ESR1_T47D_for_BETA.bed",
+    "difficulty": "normal"
+  },
+  {
+    "id": 21,
+    "category": "ER+ breast cancer",
+    "task": "Subtask description: Obtain expression data and distinguish up-regulated and down-regulated target genes  \nAvailable data: /tmp/beta_esr1_t47d_results_v3/ESR1_T47D_gene_scores.txt",
+    "difficulty": "normal"
+  },
+  {
+    "id": 22,
+    "category": "ER+ breast cancer",
+    "task": "Subtask description: Construct and visualize the ESR1 target gene regulatory network  \nAvailable data: /tmp/expression_analysis/esr1_targets_with_regulation.csv",
+    "difficulty": "normal"
+  },
+  {
+    "id": 23,
+    "category": "T cell leukemia",
+    "task": "Subtask description: Preprocess the TCF7 binding site BED file  \nAvailable data: /tmp/jurkat_epigenetic_analysis/input/TCF7_peaks.bed",
+    "difficulty": "normal"
+  },
+  {
+    "id": 24,
+    "category": "T cell leukemia",
+    "task": "Subtask description: Identify TCF7 super-enhancer regions  \nAvailable data: /tmp/jurkat_epigenetic_analysis/processed/TCF7_peaks_standard.bed",
+    "difficulty": "normal"
+  },
+  {
+    "id": 25,
+    "category": "T cell leukemia",
+    "task": "Subtask description: Generate super enhancer analysis result file\nAvailable data: /tmp/jurkat_epigenetic_analysis/results/all_enhancer_regions.csv",
+    "difficulty": "normal"
+  },
+  {
+    "id": 26,
+    "category": "T cell leukemia",
+    "task": "Subtask description: Create TCF7 super enhancer visualization chart\nAvailable data: /tmp/jurkat_epigenetic_analysis/results/super_enhancers.csv",
+    "difficulty": "normal"
+  },
+  {
+    "id": 27,
+    "category": "Triple-negative breast cancer",
+    "task": "Subtask description: Extract coordinates of highly expressed genes on hg38\nAvailable data: /root/synovial_fibroblast_analysis/间质化基因表达数据/common_high_expression_genes.csv",
+    "difficulty": "normal"
+  },
+  {
+    "id": 28,
+    "category": "Triple-negative breast cancer",
+    "task": "Subtask description: Validate open chromatin status of gene promoter regions in ATAC-seq\nAvailable data: /root/synovial_fibroblast_analysis/基因坐标数据/gene_promoters_hg38.bed",
+    "difficulty": "normal"
+  },
+  {
+    "id": 29,
+    "category": "Breast cancer",
+    "task": "Subtask description: Analyze differentially expressed genes between tumor and normal tissues\nAvailable data: /tmp/brca_data_acquisition/TCGA_BRCA_expression.csv",
+    "difficulty": "normal"
+  },
+  {
+    "id": 30,
+    "category": "Breast cancer",
+    "task": "Subtask description: Identify core transcriptional regulators driving differential expression\nAvailable data: /tmp/brca_data_acquisition/diffexp_results/Tumor_vs_Normal_significant_genes.tsv",
+    "difficulty": "normal"
+  },
+  {
+    "id": 31,
+    "category": "Breast cancer",
+    "task": "Subtask description: Generate top 10 transcription factor detail file\nAvailable data: /tmp/trapt_analysis/trapt_results/top10_TR_detail.txt",
+    "difficulty": "normal"
+  },
+  {
+    "id": 32,
+    "category": "Breast cancer",
+    "task": "Subtask description: Use BETA tool to identify three-dimensional physical contact target genes\nAvailable data: /tmp/mcf7_h3k27ac.bed",
+    "difficulty": "normal"
+  },
+  {
+    "id": 33,
+    "category": "Breast cancer",
+    "task": "Subtask description: Extract consensus intersection genes from two strategies\nAvailable data: /tmp/beta_results/mcf7_targets_targets.txt, /tmp/aracne_gtex_results/network_TF.txt",
+    "difficulty": "normal"
+  },
+  {
+    "id": 34,
+    "category": "Breast cancer",
+    "task": "Subtask description: Analyze detailed information of consensus gene LIFR-AS1\nAvailable data: /tmp/beta_results/mcf7_targets_targets.txt, /tmp/aracne_gtex_results/network_TF.txt",
+    "difficulty": "normal"
+  },
+  {
+    "id": 36,
+    "category": "Prostate cancer",
+    "task": "Subtask description: Preprocess AR ChIP-seq BED file for analysis\nAvailable data: /data/AR_ChIPseq_analysis/AR@Sample_02_2347.bed",
+    "difficulty": "normal"
+  },
+  {
+    "id": 37,
+    "category": "Prostate cancer",
+    "task": "Subtask description: Use BETA model to predict directly regulated target genes of AR\nAvailable data: /data/AR_ChIPseq_analysis/AR@Sample_02_2347_preprocessed.bed",
+    "difficulty": "normal"
+  },
+  {
+    "id": 38,
+    "category": "Prostate cancer",
+    "task": "Subtask description: Perform pathway enrichment analysis on AR target genes\nAvailable data: /data/AR_ChIPseq_analysis/AR_target_genes_clean.txt",
+    "difficulty": "normal"
+  },
+  {
+    "id": 39,
+    "category": "Prostate cancer",
+    "task": "Subtask description: In-depth evaluation of the role of AR target genes in tumor metabolism pathways\nAvailable data: /data/AR_ChIPseq_analysis/AR_target_genes_for_pathway.txt",
+    "difficulty": "normal"
+  },
+  {
+    "id": 40,
+    "category": "Prostate cancer",
+    "task": "Subtask description: Visualize pathway enrichment of AR target genes in tumor metabolism\nAvailable data: /data/AR_ChIPseq_analysis/pathway_analysis_results/KEGG.txt",
+    "difficulty": "normal"
+  },
+  {
+    "id": 41,
+    "category": "Ovarian cancer",
+    "task": "Subtask description: Obtain BED file of transcription factor binding regions\nAvailable data: /tmp/tr_for_bed.txt",
+    "difficulty": "normal"
+  },
+  {
+    "id": 42,
+    "category": "Ovarian cancer",
+    "task": "Subtask description: Identify core transcription factor rankings in ovarian cancer\nAvailable data: /tmp/ovarian_cancer_tf_list.txt",
+    "difficulty": "normal"
+  },
+  {
+    "id": 43,
+    "category": "Ovarian cancer",
+    "task": "Subtask description: Extract expression data of core transcription factors\nAvailable data: /tmp/ovarian_tf_expression_full.csv",
+    "difficulty": "normal"
+  },
+  {
+    "id": 44,
+    "category": "Ovarian cancer",
+    "task": "Subtask description: Analyze expression correlation of core transcription factors\nAvailable data: /tmp/core_tf_expression.csv",
+    "difficulty": "normal"
+  },
+  {
+    "id": 45,
+    "category": "Ovarian cancer",
+    "task": "Subtask description: Generate visualization of core transcription factor correlation\nAvailable data: /tmp/core_tf_expression.csv",
+    "difficulty": "normal"
+  },
+  {
+    "id": 47,
+    "category": "Ovarian cancer",
+    "task": "Subtask description: Infer the genome version of PAX8 data\nAvailable data: /tmp/tr_predictor_output/PAX8_merged.bed",
+    "difficulty": "normal"
+  },
+  {
+    "id": 48,
+    "category": "Ovarian cancer",
+    "task": "Subtask description: Perform coordinate conversion of PAX8 from hg19 to hg38\nAvailable data: /tmp/tr_predictor_output/PAX8_merged.bed",
+    "difficulty": "normal"
+  },
+  {
+    "id": 51,
+    "category": "Multiple myeloma",
+    "task": "Subtask description: Preprocess the super-enhancer BED file\nAvailable data: /tmp/super_enhancers.bed",
+    "difficulty": "normal"
+  },
+  {
+    "id": 52,
+    "category": "Multiple myeloma",
+    "task": "Subtask description: Filter super-enhancers longer than 50 kb\nAvailable data: /tmp/super_enhancers_processed.bed",
+    "difficulty": "normal"
+  },
+  {
+    "id": 53,
+    "category": "Multiple myeloma",
+    "task": "Subtask description: Analyze the association between super-enhancers and oncogenes\nAvailable data: /tmp/super_enhancers_gt50kb.bed and /tmp/cancer_genes.bed",
+    "difficulty": "normal"
+  },
+  {
+    "id": 54,
+    "category": "Multiple myeloma",
+    "task": "Subtask description: Filter top super-enhancers driving core oncogenes\nAvailable data: /tmp/super_enhancer_cancer_gene_pairs_100kb.bed",
+    "difficulty": "normal"
+  },
+  {
+    "id": 55,
+    "category": "Cervical cancer",
+    "task": "Subtask description: Analyze the spatial association between transcription factors and active enhancers\nAvailable data: /tmp/hela_tf_binding_sites.bed, /tmp/hela_active_enhancers.bed",
+    "difficulty": "normal"
+  },
+  {
+    "id": 56,
+    "category": "Cervical cancer",
+    "task": "Subtask description: Analyze the spatial association between enhancers and gene promoters\nAvailable data: /tmp/hela_active_enhancers.bed, /tmp/gene_promoters.bed",
+    "difficulty": "normal"
+  },
+  {
+    "id": 57,
+    "category": "Cervical cancer",
+    "task": "Subtask description: Integrate transcription factor-enhancer-gene triplets\nAvailable data: /tmp/chromatin_analysis_real/tf_enhancer_associations.bed, /tmp/enhancer_promoter_associations_filtered.bed",
+    "difficulty": "normal"
+  },
+  {
+    "id": 58,
+    "category": "Cervical cancer",
+    "task": "Subtask description: Filter and sort to obtain the final target gene mapping\nAvailable data: /tmp/tf_enhancer_gene_triplets.csv",
+    "difficulty": "normal"
+  },
+  {
+    "id": 59,
+    "category": "Macrophage inflammatory response",
+    "task": "Subtask description: Obtain enhancer region annotation file\nAvailable data: /data/human/human_Enhancer.bed",
+    "difficulty": "normal"
+  },
+  {
+    "id": 60,
+    "category": "Macrophage inflammatory response",
+    "task": "Subtask description: Summarize the binding patterns of NF-κB at promoters and enhancers\nAvailable data: /tmp/nfkb_binding_analysis/nfkb_analysis_report.txt",
+    "difficulty": "normal"
+  },
+  {
+    "id": 62,
+    "category": "Heart failure",
+    "task": "Subtask description: Identify biological replicate pairs for the heart failure model\nAvailable data: /data/trapt/library/TRs_info.txt",
+    "difficulty": "normal"
+  },
+  {
+    "id": 65,
+    "category": "Heart failure",
+    "task": "Subtask description: Sort two biological replicate BED files\nAvailable data: /data/trapt/TR_bed/GATA4@Sample_04_0622.bed",
+    "difficulty": "normal"
+  },
+  {
+    "id": 66,
+    "category": "Heart failure",
+    "task": "Subtask description: Sort two biological replicate BED files\nAvailable data: /data/trapt/TR_bed/GATA4@Sample_04_0633.bed",
+    "difficulty": "normal"
+  },
+  {
+    "id": 67,
+    "category": "Heart failure",
+    "task": "Subtask description: Calculate the intersection regions of two biological replicates\nAvailable data: /tmp/gata4_heart_failure_analysis/GATA4_0622_sorted.bed",
+    "difficulty": "normal"
+  },
+  {
+    "id": 68,
+    "category": "Heart failure",
+    "task": "Subtask description: Extract high-confidence GATA4 binding regions\nAvailable data: /tmp/gata4_heart_failure_analysis/GATA4_intersection.bed",
+    "difficulty": "normal"
+  },
+  {
+    "id": 69,
+    "category": "Heart failure",
+    "task": "Subtask description: Analyze core family motif enrichment scores\nAvailable data: /tmp/enrichment_summary.csv",
+    "difficulty": "normal"
+  },
+  {
+    "id": 70,
+    "category": "Heart failure",
+    "task": "Subtask description: Analyze differentially expressed gene data\nAvailable data: /tmp/differential_genes.txt",
+    "difficulty": "normal"
+  },
+  {
+    "id": 71,
+    "category": "Heart failure",
+    "task": "Subtask description: Analyze genomic annotation distribution characteristics\nAvailable data: /tmp/chipseeker_output/annoStat.csv",
+    "difficulty": "normal"
+  },
+  {
+    "id": 73,
+    "category": "Acute myeloid leukemia",
+    "task": "Subtask description: Extract and preprocess AML expression matrix\nAvailable data: /tmp/downloads/GSE10358_series_matrix.txt",
+    "difficulty": "normal"
+  },
+  {
+    "id": 75,
+    "category": "Acute myeloid leukemia",
+    "task": "Subtask description: Build a machine learning co-expression network using GENIE3\nAvailable data: /tmp/aml_ml_ready/aml_feature_matrix.csv",
+    "difficulty": "normal"
+  },
+  {
+    "id": 76,
+    "category": "Acute myeloid leukemia",
+    "task": "Subtask description: Build a traditional mutual information network using ARACNe\nAvailable data: /tmp/aml_ml_ready/aml_feature_matrix.csv",
+    "difficulty": "normal"
+  },
+  {
+    "id": 77,
+    "category": "Acute myeloid leukemia",
+    "task": "Subtask description: Compare GENIE3 and ARACNe network results\nAvailable data: /tmp/genie3_output/genie3_network.txt",
+    "difficulty": "normal"
+  },
+  {
+    "id": 78,
+    "category": "Chronic myeloid leukemia",
+    "task": "Subtask description: Perform basic data analysis for the epigenetic discovery pipeline\nAvailable data: /tmp/bcr_abl_epigenetic_analysis/input/H3K27ac_peaks.bed",
+    "difficulty": "normal"
+  },
+  {
+    "id": 79,
+    "category": "Chronic myeloid leukemia",
+    "task": "Subtask description: Analyze the overlap between H3K27ac peaks and transcription factor regions\nAvailable data: /tmp/bcr_abl_epigenetic_analysis/input/H3K27ac_peaks.bed",
+    "difficulty": "normal"
+  },
+  {
+    "id": 80,
+    "category": "Chronic myeloid leukemia",
+    "task": "Subtask description: Extract spatial coordinates of super-enhancer candidate regions\nAvailable data: /tmp/bcr_abl_epigenetic_analysis/output/overlap_results.bed",
+    "difficulty": "normal"
+  },
+  {
+    "id": 81,
+    "category": "Chronic myeloid leukemia",
+    "task": "Subtask description: Generate peak profile plots for histone modification signals\nAvailable data: /tmp/bcr_abl_epigenetic_analysis/output/spatial_coordinates.bed",
+    "difficulty": "normal"
+  },
+  {
+    "id": 82,
+    "category": "Chronic myeloid leukemia",
+    "task": "Subtask description: Extract K562 enhancer DNA sequences from the hg38 genome\nAvailable data: /tmp/k562_enhancers_preprocessed.bed",
+    "difficulty": "normal"
+  },
+  {
+    "id": 83,
+    "category": "Chronic myeloid leukemia",
+    "task": "Subtask description: Predict transcription factor binding sites in K562 enhancers\nAvailable data: /tmp/k562_enhancer_sequences.fa",
+    "difficulty": "normal"
+  },
+  {
+    "id": 84,
+    "category": "Chronic myeloid leukemia",
+    "task": "Subtask description: Extract and filter highly significant transcription factor binding sites\nAvailable data: /tmp/fimo_results/fimo.tsv",
+    "difficulty": "normal"
+  },
+  {
+    "id": 87,
+    "category": "Thyroid carcinoma",
+    "task": "Subtask description: Find multi-tissue expression matrix file\nAvailable data: /tmp/tp53_expression_matrix_v2.txt",
+    "difficulty": "normal"
+  },
+  {
+    "id": 88,
+    "category": "Thyroid carcinoma",
+    "task": "Subtask description: Search for multi-gene multi-tissue expression matrix\nAvailable data: /tmp/pathway_expression.csv",
+    "difficulty": "normal"
+  },
+  {
+    "id": 89,
+    "category": "Thyroid carcinoma",
+    "task": "Subtask description: Extract thyroid tissue expression data\nAvailable data: /tmp/pathway_expression.csv",
+    "difficulty": "normal"
+  },
+  {
+    "id": 90,
+    "category": "Thyroid carcinoma",
+    "task": "Subtask description: Obtain list of thyroid-related transcription factors\nAvailable data: /data/trapt/library/TRs_info.txt",
+    "difficulty": "normal"
+  },
+  {
+    "id": 91,
+    "category": "Thyroid carcinoma",
+    "task": "Subtask description: Find expression matrix containing transcription factors\nAvailable data: /tmp/tr_prediction_output/expression/gtex_filtered_expression.csv",
+    "difficulty": "normal"
+  },
+  {
+    "id": 92,
+    "category": "Thyroid carcinoma",
+    "task": "Subtask description: Extract thyroid cancer expression data and identify transcription factors\nAvailable data: /tmp/tr_prediction_output/expression/gtex_filtered_expression.csv",
+    "difficulty": "normal"
+  },
+  {
+    "id": 93,
+    "category": "Thyroid carcinoma",
+    "task": "Subtask description: Run ARACNe algorithm to infer regulatory network\nAvailable data: /tmp/thca_expression_matrix.csv",
+    "difficulty": "normal"
+  },
+  {
+    "id": 94,
+    "category": "Neuroendocrine prostate cancer",
+    "task": "Subtask description: Preprocess NEPC enhancer BED file\nAvailable data: /data/NEPC_enhancer_analysis/NEPC_enhancers_combined.bed",
+    "difficulty": "normal"
+  },
+  {
+    "id": 95,
+    "category": "Neuroendocrine prostate cancer",
+    "task": "Subtask description: Separate super-enhancers from typical enhancers\nAvailable data: /data/NEPC_enhancer_analysis/NEPC_enhancers_preprocessed_filtered.bed",
+    "difficulty": "normal"
+  },
+  {
+    "id": 96,
+    "category": "Neuroendocrine prostate cancer",
+    "task": "Subtask description: Extract DNA sequences of two types of enhancers\nAvailable data: /data/NEPC_enhancer_analysis/classification/super_enhancers_final.bed, /data/NEPC_enhancer_analysis/classification/regular_enhancers_final.bed",
+    "difficulty": "normal"
+  },
+  {
+    "id": 97,
+    "category": "Neuroendocrine prostate cancer",
+    "task": "Subtask description: Analyze differences in FOXA1 and REST motif enrichment\nAvailable data: /data/NEPC_enhancer_analysis/sequence_extraction/super_enhancers_sequences.fa, /data/NEPC_enhancer_analysis/sequence_extraction/regular_enhancers_sequences.fa",
+    "difficulty": "normal"
+  },
+  {
+    "id": 98,
+    "category": "Neuroendocrine prostate cancer",
+    "task": "Subtask description: Visualize results of motif enrichment differences\nAvailable data: /data/NEPC_enhancer_analysis/motif_comparison/foxa1_rest_comparison_report_dynamic.txt",
+    "difficulty": "normal"
+  },
+  {
+    "id": 99,
+    "category": "Neuroblastoma",
+    "task": "Subtask description: Extract DNA sequence of the MYC gene promoter region\nAvailable data: /root/myc_analysis/myc_gene_hg38.bed",
+    "difficulty": "normal"
+  },
+  {
+    "id": 100,
+    "category": "Neuroblastoma",
+    "task": "Subtask description: Scan transcription factor binding sites in the MYC promoter region\nAvailable data: /root/myc_analysis/myc_promoter_sequence.fa",
+    "difficulty": "normal"
+  },
+  {
+    "id": 101,
+    "category": "Neuroblastoma",
+    "task": "Subtask description: Analyze the upstream regulatory network of MYC using the TRAPT tool\nAvailable data: /root/myc_analysis/myc_gene.txt",
+    "difficulty": "normal"
+  },
+  {
+    "id": 102,
+    "category": "Rheumatoid arthritis",
+    "task": "Subtask description: Preprocess the synovial fibroblast eRNA BED file\nAvailable data: /tmp/synovial_fibroblast_erna.bed",
+    "difficulty": "normal"
+  },
+  {
+    "id": 103,
+    "category": "Rheumatoid arthritis",
+    "task": "Subtask description: Preprocess transcription factor binding site BED files\nAvailable data: /tmp/AATF@TcoF_00_41072.bed and /tmp/ADNP@Sample_01_0380.bed",
+    "difficulty": "normal"
+  },
+  {
+    "id": 104,
+    "category": "Rheumatoid arthritis",
+    "task": "Subtask description: Cross-compare eRNA with transcription factor binding regions\nAvailable data: /tmp/synovial_fibroblast_erna_preprocessed.bed, /tmp/AATF_preprocessed.bed, /tmp/ADNP_preprocessed.bed",
+    "difficulty": "normal"
+  },
+  {
+    "id": 105,
+    "category": "Rheumatoid arthritis",
+    "task": "Subtask description: Perform gene annotation on inflammatory regulatory hub regions\nAvailable data: /tmp/erna_aatf_intersect.bed and /tmp/erna_adnp_intersect.bed",
+    "difficulty": "normal"
+  },
+  {
+    "id": 106,
+    "category": "Rheumatoid arthritis",
+    "task": "Subtask description: Generate visualization charts for analysis results\nAvailable data: /tmp/chipseeker_results/ChIPseeker_annotation.csv",
+    "difficulty": "normal"
+  },
+  {
+    "id": 107,
+    "category": "Systemic lupus erythematosus",
+    "task": "Subtask description: Analyze the overlap between super-enhancers and SNPs\nAvailable data: /tmp/bcell_snp_analysis/bcell_se_regions.bed, /tmp/bcell_snp_analysis/risk_snp_regions.bed",
+    "difficulty": "normal"
+  },
+  {
+    "id": 108,
+    "category": "Systemic lupus erythematosus",
+    "task": "Subtask description: Extract genes associated with overlapping SNPs\nAvailable data: /tmp/bcell_snp_analysis/all_overlap_snp_details.txt",
+    "difficulty": "normal"
+  },
+  {
+    "id": 109,
+    "category": "Systemic lupus erythematosus",
+    "task": "Subtask description: Perform functional enrichment analysis on rheumatoid arthritis genes\nAvailable data: /tmp/enrichment_analysis/overlapping_rheumatoid_genes.txt",
+    "difficulty": "normal"
+  },
+  {
+    "id": 110,
+    "category": "Colorectal cancer",
+    "task": "Subtask description: Obtain raw BED format data for specified H3K27ac samples\nAvailable data: /data/sedb/bed/SE_01_0034.bed",
+    "difficulty": "normal"
+  },
+  {
+    "id": 111,
+    "category": "Colorectal cancer",
+    "task": "Subtask description: Preprocess BED file for deduplication, sorting, and merging\nAvailable data: /tmp/hct116_h3k27ac_original.bed",
+    "difficulty": "normal"
+  },
+  {
+    "id": 112,
+    "category": "Colorectal cancer",
+    "task": "Subtask description: Generate depth-normalized continuous signal bigWig file\nAvailable data: /tmp/hct116_h3k27ac_preprocessed.bed",
+    "difficulty": "normal"
+  },
+  {
+    "id": 113,
+    "category": "Hepatocellular carcinoma",
+    "task": "Subtask description: Preprocess FOXA1 BED file, filter non-primary chromosomes\nAvailable data: /tmp/FOXA1_HepG2_data/FOXA1_HepG2_ChIPseq.bed",
+    "difficulty": "normal"
+  },
+  {
+    "id": 114,
+    "category": "Hepatocellular carcinoma",
+    "task": "Subtask description: Convert FOXA1 binding sites to signal intensity bigWig file\nAvailable data: /tmp/FOXA1_analysis/FOXA1_main_chrom.bed",
+    "difficulty": "normal"
+  },
+  {
+    "id": 118,
+    "category": "Liver development",
+    "task": "Subtask description: Extract transcription factor expression levels in liver from GTEx database\nAvailable data: /data/exp/normal_tissue_GTEx.tsv",
+    "difficulty": "normal"
+  },
+  {
+    "id": 119,
+    "category": "Liver development",
+    "task": "Subtask description: Analyze tissue-specific expression patterns of transcription factors\nAvailable data: /tmp/hepatocyte_tf_analysis/tissue_specificity_analysis.tsv",
+    "difficulty": "normal"
+  },
+  {
+    "id": 120,
+    "category": "Liver development",
+    "task": "Subtask description: Generate a bar chart of transcription factor liver expression levels\nAvailable data: /tmp/hepatocyte_tf_analysis/liver_expression_data.tsv",
+    "difficulty": "normal"
+  },
+  {
+    "id": 121,
+    "category": "Liver development",
+    "task": "Subtask description: Generate a heatmap of transcription factor multi-tissue expression\nAvailable data: /tmp/hepatocyte_tf_analysis/tissue_expression_matrix.tsv",
+    "difficulty": "normal"
+  },
+  {
+    "id": 122,
+    "category": "Liver development",
+    "task": "Subtask description: Generate a complete hepatocyte transcription factor analysis report\nAvailable data: /tmp/hepatocyte_tf_analysis/hepatocyte_tf_analysis_report.txt",
+    "difficulty": "normal"
+  },
+  {
+    "id": 123,
+    "category": "Lung adenocarcinoma",
+    "task": "Subtask description: Identify core transcription factors in lung adenocarcinoma\nAvailable data: /tmp/all_tfs_simple.txt, /tmp/luad_raw_expression_matrix.tsv",
+    "difficulty": "normal"
+  },
+  {
+    "id": 124,
+    "category": "Lung adenocarcinoma",
+    "task": "Subtask description: Extract the expression matrix of core transcription factor TAL1\nAvailable data: /tmp/luad_raw_expression_matrix.tsv",
+    "difficulty": "normal"
+  },
+  {
+    "id": 125,
+    "category": "Lung squamous cell carcinoma",
+    "task": "Subtask description: Obtain TCGA lung squamous cell carcinoma expression data\nAvailable data: /tmp/lusc_analysis/tcga_lusc_expression.csv",
+    "difficulty": "normal"
+  },
+  {
+    "id": 126,
+    "category": "Lung squamous cell carcinoma",
+    "task": "Subtask description: Perform differential expression analysis on the expression data\nAvailable data: /tmp/lusc_analysis/tcga_lusc_expression.csv",
+    "difficulty": "normal"
+  },
+  {
+    "id": 128,
+    "category": "Lung squamous cell carcinoma",
+    "task": "Subtask description: Standardize transcription factor gene names\nAvailable data: /tmp/lusc_analysis/core_tfs.txt",
+    "difficulty": "normal"
+  },
+  {
+    "id": 129,
+    "category": "Lung squamous cell carcinoma",
+    "task": "Subtask description: Extract the core transcription factor co-expression matrix\nAvailable data: /tmp/lusc_analysis/tcga_lusc_expression.csv",
+    "difficulty": "normal"
+  },
+  {
+    "id": 130,
+    "category": "Lung squamous cell carcinoma",
+    "task": "Subtask description: Analyze correlations between transcription factors\nAvailable data: /tmp/lusc_analysis/tf_coexpression_matrix.csv",
+    "difficulty": "normal"
+  },
+  {
+    "id": 131,
+    "category": "Lung squamous cell carcinoma",
+    "task": "Subtask description: Analyze overlap between ATAC-seq open regions and SOX2 binding regions\nAvailable data: /tmp/lusc_analysis/atac_top10_3col.bed, /tmp/lusc_analysis/sox2_sorted.bed",
+    "difficulty": "normal"
+  },
+  {
+    "id": 132,
+    "category": "Lung squamous cell carcinoma",
+    "task": "Subtask description: Perform genomic annotation of overlapping regions\nAvailable data: /tmp/lusc_analysis/overlap_atac_sox2.bed",
+    "difficulty": "normal"
+  },
+  {
+    "id": 133,
+    "category": "Lung squamous cell carcinoma",
+    "task": "Subtask description: Predict SOX2 directly regulated target genes based on binding data\nAvailable data: /tmp/lusc_analysis/overlap_atac_sox2.bed",
+    "difficulty": "normal"
+  },
+  {
+    "id": 134,
+    "category": "Lung squamous cell carcinoma",
+    "task": "Subtask description: Extract high-scoring target genes for functional enrichment analysis\nAvailable data: /tmp/lusc_analysis/beta_output/BETA_targets_targets.txt",
+    "difficulty": "normal"
+  },
+  {
+    "id": 135,
+    "category": "Lung squamous cell carcinoma",
+    "task": "Subtask description: Perform GO biological process enrichment analysis on high-scoring genes\nAvailable data: /tmp/lusc_analysis/enrichment/high_score_genes.txt",
+    "difficulty": "normal"
+  },
+  {
+    "id": 136,
+    "category": "Lung squamous cell carcinoma",
+    "task": "Subtask description: Analyze association between overlapping regions and enhancer annotations\nAvailable data: /tmp/lusc_analysis/overlap_atac_sox2.bed, /data/human/human_Enhancer.bed",
+    "difficulty": "normal"
+  },
+  {
+    "id": 137,
+    "category": "Kidney renal clear cell carcinoma",
+    "task": "Subtask description: Create sample metadata to distinguish tumor from normal tissue\nAvailable data: /tmp/kirc_expression_data.tsv",
+    "difficulty": "normal"
+  },
+  {
+    "id": 138,
+    "category": "Kidney renal clear cell carcinoma",
+    "task": "Subtask description: Perform differential expression analysis to screen significant genes\nAvailable data: /tmp/kirc_expression_data_fixed.tsv",
+    "difficulty": "normal"
+  },
+  {
+    "id": 139,
+    "category": "Kidney renal clear cell carcinoma",
+    "task": "Subtask description: Perform pathway enrichment analysis on significantly downregulated genes\nAvailable data: /tmp/kirc_significant_genes.txt",
+    "difficulty": "normal"
+  },
+  {
+    "id": 140,
+    "category": "Clear cell renal cell carcinoma",
+    "task": "Subtask description: Generate final report for differential expression analysis of kidney renal clear cell carcinoma\nAvailable data: /tmp/kirc_differential_expression_final_report.txt",
+    "difficulty": "normal"
+  },
+  {
+    "id": 141,
+    "category": "Gastric cancer",
+    "task": "Subtask description: Obtain and merge CDX2 transcription factor binding peak BED files\nAvailable data: /tmp/cdx2_tr_list.txt",
+    "difficulty": "normal"
+  },
+  {
+    "id": 142,
+    "category": "Gastric cancer",
+    "task": "Subtask description: Preprocess super-enhancer BED file to standardize format\nAvailable data: /tmp/super_enhancers.bed",
+    "difficulty": "normal"
+  },
+  {
+    "id": 143,
+    "category": "Gastric cancer",
+    "task": "Subtask description: Preprocess CDX2 binding peak BED file to standardize format\nAvailable data: /tmp/cdx2_merged.bed",
+    "difficulty": "normal"
+  },
+  {
+    "id": 144,
+    "category": "Gastric cancer",
+    "task": "Subtask description: Calculate physical spatial overlap between super-enhancers and CDX2 binding peaks\nAvailable data: /tmp/super_enhancers_preprocessed.bed /tmp/cdx2_preprocessed.bed",
+    "difficulty": "normal"
+  },
+  {
+    "id": 145,
+    "category": "Gastric cancer",
+    "task": "Subtask description: Visualize overlap analysis results and generate charts\nAvailable data: /tmp/se_cdx2_overlap_final.bed",
+    "difficulty": "normal"
+  },
+  {
+    "id": 146,
+    "category": "Pancreatic ductal adenocarcinoma",
+    "task": "Subtask description: Standardize super-enhancer BED file format\nAvailable data: /tmp/preprocessed_SEdbv2.bed",
+    "difficulty": "normal"
+  },
+  {
+    "id": 147,
+    "category": "Pancreatic ductal adenocarcinoma",
+    "task": "Subtask description: Perform genomic annotation of super-enhancer regions\nAvailable data: /tmp/panc1_super_enhancer_analysis/SE_standardized.bed",
+    "difficulty": "normal"
+  },
+  {
+    "id": 148,
+    "category": "Pancreatic ductal adenocarcinoma",
+    "task": "Subtask description: Analyze genes regulated by multiple super-enhancers\nAvailable data: /tmp/panc1_super_enhancer_analysis/multi_se_genes.csv",
+    "difficulty": "normal"
+  },
+  {
+    "id": 149,
+    "category": "Pancreatic ductal adenocarcinoma",
+    "task": "Subtask description: Perform GO enrichment analysis on genes regulated by multiple super-enhancers\nAvailable data: /tmp/panc1_super_enhancer_analysis/multi_se_genes.csv",
+    "difficulty": "normal"
+  },
+  {
+    "id": 150,
+    "category": "Pancreatic ductal adenocarcinoma",
+    "task": "Subtask description: Perform KEGG enrichment analysis on multi-super-enhancer-regulated genes\nAvailable data: /tmp/panc1_super_enhancer_analysis/multi_se_genes.csv",
+    "difficulty": "normal"
+  },
+  {
+    "id": 151,
+    "category": "Pancreatic cancer",
+    "task": "Subtask description: Extract the promoter region of the KRAS gene\nAvailable data: /tmp/kras_simple.txt",
+    "difficulty": "normal"
+  },
+  {
+    "id": 152,
+    "category": "Pancreatic cancer",
+    "task": "Subtask description: Filter pathogenic mutations located within the KRAS promoter region\nAvailable data: /tmp/snp_data_preprocessed.bed",
+    "difficulty": "normal"
+  },
+  {
+    "id": 153,
+    "category": "Pancreatic cancer",
+    "task": "Subtask description: Obtain expression profile data of the KRAS gene in tumor samples\nAvailable data: /tmp/cleaned_expression.csv",
+    "difficulty": "normal"
+  },
+  {
+    "id": 154,
+    "category": "Pancreatic cancer",
+    "task": "Subtask description: Analyze the impact of KRAS promoter variants on gene expression\nAvailable data: /tmp/cleaned_expression.csv",
+    "difficulty": "normal"
+  },
+  {
+    "id": 155,
+    "category": "Glioblastoma",
+    "task": "Subtask description: Obtain the merged BED file for TP53 and analyze basic information\nAvailable data: /data/trapt/tr_bed_merged/TP53_merged.bed",
+    "difficulty": "normal"
+  },
+  {
+    "id": 156,
+    "category": "Glioblastoma",
+    "task": "Subtask description: Preprocess the TP53 binding region BED file\nAvailable data: /tmp/tp53_analysis/TP53_merged.bed",
+    "difficulty": "normal"
+  },
+  {
+    "id": 157,
+    "category": "Glioblastoma",
+    "task": "Subtask description: Perform genomic annotation analysis on TP53 binding regions\nAvailable data: /tmp/tp53_analysis/TP53_preprocessed.bed",
+    "difficulty": "normal"
+  },
+  {
+    "id": 158,
+    "category": "Glioblastoma",
+    "task": "Subtask description: Extract DNA sequences of TP53 binding regions\nAvailable data: /tmp/tp53_analysis/TP53_preprocessed.bed",
+    "difficulty": "normal"
+  },
+  {
+    "id": 159,
+    "category": "Glioblastoma",
+    "task": "Subtask description: Perform de novo motif discovery analysis to identify TP53 binding patterns\nAvailable data: /tmp/tp53_analysis/TP53_sequences_subset.fa",
+    "difficulty": "normal"
+  },
+  {
+    "id": 160,
+    "category": "Glioma stem cells",
+    "task": "Subtask description: Perform transcription factor binding site analysis for a single sample\nAvailable data: /data/glioma_tf_footprint_analysis/preprocessed/Sample_H_2732_standard.bed",
+    "difficulty": "normal"
+  },
+  {
+    "id": 161,
+    "category": "Glioma stem cells",
+    "task": "Subtask description: Generate a heatmap visualization for transcription factor enrichment\nAvailable data: /data/glioma_tf_footprint_analysis/final_tf_analysis/tf_enrichment_matrix.csv",
+    "difficulty": "normal"
+  },
+  {
+    "id": 162,
+    "category": "Bladder cancer",
+    "task": "Subtask description: Perform differential expression analysis to identify significant genes\nAvailable data: /tmp/blca_expression_data.tsv",
+    "difficulty": "normal"
+  },
+  {
+    "id": 163,
+    "category": "Bladder cancer",
+    "task": "Subtask description: Construct a transcription factor-target gene regulatory network\nAvailable data: /tmp/blca_significant_genes.tsv",
+    "difficulty": "normal"
+  },
+  {
+    "id": 164,
+    "category": "Bladder cancer",
+    "task": "Subtask description: Identify upstream core transcriptional regulatory nodes\nAvailable data: /tmp/blca_significant_genes.tsv",
+    "difficulty": "normal"
+  },
+  {
+    "id": 165,
+    "category": "Bladder cancer",
+    "task": "Subtask description: Generate visualizations to display analysis results\nAvailable data: /tmp/blca_core_transcriptional_nodes.tsv",
+    "difficulty": "normal"
+  },
+  {
+    "id": 166,
+    "category": "Metastatic melanoma",
+    "task": "Subtask description: Analyze ATAC-seq sample metadata to select representative samples\nAvailable data: /data/atacdb/ATACdb2.0.csv",
+    "difficulty": "normal"
+  },
+  {
+    "id": 167,
+    "category": "Metastatic melanoma",
+    "task": "Subtask description: Extract peak region DNA sequences from the hg38 genome\nAvailable data: /data/atacdb/bed/Sample_H_0387.bed",
+    "difficulty": "normal"
+  },
+  {
+    "id": 168,
+    "category": "Metastatic melanoma",
+    "task": "Subtask description: Perform motif enrichment analysis using HOMER\nAvailable data: /tmp/Sample_H_0387_sequences.fa",
+    "difficulty": "normal"
+  },
+  {
+    "id": 169,
+    "category": "Metastatic melanoma",
+    "task": "Subtask description: Parse motif enrichment results to infer transcription factor families\nAvailable data: /tmp/homer_results_Sample_H_0387_simple/knownResults.txt",
+    "difficulty": "normal"
+  },
+  {
+    "id": 170,
+    "category": "Alzheimer's disease",
+    "task": "Subtask description: Extract the top 5% core regulatory edges by weight from the network data\nAvailable data: /tmp/celloracle_final_results/grn_network_links.csv",
+    "difficulty": "normal"
+  },
+  {
+    "id": 172,
+    "category": "Alzheimer's disease",
+    "task": "Subtask description: Analyze the network weight distribution and key connections\nAvailable data: /tmp/celloracle_final_results/grn_network_links.csv",
+    "difficulty": "normal"
+  },
+  {
+    "id": 173,
+    "category": "Osteoarthritis",
+    "task": "Subtask description: Locate the chondrocyte region coordinate file and analyze format issues\nAvailable data: /tmp/super_enhancers.bed",
+    "difficulty": "normal"
+  },
+  {
+    "id": 174,
+    "category": "Osteoarthritis",
+    "task": "Subtask description: Clean the coordinate file and reduce it to standard BED6 format\nAvailable data: /tmp/super_enhancers.bed",
+    "difficulty": "normal"
+  },
+  {
+    "id": 176,
+    "category": "Osteoarthritis",
+    "task": "Subtask description: Rerun the prediction model task nodes that were blocked due to format issues\nAvailable data: /tmp/super_enhancers_clean.bed",
+    "difficulty": "normal"
+  },
+  {
+    "id": 178,
+    "category": "Osteosarcoma",
+    "task": "Subtask description: Search for H3K27ac super-enhancer data in osteosarcoma cell lines\nAvailable data: /data/sedb/SEdb 3.0.csv",
+    "difficulty": "normal"
+  },
+  {
+    "id": 179,
+    "category": "Osteosarcoma",
+    "task": "Subtask description: Obtain the H3K27ac super-enhancer BED file for the U2OS cell line\nAvailable data: /data/sedb/bed/SE_02_2127.bed",
+    "difficulty": "normal"
+  },
+  {
+    "id": 180,
+    "category": "Osteosarcoma",
+    "task": "Subtask description: Map super-enhancer regions to the nearest genes\nAvailable data: /tmp/SE_02_2127.bed, /tmp/hg38_genes.bed",
+    "difficulty": "normal"
+  },
+  {
+    "id": 181,
+    "category": "Osteosarcoma",
+    "task": "Subtask description: Perform disease-type functional enrichment analysis on target genes\nAvailable data: /tmp/SE_target_genes_filtered.txt",
+    "difficulty": "normal"
+  },
+  {
+    "id": 182,
+    "category": "Osteosarcoma",
+    "task": "Subtask description: Perform cancer functional state enrichment analysis on target genes\nAvailable data: /tmp/SE_target_genes_filtered.txt",
+    "difficulty": "normal"
+  },
+  {
+    "id": 183,
+    "category": "Osteosarcoma",
+    "task": "Subtask description: Perform signaling pathway enrichment analysis on target genes\nAvailable data: /tmp/SE_target_genes_filtered.txt",
+    "difficulty": "normal"
+  },
+  {
+    "id": 184,
+    "category": "Osteosarcoma",
+    "task": "Subtask description: Perform gene ontology enrichment analysis on target genes\nAvailable data: /tmp/SE_target_genes_filtered.txt",
+    "difficulty": "normal"
+  },
+  {
+    "id": 185,
+    "category": "Medulloblastoma",
+    "task": "Subtask description: Perform transcription factor motif enrichment analysis\nAvailable data: /tmp/medulloblastoma_se_analysis/processed_data/all_se_locations_sorted.bed",
+    "difficulty": "normal"
+  },
+  {
+    "id": 186,
+    "category": "Melanoma",
+    "task": "Subtask description: Identify key transcription factors in melanoma\nAvailable data: /data/auto_installed_tools/homer_result_analyzer/melanoma_analysis_20260323_180936/results/Sample_H_0387/*_family_tfs.csv",
+    "difficulty": "normal"
+  },
+  {
+    "id": 187,
+    "category": "Melanoma",
+    "task": "Subtask description: Analyze expression differences of transcription factors in skin and other tissue cell lines\nAvailable data: /tmp/tf_expression_long_format.csv",
+    "difficulty": "normal"
+  },
+  {
+    "id": 188,
+    "category": "Melanoma",
+    "task": "Subtask description: Draw box plots of transcription factor expression difference distribution\nAvailable data: /tmp/tf_expression_long_format.csv",
+    "difficulty": "normal"
+  }
+]

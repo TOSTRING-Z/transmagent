@@ -485,7 +485,7 @@ export async function saveConfig() {
   const maxTokens = document.getElementById('max-tokens') as HTMLInputElement;
   if (maxTokens) State.chat.max_tokens = Number(maxTokens.value) || 0;
 
-  window.electronAPI.setChat(State.chat);
+  await window.electronAPI.setChat(State.chat);
 
   if (!config.tool_call) config.tool_call = {};
   config.tool_call.cli_prompt = (document.getElementById('cli-prompt') as HTMLInputElement)?.value || '';

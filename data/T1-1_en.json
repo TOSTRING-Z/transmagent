@@ -1,0 +1,302 @@
+[
+  {
+    "id": "1",
+    "category": "three",
+    "task": "Perform multi-database enrichment analysis and visualization of stemness signature genes in the local data path /data/example/geneset/Cancer_Functional_State/Cancer_Functional_State_CancerSEA/Stemness.txt",
+    "difficulty": "Intermediate"
+  },
+  {
+    "id": "2",
+    "category": "three",
+    "task": "Analyze cisplatin resistance-related genes in the local data path /data/example/geneset/Drug/Drug_Lnc2Cancer2_0/cisplatin.txt, and perform functional annotation and expression pattern analysis",
+    "difficulty": "Intermediate"
+  },
+  {
+    "id": "3",
+    "category": "three",
+    "task": "Perform multi-dimensional enrichment analysis and TCGA pan-cancer expression analysis of inflammation-related genes in the local data path /data/example/geneset/Inflammation/Inflammation_ncRI/Inflammation.txt",
+    "difficulty": "Intermediate"
+  },
+  {
+    "id": "4",
+    "category": "two",
+    "task": "Process paired-end ChIP-seq data from /data/example/ChIP-seq/sample1_R1.fastq and /data/example/ChIP-seq/sample1_R2.fastq with control data from /data/example/ChIP-seq/control_R1.fastq and /data/example/ChIP-seq/control_R2.fastq for peak calling and quality assessment",
+    "difficulty": "Intermediate"
+  },
+  {
+    "id": "5",
+    "category": "three",
+    "task": "Perform differential expression analysis using TCGA BRCA expression data from /data/example/geneset/BRCA.csv with sample metadata from /data/example/metadata/BRCA_metadata.tsv",
+    "difficulty": "Basic"
+  },
+  {
+    "id": "6",
+    "category": "one",
+    "task": "Identify super-enhancers from ChIP-seq data /data/example/ChIP-seq/H3K27ac_R1.fastq and /data/example/ChIP-seq/H3K27ac_R2.fastq with control /data/example/ChIP-seq/input_R1.fastq and /data/example/ChIP-seq/input_R2.fastq using ROSE algorithm",
+    "difficulty": "Advanced"
+  },
+  {
+    "id": "7",
+    "category": "three",
+    "task": "Perform enrichment analysis for differentially expressed genes from /data/example/geneset/LUAD.csv against Disease_Type category using enrichment_analysis tool",
+    "difficulty": "Basic"
+  },
+  {
+    "id": "8",
+    "category": "one",
+    "task": "Visualize genomic distribution of super-enhancer regions from /data/example/SuperEnhancer/BRCA_SE.bed using chipseeker and create plots with seaborn",
+    "difficulty": "Intermediate"
+  },
+  {
+    "id": "9",
+    "category": "three",
+    "task": "/data/example/geneset/BRCA.csv[Analyze differential gene expression patterns in BRCA cancer samples and identify enriched pathways]",
+    "difficulty": "Intermediate"
+  },
+  {
+    "id": "10",
+    "category": "two",
+    "task": "/data/trapt/TR_bed/ADNP@Sample_01_0380.bed[Identify target genes and perform functional annotation for ADNP transcription factor binding regions]",
+    "difficulty": "Intermediate"
+  },
+  {
+    "id": "11",
+    "category": "three",
+    "task": "/data/example/geneset/Disease_Type/Disease_Type_Lnc2Cancer3_0/Hepatocellular_Carcinoma.txt[Perform comprehensive analysis of hepatocellular carcinoma-related genes including expression profiling and regulatory network identification]",
+    "difficulty": "Advanced"
+  },
+  {
+    "id": "12",
+    "category": "three",
+    "task": "/data/example/geneset/Cancer_Functional_State/Cancer_Functional_State_CancerSEA/Stemness.txt[Investigate stemness-related genes in cancer and analyze their regulatory mechanisms using multiple omics approaches]",
+    "difficulty": "Advanced"
+  },
+  {
+    "id": "13",
+    "category": "three",
+    "task": "Use differentially expressed genes in /data/example/geneset/BRCA.csv to perform functional enrichment analysis of BRCA cancer",
+    "difficulty": "Basic"
+  },
+  {
+    "id": "14",
+    "category": "two",
+    "task": "Perform transcription factor regulation analysis of hepatocellular carcinoma-related genes in /data/example/geneset/Disease_Type/Disease_Type_Lnc2Cancer3_0/Hepatocellular_Carcinoma.txt",
+    "difficulty": "Intermediate"
+  },
+  {
+    "id": "15",
+    "category": "two",
+    "task": "Analyze the genomic distribution characteristics of transcription factor binding regions in /data/trapt/TR_bed/ADNP@Sample_01_0380.bed",
+    "difficulty": "Intermediate"
+  },
+  {
+    "id": "16",
+    "category": "four",
+    "task": "Use bowtie2 to align FASTQ sequencing data, generate BAM files, and perform quality control",
+    "difficulty": "Intermediate"
+  },
+  {
+    "id": "17",
+    "category": "three",
+    "task": "Use differentially expressed genes in /data/example/geneset/BRCA.csv to perform pathway enrichment analysis and visualize the results",
+    "difficulty": "Intermediate"
+  },
+  {
+    "id": "18",
+    "category": "three",
+    "task": "Perform disease type enrichment analysis of lung cancer differentially expressed genes in /data/example/geneset/LUAD.csv",
+    "difficulty": "Basic"
+  },
+  {
+    "id": "19",
+    "category": "two",
+    "task": "Analyze the binding regions of transcription factor GATA4 in breast cancer samples and identify target genes",
+    "difficulty": "Intermediate"
+  },
+  {
+    "id": "20",
+    "category": "three",
+    "task": "Visualize the expression distribution of the TP53 gene in TCGA breast cancer samples",
+    "difficulty": "Basic"
+  },
+  {
+    "id": "21",
+    "category": "three",
+    "task": "I have a list of differentially expressed genes from BRCA cancer analysis (/data/example/geneset/BRCA.csv) and want to perform enrichment analysis against Disease_Type categories to see which diseases these genes are associated with",
+    "difficulty": "Basic"
+  },
+  {
+    "id": "22",
+    "category": "two",
+    "task": "I need to analyze the genomic distribution and transcription factor binding sites for ADNP transcriptional regulator binding regions (/data/trapt/TR_bed/ADNP@Sample_01_0380.bed) and visualize the results",
+    "difficulty": "Intermediate"
+  },
+  {
+    "id": "23",
+    "category": "one",
+    "task": "I want to identify super-enhancers from my ChIP-seq data (sample1_R1.fastq, sample1_R2.fastq) using control data (control_R1.fastq, control_R2.fastq) and analyze the resulting super-enhancers with CRCmapper",
+    "difficulty": "Advanced"
+  },
+  {
+    "id": "24",
+    "category": "three",
+    "task": "Use the breast cancer differentially expressed gene set from the local data path /data/example/geneset/BRCA.csv to perform disease-related pathway enrichment analysis",
+    "difficulty": "Basic"
+  },
+  {
+    "id": "25",
+    "category": "three",
+    "task": "Perform GO functional enrichment analysis on epithelial-to-mesenchymal transition-related genes from the local data /data/example/geneset/Experimental_Validated_Function/Experimental_Validated_Function_LncTarD/epithelial_to_mesenchymal_transition.txt",
+    "difficulty": "Basic"
+  },
+  {
+    "id": "26",
+    "category": "two",
+    "task": "Use the TRAPT tool to analyze chromatin regulators from the local data /data/example/geneset/Chromatin_Regulators/Chromatin_Regulators_CR_ChIP_seq/BRD2.txt to identify core transcriptional regulators",
+    "difficulty": "Intermediate"
+  },
+  {
+    "id": "27",
+    "category": "four",
+    "task": "Perform genome annotation and visualization analysis on the local SNP data /data/human/human_Common_SNP.bed",
+    "difficulty": "Intermediate"
+  },
+  {
+    "id": "28",
+    "category": "one",
+    "task": "Process the local enhancer data /data/human/human_Enhancer.bed, extract sequences, and predict transcription factor binding sites",
+    "difficulty": "Intermediate"
+  },
+  {
+    "id": "29",
+    "category": "one",
+    "task": "Process paired-end ChIP-seq data from /data/example/ChIPseq/sample1_R1.fastq and /data/example/ChIPseq/sample1_R2.fastq to identify super-enhancers and their target genes",
+    "difficulty": "Advanced"
+  },
+  {
+    "id": "30",
+    "category": "three",
+    "task": "Perform differential expression analysis on BRCA cancer data from /data/example/geneset/BRCA.csv and identify enriched pathways",
+    "difficulty": "Intermediate"
+  },
+  {
+    "id": "31",
+    "category": "Two",
+    "task": "Analyze transcriptional regulators for glioma genes from /data/example/geneset/glioma.txt and visualize their binding regions",
+    "difficulty": "Advanced"
+  },
+  {
+    "id": "32",
+    "category": "One",
+    "task": "Annotate and visualize enhancer regions from /data/human/human_Enhancer.bed and identify target genes using BETA",
+    "difficulty": "Intermediate"
+  },
+  {
+    "id": "33",
+    "category": "One",
+    "task": "I have paired-end ChIP-seq data for H3K27ac in breast cancer cells (sample: /data/example/breast_cancer_H3K27ac_R1.fastq, /data/example/breast_cancer_H3K27ac_R2.fastq) and input control (sample: /data/example/breast_cancer_input_R1.fastq, /data/example/breast_cancer_input_R2.fastq). I want to identify super-enhancers and analyze their genomic features.",
+    "difficulty": "Advanced"
+  },
+  {
+    "id": "34",
+    "category": "Three",
+    "task": "Use the differentially expressed genes from /data/example/geneset/BRCA.csv to perform gene expression analysis and visualization in TCGA breast cancer data",
+    "difficulty": "Intermediate"
+  },
+  {
+    "id": "35",
+    "category": "Three",
+    "task": "Perform Hallmark pathway enrichment analysis on the differentially expressed genes from /data/example/geneset/BRCA.csv",
+    "difficulty": "Basic"
+  },
+  {
+    "id": "36",
+    "category": "Four",
+    "task": "Use bowtie2 and samtools to process paired-end sequencing data from /data/example/sequencing/sample_R1.fastq and /data/example/sequencing/sample_R2.fastq",
+    "difficulty": "Intermediate"
+  },
+  {
+    "id": "37",
+    "category": "Two",
+    "task": "Perform ChIPseeker annotation and visualization on the transcription factor binding region from /data/trapt/TR_bed/ADNP@Sample_01_0380.bed",
+    "difficulty": "Intermediate"
+  },
+  {
+    "id": "38",
+    "category": "Two",
+    "task": "Use macs2 to perform peak calling on the processed ChIP-seq data analysis/bam/marked_duplicates.bam, using /data/example/control/control.bam as the control.",
+    "difficulty": "Intermediate"
+  },
+  {
+    "id": "39",
+    "category": "Three",
+    "task": "/data/example/geneset/BRCA.csv[Analyze the functional enrichment and regulatory mechanisms of differentially expressed genes in breast cancer]",
+    "difficulty": "Intermediate"
+  },
+  {
+    "id": "40",
+    "category": "Two",
+    "task": "/data/example/geneset/LUAD.csv[Study the transcription factor regulatory network of differentially expressed genes in lung adenocarcinoma]",
+    "difficulty": "Advanced"
+  },
+  {
+    "id": "41",
+    "category": "Three",
+    "task": "/data/example/geneset/PAAD.csv /data/example/geneset/CHOL.csv[Compare the differentially expressed gene signatures of pancreatic cancer and cholangiocarcinoma]",
+    "difficulty": "Intermediate"
+  },
+  {
+    "id": "42",
+    "category": "Three",
+    "task": "/data/example/geneset/Disease_Type/Disease_Type_Lnc2Cancer3_0/Hepatocellular_Carcinoma.txt[Analyze the transcriptional regulation and functional annotation of genes associated with liver cancer]",
+    "difficulty": "Intermediate"
+  },
+  {
+    "id": "43",
+    "category": "Three",
+    "task": "/data/example/geneset/Cancer_Functional_State/Cancer_Functional_State_CancerSEA/Invasion.txt[Study the regulatory mechanisms and expression characteristics of genes related to tumor invasion]",
+    "difficulty": "Intermediate"
+  },
+  {
+    "id": "44",
+    "category": "Three",
+    "task": "/data/example/geneset/BRCA.csv [Analyze differential gene expression and pathway enrichment in BRCA cancer samples]",
+    "difficulty": "Intermediate"
+  },
+  {
+    "id": "45",
+    "category": "Three",
+    "task": "/data/example/geneset/Disease_Type/Disease_Type_Lnc2Cancer3_0/Hepatocellular_Carcinoma.txt [Perform enrichment analysis for hepatocellular carcinoma genes against chromatin regulators]",
+    "difficulty": "Basic"
+  },
+  {
+    "id": "46",
+    "category": "Two",
+    "task": "/data/trapt/TR_bed/ADNP@Sample_01_0380.bed [Annotate and visualize ADNP transcription factor binding regions]",
+    "difficulty": "Intermediate"
+  },
+  {
+    "id": "47",
+    "category": "One",
+    "task": "experimental_sample.fastq, control_sample.fastq [Process ChIP-seq data and identify super-enhancers using ROSE algorithm]",
+    "difficulty": "Advanced"
+  },
+  {
+    "id": "48",
+    "category": "Three",
+    "task": "Use the BRCA differentially expressed gene set from the local data path /data/example/geneset/BRCA.csv to perform disease-related pathway enrichment analysis",
+    "difficulty": "Basic"
+  },
+  {
+    "id": "49",
+    "category": "Two",
+    "task": "Perform transcription factor regulatory analysis on the LUAD differentially expressed genes from the local data path /data/example/geneset/LUAD.csv",
+    "difficulty": "Intermediate"
+  },
+  {
+    "id": "50",
+    "category": "Four",
+    "task": "Use bowtie2 and samtools to align FASTQ sequencing data and process BAM files",
+    "difficulty": "Intermediate"
+  }
+]
