@@ -74,13 +74,14 @@ async function runInBackground(
         let isFinished = false;
         let killProcess: ((force?: boolean) => void) | null = null;
 
-        const sendToRegistry = (exitCode: number | null) => {
+        const sendToRegistry = (exitCode: number | null, origin?: string) => {
             if (isFinished) return;
             isFinished = true;
 
             BackgroundTaskRegistry.unregisterProcess(taskId);
 
-            outStream.end();
+            // 先安全关闭流，释放 Windows 文件锁
+            try { outStream.end(); } catch (e) { /* ignore */ }
             if (existsSync(tempFile)) {
                 try { unlinkSync(tempFile); } catch (e) { /* ignore */ }
             }
@@ -96,6 +97,11 @@ async function runInBackground(
             }
 
             finalOutput += `\n\n[Complete output saved to: ${outputFile}]`;
+
+            // 如果没有捕获到任何错误 Buffer，但是进程异常退出了（exitCode != 0），进行兜底
+            if (exitCode !== 0 && exitCode !== null && !errorBuffer) {
+                errorBuffer = `[Process Quitted Unexpectedly via ${origin || 'unknown'}] Python interpreter crashed during bootstrap or script compilation.`;
+            }
 
             const message = (exitCode === 0 && !isInterrupted)
                 ? `✅ Background Python task completed successfully.\n\n**Output:**\n\`\`\`\n${finalOutput}\n\`\`\`` +
@@ -131,12 +137,16 @@ async function runInBackground(
         });
 
         child.on('close', (exitCode) => {
-            sendToRegistry(exitCode);
+            sendToRegistry(exitCode, 'close');
+        });
+
+        child.on('exit', (exitCode) => {
+            sendToRegistry(exitCode, 'exit');
         });
 
         child.on('error', (err) => {
             errorBuffer += `Process error: ${err.message}`;
-            sendToRegistry(-1);
+            sendToRegistry(-1, 'error');
         });
 
         logger.log(`[BackgroundPython] Task "${taskId}" started: ${tempFile}`);
@@ -250,12 +260,12 @@ export function main(params: PythonExecuteParams) {
             const MAX_TAIL_CHARS = 50000; 
 
             // 集中处理结束逻辑，防止由于子进程未响应导致的主进程假死
-            const finish = (exitCode: number | null) => {
+            const finish = (exitCode: number | null, origin?: string) => {
                 if (isResolved) return;
                 isResolved = true;
 
                 cleanupListeners(); // 清理 IPC 监听器
-                outStream.end(); // 关闭文件写入流
+                try { outStream.end(); } catch (e) { /* ignore */ } // 安全关闭文件写入流
 
                 if (existsSync(tempFile)) {
                     try {
@@ -263,6 +273,11 @@ export function main(params: PythonExecuteParams) {
                     } catch (e) {
                         logger.warn(`Failed to delete temp file: ${e}`);
                     }
+                }
+
+                // 如果进程异常退出但没有stderr输出，注入兜底错误信息
+                if (exitCode !== 0 && exitCode !== null && !errorMsg) {
+                    errorMsg = `[Process Quitted Unexpectedly via ${origin || 'unknown'}] Python interpreter crashed during bootstrap or script compilation.`;
                 }
 
                 // 提取最后 N 行 (设定为提取最后 100 行作为摘要)
@@ -300,7 +315,7 @@ export function main(params: PythonExecuteParams) {
                 if (child && !child.killed) {
                     child.kill('SIGKILL'); // 强杀，无视进程内部捕获
                 }
-                finish(null); // 立刻执行结束逻辑，不等 close 事件
+                finish(null, 'window_ui_close'); // 立刻执行结束逻辑，不等 close 事件
             };
 
             const handleInput = (event: IpcMainEvent, input: string) => {
@@ -322,7 +337,7 @@ export function main(params: PythonExecuteParams) {
                     setTimeout(() => {
                         if (!isResolved) {
                             if (child && !child.killed) child.kill('SIGKILL');
-                            finish(null);
+                            finish(null, 'ctrl_c_fallback');
                         }
                     }, 500);
                 }
@@ -363,13 +378,13 @@ export function main(params: PythonExecuteParams) {
             };
 
             child.stdout.on('data', (data: string) => {
-                outStream.write(data);
+                try { outStream.write(data); } catch (e) { /* ignore */ }
                 appendToTail(data);
                 terminalWindow?.webContents.send('terminal-data', data);
             });
 
             child.stderr.on('data', (data: string) => {
-                outStream.write(data);
+                try { outStream.write(data); } catch (e) { /* ignore */ }
                 appendToTail(data);
                 errorMsg += data;
                 terminalWindow?.webContents.send('terminal-data', data);
@@ -377,7 +392,12 @@ export function main(params: PythonExecuteParams) {
 
             // 正常的进程结束周期
             child.on('close', (exitCode) => {
-                finish(exitCode); 
+                finish(exitCode, 'close'); 
+            });
+
+            // exit 兜底监听：防止编译加载期崩溃导致 close 丢失
+            child.on('exit', (exitCode) => {
+                finish(exitCode, 'exit');
             });
 
             // 仅在窗口存在时注册 closed 事件
@@ -390,7 +410,7 @@ export function main(params: PythonExecuteParams) {
                         if (child && !child.killed) {
                             child.kill('SIGKILL');
                         }
-                        finish(null);
+                        finish(null, 'window_native_closed');
                     }
                 });
             }

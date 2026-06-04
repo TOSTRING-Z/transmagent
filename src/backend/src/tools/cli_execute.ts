@@ -163,17 +163,19 @@ async function runInBackground(
         let killProcess: ((force?: boolean) => void) | null = null;
         let conn: Client | null = null;
 
-        const sendToRegistry = (result: Partial<ExecuteResult>) => {
+        // 🌟 优化 1：重构结算防重闸，接收触发源 (origin) 并提供崩溃捕获兜底
+        const sendToRegistry = (result: Partial<ExecuteResult>, origin?: string) => {
             if (isFinished) return;
             isFinished = true;
 
             BackgroundTaskRegistry.unregisterProcess(taskId);
 
             if (timeoutId) clearTimeout(timeoutId);
+            
+            // 🔒 优先释放流与文件锁，防止 Windows 等系统句柄竞争导致 Promise 挂起
             if (outStream) {
                 try { outStream.end(); } catch (e) { /* ignore */ }
             }
-
             if (localTempScriptFile && fs.existsSync(localTempScriptFile)) {
                 try { fs.unlinkSync(localTempScriptFile); } catch (e: any) { /* ignore */ }
             }
@@ -181,10 +183,15 @@ async function runInBackground(
                 try { conn.end(); } catch (e: any) { /* ignore */ }
             }
 
+            // ⚠️ 核心修复：如果进程非正常退出，且没有抓到任何标准错误流，强行注入异常原因
+            if (result.success === false && !errorBuffer && !result.error) {
+                errorBuffer = `[Process Exited Unexpectedly via '${origin || 'unknown'}'] Shell or command exited with non-zero status code without stderr emission. Please check if file pathways, environment variables, or execution formats are fully configured.`;
+            }
+
             const outThreshold = threshold(tailBuffer, params.max_lines, params.max_chars_per_line);
             const errThreshold = threshold(errorBuffer, params.max_lines, params.max_chars_per_line);
             let finalOutput = outThreshold.result;
-            const finalError = errThreshold.result;
+            const finalError = result.error || errThreshold.result;
 
             if (isInterrupted) {
                 finalOutput += '\n\n[Process Interrupted]';
@@ -202,10 +209,11 @@ async function runInBackground(
             const message = result.success
                 ? `✅ Background task completed successfully.\n\n**Output:**\n\`\`\`\n${finalOutput}\n\`\`\`` +
                   (finalError ? `\n\n**Stderr:**\n\`\`\`\n${finalError}\n\`\`\`` : '')
-                : `❌ Background task failed.\n\n**Error:** ${result.error || finalError || 'Unknown error'}\n\n**Output:**\n\`\`\`\n${finalOutput}\n\`\`\``;
+                : `❌ Background task failed.\n\n**Error:** ${finalError || 'Unknown operational crash.'}\n\n**Output:**\n\`\`\`\n${finalOutput}\n\`\`\``;
 
             BackgroundTaskRegistry.addMessage(sessionId, taskId, message);
-            logger.log(`[BackgroundTask] Task "${taskId}" completed, message sent to session "${sessionId}"`);
+            logger.log(`[BackgroundTask] Task "${taskId}" completed, message sent to session "${sessionId}" via trigger: ${origin}`);
+            _resolve(); // 释放 Promise
         };
 
         // 超时处理
@@ -217,7 +225,7 @@ async function runInBackground(
                 timeout: true,
                 message: `Command execution timed out after ${params.timeout} seconds`,
                 error: 'Execution timed out'
-            });
+            }, 'timeout_watcher');
         }, params.timeout * 1000);
 
         const sshConfig = toolCall.utils.getSshConfig();
@@ -230,13 +238,12 @@ async function runInBackground(
                 logger.log(`[BackgroundTask] SSH connected for task "${taskId}"`);
                 conn!.sftp((sftpErr, sftp) => {
                     if (sftpErr) {
-                        return sendToRegistry({ success: false, error: `SFTP error: ${sftpErr.message}` });
+                        return sendToRegistry({ success: false, error: `SFTP error: ${sftpErr.message}` }, 'sftp_error');
                     }
 
                     finalOutputFilePath = `/tmp/bg_output_${timestamp}_${randomStr}.txt`;
                     outStream = sftp.createWriteStream(finalOutputFilePath, { encoding: 'utf8', flags: 'a' });
 
-                    // 注册输出文件路径到 Registry
                     BackgroundTaskRegistry.setTaskOutputFile(taskId, finalOutputFilePath);
                     outStream.on('error', (err: Error) => {
                         logger.warn(`[BackgroundTask] Remote stream error: ${err.message}`);
@@ -245,7 +252,7 @@ async function runInBackground(
                     const remoteScriptPath = `/tmp/bg_script_${timestamp}_${randomStr}.sh`;
                     const writeStream = sftp.createWriteStream(remoteScriptPath);
                     writeStream.on('error', (writeErr: Error) => {
-                        sendToRegistry({ success: false, error: `File upload error: ${writeErr.message}` });
+                        sendToRegistry({ success: false, error: `File upload error: ${writeErr.message}` }, 'sftp_write_error');
                     });
 
                     writeStream.write(`#!/bin/bash\n${finalCode}`);
@@ -254,7 +261,7 @@ async function runInBackground(
                     writeStream.on('close', () => {
                         conn!.exec(`chmod +x ${remoteScriptPath} && ${remoteScriptPath}; rm -f ${remoteScriptPath}`, (execErr, stream: ClientChannel) => {
                             if (execErr) {
-                                return sendToRegistry({ success: false, error: `Execution error: ${execErr.message}` });
+                                return sendToRegistry({ success: false, error: `Execution error: ${execErr.message}` }, 'ssh_exec_error');
                             }
 
                             killProcess = (force?: boolean) => {
@@ -268,7 +275,12 @@ async function runInBackground(
                             BackgroundTaskRegistry.registerProcess(taskId, killProcess);
 
                             stream.on('close', (exitCode: number) => {
-                                sendToRegistry({ success: exitCode === 0 && !isInterrupted });
+                                sendToRegistry({ success: exitCode === 0 && !isInterrupted }, 'ssh_stream_close');
+                            });
+
+                            // 🌟 优化 2：为远程扩展添加 exit 事件监听，保证在通道崩溃时强行回执
+                            stream.on('exit', (exitCode: number | null) => {
+                                sendToRegistry({ success: exitCode === 0 && !isInterrupted }, 'ssh_stream_exit');
                             });
 
                             stream.on('data', (data: Buffer) => {
@@ -284,20 +296,19 @@ async function runInBackground(
             });
 
             conn.on('error', (err: Error) => {
-                sendToRegistry({ success: false, error: `SSH connection failed: ${err.message}` });
+                sendToRegistry({ success: false, error: `SSH connection failed: ${err.message}` }, 'ssh_conn_error');
             });
 
             try {
                 conn.connect(sshConfig);
             } catch (connectErr: any) {
-                sendToRegistry({ success: false, error: `SSH connection failed: ${connectErr.message}` });
+                sendToRegistry({ success: false, error: `SSH connection failed: ${connectErr.message}` }, 'ssh_connect_exception');
             }
         } else {
             // =========== 本地后台执行 ===========
             finalOutputFilePath = path.join(os.tmpdir(), `bg_output_${timestamp}_${randomStr}.txt`);
             localTempScriptFile = path.join(os.tmpdir(), `bg_temp_${timestamp}_${randomStr}.sh`);
 
-            // 注册输出文件路径到 Registry
             BackgroundTaskRegistry.setTaskOutputFile(taskId, finalOutputFilePath);
 
             try {
@@ -308,7 +319,7 @@ async function runInBackground(
                 fs.writeFileSync(localTempScriptFile, finalCode);
                 logger.log(`[BackgroundTask] Task "${taskId}" started, script: ${localTempScriptFile}`);
             } catch (error: any) {
-                return sendToRegistry({ success: false, error: `Failed to create local files: ${error.message}` });
+                return sendToRegistry({ success: false, error: `Failed to create local files: ${error.message}` }, 'local_fs_error');
             }
 
             const child: ChildProcess = exec(`${params.bash} ${localTempScriptFile}`);
@@ -323,7 +334,7 @@ async function runInBackground(
             BackgroundTaskRegistry.registerProcess(taskId, killProcess);
 
             child.on('error', (childErr: Error) => {
-                sendToRegistry({ success: false, error: `Process execution failed: ${childErr.message}` });
+                sendToRegistry({ success: false, error: `Process execution failed: ${childErr.message}` }, 'child_error_event');
             });
 
             child.stdout?.on('data', (data: Buffer | string) => {
@@ -335,7 +346,12 @@ async function runInBackground(
             });
 
             child.on('close', (exitCode: number | null) => {
-                sendToRegistry({ success: exitCode === 0 && !isInterrupted });
+                sendToRegistry({ success: exitCode === 0 && !isInterrupted }, 'child_close_event');
+            });
+
+            // 🌟 优化 3：为本地执行挂载 exit 终极保险，专门对付 Windows 环境下加载期闪退、管道未建立就关停的极端场景
+            child.on('exit', (exitCode: number | null) => {
+                sendToRegistry({ success: exitCode === 0 && !isInterrupted }, 'child_exit_event');
             });
         }
     });
