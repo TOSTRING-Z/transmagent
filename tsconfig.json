@@ -8,7 +8,6 @@
     "rootDir": "src/backend/src", 
     "declaration": true,
     "moduleResolution": "node",
-    "ignoreDeprecations": "6.0",
     "esModuleInterop": true,
     "resolveJsonModule": true,
     "strict": true,
