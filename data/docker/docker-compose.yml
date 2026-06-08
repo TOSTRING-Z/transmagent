@@ -1,0 +1,49 @@
+# ============================================================
+# docker-compose.yml — MIX50 多 Agent 测试环境
+# ============================================================
+version: "3.9"
+
+services:
+  mix50:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: mix50-agents:latest
+    container_name: mix50_agents_test
+    hostname: mix50-docker
+    environment:
+      - PYTHONIOENCODING=utf-8
+      - PYTHONUNBUFFERED=1
+      - no_proxy=*
+      - NO_PROXY=*
+      - OPENAI_API_KEY=${OPENAI_API_KEY:-}
+      - CUSTOM_MODEL_BASE_URL=${CUSTOM_MODEL_BASE_URL:-}
+      - CUSTOM_MODEL_API_KEY=${CUSTOM_MODEL_API_KEY:-}
+    volumes:
+      # Conda 完整安装 (只读 — 含 base + envs + etc)
+      - /home/tostring/miniconda3:/home/tostring/miniconda3:ro
+      # Python .local 包 (只读)
+      - /home/tostring/.local/lib/python3.12/site-packages:/home/tostring/.local/lib/python3.12/site-packages:ro
+      # SpatialAgent 代码仓库 (只读)
+      - /home/tostring/桌面/document/NM改稿/tmp/run_spatialagent/SpatialAgent:/home/tostring/桌面/document/NM改稿/tmp/run_spatialagent/SpatialAgent:ro
+      # 数据: 直接映射 MIX50.json 路径
+      - /data/zgr/transagent/biotools/data/example:/data/example:ro
+      - /data/zgr/transagent/biotools/data/trapt:/data/trapt:ro
+      - /data/zgr/transagent/biotools/data/human:/data/human:ro
+      # Claude Code CLI
+      - /usr/local/lib/node_modules:/usr/local/lib/node_modules:ro
+      # Codex CLI (nvm + relay)
+      - /home/tostring/.nvm:/home/tostring/.nvm:ro
+      - /home/tostring/.local/bin/codex-relay:/home/tostring/.local/bin/codex-relay:ro
+      - /home/tostring/.local/bin/litellm:/home/tostring/.local/bin/litellm:ro
+      # BiOmni 数据湖 (只读)
+      - /home/tostring/桌面/document/NM改稿/QA100/data:/home/tostring/桌面/document/NM改稿/QA100/data:ro
+      # MIX50 问题集 (只读)
+      - /home/tostring/桌面/document/NM改稿/MIX50/MIX50.json:/home/tostring/桌面/document/NM改稿/MIX50/MIX50.json:ro
+      # 运行输出 (读写)
+      - /home/tostring/桌面/document/NM改稿/MIX50/run_Biomni:/home/tostring/桌面/document/NM改稿/MIX50/run_Biomni
+      - /home/tostring/桌面/document/NM改稿/MIX50/run_SpatialAgent:/home/tostring/桌面/document/NM改稿/MIX50/run_SpatialAgent
+    network_mode: host
+    restart: "no"
+    stdin_open: true
+    tty: true
