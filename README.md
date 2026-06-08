@@ -15,6 +15,7 @@ English | [中文](README_zh.md)
 [![Paper](https://img.shields.io/badge/Paper-PDF-red?logo=googlescholar)](https://github.com/TOSTRING-Z/TransMAgent)
 [![Documentation](https://img.shields.io/badge/Docs-Documentation-green?logo=readthedocs)](https://github.com/TOSTRING-Z/TransMAgent)
 [![Docker](https://img.shields.io/badge/Docker-Image-blue?logo=docker)](https://github.com/TOSTRING-Z/TransMAgent)
+[![Demo](https://img.shields.io/badge/Demo-Website-orange?logo=googlechrome)](http://licpathway.net/transmagent/)
 [![License](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE)
 ## Recent Updates
 
@@ -380,6 +381,40 @@ curl -X POST http://localhost:3005/chat/completions \
     "max_step": 2
   }'
 ```
+
+## 🧠 AI Agent Evaluation Website
+
+TransMAgent includes **Eval Agent Web** — a web-based multi-model AI Agent benchmarking platform with 10-dimension automated evaluation and visualization reports.
+
+### Quick Start
+
+```bash
+# 1. Enter the evaluation website directory
+cd eval_agent_web
+
+# 2. Install dependencies
+pip install -r requirements.txt
+
+# 3. Start the server (default: 0.0.0.0:5000)
+python app.py
+```
+
+Open `http://localhost:5000` in your browser to access the evaluation interface.
+
+### Core Features
+
+| Feature | Description |
+|---------|-------------|
+| Multi-format Upload | Supports model result JSON (transagent_result_test_set format) and generic CSV/JSON |
+| 10-Dimension Evaluation | Data Authenticity, Response Relevance, Tool Use Accuracy, Hallucination Control, Code Execution, Domain Knowledge, Result Interpretation, Autonomous Planning, Error Recovery, Output Standardization |
+| Real-time Progress | SSE-based real-time evaluation progress streaming |
+| Visualization Reports | Auto-generated model comparison bar charts, dimension heatmaps, radar charts (PDF) |
+| Checkpoint Resume | Supports resuming from interruption checkpoints |
+| One-click Export | Download all evaluation results as ZIP |
+
+### Workflow
+
+1. Configure API (supports DeepSeek / OpenAI-compatible) → 2. Upload model output files → 3. Start evaluation → 4. View reports & charts
 
 ## 📞 Contact Us
 

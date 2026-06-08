@@ -1,0 +1,158 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>🧠 Eval Agent Web — Multi-Model AI Agent Benchmarking Tool</title>
+<link rel="stylesheet" href="/static/css/style.css">
+</head>
+<body>
+
+<!-- ── 顶部导航 ── -->
+<header class="topbar">
+  <div class="topbar-inner">
+    <span class="logo">🧠 <strong>Eval Agent Web</strong></span>
+    <span class="subtitle">Multi-Model AI Agent Benchmarking · 10-Dimension Automated Evaluation</span>
+  </div>
+</header>
+
+<!-- ── 主布局 ── -->
+<div class="app-container">
+
+  <!-- ── 左侧面板 ── -->
+  <aside class="panel panel-left" id="panelLeft">
+    
+    <!-- Step 1: API 配置 -->
+    <section class="card" id="cardApi">
+      <h3 class="card-title"><span class="step-badge">1</span> API Configuration</h3>
+      <div class="card-body">
+        <label for="apiUrl">API Endpoint</label>
+        <input type="text" id="apiUrl" value="https://api.deepseek.com" placeholder="https://api.deepseek.com">
+        
+        <label for="apiKey">API Key</label>
+        <input type="password" id="apiKey" placeholder="sk-...">
+        <p class="hint">Supports OpenAI-compatible APIs (DeepSeek / GPT / local models)</p>
+        
+        <button class="btn btn-outline btn-sm" id="btnTestKey" onclick="testApiKey()">🔑 Test Connection</button>
+        <span id="testKeyResult" class="status-text"></span>
+      </div>
+    </section>
+
+    <!-- Step 2: 数据上传 -->
+    <section class="card" id="cardUpload">
+      <h3 class="card-title"><span class="step-badge">2</span> Data Upload</h3>
+      <div class="card-body">
+        <div class="upload-zone" id="dropZone">
+          <div class="upload-icon">📂</div>
+          <p class="upload-text">Drag & drop files here, or click to browse</p>
+          <p class="upload-hint">Supports .json / .csv (≤200MB per file)</p>
+          <input type="file" id="fileInput" multiple accept=".json,.csv" hidden>
+        </div>
+        
+        <div class="format-select">
+          <label>
+            <input type="radio" name="format" value="auto" checked> Auto Detect
+          </label>
+          <label>
+            <input type="radio" name="format" value="model_json"> Model Result JSON
+          </label>
+          <label>
+            <input type="radio" name="format" value="generic"> Generic CSV / JSON
+          </label>
+        </div>
+        
+        <div class="example-download">
+          <span class="example-label">📦 No data?</span>
+          <button class="btn btn-outline btn-sm" onclick="downloadExamples()">📥 Download Sample Data (3 models × 5 tasks)</button>
+          <span id="exampleStatus" class="status-text"></span>
+        </div>
+        
+        <div id="fileList" class="file-list"></div>
+        
+        <button class="btn btn-primary btn-sm" id="btnUpload" onclick="uploadFiles()" disabled>
+          📤 Upload & Parse
+        </button>
+        <span id="uploadStatus" class="status-text"></span>
+      </div>
+    </section>
+
+    <!-- Step 3: 模型 & 任务概览 -->
+    <section class="card" id="cardOverview" style="display:none;">
+      <h3 class="card-title"><span class="step-badge">3</span> Data Overview</h3>
+      <div class="card-body">
+        <div id="overviewInfo"></div>
+        <button class="btn btn-success btn-block" id="btnEvaluate" onclick="startEvaluation()">
+          🚀 Start Evaluation
+        </button>
+      </div>
+    </section>
+
+    <!-- 进度 -->
+    <section class="card" id="cardProgress" style="display:none;">
+      <h3 class="card-title">📡 Evaluation Progress</h3>
+      <div class="card-body">
+        <div class="progress-bar">
+          <div class="progress-fill" id="progressFill"></div>
+        </div>
+        <p class="progress-text" id="progressText">Waiting to start...</p>
+      </div>
+    </section>
+  </aside>
+
+  <!-- ── 右侧主区域 ── -->
+  <main class="panel panel-right" id="panelRight">
+    
+    <!-- 空状态 -->
+    <div class="empty-state" id="emptyState">
+      <div class="empty-icon">🧪</div>
+      <h2>Welcome to Eval Agent Web</h2>
+      <p>Upload model data → Configure API Key → One-click multi-model benchmarking</p>
+      <div class="feature-grid">
+        <div class="feature-item">📊 10-Dimension Scoring</div>
+        <div class="feature-item">📈 Auto Chart Generation</div>
+        <div class="feature-item">🔄 Checkpoint Resume</div>
+        <div class="feature-item">📦 One-Click Export</div>
+        <div class="feature-item">🌐 Multi-Format Support</div>
+        <div class="feature-item">⚡ SSE Real-Time Progress</div>
+      </div>
+    </div>
+
+    <!-- 结果容器 -->
+    <div id="resultsContainer" style="display:none;">
+      
+      <!-- 结果标签页 -->
+      <div class="tabs" id="resultTabs">
+        <button class="tab active" data-tab="tabSummary">📊 Summary</button>
+        <button class="tab" data-tab="tabCharts">📈 Charts</button>
+        <button class="tab" data-tab="tabDetail">📝 Per-Task Detail</button>
+      </div>
+
+      <!-- 汇总面板 -->
+      <div class="tab-content active" id="tabSummary">
+        <div id="summaryContent"></div>
+      </div>
+
+      <!-- 图表面板 -->
+      <div class="tab-content" id="tabCharts">
+        <div id="chartsContent" class="charts-grid"></div>
+      </div>
+
+      <!-- 逐题详情面板 -->
+      <div class="tab-content" id="tabDetail">
+        <div id="detailSelector"></div>
+        <div id="detailContent" class="eval-detail"></div>
+      </div>
+
+      <!-- 下载区 -->
+      <div class="download-bar">
+        <button class="btn btn-primary" id="btnDownload" onclick="downloadResults()">
+          📥 Download Full Report (ZIP)
+        </button>
+      </div>
+    </div>
+  </main>
+</div>
+
+<script src="/static/js/main.js"></script>
+</body>
+</html>

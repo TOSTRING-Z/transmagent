@@ -13,6 +13,7 @@ https://github.com/user-attachments/assets/e4129a29-6cd4-4026-8d6f-9838135712a1
 [![Paper](https://img.shields.io/badge/Paper-PDF-red?logo=googlescholar)](https://github.com/TOSTRING-Z/TransMAgent)
 [![Documentation](https://img.shields.io/badge/Docs-Documentation-green?logo=readthedocs)](https://github.com/TOSTRING-Z/TransMAgent)
 [![Docker](https://img.shields.io/badge/Docker-Image-blue?logo=docker)](https://github.com/TOSTRING-Z/TransMAgent)
+[![Demo](https://img.shields.io/badge/Demo-Website-orange?logo=googlechrome)](http://licpathway.net/transmagent/)
 [![License](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE)
 
 
@@ -384,6 +385,40 @@ curl -X POST http://localhost:3005/chat/completions \
     "max_step": 2
   }'
 ```
+
+## 🧠 AI Agent 评测网站
+
+TransMAgent 内置了 **Eval Agent Web** — 一个基于 Web 的多模型 AI Agent 自动评测平台，支持 10 维度自动化评估与可视化报告。
+
+### 启动方式
+
+```bash
+# 1. 进入评测网站目录
+cd eval_agent_web
+
+# 2. 安装依赖
+pip install -r requirements.txt
+
+# 3. 启动服务（默认监听 0.0.0.0:5000）
+python app.py
+```
+
+启动后访问 `http://localhost:5000` 即可打开评测界面。
+
+### 核心功能
+
+| 功能 | 说明 |
+|------|------|
+| 多格式上传 | 支持模型结果 JSON（transagent_result_test_set 格式）与通用 CSV/JSON |
+| 10 维度评估 | 数据真实性、响应相关性、工具使用准确性、幻觉控制、代码执行、领域知识、结果解读、自主规划、错误恢复、输出标准化 |
+| 实时进度推送 | 基于 SSE 实时推送评估进度 |
+| 可视化报告 | 自动生成模型性能对比柱状图、维度热力图、雷达图（PDF） |
+| 断点续传 | 支持评估中断后从断点恢复 |
+| 一键导出 | 评估结果打包为 ZIP 下载 |
+
+### 使用流程
+
+1. 配置 API（支持 DeepSeek / OpenAI 兼容接口）→ 2. 上传模型输出文件 → 3. 启动评估 → 4. 查看报告与图表
 
 ## 📞 联系我们
 

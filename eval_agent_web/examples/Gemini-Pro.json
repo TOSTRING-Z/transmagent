@@ -1,0 +1,57 @@
+[
+  {
+    "task": "从GEO数据库下载GSE160269数据集，进行差异表达分析，筛选|log2FC|>1且p<0.05的基因，输出火山图",
+    "response": {
+      "messages": [
+        {
+          "role": "assistant",
+          "content": "我来处理GSE160269。\n\n使用GEOquery获取数据...\n检查后发现需要log2转换...\nlimma差异分析完成，共1234个差异基因...\n火山图生成完成。\n\n注意：数据中有3个样本可能存在批次效应，建议后续验证。"
+        }
+      ]
+    }
+  },
+  {
+    "task": "对TCGA-BRCA的RNA-seq数据进行预处理，使用DESeq2进行差异分析，并做GO/KEGG富集分析",
+    "response": {
+      "messages": [
+        {
+          "role": "assistant",
+          "content": "从TCGA下载BRCA数据...\n预处理后进行DESeq2分析...\n得到差异基因列表...\nGO分析显示细胞周期相关通路...\nKEGG显示癌症相关通路...\n\n分析过程中的警告：部分基因在低表达范围内，标准误可能偏大。"
+        }
+      ]
+    }
+  },
+  {
+    "task": "从STRING数据库获取TP53蛋白互作网络，筛选combined_score>0.7的互作对，用Cytoscape可视化",
+    "response": {
+      "messages": [
+        {
+          "role": "assistant",
+          "content": "STRING获取TP53网络...\n过滤阈值0.7后有38个高置信度互作对...\n网络可视化完成...\n\n分析限制：STRING数据库版本为12.0，建议后续用最新版本验证。"
+        }
+      ]
+    }
+  },
+  {
+    "task": "下载参考基因组hg38，使用BWA-MEM比对RNA-seq reads，然后运行featureCounts进行定量",
+    "response": {
+      "messages": [
+        {
+          "role": "assistant",
+          "content": "下载hg38参考基因组...\n使用BWA-MEM进行比对...\n比对率约89%...\nfeatureCounts定量完成，输出基因计数矩阵...\n\n注意：3'UTR区域的多态性可能影响部分基因的定量准确性。"
+        }
+      ]
+    }
+  },
+  {
+    "task": "从ClinVar数据库提取BRCA1/BRCA2的致病突变，注释变异类型和临床意义，输出表格汇总",
+    "response": {
+      "messages": [
+        {
+          "role": "assistant",
+          "content": "ClinVar BRCA1/2突变分析...\n提取致病突变列表...\n注释变异类型...\n输出汇总表格...\n\n注意：ClinVar中部分变异的分级存在争议（review status较低），建议结合其他数据库验证。"
+        }
+      ]
+    }
+  }
+]

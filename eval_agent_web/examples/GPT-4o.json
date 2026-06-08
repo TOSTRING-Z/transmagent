@@ -1,0 +1,57 @@
+[
+  {
+    "task": "从GEO数据库下载GSE160269数据集，进行差异表达分析，筛选|log2FC|>1且p<0.05的基因，输出火山图",
+    "response": {
+      "messages": [
+        {
+          "role": "assistant",
+          "content": "# 差异表达分析流程\n\n我将按步骤执行GEO数据下载和分析...\n\n## 1. 数据下载\n使用GEOquery包下载GSE160269...\n\n## 2. 数据预处理\n进行log2转换和分位数归一化...\n\n## 3. 差异分析\n使用limma包，结果：共筛选到1256个差异基因...\n\n## 4. 火山图\n已生成火山图，红色为上调，蓝色为下调..."
+        }
+      ]
+    }
+  },
+  {
+    "task": "对TCGA-BRCA的RNA-seq数据进行预处理，使用DESeq2进行差异分析，并做GO/KEGG富集分析",
+    "response": {
+      "messages": [
+        {
+          "role": "assistant",
+          "content": "# TCGA-BRCA分析\n\nDESeq2分析完成。共检测到2341个差异基因（padj<0.05）...\nGO富集显示显著富集在细胞周期、DNA修复等通路...\nKEGG分析显示PI3K-AKT、p53信号通路显著..."
+        }
+      ]
+    }
+  },
+  {
+    "task": "从STRING数据库获取TP53蛋白互作网络，筛选combined_score>0.7的互作对，用Cytoscape可视化",
+    "response": {
+      "messages": [
+        {
+          "role": "assistant",
+          "content": "# TP53蛋白互作网络\n\n从STRING数据库获取到87个互作蛋白...\n筛选combined_score>0.7后剩余42个高置信度互作对...\n网络包含3个功能模块：DNA损伤应答、凋亡调控、细胞周期..."
+        }
+      ]
+    }
+  },
+  {
+    "task": "下载参考基因组hg38，使用BWA-MEM比对RNA-seq reads，然后运行featureCounts进行定量",
+    "response": {
+      "messages": [
+        {
+          "role": "assistant",
+          "content": "# RNA-seq比对流程\n\n使用BWA-MEM比对hg38参考基因组...\n比对率：92.3%，唯一比对率：78.6%...\nfeatureCounts定量结果：共检测到18523个基因的表达..."
+        }
+      ]
+    }
+  },
+  {
+    "task": "从ClinVar数据库提取BRCA1/BRCA2的致病突变，注释变异类型和临床意义，输出表格汇总",
+    "response": {
+      "messages": [
+        {
+          "role": "assistant",
+          "content": "# BRCA突变注释\n\n从ClinVar提取到BRCA1: 234个致病突变, BRCA2: 198个...\n按变异类型：错义突变占45%，移码突变占22%，无义突变占15%...\n临床意义分级：Pathogenic 67%, Likely pathogenic 18%..."
+        }
+      ]
+    }
+  }
+]
