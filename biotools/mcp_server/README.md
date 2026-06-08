@@ -48,16 +48,7 @@ docker pull 1084337496/biotools:latest
 
 ### Download basic environment data
 
-- [![DOI](https://zenodo.org/badge/DOI/10.5281/zenodo.15291175.svg)](https://doi.org/10.5281/zenodo.15291175)
-- [Baidu Netdisk](https://pan.baidu.com/s/1YSH2Y-n_1N4YY1Rk-L7KLA?pwd=khzx)
-
-### Download Data Section (Excluding Tools; Automatically Managed by the Agent)
-
-> Users may choose to download only this data section, which has a smaller memory footprint.
-> The Conda environment and analytical tools can be automatically installed and managed by the TransMAgent intelligent agent during runtime.
-
-- [![DOI](https://zenodo.org/badge/DOI/10.5281/zenodo.17523239.svg)](https://doi.org/10.5281/zenodo.17523239)
-- [Baidu Netdisk](https://pan.baidu.com/s/1HRCcue-ql5hftPpX4INfWA?pwd=4rfq)
+- [![DOI](https://zenodo.org/badge/DOI/10.5281/zenodo.15291175.svg)](https://doi.org/10.5281/zenodo.20301849)
 
 ### Data decompression
 
