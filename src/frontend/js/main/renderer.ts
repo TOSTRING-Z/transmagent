@@ -83,8 +83,31 @@ document.addEventListener("DOMContentLoaded", () => {
 
   // File Upload
   DOM.file_upload.addEventListener("click", async (e: any) => {
+    // 如果点的是清除按钮，不触发选择文件
+    if (e.target === DOM.file_upload_clear) return;
+
     State.formData.file_path = await window.electronAPI.getFilePath();
-    e.target.innerText = State.formData.file_path ? getFileName(State.formData.file_path) : "Select file";
+    if (State.formData.file_path) {
+      const fname = getFileName(State.formData.file_path);
+      DOM.file_upload_label.innerText = fname;
+      DOM.file_upload.title = State.formData.file_path;
+      DOM.file_upload_tooltip.innerText = State.formData.file_path.replace(/\//g, ' ▸ ');
+      DOM.file_upload.classList.add("uploaded");
+      DOM.file_upload.classList.remove("empty");
+      DOM.file_upload_clear.classList.remove("hidden");
+    }
+  });
+
+  // 清除已选文件
+  DOM.file_upload_clear.addEventListener("click", (e: any) => {
+    e.stopPropagation();
+    State.formData.file_path = "";
+    DOM.file_upload_label.innerText = "Select File";
+    DOM.file_upload.title = "";
+    DOM.file_upload_tooltip.innerText = "";
+    DOM.file_upload.classList.remove("uploaded");
+    DOM.file_upload.classList.add("empty");
+    DOM.file_upload_clear.classList.add("hidden");
   });
 
   // Submit

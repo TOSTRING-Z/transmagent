@@ -1,6 +1,9 @@
 export const DOM = {
   system_prompt: document.getElementById("system_prompt") as HTMLTextAreaElement,
   file_upload: document.getElementById("file_upload") as HTMLElement,
+  file_upload_label: document.getElementById("file_upload_label") as HTMLElement,
+  file_upload_clear: document.getElementById("file_upload_clear") as HTMLElement,
+  file_upload_tooltip: document.getElementById("file_upload_tooltip") as HTMLElement,
   act_plan: document.getElementById("act_plan") as HTMLElement,
   auto: document.getElementById("auto") as HTMLElement,
   act: document.getElementById("act") as HTMLElement,

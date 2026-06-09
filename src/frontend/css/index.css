@@ -1010,6 +1010,96 @@ body {
   box-shadow: 0 0 5px rgba(76, 175, 80, 0.5);
 }
 
+/* ========== File Upload Button ========== */
+.file-upload-btn {
+  position: relative;
+  max-width: 210px;
+  overflow: visible;
+  gap: 4px;
+}
+
+.file-upload-btn .img-mode {
+  flex-shrink: 0;
+}
+
+.file-upload-label {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  max-width: 130px;
+  display: inline-block;
+  vertical-align: middle;
+  transition: color 0.2s;
+}
+
+/* 未选择态 */
+.file-upload-btn.empty .file-upload-label {
+  color: #999;
+}
+
+/* 已选择态 */
+.file-upload-btn.uploaded .file-upload-label {
+  color: #129124;
+  font-weight: 500;
+}
+
+/* 清除按钮 */
+.file-upload-clear {
+  font-style: normal;
+  font-size: 12px;
+  color: #aaa;
+  cursor: pointer;
+  margin-left: 2px;
+  flex-shrink: 0;
+  line-height: 1;
+  padding: 1px 4px;
+  border-radius: 50%;
+  transition: color 0.15s, background 0.15s;
+}
+
+.file-upload-clear:hover {
+  color: #fff;
+  background: #e53e3e;
+}
+
+.file-upload-clear.hidden {
+  display: none;
+}
+
+/* Tooltip 弹层 */
+.file-upload-tooltip {
+  display: none;
+  position: absolute;
+  bottom: calc(100% + 8px);
+  left: 50%;
+  transform: translateX(-50%);
+  background: #2d3748;
+  color: #e2e8f0;
+  font-size: 11px;
+  font-family: monospace;
+  padding: 6px 10px;
+  border-radius: 6px;
+  white-space: nowrap;
+  z-index: 1000;
+  pointer-events: none;
+  box-shadow: 0 4px 12px rgba(0,0,0,0.18);
+}
+
+.file-upload-tooltip::after {
+  content: '';
+  position: absolute;
+  top: 100%;
+  left: 50%;
+  transform: translateX(-50%);
+  border-width: 5px;
+  border-style: solid;
+  border-color: #2d3748 transparent transparent transparent;
+}
+
+.file-upload-btn:hover .file-upload-tooltip {
+  display: block;
+}
+
 .close {
   width: 16px;
   height: 16px;

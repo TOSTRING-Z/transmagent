@@ -355,7 +355,11 @@
               <div class="btn flex-center" id="plan"><i class="img-mode im-planning"></i>Planning Mode</div>
               <div class="btn flex-center" id="flash"><i class="img-mode im-flash"></i>Flash Mode</div>
             </div>
-            <div class="btn flex-center ml-2" id="file_upload" hidden><i class="img-mode im-fileload"></i>File Upload
+            <div class="btn flex-center ml-2 file-upload-btn empty" id="file_upload" hidden title="">
+              <i class="img-mode im-fileload"></i>
+              <span class="file-upload-label" id="file_upload_label">Select File</span>
+              <i class="file-upload-clear hidden" id="file_upload_clear">✕</i>
+              <div class="file-upload-tooltip" id="file_upload_tooltip"></div>
             </div>
             <div id="progress-container" class="progress-container">
               <div id="progress-bar" class="progress-bar"></div>
