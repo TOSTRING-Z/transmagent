@@ -259,11 +259,8 @@ Complete per-query, per-expert, per-dimension review data are provided in **Supp
 
 ## X. Data and Code Availability
 
-The complete data of Supplementary Table 9 (including original expert review records across all sheets) are released as part of the article's supplementary materials.
-
-File path: `/home/tostring/桌面/document/NM改稿/文章/补充材料/修改后补充表/Supplementary Table 9.xlsx`
+File path: `data/human_evaluation.xlsx`
 
 ---
 
-*Document version: v1.0*
 *Last updated: 2026-06-10*

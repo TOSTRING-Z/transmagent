@@ -259,11 +259,8 @@
 
 ## 十、数据与代码可用性
 
-Supplementary Table 9 的完整数据（含所有 sheet 的原始专家评审记录）随文章补充材料发布。
-
-文件路径：`/home/tostring/桌面/document/NM改稿/文章/补充材料/修改后补充表/Supplementary Table 9.xlsx`
+文件路径：`data/human_evaluation.xlsx`
 
 ---
 
-*文档版本：v1.0*
 *最后更新：2026-06-10*
