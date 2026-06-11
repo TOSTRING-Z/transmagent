@@ -61,7 +61,7 @@ The system adopts a **Five-Stage Task Flow**: Task Parsing → Task Decompositio
 
 ### 🧰 BioTools Integration
 
-We provide a general transcription regulation MCP service [BioTools](./biotools), integrating over **30 bioinformatics analysis tools** (e.g., HOMER, DEEptools, ROSE, BETA, TRAPT, etc.).  
+We provide a general transcription regulation MCP service [BioTools](./biotools/mcp_server), integrating over **30 bioinformatics analysis tools** (e.g., HOMER, DEEptools, ROSE, BETA, TRAPT, etc.).  
 The BioTools MCP service uses Docker virtualization and streaming HTTP communication mechanisms for unified cloud and local tool calls, allowing users to quickly extend or customize analysis tools.
 
 **Core Tool Set**:

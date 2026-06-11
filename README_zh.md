@@ -61,7 +61,7 @@ TransMAgent 通过自然语言对话的方式与后端大语言模型进行定�
 
 ### 🧰 BioTools 集成
 
-我们提供了一个通用的转录调控 MCP 服务 [BioTools](./biotools)，其中集成了超过 **30 种生物信息学分析工具**（如 HOMER、DEEptools、ROSE、BETA、TRAPT 等）。  
+我们提供了一个通用的转录调控 MCP 服务 [BioTools](./biotools/mcp_server)，其中集成了超过 **30 种生物信息学分析工具**（如 HOMER、DEEptools、ROSE、BETA、TRAPT 等）。  
 BioTools MCP 服务通过 Docker 虚拟化与 流式HTTP 通信机制实现云端与本地统一调用，用户可快速拓展或自定义分析工具。
 
 **核心工具集合**：
