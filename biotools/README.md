@@ -524,10 +524,7 @@ TransMAgent provides an **"Auto-Suitability Score"** function: after you upload 
 
 | Resource | Link | Description |
 |---|---|---|
-| Interactive Decision Tool | [http://...] | Online decision tree — click to get a mode recommendation |
-| Demo Case Library | [http://...] | Real-world examples: fully autonomous, expert-guided, and hybrid |
-| Dynamic Visualization Site | [http://...] | Visualize expert intervention timing and rationale across cases |
-| Example Datasets | [http://...] | Standard test datasets for hands-on practice |
+| Dynamic Visualization Site | [http://www.licpathway.net/transmagent/] | Visualize expert intervention timing and rationale across cases |
 
 ---
 
