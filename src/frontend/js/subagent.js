@@ -4,6 +4,9 @@
   var DOM = {
     system_prompt: document.getElementById("system_prompt"),
     file_upload: document.getElementById("file_upload"),
+    file_upload_label: document.getElementById("file_upload_label"),
+    file_upload_clear: document.getElementById("file_upload_clear"),
+    file_upload_tooltip: document.getElementById("file_upload_tooltip"),
     act_plan: document.getElementById("act_plan"),
     auto: document.getElementById("auto"),
     act: document.getElementById("act"),

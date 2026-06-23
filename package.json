@@ -41,6 +41,10 @@
           "**/*",
           "!**/node_modules"
         ]
+      },
+      {
+        "from": "node_modules/sqlite-vec-linux-x64",
+        "to": "sqlite-vec-linux-x64"
       }
     ],
     "win": {
@@ -72,6 +76,13 @@
       "icon": "resources/icon/icon@256x256.icns"
     },
     "asar": true,
+    "asarUnpack": [
+      "node_modules/sqlite-vec-linux-x64/**",
+      "node_modules/sqlite-vec-linux-arm64/**",
+      "node_modules/sqlite-vec-darwin-x64/**",
+      "node_modules/sqlite-vec-darwin-arm64/**",
+      "node_modules/sqlite-vec-windows-x64/**"
+    ],
     "npmRebuild": false
   },
   "scripts": {

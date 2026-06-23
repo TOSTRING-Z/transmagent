@@ -4,6 +4,9 @@
   var DOM = {
     system_prompt: document.getElementById("system_prompt"),
     file_upload: document.getElementById("file_upload"),
+    file_upload_label: document.getElementById("file_upload_label"),
+    file_upload_clear: document.getElementById("file_upload_clear"),
+    file_upload_tooltip: document.getElementById("file_upload_tooltip"),
     act_plan: document.getElementById("act_plan"),
     auto: document.getElementById("auto"),
     act: document.getElementById("act"),
@@ -1663,8 +1666,28 @@ ${DOM.input.value}`;
     DOM.plan.addEventListener("click", () => toggleMode("plan", true));
     DOM.flash.addEventListener("click", () => toggleMode("flash", true));
     DOM.file_upload.addEventListener("click", async (e) => {
+      if (e.target === DOM.file_upload_clear)
+        return;
       State.formData.file_path = await window.electronAPI.getFilePath();
-      e.target.innerText = State.formData.file_path ? getFileName(State.formData.file_path) : "Select file";
+      if (State.formData.file_path) {
+        const fname = getFileName(State.formData.file_path);
+        DOM.file_upload_label.innerText = fname;
+        DOM.file_upload.title = State.formData.file_path;
+        DOM.file_upload_tooltip.innerText = State.formData.file_path.replace(/\//g, " \u25B8 ");
+        DOM.file_upload.classList.add("uploaded");
+        DOM.file_upload.classList.remove("empty");
+        DOM.file_upload_clear.classList.remove("hidden");
+      }
+    });
+    DOM.file_upload_clear.addEventListener("click", (e) => {
+      e.stopPropagation();
+      State.formData.file_path = "";
+      DOM.file_upload_label.innerText = "Select File";
+      DOM.file_upload.title = "";
+      DOM.file_upload_tooltip.innerText = "";
+      DOM.file_upload.classList.remove("uploaded");
+      DOM.file_upload.classList.add("empty");
+      DOM.file_upload_clear.classList.add("hidden");
     });
     DOM.submit.addEventListener("click", async () => {
       if (DOM.submit.classList.contains("running")) {
@@ -1855,11 +1878,11 @@ ${DOM.input.value}`;
           q.options?.forEach((opt) => {
             const btn = document.createElement("div");
             btn.className = "btn option-btn";
-            btn.innerText = opt;
+            btn.innerText = typeof opt === "string" ? opt : opt.value;
             btn.addEventListener("click", () => {
               optionsContainer.querySelectorAll(".option-btn").forEach((b) => b.classList.remove("active"));
               btn.classList.add("active");
-              answers[q.id] = opt;
+              answers[q.id] = typeof opt === "string" ? opt : opt.value;
             });
             optionsContainer.appendChild(btn);
           });

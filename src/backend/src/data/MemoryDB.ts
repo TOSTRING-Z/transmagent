@@ -1,5 +1,7 @@
 import { logger } from '../utils/logger';
 import { getDefault } from '../utils/public';
+import * as path from 'path';
+import { app } from 'electron';
 
 const sqlite3 = require('sqlite3').verbose();
 
@@ -55,7 +57,24 @@ export class MemoryDB {
                         sqliteVec.load(this.db);
                         logger.log("[MemoryDB] sqlite-vec extension loaded.");
                     } catch (loadErr: any) {
-                        console.error("[MemoryDB] Failed to load sqlite-vec:", loadErr);
+                        // Fallback: in packaged app, .so files can't be loaded from asar
+                        // Load directly from extraResources path (process.resourcesPath)
+                        const platform = process.platform;
+                        const arch = process.arch;
+                        const os = platform === 'win32' ? 'windows' : platform;
+                        const suffix = platform === 'win32' ? 'dll' : platform === 'darwin' ? 'dylib' : 'so';
+                        const extPath = path.join(
+                            process.resourcesPath,
+                            `sqlite-vec-${os}-${arch}`,
+                            `vec0.${suffix}`
+                        );
+                        try {
+                            this.db.loadExtension(extPath);
+                            logger.log("[MemoryDB] sqlite-vec extension loaded from resourcesPath.");
+                        } catch (fallbackErr: any) {
+                            console.error("[MemoryDB] Failed to load sqlite-vec:", loadErr);
+                            console.error("[MemoryDB] Fallback also failed:", fallbackErr);
+                        }
                     }
                 }
 

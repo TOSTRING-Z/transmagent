@@ -319,11 +319,11 @@ window.electronAPI.handleQuestions(({ questions, group_id, uuid }) => {
         q.options?.forEach(opt => {
           const btn = document.createElement("div");
           btn.className = "btn option-btn";
-          btn.innerText = opt;
+          btn.innerText = typeof opt === "string" ? opt : opt.value;
           btn.addEventListener("click", () => {
             optionsContainer.querySelectorAll(".option-btn").forEach((b: any) => b.classList.remove("active"));
             btn.classList.add("active");
-            answers[q.id] = opt;
+            answers[q.id] = typeof opt === "string" ? opt : opt.value;
           });
           optionsContainer.appendChild(btn);
         });
