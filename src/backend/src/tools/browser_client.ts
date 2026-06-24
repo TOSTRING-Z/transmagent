@@ -31,6 +31,89 @@ function getChromeProxyArgs(): string[] {
     return [];
 }
 
+// --- Chrome/Headless Shell 路径检测 ---
+function getChromeExecutablePath(): string | undefined {
+    const fs = require('fs');
+    const path = require('path');
+
+    // 候选路径列表（按优先级排序）
+    const candidates: string[] = [];
+
+    // 1) 打包后的 resources 目录 (Electron 生产环境)
+    // electron-builder 打包后, process.resourcesPath 指向 resources/
+    const electronResourcesPath = (process as any).resourcesPath;
+    if (electronResourcesPath) {
+        const bundledDir = path.join(electronResourcesPath, 'chrome-headless-shell');
+        if (fs.existsSync(bundledDir)) {
+            // 查找 chrome-headless-shell 二进制
+            const entries = fs.readdirSync(bundledDir, { withFileTypes: true });
+            for (const entry of entries) {
+                if (entry.isDirectory()) {
+                    // 平台目录 (如 linux-141.0.7390.54)
+                    const platformDir = path.join(bundledDir, entry.name);
+                    if (fs.existsSync(platformDir)) {
+                        const subEntries = fs.readdirSync(platformDir, { withFileTypes: true });
+                        for (const sub of subEntries) {
+                            if (sub.isDirectory()) {
+                                const exePath = path.join(platformDir, sub.name, 'chrome-headless-shell');
+                                if (fs.existsSync(exePath)) {
+                                    candidates.push(exePath);
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    // 2) 开发环境: 项目根目录下的 resources/
+    const devResourcesPath = path.resolve(__dirname, '..', '..', '..', '..', 'resources', 'chrome-headless-shell');
+    if (fs.existsSync(devResourcesPath)) {
+        const entries = fs.readdirSync(devResourcesPath, { withFileTypes: true });
+        for (const entry of entries) {
+            if (entry.isDirectory()) {
+                const platformDir = path.join(devResourcesPath, entry.name);
+                if (fs.existsSync(platformDir)) {
+                    const subEntries = fs.readdirSync(platformDir, { withFileTypes: true });
+                    for (const sub of subEntries) {
+                        if (sub.isDirectory()) {
+                            const exePath = path.join(platformDir, sub.name, 'chrome-headless-shell');
+                            if (fs.existsSync(exePath)) {
+                                candidates.push(exePath);
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    // 3) 系统 Chrome / Chromium
+    const systemPaths = process.platform === 'linux'
+        ? ['/usr/bin/google-chrome', '/usr/bin/google-chrome-stable', '/usr/bin/chromium-browser', '/usr/bin/chromium']
+        : process.platform === 'darwin'
+            ? ['/Applications/Google Chrome.app/Contents/MacOS/Google Chrome']
+            : ['C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe',
+               'C:\\Program Files (x86)\\Google\\Chrome\\Application\\chrome.exe'];
+
+    for (const p of systemPaths) {
+        if (fs.existsSync(p)) {
+            candidates.push(p);
+        }
+    }
+
+    if (candidates.length > 0) {
+        // 选择第一个匹配的
+        logger.log(`检测到 Chrome 路径: ${candidates[0]}`);
+        return candidates[0];
+    }
+
+    // 4) 回退到 Puppeteer 默认行为 (~/.cache/puppeteer)
+    logger.log('未找到系统或打包的 Chrome，回退到 Puppeteer 默认缓存路径');
+    return undefined;
+}
+
 // ==========================================
 // 类型与接口定义 (Types & Interfaces)
 // ==========================================
@@ -152,9 +235,13 @@ class BrowserController {
                 logger.log(`使用浏览器代理: ${proxyArgs.join(', ')}`);
             }
 
+            // 检测可用的 Chrome/Headless Shell 路径
+            const executablePath = getChromeExecutablePath();
+
             this.browser = await puppeteer.launch({
                 headless: silentMode, // 静默模式下使用 headless 模式
                 devtools: false,
+                executablePath,       // 使用打包的 chrome-headless-shell 或系统 Chrome
                 args: [
                     '--no-sandbox',
                     '--disable-setuid-sandbox',
