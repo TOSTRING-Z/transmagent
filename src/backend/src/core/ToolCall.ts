@@ -924,6 +924,11 @@ export class ToolCall extends LLMBase implements ISchedulableAgent {
         } else {
             messages = this.llmService.chatManager.loadMessages(filePath);
         }
+        // 按 max_display_messages 截断展示，防止加载卡顿
+        const maxDisplay = this.llmService.chatManager.chat.max_display_messages ?? 100;
+        if (maxDisplay > 0 && messages.length > maxDisplay) {
+            messages = messages.slice(-maxDisplay);
+        }
         const chat = this.llmService.chatManager.chat;
         let state = State.IDLE;
         let questions = null;

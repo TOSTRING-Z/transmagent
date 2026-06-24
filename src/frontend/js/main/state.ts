@@ -22,6 +22,7 @@ export interface ChatState {
     memory_length: number;
     long_memory_length: number;
     max_tokens: number;
+    max_display_messages: number;
     starred?: boolean;
 }
 

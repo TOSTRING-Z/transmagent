@@ -46,3 +46,4 @@ model/
 article/
 *.eml
 translate_tasks.py
+resources/chrome-headless-shell/

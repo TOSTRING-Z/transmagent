@@ -420,6 +420,9 @@ export async function showConfig() {
   const maxTokens = document.getElementById('max-tokens') as HTMLInputElement;
   if (maxTokens) maxTokens.value = String(State.chat.max_tokens ?? '');
 
+  const maxDisplay = document.getElementById('max-display-messages') as HTMLSelectElement;
+  if (maxDisplay) maxDisplay.value = String(State.chat.max_display_messages ?? 100);
+
   ai_model.onchange = (event: any) => {
     api_url.value = config.models[event.target.value]?.api_url || '';
     api_key.value = config.models[event.target.value]?.api_key || '';
@@ -484,6 +487,9 @@ export async function saveConfig() {
 
   const maxTokens = document.getElementById('max-tokens') as HTMLInputElement;
   if (maxTokens) State.chat.max_tokens = Number(maxTokens.value) || 0;
+
+  const maxDisplay = document.getElementById('max-display-messages') as HTMLSelectElement;
+  if (maxDisplay) State.chat.max_display_messages = Number(maxDisplay.value) || 100;
 
   await window.electronAPI.setChat(State.chat);
 

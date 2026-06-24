@@ -1524,6 +1524,9 @@ ${DOM.input.value}`;
     const maxTokens = document.getElementById("max-tokens");
     if (maxTokens)
       maxTokens.value = String(State.chat.max_tokens ?? "");
+    const maxDisplay = document.getElementById("max-display-messages");
+    if (maxDisplay)
+      maxDisplay.value = String(State.chat.max_display_messages ?? 100);
     ai_model.onchange = (event) => {
       api_url.value = config.models[event.target.value]?.api_url || "";
       api_key.value = config.models[event.target.value]?.api_key || "";
@@ -1582,6 +1585,9 @@ ${DOM.input.value}`;
     const maxTokens = document.getElementById("max-tokens");
     if (maxTokens)
       State.chat.max_tokens = Number(maxTokens.value) || 0;
+    const maxDisplay = document.getElementById("max-display-messages");
+    if (maxDisplay)
+      State.chat.max_display_messages = Number(maxDisplay.value) || 100;
     await window.electronAPI.setChat(State.chat);
     if (!config.tool_call)
       config.tool_call = {};

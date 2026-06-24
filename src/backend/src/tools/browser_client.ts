@@ -22,13 +22,44 @@ function getProxyUrl(): string | undefined {
 
 function getChromeProxyArgs(): string[] {
     const proxyUrl = getProxyUrl();
-    if (proxyUrl) {
-        // 转换 http://... 格式为 Chrome 支持的格式
-        // Chrome 支持: protocol://host:port
-        const cleanProxy = proxyUrl.replace(/^https?:\/\//i, '');
-        return [`--proxy-server=${cleanProxy}`];
+    if (!proxyUrl) {
+        return [];
     }
-    return [];
+
+    const args: string[] = [];
+
+    // 清理代理URL: 去协议、去尾部斜杠、去空白
+    let cleanProxy = proxyUrl.trim().replace(/^https?:\/\//i, '').replace(/\/+$/, '');
+
+    // 如果包含认证信息 user:pass@host:port，Chrome 不支持命令行认证
+    // 检测并警告，但仍然尝试传递（某些代理服务器可能忽略认证）
+    if (cleanProxy.includes('@')) {
+        logger.log('警告: 代理URL包含认证信息，Chrome 可能无法正确处理');
+    }
+
+    args.push(`--proxy-server=${cleanProxy}`);
+
+    // 解析 no_proxy 并传递给 Chrome
+    const noProxy = process.env.no_proxy || process.env.NO_PROXY;
+    if (noProxy) {
+        // Chrome 的 --proxy-bypass-list 格式: 分号分隔，支持通配符和 CIDR
+        // 转换 no_proxy (逗号分隔) → Chrome 格式
+        const bypassList = noProxy
+            .split(',')
+            .map(s => s.trim())
+            .filter(s => s.length > 0)
+            .map(s => {
+                // CIDR 格式保持不变 (Chrome 支持)
+                if (s.includes('/')) return s;
+                // <local> 在 Chrome 中表示所有不带点的域名
+                return s === '<local>' ? s : s;
+            })
+            .join(';');
+        args.push(`--proxy-bypass-list=${bypassList}`);
+        logger.log(`Chrome 代理绕过列表: ${bypassList}`);
+    }
+
+    return args;
 }
 
 // --- Chrome/Headless Shell 路径检测 ---
@@ -39,7 +70,24 @@ function getChromeExecutablePath(): string | undefined {
     // 候选路径列表（按优先级排序）
     const candidates: string[] = [];
 
-    // 1) 打包后的 resources 目录 (Electron 生产环境)
+    // 跨平台二进制名称
+    const binaryName = process.platform === 'win32' ? 'chrome-headless-shell.exe' : 'chrome-headless-shell';
+
+    // 1) 系统 Chrome / Chromium（优先使用完整 Chrome，支持有头模式）
+    const systemPaths = process.platform === 'linux'
+        ? ['/usr/bin/google-chrome', '/usr/bin/google-chrome-stable', '/usr/bin/chromium-browser', '/usr/bin/chromium']
+        : process.platform === 'darwin'
+            ? ['/Applications/Google Chrome.app/Contents/MacOS/Google Chrome']
+            : ['C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe',
+               'C:\\Program Files (x86)\\Google\\Chrome\\Application\\chrome.exe'];
+
+    for (const p of systemPaths) {
+        if (fs.existsSync(p)) {
+            candidates.push(p);
+        }
+    }
+
+    // 2) 打包后的 resources 目录 (Electron 生产环境) — headless-shell 降级
     // electron-builder 打包后, process.resourcesPath 指向 resources/
     const electronResourcesPath = (process as any).resourcesPath;
     if (electronResourcesPath) {
@@ -55,7 +103,7 @@ function getChromeExecutablePath(): string | undefined {
                         const subEntries = fs.readdirSync(platformDir, { withFileTypes: true });
                         for (const sub of subEntries) {
                             if (sub.isDirectory()) {
-                                const exePath = path.join(platformDir, sub.name, 'chrome-headless-shell');
+                                const exePath = path.join(platformDir, sub.name, binaryName);
                                 if (fs.existsSync(exePath)) {
                                     candidates.push(exePath);
                                 }
@@ -67,7 +115,7 @@ function getChromeExecutablePath(): string | undefined {
         }
     }
 
-    // 2) 开发环境: 项目根目录下的 resources/
+    // 3) 开发环境: 项目根目录下的 resources/ — headless-shell 降级
     const devResourcesPath = path.resolve(__dirname, '..', '..', '..', '..', 'resources', 'chrome-headless-shell');
     if (fs.existsSync(devResourcesPath)) {
         const entries = fs.readdirSync(devResourcesPath, { withFileTypes: true });
@@ -78,7 +126,7 @@ function getChromeExecutablePath(): string | undefined {
                     const subEntries = fs.readdirSync(platformDir, { withFileTypes: true });
                     for (const sub of subEntries) {
                         if (sub.isDirectory()) {
-                            const exePath = path.join(platformDir, sub.name, 'chrome-headless-shell');
+                            const exePath = path.join(platformDir, sub.name, binaryName);
                             if (fs.existsSync(exePath)) {
                                 candidates.push(exePath);
                             }
@@ -86,20 +134,6 @@ function getChromeExecutablePath(): string | undefined {
                     }
                 }
             }
-        }
-    }
-
-    // 3) 系统 Chrome / Chromium
-    const systemPaths = process.platform === 'linux'
-        ? ['/usr/bin/google-chrome', '/usr/bin/google-chrome-stable', '/usr/bin/chromium-browser', '/usr/bin/chromium']
-        : process.platform === 'darwin'
-            ? ['/Applications/Google Chrome.app/Contents/MacOS/Google Chrome']
-            : ['C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe',
-               'C:\\Program Files (x86)\\Google\\Chrome\\Application\\chrome.exe'];
-
-    for (const p of systemPaths) {
-        if (fs.existsSync(p)) {
-            candidates.push(p);
         }
     }
 
@@ -338,6 +372,35 @@ class BrowserController {
             if (options.blockJavaScript && this.page) {
                 await this.page.setRequestInterception(false).catch(() => { });
             }
+
+            // 代理失败自动回退：如果错误与代理相关且有代理配置，尝试无代理重试
+            const proxyUrl = getProxyUrl();
+            const isProxyError = proxyUrl && (
+                error.message?.includes('PROXY') ||
+                error.message?.includes('proxy') ||
+                error.message?.includes('ERR_TUNNEL_CONNECTION_FAILED')
+            );
+
+            if (isProxyError && this.page) {
+                logger.log('检测到代理错误，尝试无代理重试...');
+                try {
+                    await this.page.goto(url, {
+                        waitUntil: options.waitUntil || 'networkidle2',
+                        timeout: options.timeout || 60000
+                    });
+                    // 重试成功，说明代理是问题所在
+                    logger.log('无代理重试成功（代理不可用，已直连）');
+                    const pageInfo = await this.page.evaluate(() => ({
+                        title: document.title,
+                        url: window.location.href,
+                        readyState: document.readyState
+                    }));
+                    return { success: true, message: '导航成功（已绕过代理）', data: pageInfo };
+                } catch (retryError: any) {
+                    logger.log('无代理重试也失败');
+                }
+            }
+
             return { success: false, message: `导航失败: ${error.message}`, url: url };
         }
     }
@@ -825,8 +888,22 @@ export class ContentExtractor {
         });
     }
 
-    private async executePuppeteerAction(params: PuppeteerActionParams): Promise<ToolResponse> {
-        const { action, waitAfterAction = 1000, wait_after_action, ...actionParams } = params as any;
+    private async executePuppeteerAction(params: PuppeteerActionParams & Record<string, any>): Promise<ToolResponse> {
+        // 兼容两种调用方式：
+        // 1) { action: 'type', selector: '#x', text: 'hello', ... }
+        // 2) { action: 'type', params: { text: 'hello', selector: '#x', ... } }
+        const raw = params as any;
+
+        // 如果存在 params 子对象，将其中的参数提升到顶层
+        // 合并策略：params 中的值作为默认值，顶层同名 key 优先（更安全）
+        let mergedParams: Record<string, any>;
+        if (raw.params && typeof raw.params === 'object') {
+            mergedParams = { ...raw.params, ...raw };
+        } else {
+            mergedParams = raw;
+        }
+
+        const { action, waitAfterAction = 1000, wait_after_action, ...actionParams } = mergedParams;
         const targetWait = wait_after_action || waitAfterAction;
 
         if (!action) {
@@ -836,10 +913,7 @@ export class ContentExtractor {
             return { success: false, message: '浏览器未打开，请先执行 open 操作' };
         }
 
-        return await this.browser.executePuppeteerAction(action, {
-            ...actionParams,
-            waitAfterAction: targetWait
-        });
+        return await this.browser.executePuppeteerAction(action, actionParams as PuppeteerActionParams);
     }
 
     private async getElementInfo(params: any): Promise<ToolResponse> {
@@ -1123,10 +1197,33 @@ export function getPrompt() {
                 },
                 "params": {
                     "type": "object",
-                    "description": "Additional configuration for the operation.",
+                    "description": "Additional parameters. For 'puppeteer_action' operations like 'type', 'click', 'hover', you can pass the inner action parameters here (e.g., params: { text: 'hello', delay: 100 }) OR pass them as top-level keys alongside 'action'.",
                     "properties": {
-                        "width": { "type": "number", "default": 1200 },
-                        "height": { "type": "number", "default": 800 },
+                        "width": { "type": "number", "default": 1200, "description": "Browser viewport width" },
+                        "height": { "type": "number", "default": 800, "description": "Browser viewport height" },
+                        "text": { "type": "string", "description": "Text to type (for 'type' puppeteer_action)" },
+                        "delay": { "type": "number", "description": "Delay in ms between keystrokes (for 'type') or before click" },
+                        "button": { "type": "string", "enum": ["left", "right", "middle"], "description": "Mouse button for click" },
+                        "clickCount": { "type": "number", "description": "Number of clicks" },
+                        "values": { "type": "array", "items": { "type": "string" }, "description": "Values for select action" },
+                        "timeout": { "type": "number", "description": "Timeout in ms" },
+                        "visible": { "type": "boolean", "description": "Wait for visible element" },
+                        "hidden": { "type": "boolean", "description": "Wait for hidden element" },
+                        "waitUntil": { "type": "string", "enum": ["load", "domcontentloaded", "networkidle0", "networkidle2"], "description": "Navigation wait condition" },
+                        "path": { "type": "string", "description": "File path to save screenshot" },
+                        "type": { "type": "string", "enum": ["png", "jpeg", "webp"], "description": "Screenshot format" },
+                        "quality": { "type": "number", "description": "Screenshot quality (0-100)" },
+                        "fullPage": { "type": "boolean", "description": "Full page screenshot" },
+                        "x": { "type": "number", "description": "Horizontal scroll amount" },
+                        "y": { "type": "number", "description": "Vertical scroll amount" },
+                        "behavior": { "type": "string", "enum": ["auto", "smooth"], "description": "Scroll behavior" },
+                        "viewport": { "type": "object", "description": "Viewport settings { width, height }" },
+                        "userAgent": { "type": "string", "description": "Custom user agent string" },
+                        "cookies": { "type": "array", "description": "Cookies to set" },
+                        "name": { "type": "string", "description": "Cookie name to delete" },
+                        "function": { "type": "string", "description": "Function string for evaluate/waitForFunction" },
+                        "args": { "type": "array", "description": "Arguments for evaluate/waitForFunction" },
+                        "polling": { "type": ["string", "number"], "description": "Polling interval for waitForFunction ('raf', 'mutation', or ms)" },
                         "wait_after_action": { "type": "number", "description": "Wait time in ms after action" },
                         "block_javascript": { "type": "boolean", "description": "Block JS for faster loading" },
                         "remove_selectors": { "type": "array", "items": { "type": "string" }, "description": "Selectors to strip from content" }
