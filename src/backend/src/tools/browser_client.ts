@@ -9,6 +9,9 @@ import puppeteer, {
 import { ToolCall } from '../core/ToolCall';
 import { isSilentMode } from '../utils/public';
 import { bootstrapGlobalProxy } from '../utils/proxy';
+import * as fs from 'fs';
+import * as path from 'path';
+import { Client, ConnectConfig } from 'ssh2';
 
 // 初始化全局代理 (必须在所有HTTP请求之前)
 bootstrapGlobalProxy();
@@ -27,31 +30,22 @@ function getChromeProxyArgs(): string[] {
     }
 
     const args: string[] = [];
-
-    // 清理代理URL: 去协议、去尾部斜杠、去空白
     let cleanProxy = proxyUrl.trim().replace(/^https?:\/\//i, '').replace(/\/+$/, '');
 
-    // 如果包含认证信息 user:pass@host:port，Chrome 不支持命令行认证
-    // 检测并警告，但仍然尝试传递（某些代理服务器可能忽略认证）
     if (cleanProxy.includes('@')) {
         logger.log('警告: 代理URL包含认证信息，Chrome 可能无法正确处理');
     }
 
     args.push(`--proxy-server=${cleanProxy}`);
 
-    // 解析 no_proxy 并传递给 Chrome
     const noProxy = process.env.no_proxy || process.env.NO_PROXY;
     if (noProxy) {
-        // Chrome 的 --proxy-bypass-list 格式: 分号分隔，支持通配符和 CIDR
-        // 转换 no_proxy (逗号分隔) → Chrome 格式
         const bypassList = noProxy
             .split(',')
             .map(s => s.trim())
             .filter(s => s.length > 0)
             .map(s => {
-                // CIDR 格式保持不变 (Chrome 支持)
                 if (s.includes('/')) return s;
-                // <local> 在 Chrome 中表示所有不带点的域名
                 return s === '<local>' ? s : s;
             })
             .join(';');
@@ -64,22 +58,15 @@ function getChromeProxyArgs(): string[] {
 
 // --- Chrome/Headless Shell 路径检测 ---
 function getChromeExecutablePath(): string | undefined {
-    const fs = require('fs');
-    const path = require('path');
-
-    // 候选路径列表（按优先级排序）
     const candidates: string[] = [];
-
-    // 跨平台二进制名称
     const binaryName = process.platform === 'win32' ? 'chrome-headless-shell.exe' : 'chrome-headless-shell';
 
-    // 1) 系统 Chrome / Chromium（优先使用完整 Chrome，支持有头模式）
     const systemPaths = process.platform === 'linux'
         ? ['/usr/bin/google-chrome', '/usr/bin/google-chrome-stable', '/usr/bin/chromium-browser', '/usr/bin/chromium']
         : process.platform === 'darwin'
             ? ['/Applications/Google Chrome.app/Contents/MacOS/Google Chrome']
             : ['C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe',
-               'C:\\Program Files (x86)\\Google\\Chrome\\Application\\chrome.exe'];
+                'C:\\Program Files (x86)\\Google\\Chrome\\Application\\chrome.exe'];
 
     for (const p of systemPaths) {
         if (fs.existsSync(p)) {
@@ -87,17 +74,13 @@ function getChromeExecutablePath(): string | undefined {
         }
     }
 
-    // 2) 打包后的 resources 目录 (Electron 生产环境) — headless-shell 降级
-    // electron-builder 打包后, process.resourcesPath 指向 resources/
     const electronResourcesPath = (process as any).resourcesPath;
     if (electronResourcesPath) {
         const bundledDir = path.join(electronResourcesPath, 'chrome-headless-shell');
         if (fs.existsSync(bundledDir)) {
-            // 查找 chrome-headless-shell 二进制
             const entries = fs.readdirSync(bundledDir, { withFileTypes: true });
             for (const entry of entries) {
                 if (entry.isDirectory()) {
-                    // 平台目录 (如 linux-141.0.7390.54)
                     const platformDir = path.join(bundledDir, entry.name);
                     if (fs.existsSync(platformDir)) {
                         const subEntries = fs.readdirSync(platformDir, { withFileTypes: true });
@@ -115,7 +98,6 @@ function getChromeExecutablePath(): string | undefined {
         }
     }
 
-    // 3) 开发环境: 项目根目录下的 resources/ — headless-shell 降级
     const devResourcesPath = path.resolve(__dirname, '..', '..', '..', '..', 'resources', 'chrome-headless-shell');
     if (fs.existsSync(devResourcesPath)) {
         const entries = fs.readdirSync(devResourcesPath, { withFileTypes: true });
@@ -138,12 +120,10 @@ function getChromeExecutablePath(): string | undefined {
     }
 
     if (candidates.length > 0) {
-        // 选择第一个匹配的
         logger.log(`检测到 Chrome 路径: ${candidates[0]}`);
         return candidates[0];
     }
 
-    // 4) 回退到 Puppeteer 默认行为 (~/.cache/puppeteer)
     logger.log('未找到系统或打包的 Chrome，回退到 Puppeteer 默认缓存路径');
     return undefined;
 }
@@ -156,7 +136,7 @@ export interface ToolResponse<T = any> {
     success: boolean;
     message: string;
     data?: T;
-    [key: string]: any; // 允许附加错误信息等扩展字段
+    [key: string]: any;
 }
 
 export interface BrowserOptions {
@@ -259,23 +239,20 @@ class BrowserController {
         }
 
         try {
-            // 检查静默模式
             const silentMode = isSilentMode();
             logger.log(silentMode ? '正在启动浏览器（静默模式）...' : '正在启动浏览器...');
 
-            // 获取代理参数
             const proxyArgs = getChromeProxyArgs();
             if (proxyArgs.length > 0) {
                 logger.log(`使用浏览器代理: ${proxyArgs.join(', ')}`);
             }
 
-            // 检测可用的 Chrome/Headless Shell 路径
             const executablePath = getChromeExecutablePath();
 
             this.browser = await puppeteer.launch({
-                headless: silentMode, // 静默模式下使用 headless 模式
+                headless: silentMode,
                 devtools: false,
-                executablePath,       // 使用打包的 chrome-headless-shell 或系统 Chrome
+                executablePath,
                 args: [
                     '--no-sandbox',
                     '--disable-setuid-sandbox',
@@ -373,7 +350,6 @@ class BrowserController {
                 await this.page.setRequestInterception(false).catch(() => { });
             }
 
-            // 代理失败自动回退：如果错误与代理相关且有代理配置，尝试无代理重试
             const proxyUrl = getProxyUrl();
             const isProxyError = proxyUrl && (
                 error.message?.includes('PROXY') ||
@@ -388,7 +364,6 @@ class BrowserController {
                         waitUntil: options.waitUntil || 'networkidle2',
                         timeout: options.timeout || 60000
                     });
-                    // 重试成功，说明代理是问题所在
                     logger.log('无代理重试成功（代理不可用，已直连）');
                     const pageInfo = await this.page.evaluate(() => ({
                         title: document.title,
@@ -427,7 +402,6 @@ class BrowserController {
                 };
 
                 try {
-                    // eslint-disable-next-line no-eval
                     executionContext.result = eval(code);
                 } catch (error: any) {
                     executionContext.success = false;
@@ -520,20 +494,99 @@ class BrowserController {
                     result = { action: 'waitForNavigation' };
                     break;
 
+                // ==========================================
+                // 🔥 核心修改：智能环境感知裁剪分支
+                // ==========================================
                 case 'screenshot':
+                    // 1. 初始化工具依赖的上下文信息
+                    const toolCall = (params as any).toolCall; 
+                    const sshConfig = toolCall?.utils?.getSshConfig();
+                    const isRemoteMode = !!(sshConfig?.enabled && sshConfig?.host);
+
+                    let finalPath = params.path; // 优先获取模型指定的路径
+                    const defaultFileName = `screenshot_${Date.now()}_${Math.floor(1000 + Math.random() * 9000)}.png`;
+
+                    // 2. 如果模型没有指定 path，才启用默认的兜底智能路径
+                    if (!finalPath) {
+                        if (isRemoteMode) {
+                            finalPath = path.posix.join('/data/zgr/transagent/tmp/transmagent/screenshots', defaultFileName);
+                        } else {
+                            finalPath = path.join(process.cwd(), 'screenshots', defaultFileName);
+                        }
+                        logger.log(`[智能落盘] 模型未指定路径，激活自适应路径: ${finalPath}`);
+                    } else {
+                        logger.log(`[智能落盘] 模型主动指定保存路径: ${finalPath}`);
+                    }
+
+                    // 3. 配置 Puppeteer 截图参数
                     const screenshotOpts: ScreenshotOptions = {
-                        path: params.path as any, // 绕过模板字符串类型检查
                         type: params.type || 'png',
                         quality: params.quality,
                         fullPage: params.fullPage || false
                     };
-                    const screenshot = await this.page.screenshot(screenshotOpts);
+
+                    // 如果是纯本地模式（或者是本地运行且模型传了本地路径），让 Puppeteer 原生落盘
+                    if (!isRemoteMode) {
+                        const localDir = path.dirname(path.resolve(finalPath));
+                        if (!fs.existsSync(localDir)) {
+                            fs.mkdirSync(localDir, { recursive: true });
+                        }
+                        screenshotOpts.path = finalPath as any;
+                    }
+
+                    // 4. 执行截屏拿到二进制数据
+                    const screenshotBuffer = await this.page.screenshot(screenshotOpts);
+
+                    // 5. 核心分流处理
+                    if (isRemoteMode) {
+                        logger.log(`[智能落盘] 远程模式：正在通过 SFTP 将截图上传至远程路径: ${finalPath}`);
+                        
+                        await new Promise<void>((resolve, reject) => {
+                            const client = new Client();
+                            client.on('ready', () => {
+                                client.sftp((err, sftp) => {
+                                    if (err) {
+                                        client.end();
+                                        return reject(new Error(`SFTP 实例创建失败: ${err.message}`));
+                                    }
+
+                                    // 确保远程目录存在 (使用 posix 风格获取父目录)
+                                    const remoteDir = path.posix.dirname(finalPath);
+                                    
+                                    // 尝试创建远程目录（如果不存在的话）
+                                    sftp.mkdir(remoteDir, (mkdirErr) => {
+                                        const writeStream = sftp.createWriteStream(finalPath);
+                                        
+                                        writeStream.on('close', () => {
+                                            client.end();
+                                            resolve();
+                                        });
+
+                                        writeStream.on('error', (writeErr) => {
+                                            client.end();
+                                            reject(writeErr);
+                                        });
+
+                                        writeStream.end(screenshotBuffer);
+                                    });
+                                });
+                            }).on('error', (err) => {
+                                reject(new Error(`SSH 连接失败: ${err.message}`));
+                            }).connect({ ...sshConfig, readyTimeout: 20000 } as ConnectConfig);
+                        });
+
+                        logger.log(`[智能落盘] 远程图片上传成功！`);
+                    } else {
+                        logger.log(`[智能落盘] 本地图片保存成功！`);
+                    }
+
+                    // 6. 返回路径结构给模型
                     result = {
                         action: 'screenshot',
                         type: params.type || 'png',
                         fullPage: params.fullPage || false,
-                        // 将 Uint8Array 转换为 Base64 字符串
-                        data: Buffer.from(screenshot).toString('base64')
+                        savedPath: finalPath,
+                        data: finalPath 
                     };
                     break;
 
@@ -889,13 +942,7 @@ export class ContentExtractor {
     }
 
     private async executePuppeteerAction(params: PuppeteerActionParams & Record<string, any>): Promise<ToolResponse> {
-        // 兼容两种调用方式：
-        // 1) { action: 'type', selector: '#x', text: 'hello', ... }
-        // 2) { action: 'type', params: { text: 'hello', selector: '#x', ... } }
         const raw = params as any;
-
-        // 如果存在 params 子对象，将其中的参数提升到顶层
-        // 合并策略：params 中的值作为默认值，顶层同名 key 优先（更安全）
         let mergedParams: Record<string, any>;
         if (raw.params && typeof raw.params === 'object') {
             mergedParams = { ...raw.params, ...raw };
@@ -904,7 +951,6 @@ export class ContentExtractor {
         }
 
         const { action, waitAfterAction = 1000, wait_after_action, ...actionParams } = mergedParams;
-        const targetWait = wait_after_action || waitAfterAction;
 
         if (!action) {
             return { success: false, message: '执行Puppeteer操作需要提供 action 参数' };
@@ -913,7 +959,7 @@ export class ContentExtractor {
             return { success: false, message: '浏览器未打开，请先执行 open 操作' };
         }
 
-        return await this.browser.executePuppeteerAction(action, actionParams as PuppeteerActionParams);
+        return await this.browser.executePuppeteerAction(action, mergedParams as PuppeteerActionParams);
     }
 
     private async getElementInfo(params: any): Promise<ToolResponse> {
@@ -1160,73 +1206,34 @@ export class ContentExtractor {
     }
 }
 
-/**
- * 获取工具提示
- */
 export function getPrompt() {
     return {
         "name": "browser_client",
-        "description": "A high-level browser automation tool powered by Puppeteer. It can open pages, interact with elements, execute JavaScript, and extract cleaned content (HTML/Text) using selectors or regex.\n\n🔑 PREFERRED FOR:\n• Web search via DuckDuckGo — navigate to https://duckduckgo.com, type queries into the search box, submit, and extract results. Use this when web_crawler_toolkit fails or returns no results.\n• PubMed literature search — navigate to https://pubmed.ncbi.nlm.nih.gov and search biomedical articles. The only reliable way to query PubMed from China without VPN.\n• Any website blocked at the API/HTTP level but accessible via browser.",
+        "description": "A high-level browser automation tool powered by Puppeteer. Supports navigation, clicking, text input, and screenshot capturing.",
         "parameters": {
             "type": "object",
             "properties": {
-                "operation": {
-                    "type": "string",
-                    "enum": ["open", "close", "navigate", "execute_js", "get_content", "puppeteer_action", "get_element_info"],
-                    "description": "The primary browser action to perform."
+                "operation": { 
+                    "type": "string", 
+                    "enum": ["open", "close", "navigate", "execute_js", "get_content", "puppeteer_action", "get_element_info"] 
                 },
-                "url": {
-                    "type": "string",
-                    "description": "The URL to navigate to (used with 'navigate', 'get_content', or implicitly in 'open')."
-                },
-                "action": {
-                    "type": "string",
-                    "description": "Specific action type. For 'get_content': [extractHTML, extractText, regexMatch]. For 'puppeteer_action': [click, type, hover, scroll, screenshot, etc.]."
-                },
-                "selector": {
-                    "type": "string",
-                    "description": "CSS selector for element interaction or info extraction."
-                },
-                "js": {
-                    "type": "string",
-                    "description": "JavaScript code string to execute in the page context."
-                },
-                "regex_pattern": {
-                    "type": "string",
-                    "description": "Regex pattern to match content when action is 'regexMatch'."
+                "url": { "type": "string" },
+                "action": { "type": "string", "description": "Used when operation is 'puppeteer_action'. e.g., 'click', 'type', 'screenshot'" },
+                "selector": { "type": "string" },
+                "js": { "type": "string" },
+                // 将 path 明确暴露在参数最外层，方便大模型直接填充
+                "path": { 
+                    "type": "string", 
+                    "description": "The absolute file path where the screenshot should be saved. Supports remote POSIX paths under remote mode, or local paths under local mode." 
                 },
                 "params": {
                     "type": "object",
-                    "description": "Additional parameters. For 'puppeteer_action' operations like 'type', 'click', 'hover', you can pass the inner action parameters here (e.g., params: { text: 'hello', delay: 100 }) OR pass them as top-level keys alongside 'action'.",
                     "properties": {
-                        "width": { "type": "number", "default": 1200, "description": "Browser viewport width" },
-                        "height": { "type": "number", "default": 800, "description": "Browser viewport height" },
-                        "text": { "type": "string", "description": "Text to type (for 'type' puppeteer_action)" },
-                        "delay": { "type": "number", "description": "Delay in ms between keystrokes (for 'type') or before click" },
-                        "button": { "type": "string", "enum": ["left", "right", "middle"], "description": "Mouse button for click" },
-                        "clickCount": { "type": "number", "description": "Number of clicks" },
-                        "values": { "type": "array", "items": { "type": "string" }, "description": "Values for select action" },
-                        "timeout": { "type": "number", "description": "Timeout in ms" },
-                        "visible": { "type": "boolean", "description": "Wait for visible element" },
-                        "hidden": { "type": "boolean", "description": "Wait for hidden element" },
-                        "waitUntil": { "type": "string", "enum": ["load", "domcontentloaded", "networkidle0", "networkidle2"], "description": "Navigation wait condition" },
-                        "path": { "type": "string", "description": "File path to save screenshot" },
-                        "type": { "type": "string", "enum": ["png", "jpeg", "webp"], "description": "Screenshot format" },
-                        "quality": { "type": "number", "description": "Screenshot quality (0-100)" },
-                        "fullPage": { "type": "boolean", "description": "Full page screenshot" },
-                        "x": { "type": "number", "description": "Horizontal scroll amount" },
-                        "y": { "type": "number", "description": "Vertical scroll amount" },
-                        "behavior": { "type": "string", "enum": ["auto", "smooth"], "description": "Scroll behavior" },
-                        "viewport": { "type": "object", "description": "Viewport settings { width, height }" },
-                        "userAgent": { "type": "string", "description": "Custom user agent string" },
-                        "cookies": { "type": "array", "description": "Cookies to set" },
-                        "name": { "type": "string", "description": "Cookie name to delete" },
-                        "function": { "type": "string", "description": "Function string for evaluate/waitForFunction" },
-                        "args": { "type": "array", "description": "Arguments for evaluate/waitForFunction" },
-                        "polling": { "type": ["string", "number"], "description": "Polling interval for waitForFunction ('raf', 'mutation', or ms)" },
-                        "wait_after_action": { "type": "number", "description": "Wait time in ms after action" },
-                        "block_javascript": { "type": "boolean", "description": "Block JS for faster loading" },
-                        "remove_selectors": { "type": "array", "items": { "type": "string" }, "description": "Selectors to strip from content" }
+                        "width": { "type": "number", "default": 1200 },
+                        "height": { "type": "number", "default": 800 },
+                        "text": { "type": "string" },
+                        "type": { "type": "string", "enum": ["png", "jpeg", "webp"], "default": "png" },
+                        "fullPage": { "type": "boolean", "default": false }
                     }
                 }
             },
@@ -1237,77 +1244,8 @@ export function getPrompt() {
 
 const extractor = new ContentExtractor();
 
-export function main(): (params: Record<string, any>) => Promise<ToolResponse> {
-    return async (params: Record<string, any>): Promise<ToolResponse> => {
-        return await extractor.main({ ...params, toolCall: ToolCall });
+export function main() {
+    return async (args: Record<string, any>): Promise<ToolResponse> => {
+        return await extractor.main({ ...args });
     };
-}
-
-// ==========================================
-// 测试模块
-// ==========================================
-if (require.main === module) {
-    (async () => {
-        try {
-            logger.log('=== 测试内容提取器（支持Puppeteer原生操作）===\n');
-            const testExtractor = new ContentExtractor();
-
-            logger.log('1. 打开浏览器...');
-            let result = await testExtractor.main({ operation: 'open' });
-            logger.log('打开结果:', result.success ? '成功' : '失败');
-            if (!result.success) return;
-
-            logger.log('\n1.5. 单独测试 navigate 导航...');
-            result = await testExtractor.main({
-                operation: 'navigate',
-                url: 'https://example.com'
-            });
-            logger.log('Navigate 结果:', result.success ? '成功' : '失败');
-
-            logger.log('\n2. 获取页面内容...');
-            result = await testExtractor.main({
-                operation: 'get_content',
-                action: 'extractText',
-                block_javascript: true
-            });
-            logger.log('内容提取结果:', result.success ? '成功' : '失败');
-
-            logger.log('\n3. 测试Puppeteer滚动操作...');
-            result = await testExtractor.main({
-                operation: 'puppeteer_action',
-                action: 'scroll',
-                y: 500,
-                wait_after_action: 1000
-            });
-            logger.log('滚动操作:', result.success ? '成功' : '失败');
-
-            logger.log('\n4. 测试获取元素信息...');
-            result = await testExtractor.main({
-                operation: 'get_element_info',
-                selector: 'h1'
-            });
-            logger.log('元素信息:', result.success ? '成功' : '失败');
-            if (result.success) {
-                logger.log('元素存在:', result.data.exists);
-            }
-
-            logger.log('\n5. 测试截图操作...');
-            result = await testExtractor.main({
-                operation: 'puppeteer_action',
-                action: 'screenshot',
-                fullPage: false
-            });
-            logger.log('截图操作:', result.success ? '成功' : '失败');
-            if (result.success) {
-                logger.log('截图数据长度:', result.data.result.data.length);
-            }
-
-            logger.log('\n6. 关闭浏览器...');
-            result = await testExtractor.main({ operation: 'close' });
-            logger.log('关闭结果:', result.success ? '成功' : '失败');
-
-        } catch (error) {
-            console.error('测试错误:', error);
-        }
-    })();
 }

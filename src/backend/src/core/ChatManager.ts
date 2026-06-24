@@ -129,6 +129,7 @@ export class ChatManager {
             memory_length: this.utils.getConfig('tool_call')["memory_length"] || 100,
             long_memory_length: this.utils.getConfig('tool_call')["long_memory_length"] || 200,
             max_tokens: this.utils.getConfig('tool_call')["max_tokens"] || 1e5,
+            max_display_messages: this.utils.getConfig('tool_call')["max_display_messages"] || 100,
         };
     }
 

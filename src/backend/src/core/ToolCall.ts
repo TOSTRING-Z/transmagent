@@ -872,10 +872,10 @@ export class ToolCall extends LLMBase implements ISchedulableAgent {
             };
 
             const t0 = Date.now() / 1000;
-            
+
             // 🌟 完美修复：捕获 step() 返回的强类型布尔断流标志
             const isSuspended = await this.step(data);
-            
+
             // ✅ 使用 isSuspended 代替直接的 state 比较，或者使用类型断言 (this.state as any) 规避收窄
             if (isSuspended || (this.state as any) === State.PAUSE) {
                 logger.log(`[ToolCall] ReAct loop suspended successfully on step ${chat.step} for human input.`);
@@ -925,15 +925,34 @@ export class ToolCall extends LLMBase implements ISchedulableAgent {
             messages = this.llmService.chatManager.loadMessages(filePath);
         }
         // 按 max_display_messages 截断展示，防止加载卡顿
-        const maxDisplay = this.llmService.chatManager.chat.max_display_messages ?? 100;
-        if (maxDisplay > 0 && messages.length > maxDisplay) {
-            messages = messages.slice(-maxDisplay);
+        // 截断消息用于前端显示：最后 max_display_messages 条 + 保底 user
+        let displayMessages = messages;
+        const N = this.llmService.chatManager.chat.max_display_messages;
+        if (N > 0 && messages && messages.length > N) {
+            displayMessages = messages.slice(-N);
+            if (displayMessages[0].react || displayMessages[0].role !== "user") {
+                const remaining = messages.slice(0, -N);
+                for (let i = remaining.length - 1; i >= 0; i--) {
+                    if (remaining[i].role === 'user' && remaining[i].react === false) {
+                        let infoMessage: AssistantMessage = {
+                            role: "assistant",
+                            group_id: remaining[i].group_id,
+                            context_id: remaining[i].context_id,
+                            content: `⚠️ *[System Notice: To ensure loading performance, historical messages have been truncated. Only the most recent ${N} messages are currently displayed.]*`,
+                            show: true,
+                            react: true
+                        };
+                        displayMessages = [remaining[i], infoMessage, ...displayMessages];
+                        break;
+                    }
+                }
+            }
         }
         const chat = this.llmService.chatManager.chat;
         let state = State.IDLE;
         let questions = null;
-        if (messages.length > 0) {
-            messages.forEach((message, i) => {
+        if (displayMessages.length > 0) {
+            displayMessages.forEach((message, i) => {
                 if (message.group_id && message.context_id) {
                     this.llmService.chatManager.chat.group_id = message.group_id;
                     this.llmService.chatManager.chat.context_id = message.context_id;

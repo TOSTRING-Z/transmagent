@@ -440,7 +440,7 @@ export class MainWindow extends BaseWindow {
                 this.session().llmService.chatManager.loadFromChat(chat);
                 this.window?.webContents.send(
                     'handleloadChat',
-                    {...chat}
+                    { ...chat }
                 );
             }
             this.updateVersionsSubmenu();
@@ -530,6 +530,7 @@ export class MainWindow extends BaseWindow {
                 memory_length: chat.memory_length,
                 long_memory_length: chat.long_memory_length,
                 max_tokens: chat.max_tokens,
+                max_display_messages: chat.max_display_messages,
             });
             this.session().tool_call.setHistory();
         });
