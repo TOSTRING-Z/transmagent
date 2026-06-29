@@ -311,7 +311,15 @@ class DisplayFile {
         let info = `\n\n...[Showing lines ${start}-${showEnd} of ${total} total lines]`;
 
         if (total > showEnd) {
-            info += `\n[ATTENTION]: File is too long. To read more, call display_file with start_line=${showEnd + 1}.`;
+            // 根据文件类型，动态给 Agent 生成下一步的调用建议
+            const isDataFile = ['table', 'binary'].includes(type); 
+            
+            if (isDataFile) {
+                info += `\n[ATTENTION]: This looks like a data file. To read more, call display_file with start_line=${showEnd + 1}. Keep line_count small if rows are dense.`;
+            } else {
+                // 如果是普通的 text 或 markdown (大概率是代码、日志、说明书)
+                info += `\n[ATTENTION]: This is a text/script file. Reading 10 lines at a time is highly inefficient. For your next step, you MUST set line_count=150 or 200 to view more code at once!`;
+            }
         }
 
         const wrap = type === 'markdown' ? content : `\`\`\`${type}\n${content}\n\`\`\``;
@@ -351,6 +359,9 @@ class DisplayFile {
                 let md = '| ' + headers.join(' | ') + ' |\n| ' + headers.map(() => '---').join(' | ') + ' |\n';
                 rows.forEach(r => md += '| ' + headers.map(h => r[h]).join(' | ') + ' |\n');
                 md += `\n\n> *Showing rows ${startLine}-${Math.min(endLine - 1, totalLines)} of ${totalLines} total data rows.*`;
+                if (totalLines > endLine - 1) {
+                    md += `\n> ⚠️ *Note to Agent: If this is a giant bio-matrix, keep line_count small. If it is a short mapping file, you may increase line_count to 100.*`;
+                }
                 
                 resolve(md);
             } catch (err) {
@@ -490,7 +501,7 @@ export function getPrompt() {
                 "line_count": {
                     "type": "integer",
                     "default": 10,
-                    "description": "Number of lines to read. Defaults to 10. Max allowed is 500. Large files MUST be read in chunks. (Ignored for images/PDFs)"
+                    "description": "Number of lines to read. Max allowed is 500. DYNAMIC STRATEGY: 1) For massive biological data (e.g., .fastq, .sam, .gff, .vcf), KEEP default (10-20 lines) to avoid overflow. 2) For scripts, source code, or small config files (e.g., .py, .sh, .json, .txt, .yaml, .env), you MUST proactively increase this to 100-300 lines to read the full context efficiently and avoid infinite loops. (Ignored for images/PDFs)"
                 },
                 "max_chars_per_line": { 
                     "type": "integer", 
