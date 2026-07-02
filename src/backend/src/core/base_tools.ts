@@ -151,19 +151,14 @@ export default function getBaseTools(): Record<string, any> {
                                     options: {
                                         type: "array",
                                         items: {
-                                            oneOf: [
-                                                { type: "string" },
-                                                {
-                                                    type: "object",
-                                                    properties: {
-                                                        key: { type: "string", description: "Unique short identifier for this option (e.g., 'a', 'b', or a short slug)." },
-                                                        value: { type: "string", description: "The display text shown to the user." }
-                                                    },
-                                                    required: ["key", "value"]
-                                                }
-                                            ]
+                                            type: "object",
+                                            properties: {
+                                                key: { type: "string", description: "Unique short identifier for this option (e.g., 'a', 'b', or a short slug)." },
+                                                value: { type: "string", description: "The display text shown to the user." }
+                                            },
+                                            required: ["key", "value"]
                                         },
-                                        description: "Required for 'choice' type. Each item MUST be either a plain string OR an object with BOTH 'key' and 'value' fields. Object form is PREFERRED when the choice needs a short, stable identifier (e.g., { key: 'a', value: '已有 RP 管线...' }); use plain string for simple labels. OMIT for 'text' and 'confirm' types."
+                                        description: "Required for 'choice' type. Each item MUST be an object with BOTH 'key' and 'value' fields. OMIT for 'text' and 'confirm' types."
                                     },
                                     required: {
                                         type: "boolean",

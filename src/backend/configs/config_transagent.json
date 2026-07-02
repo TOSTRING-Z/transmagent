@@ -178,9 +178,9 @@
     }
   },
   "tool_call": {
-    "memory_length": 100,
-    "long_memory_length": 200,
-    "max_tokens": 100000,
+    "memory_length": 1000,
+    "long_memory_length": 2000,
+    "max_tokens": 1000000,
     "max_display_messages": 100,
     "mcp_timeout": 60,
     "extra_prompt": null,

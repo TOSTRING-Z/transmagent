@@ -2,6 +2,7 @@ import { logger } from '../utils/logger';
 import { getDefault } from '../utils/public';
 import * as path from 'path';
 import * as fs from 'fs';
+import { existsSync, mkdirSync } from 'fs';
 import { app } from 'electron';
 
 const sqlite3 = require('sqlite3').verbose();
@@ -41,6 +42,12 @@ export class MemoryDB {
         
         // 如果有正在进行的初始化，直接等待它完成
         if (MemoryDB.initPromise) return MemoryDB.initPromise;
+
+        // 确保 dbPath 的父目录存在；若不存在则递归创建（mkdirSync 在权限不足/磁盘满时会抛错，由 init 链路向上 reject）
+        const dbDir = path.dirname(this.dbPath);
+        if (!existsSync(dbDir)) {
+            mkdirSync(dbDir, { recursive: true });
+        }
 
         MemoryDB.initPromise = new Promise((resolve, reject) => {
             this.db = new sqlite3.Database(this.dbPath, async (err: Error | null) => {
