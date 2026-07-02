@@ -494,6 +494,13 @@ export class ToolCall extends LLMBase implements ISchedulableAgent {
         }
     }
 
+    /**
+     * Switch the EXECUTION mode (auto / act / plan / flash), not the Agent mode.
+     * For Agent mode switching (transagent / multagent / baseagent), the caller
+     * MUST route through SessionManager.setActiveagentMode() instead, which is
+     * the only path that rebuilds the Session, writes chat.agentMode and
+     * persists the change to history/chat-*.json.
+     */
     public changeMode(mode: string | null = null, saveHistory: boolean = true) {
         const shortMode = mode || "act";
         this.llmService.chatManager.chat.mode = shortMode as string;

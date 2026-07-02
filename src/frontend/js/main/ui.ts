@@ -71,6 +71,8 @@ export function toggleSidebar() {
 }
 
 // Initial Options / Welcome Screen
+// 3 Agent mode cards. Clicking a card ONLY switches the active Agent mode
+// (state + status bar + backend sync). No query is launched.
 const htmlContent = `
 <div class="base-container">
     <div class="base-header">
@@ -78,20 +80,20 @@ const htmlContent = `
       <h1 class="base-title">I am TransMAgent, an AI agent specialized in transcriptional regulation analysis.</h1>
     </div>
     <div class="options-container">
-      <div data-query="Coverage analysis of SNPs on the GATA2 gene" class="option-card">
-        <div class="option-icon">📍</div>
-        <h3 class="option-title">Regional annotation analysis</h3>
-        <p class="option-desc">Enhancer annotation, transcription factor binding prediction, SNP site analysis"</p>
+      <div data-mode="transagent" class="option-card mode-card">
+        <div class="option-icon">🧠</div>
+        <h3 class="option-title">TransAgent</h3>
+        <p class="option-desc">Default mode with serial task and tool scheduling, following the "subtask – record – reflect" workflow</p>
       </div>
-      <div data-query="Analyze TP53 gene expression across tissues and generate a heatmap visualization" class="option-card">
-        <div class="option-icon">📈</div>
-        <h3 class="option-title">Gene expression analysis</h3>
-        <p class="option-desc">Tissue/cell/disease-specific expression profiling, co-expression network analysis, and expression pattern visualization</p>
+      <div data-mode="multagent" class="option-card mode-card">
+        <div class="option-icon">🤖</div>
+        <h3 class="option-title">MultAgent</h3>
+        <p class="option-desc">Multi-agent collaboration mode driven by task documents, enabling specialized division of labor across sub-agents</p>
       </div>
-      <div data-query="Analyze the enhancer coverage of ESR1, GATA3, FOXA1, and EP300 genes, and identify motifs in overlapping enhancers" class="option-card">
-        <div class="option-icon">🧬</div>
-        <h3 class="option-title">Sequence data analysis</h3>
-        <p class="option-desc">Motif discovery, sequence alignment, deepTools analysis</p>
+      <div data-mode="baseagent" class="option-card mode-card">
+        <div class="option-icon">⚙️</div>
+        <h3 class="option-title">BaseAgent</h3>
+        <p class="option-desc">Base mode for general instruction handling, providing straightforward command execution</p>
       </div>
     </div>
   </div>
@@ -101,21 +103,60 @@ export function handleClear() {
   DOM.messages.innerHTML = "";
   DOM.pause.style.display = "none";
   DOM.pause.innerHTML = "";
-  updateChat({});
+
+  // S2: Do NOT call updateChat({}) here. That would wipe State.chat.agentMode
+  // to undefined and reset the status bar, making it look like the user's
+  // previous mode selection was lost. Only reset the transient DOM bits.
+  if (DOM.tokens) DOM.tokens.innerText = "0";
+  if (DOM.msg_count) (DOM.msg_count as any).innerText = "0";
+  if (DOM.seconds) DOM.seconds.innerText = "0";
+
+  // Resolve current Agent mode with a safe fallback.
+  const currentMode: string =
+    (State.chat && (State.chat.agentMode as string)) || 'transagent';
+
+  // Make sure the status bar reflects the current mode on every clear.
+  if (DOM.agentMode) DOM.agentMode.innerText = currentMode;
 
   const optionDom = createElement(htmlContent);
-  const optionCards = optionDom.querySelectorAll('.option-card');
 
-  optionCards.forEach((card: any) => {
+  // --- S3: Mode cards: click to switch mode (NO execution) ---
+  const modeCards = optionDom.querySelectorAll('.mode-card');
+  modeCards.forEach((card: any) => {
+    const mode = card.dataset.mode as string | undefined;
+    if (mode === currentMode) card.classList.add('active-mode');
+
     card.addEventListener('click', () => {
-      const query = card.dataset.query;
-      if (query) {
-        State.formData.query = query;
-        State.formData.prompt = DOM.system_prompt.value;
-        startAgentLoop(State.formData);
-        window.electronAPI.agentLoop(State.formData);
+      const selectedMode = card.dataset.mode;
+      if (!selectedMode) return;
+
+      // 1) Frontend state: persist the new Agent mode immediately.
+      if (!State.chat) {
+        // Build a minimal stub so downstream consumers don't crash.
+        State.chat = { agentMode: selectedMode } as any;
+      } else {
+        State.chat.agentMode = selectedMode as any;
+      }
+
+      // 2) Status bar: immediate visual feedback (do not wait for IPC echo).
+      if (DOM.agentMode) DOM.agentMode.innerText = selectedMode;
+
+      // 3) Toggle card highlight.
+      modeCards.forEach((c: any) => c.classList.remove('active-mode'));
+      card.classList.add('active-mode');
+
+      // 4) Notify the main process; it will call tool_call.changeMode() and
+      //    push back the updated chat via 'handleSetChat' -> updateChat(),
+      //    which will refresh DOM.agentMode again (idempotent).
+      try {
+        window.electronAPI.changeMode(selectedMode);
+      } catch (e) {
+        // In a non-electron context (e.g. unit tests) electronAPI is absent;
+        // the frontend state + UI are already updated, so we just log.
+        console.warn('[ui] electronAPI.changeMode unavailable:', e);
       }
     });
+
     card.style.cursor = 'pointer';
     card.style.transition = 'transform 0.2s';
     card.addEventListener('mouseenter', () => { card.style.transform = 'scale(1.02)'; });

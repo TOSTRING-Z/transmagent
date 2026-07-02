@@ -416,8 +416,17 @@ export class MainWindow extends BaseWindow {
         });
 
         ipcMain.on('changeMode', (_event, mode) => {
-            this.session().tool_call.changeMode(mode);
-            this.window?.webContents.send('handleSetChat', this.sessionManager.getChat());
+            // Branch on mode semantics:
+            //   - Agent mode (transagent / multagent / baseagent) → rebuild session
+            //     via SessionManager.setActiveagentMode() so that chat.agentMode
+            //     is persisted into the history JSON.
+            //   - Execution mode (auto / act / plan / flash) → ToolCall.changeMode().
+            if (mode === 'transagent' || mode === 'multagent' || mode === 'baseagent') {
+                this.sessionManager.setActiveagentMode(mode as any);
+            } else {
+                this.session().tool_call.changeMode(mode);
+                this.window?.webContents.send('handleSetChat', this.sessionManager.getChat());
+            }
         });
 
         ipcMain.on('open-external', (_event, href) => shell.openExternal(href));

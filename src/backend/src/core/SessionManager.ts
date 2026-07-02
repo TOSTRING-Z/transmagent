@@ -103,6 +103,12 @@ export class SessionManager {
     /* 会话管理 */
 
     setActiveagentMode(agentMode: AgentMode) {
+        // Validate the incoming mode to avoid silently corrupting history JSON.
+        if (agentMode !== 'transagent' && agentMode !== 'multagent' && agentMode !== 'baseagent') {
+            logger.warn(`[SessionManager] setActiveagentMode ignored invalid mode: ${agentMode}`);
+            return;
+        }
+
         store.set('agentMode', agentMode);
         // 替换当前会话
         const session = this.createSession(this.activeSessionId, agentMode);
@@ -115,6 +121,9 @@ export class SessionManager {
         session.tool_call.loadMessage(history_path);
         // 更新模式
         session.llmService.chatManager.chat.agentMode = agentMode;
+        // 持久化到 history JSON（修复：原本 setHistory 未被调用，
+        // 导致 history/chat-*.json 中的 agentMode 始终为旧值）。
+        session.tool_call.setHistory();
         // 通知前端更新
         const uuid = session.tool_call.setUUID();
         const chat = session.llmService.chatManager.chat;
