@@ -453,6 +453,9 @@ export async function showConfig() {
   if (biotools_disabled) {
     biotools_disabled.checked = config.mcp_server?.biotools?.disabled;
   }
+
+  const app_language = document.getElementById('app-language') as HTMLSelectElement;
+  if (app_language) app_language.value = config.tool_call?.language || 'english';
 }
 
 export function hideConfig() {
@@ -509,6 +512,10 @@ export async function saveConfig() {
 
   const biotools_disabled = document.getElementById('mcp_server-biotools-disabled') as HTMLInputElement;
   config.mcp_server.biotools.disabled = biotools_disabled.checked;
+
+  const app_language = document.getElementById('app-language') as HTMLSelectElement;
+  if (!config.tool_call) config.tool_call = {};
+  config.tool_call.language = app_language?.value || 'english';
 
   await window.electronAPI.setConfig(config);
 
