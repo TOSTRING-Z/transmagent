@@ -1,7 +1,21 @@
 import { contextBridge, ipcRenderer } from 'electron';
 
+// Whitelist of channels allowed through the generic `send` bridge.
+// Any channel not in this list will be silently dropped by the renderer-side
+// wrapper, preventing XSS-loaded scripts from invoking arbitrary IPC channels
+// (e.g. arbitrary file system or shell access via the main process).
+const ALLOWED_SEND_CHANNELS = new Set<string>([
+  'response-system-prompt',
+]);
+
 contextBridge.exposeInMainWorld('electronAPI', {
-  send: (channel: string, data: any) => ipcRenderer.send(channel, data),
+  send: (channel: string, data: any) => {
+    if (!ALLOWED_SEND_CHANNELS.has(channel)) {
+      console.warn('[preload] blocked send on non-whitelisted channel:', channel);
+      return;
+    }
+    ipcRenderer.send(channel, data);
+  },
   changeMode: (mode: any) => ipcRenderer.send('changeMode', mode),
   openExternal: (href: string) => ipcRenderer.send('open-external', href),
   stopMessage: () => ipcRenderer.send('stopMessage'),
