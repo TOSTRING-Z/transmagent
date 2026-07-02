@@ -1,6 +1,7 @@
 import { logger } from '../utils/logger';
 import { getDefault } from '../utils/public';
 import * as path from 'path';
+import * as fs from 'fs';
 import { app } from 'electron';
 
 const sqlite3 = require('sqlite3').verbose();
@@ -53,24 +54,36 @@ export class MemoryDB {
                 this.db.run("PRAGMA journal_mode=WAL;");
 
                 if (sqliteVec) {
+                    const platform = process.platform;
+                    const arch = process.arch;
+                    const os = platform === 'win32' ? 'windows' : platform;
+                    const suffix = platform === 'win32' ? 'dll' : platform === 'darwin' ? 'dylib' : 'so';
+                    const extPath = path.join(
+                        process.resourcesPath,
+                        `sqlite-vec-${os}-${arch}`,
+                        `vec0.${suffix}`
+                    );
+
+                    // In packaged app, .so files must be loaded from real filesystem path
+                    // (dlopen bypasses asar virtual FS). Use extraResources path first.
                     try {
-                        sqliteVec.load(this.db);
-                        logger.log("[MemoryDB] sqlite-vec extension loaded.");
-                    } catch (loadErr: any) {
-                        // Fallback: in packaged app, .so files can't be loaded from asar
-                        // Load directly from extraResources path (process.resourcesPath)
-                        const platform = process.platform;
-                        const arch = process.arch;
-                        const os = platform === 'win32' ? 'windows' : platform;
-                        const suffix = platform === 'win32' ? 'dll' : platform === 'darwin' ? 'dylib' : 'so';
-                        const extPath = path.join(
-                            process.resourcesPath,
-                            `sqlite-vec-${os}-${arch}`,
-                            `vec0.${suffix}`
-                        );
-                        try {
+                        if (fs.existsSync(extPath)) {
                             this.db.loadExtension(extPath);
                             logger.log("[MemoryDB] sqlite-vec extension loaded from resourcesPath.");
+                        } else {
+                            // Dev mode: load via sqlite-vec package (resolves from node_modules)
+                            sqliteVec.load(this.db);
+                            logger.log("[MemoryDB] sqlite-vec extension loaded (dev mode).");
+                        }
+                    } catch (loadErr: any) {
+                        // Last-resort fallback: try the other method
+                        try {
+                            if (fs.existsSync(extPath)) {
+                                this.db.loadExtension(extPath);
+                            } else {
+                                sqliteVec.load(this.db);
+                            }
+                            logger.log("[MemoryDB] sqlite-vec extension loaded (fallback).");
                         } catch (fallbackErr: any) {
                             console.error("[MemoryDB] Failed to load sqlite-vec:", loadErr);
                             console.error("[MemoryDB] Fallback also failed:", fallbackErr);
