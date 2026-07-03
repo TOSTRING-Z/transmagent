@@ -72,6 +72,806 @@
     return is_plugin ? "api" : "ai";
   }
 
+  // main/ui.ts
+  function showLog(type, content) {
+    window.electronAPI.showLog({ type, content });
+  }
+  function toggleMode(mode, send = false) {
+    if (send)
+      window.electronAPI.changeMode(mode);
+    DOM.auto.classList.remove("active");
+    DOM.act.classList.remove("active");
+    DOM.plan.classList.remove("active");
+    DOM.flash.classList.remove("active");
+    switch (mode) {
+      case "auto":
+        DOM.auto.classList.add("active");
+        break;
+      case "act":
+        DOM.act.classList.add("active");
+        break;
+      case "plan":
+        DOM.plan.classList.add("active");
+        break;
+      case "flash":
+        DOM.flash.classList.add("active");
+        break;
+    }
+  }
+  function autoResizeTextarea(textarea) {
+    if (!textarea)
+      return;
+    textarea.style.height = "auto";
+    const minHeight = 40;
+    const maxHeight = minHeight * 3;
+    const scrollHeight = textarea.scrollHeight;
+    const newHeight = Math.max(minHeight, Math.min(scrollHeight, maxHeight));
+    textarea.style.height = newHeight + "px";
+    if (DOM.top_div && DOM.bottom_div) {
+      const bottomHeight = DOM.bottom_div.clientHeight;
+      DOM.top_div.style.height = window.innerHeight - bottomHeight + "px";
+    }
+  }
+  function init_size() {
+    if (!DOM.input || !DOM.system_prompt || !DOM.top_div || !DOM.bottom_div)
+      return;
+    const bottomHeight = DOM.bottom_div.clientHeight;
+    DOM.top_div.style.height = window.innerHeight - bottomHeight + "px";
+  }
+  function toggleSidebar() {
+    const sidebar = document.querySelector(".sidebar");
+    if (sidebar) {
+      sidebar.classList.toggle("collapsed");
+      const icon = document.querySelector(".nav-collapse-btn i");
+      if (icon) {
+        icon.classList.toggle("fa-chevron-left");
+        icon.classList.toggle("fa-chevron-right");
+      }
+    }
+  }
+  var htmlContent = `
+<div class="base-container">
+    <div class="base-header">
+      <div class="base-icon">B</div>
+      <h1 class="base-title">I am TransMAgent, an AI agent specialized in transcriptional regulation analysis.</h1>
+    </div>
+    <div class="options-container">
+      <div data-mode="transagent" class="option-card mode-card">
+        <div class="option-icon">\u{1F9E0}</div>
+        <h3 class="option-title">TransAgent</h3>
+        <p class="option-desc">Default mode with serial task and tool scheduling, following the "subtask \u2013 record \u2013 reflect" workflow</p>
+      </div>
+      <div data-mode="multagent" class="option-card mode-card">
+        <div class="option-icon">\u{1F916}</div>
+        <h3 class="option-title">MultAgent</h3>
+        <p class="option-desc">Multi-agent collaboration mode driven by task documents, enabling specialized division of labor across sub-agents</p>
+      </div>
+      <div data-mode="baseagent" class="option-card mode-card">
+        <div class="option-icon">\u2699\uFE0F</div>
+        <h3 class="option-title">BaseAgent</h3>
+        <p class="option-desc">Base mode for general instruction handling, providing straightforward command execution</p>
+      </div>
+    </div>
+  </div>
+`;
+  function handleClear() {
+    DOM.messages.innerHTML = "";
+    DOM.pause.style.display = "none";
+    DOM.pause.innerHTML = "";
+    if (DOM.tokens)
+      DOM.tokens.innerText = "0";
+    if (DOM.msg_count)
+      DOM.msg_count.innerText = "0";
+    if (DOM.seconds)
+      DOM.seconds.innerText = "0";
+    const currentMode = State.chat && State.chat.agentMode || "transagent";
+    if (DOM.agentMode)
+      DOM.agentMode.innerText = currentMode;
+    const optionDom = createElement(htmlContent);
+    const modeCards = optionDom.querySelectorAll(".mode-card");
+    modeCards.forEach((card) => {
+      const mode = card.dataset.mode;
+      if (mode === currentMode)
+        card.classList.add("active-mode");
+      card.addEventListener("click", () => {
+        const selectedMode = card.dataset.mode;
+        if (!selectedMode)
+          return;
+        if (!State.chat) {
+          State.chat = { agentMode: selectedMode };
+        } else {
+          State.chat.agentMode = selectedMode;
+        }
+        if (DOM.agentMode)
+          DOM.agentMode.innerText = selectedMode;
+        modeCards.forEach((c) => c.classList.remove("active-mode"));
+        card.classList.add("active-mode");
+        try {
+          window.electronAPI.changeMode(selectedMode);
+        } catch (e) {
+          console.warn("[ui] electronAPI.changeMode unavailable:", e);
+        }
+      });
+      card.style.cursor = "pointer";
+      card.style.transition = "transform 0.2s";
+      card.addEventListener("mouseenter", () => {
+        card.style.transform = "scale(1.02)";
+      });
+      card.addEventListener("mouseleave", () => {
+        card.style.transform = "scale(1)";
+      });
+    });
+    DOM.messages.append(optionDom);
+  }
+  function hideRenameDialog() {
+    DOM.renameDialog.style.display = "none";
+    DOM.renameInput.value = "";
+  }
+  function updateProgress(info) {
+    switch (info.state) {
+      case "start":
+        DOM.progress_bar.style.width = `0%`;
+        DOM.progress_bar.textContent = `0%`;
+        DOM.progress_container.style.display = "block";
+        break;
+      case "progress":
+        DOM.progress_bar.style.width = `${info.progress}%`;
+        DOM.progress_bar.textContent = `${info.progress}%`;
+        DOM.progress_container.style.display = "block";
+        break;
+      case "end":
+        DOM.progress_bar.style.width = `100%`;
+        DOM.progress_bar.textContent = `100%`;
+        setTimeout(() => {
+          DOM.progress_container.style.display = "none";
+          if (info?.filePath)
+            DOM.input.value = `Upload: ${info.filePath}
+${DOM.input.value}`;
+        }, 500);
+        break;
+      case "error":
+        DOM.progress_bar.style.backgroundColor = "#ff4757";
+        DOM.progress_bar.textContent = `\u4E0A\u4F20\u5931\u8D25: ${info.error}`;
+        setTimeout(() => {
+          DOM.progress_container.style.display = "none";
+          DOM.progress_bar.style.backgroundColor = "";
+        }, 3e3);
+        break;
+    }
+  }
+
+  // main/history.ts
+  var historyFilter = "all";
+  var new_item_template = `<div class="history-item" onclick="loadChat('@id')">
+    <div class="history-status"></div>
+    <div class="history-star" onclick="toggleStar('@id')">
+      <i class="far fa-star"></i>
+    </div>
+    <div class="history-text"></div>
+    <div class="history-menu" onclick="showHistoryMenu(event, '@id')">
+      <i class="fas fa-ellipsis-v"></i>
+      <div class="history-menu-dropdown">
+        <div class="history-menu-item" onclick="renameChat('@id')">
+          <i class="fas fa-edit"></i> Rename
+        </div>
+        <div class="history-menu-item" onclick="deleteChat('@id')">
+          <i class="fas fa-trash"></i> Delete
+        </div>
+      </div>
+    </div>
+  </div>`;
+  function addChatItem(chat) {
+    const item = createElement(new_item_template.replace(/@id/g, chat.id));
+    item.getElementsByClassName("history-text")[0].innerText = chat.name || "New Chat";
+    item.getElementsByClassName("history-text")[0].title = chat.name || "New Chat";
+    item.id = chat.id;
+    DOM.history_list.insertBefore(item, DOM.history_list.firstChild);
+    const starEl = item.querySelector(".history-star");
+    const starIcon = starEl.querySelector("i");
+    if (chat.starred) {
+      starIcon.classList.remove("far");
+      starIcon.classList.add("fas");
+      item.classList.add("starred");
+    }
+    starEl.onclick = (e) => {
+      e.stopPropagation();
+      toggleStar(item.id);
+    };
+    item.onclick = () => loadChat(item.id);
+    const menu = item.querySelector(".history-menu");
+    menu.onclick = (e) => showHistoryMenu(e, item.id);
+    const renameBtn = item.querySelector(".history-menu-item:nth-child(1)");
+    renameBtn.onclick = (e) => {
+      e.stopPropagation();
+      renameChat(item.id);
+    };
+    const deleteBtn = item.querySelector(".history-menu-item:nth-child(2)");
+    deleteBtn.onclick = (e) => {
+      e.stopPropagation();
+      deleteChat(item.id);
+    };
+  }
+  function handleNewChat(chat) {
+    addChatItem(chat);
+    updateChat(chat);
+    selectChat(chat.id);
+  }
+  function updateChat(chat) {
+    if (!chat)
+      return;
+    State.chat = chat;
+    toggleMode(State.chat.mode);
+    DOM.tokens.innerText = String(State.chat.tokens || 0);
+    DOM.msg_count.innerText = String(State.chat.msg_count || 0);
+    DOM.seconds.innerText = (State.chat.seconds || 0).toFixed(1);
+    DOM.version.innerText = State.chat.version || "deepseek-chat";
+    DOM.agentMode.innerText = State.chat.agentMode || "transagent";
+    DOM.model_select.value = State.chat.model;
+    DOM.compress_box.checked = State.chat.compress_context || false;
+  }
+  async function selectChat(chatId) {
+    const items = DOM.history_list.getElementsByClassName("history-item");
+    Array.from(items).forEach((item) => {
+      if (item.id == chatId)
+        item.classList.add("active");
+      else
+        item.classList.remove("active");
+    });
+  }
+  async function loadChat(chatId) {
+    window.electronAPI.loadChat(chatId);
+  }
+  async function handleloadChat(chat) {
+    updateChat(chat);
+    const existingItem = document.getElementById(chat.id);
+    if (!existingItem) {
+      addChatItem(chat);
+    }
+    selectChat(chat.id);
+  }
+  async function deleteChat(chatId) {
+    if (confirm("Are you sure you want to delete this conversation?")) {
+      await window.electronAPI.delChat(chatId);
+      const items = DOM.history_list.getElementsByClassName("history-item");
+      Array.from(items).forEach((item) => {
+        if (item.id == chatId)
+          item.remove();
+      });
+    }
+  }
+  function showHistoryMenu(event, chatId) {
+    event.stopPropagation();
+    const menus = document.querySelectorAll(".history-menu-dropdown");
+    menus.forEach((menu2) => menu2.style.display = "none");
+    const target = event.currentTarget;
+    const menu = target.querySelector(".history-menu-dropdown");
+    menu.style.display = "block";
+    State.chat.id = chatId;
+  }
+  function renameChat(chatId) {
+    State.chat.id = chatId;
+    DOM.renameDialog.style.display = "flex";
+    DOM.renameInput.focus();
+  }
+  async function confirmRename() {
+    const newName = DOM.renameInput.value.trim();
+    if (newName && State.chat.id) {
+      await window.electronAPI.renameChat({ id: State.chat.id, name: newName });
+      const items = DOM.history_list.getElementsByClassName("history-item");
+      Array.from(items).forEach((item) => {
+        if (item.id == State.chat.id)
+          item.getElementsByClassName("history-text")[0].innerText = newName;
+      });
+    }
+    DOM.renameDialog.style.display = "none";
+    DOM.renameInput.value = "";
+  }
+  function setHistoryRunning(chatId) {
+    const item = document.getElementById(chatId);
+    if (item) {
+      item.classList.remove("completed");
+      item.classList.add("running");
+    }
+  }
+  function setHistoryCompleted(chatId) {
+    const item = document.getElementById(chatId);
+    if (item) {
+      item.classList.remove("running");
+      item.classList.add("completed");
+    }
+  }
+  function filterHistory(mode) {
+    historyFilter = mode;
+    const buttons = DOM.history_filter.querySelectorAll(".filter-btn");
+    buttons.forEach((btn) => {
+      btn.classList.toggle("active", btn.dataset.filter === mode);
+    });
+    const items = DOM.history_list.getElementsByClassName("history-item");
+    Array.from(items).forEach((item) => {
+      if (mode === "all") {
+        item.style.display = "";
+      } else {
+        const isStarred = item.classList.contains("starred");
+        item.style.display = isStarred ? "" : "none";
+      }
+    });
+  }
+  async function toggleStar(chatId) {
+    const newState = await window.electronAPI.toggleStar(chatId);
+    const items = DOM.history_list.getElementsByClassName("history-item");
+    Array.from(items).forEach((item) => {
+      if (item.id == chatId) {
+        const starEl = item.querySelector(".history-star i");
+        if (starEl) {
+          if (newState) {
+            starEl.classList.remove("far");
+            starEl.classList.add("fas");
+            item.classList.add("starred");
+          } else {
+            starEl.classList.remove("fas");
+            starEl.classList.add("far");
+            item.classList.remove("starred");
+          }
+        }
+      }
+    });
+    if (historyFilter === "starred") {
+      filterHistory("starred");
+    }
+  }
+
+  // main/config.ts
+  var editors = {
+    envs: null,
+    tasks: null
+  };
+  function initConfigEvents() {
+    DOM.btn_save_envs.addEventListener("click", async () => {
+      const envs = editors.envs.get();
+      const statu = await window.electronAPI.Envs({ type: "set", envs });
+      if (statu)
+        showLog("success", "Configuration saved successfully!");
+    });
+    DOM.envs.addEventListener("click", async () => {
+      const mEnvs = document.getElementById("m-envs");
+      if (mEnvs)
+        mEnvs.style.display = "flex";
+      const config_envs = await window.electronAPI.Envs({ type: "get" });
+      const editor_env = document.getElementById("editor_env");
+      editors.envs = editors.envs || new JSONEditor(editor_env, {
+        mode: "tree",
+        modes: ["tree", "code"]
+      });
+      editors.envs.set(config_envs);
+    });
+    DOM.btn_save_tasks.addEventListener("click", async () => {
+      const taskList = editors.tasks.get();
+      const statu = await window.electronAPI.Tasks({ type: "set", tasks: taskList });
+      if (statu)
+        showLog("success", "Tasks saved!");
+    });
+    DOM.tasks.addEventListener("click", async () => {
+      const taskList = await window.electronAPI.Tasks({ type: "get" });
+      const mTasks = document.getElementById("m-tasks");
+      if (mTasks)
+        mTasks.style.display = "flex";
+      const editor_tasks = document.getElementById("editor_tasks");
+      editors.tasks = editors.tasks || new JSONEditor(editor_tasks, {
+        mode: "tree",
+        modes: ["tree", "code"]
+      });
+      editors.tasks.set(taskList);
+    });
+    DOM.bgtasks.addEventListener("click", async () => {
+      const modal = document.getElementById("m-bgtasks");
+      if (modal)
+        modal.style.display = "flex";
+      await renderBGTasks();
+      const autoRefresh = setInterval(async () => {
+        if (!modal || modal.style.display !== "flex") {
+          clearInterval(autoRefresh);
+          return;
+        }
+        await renderBGTasks();
+      }, 2e3);
+      window._bgAutoRefresh = autoRefresh;
+    });
+    DOM.btn_clear_bgtasks.addEventListener("click", async () => {
+      await window.electronAPI.BGTasks({ type: "clear" });
+      await renderBGTasks();
+    });
+  }
+  var _lastTasksSnapshot = "";
+  async function renderBGTasks() {
+    const container = document.getElementById("bg_tasks_list");
+    if (!container)
+      return;
+    const expandedTasks = window._expandedTasks ? Array.from(window._expandedTasks) : [];
+    const tasks = await window.electronAPI.BGTasks({ type: "get" });
+    const newSnapshot = JSON.stringify(tasks.map((t) => ({
+      id: t.taskId,
+      status: t.status,
+      summary: t.resultSummary || ""
+    })));
+    if (newSnapshot === _lastTasksSnapshot && tasks.length > 0) {
+      updateElapsedTimes(tasks);
+      return;
+    }
+    _lastTasksSnapshot = newSnapshot;
+    const emptyEl = document.getElementById("bg_tasks_empty");
+    if (!tasks || tasks.length === 0) {
+      _lastTasksSnapshot = "";
+      container.innerHTML = "";
+      const div = document.createElement("div");
+      div.id = "bg_tasks_empty";
+      div.style.cssText = "text-align: center; color: #888; padding: 40px 0; font-size: 14px;";
+      div.textContent = "No background tasks running";
+      container.appendChild(div);
+      return;
+    }
+    const statusColors = {
+      running: "#f59e0b",
+      completed: "#10b981",
+      failed: "#ef4444"
+    };
+    const statusIcons = {
+      running: "fa-spinner fa-spin",
+      completed: "fa-check-circle",
+      failed: "fa-times-circle"
+    };
+    const rows = tasks.map((t) => {
+      const startStr = new Date(t.startTime).toLocaleString();
+      const elapsed = t.endTime ? `${((t.endTime - t.startTime) / 1e3).toFixed(1)}s` : `${((Date.now() - t.startTime) / 1e3).toFixed(0)}s running`;
+      const color = statusColors[t.status] || "#888";
+      const icon = statusIcons[t.status] || "fa-question-circle";
+      const result = t.resultSummary ? `<div style="font-size: 11px; color: #999; margin-top: 4px; word-break: break-all;">${escapeHtml(t.resultSummary)}</div>` : "";
+      const stopBtn = t.status === "running" ? `<button class="bg-stop-btn" data-taskid="${escapeHtml(t.taskId)}" title="Stop task" style="
+          background: transparent;
+          border: 1px solid #ef4444;
+          color: #ef4444;
+          cursor: pointer;
+          padding: 2px 8px;
+          border-radius: 4px;
+          font-size: 11px;
+          transition: background 0.2s;
+        " onmouseover="this.style.background='#ef444422'" onmouseout="this.style.background='transparent'">
+          <i class="fas fa-stop"></i> Stop
+        </button>` : "";
+      const detailsBtn = t.status === "running" || t.status === "completed" || t.status === "failed" ? `<button class="bg-details-toggle-btn" data-taskid="${escapeHtml(t.taskId)}" onclick="toggleTaskDetails('${escapeHtml(t.taskId)}')">
+          <i class="fas fa-terminal"></i> Details
+        </button>` : "";
+      const isExpanded = expandedTasks.includes(t.taskId);
+      const detailsPanel = `<div class="bg-task-details-panel" id="bg-details-panel-${escapeHtml(t.taskId)}" style="display: ${isExpanded ? "block" : "none"};"></div>`;
+      return `
+      <div style="
+        padding: 12px 16px;
+        border-bottom: 1px solid rgba(139, 92, 246, 0.08);
+        font-size: 13px;
+      " data-taskid="${escapeHtml(t.taskId)}">
+        <div style="display: flex; align-items: center; justify-content: space-between;">
+          <div style="display: flex; align-items: center; gap: 10px;">
+            <i class="fas ${icon}" style="color: ${color}; font-size: 16px;"></i>
+            <span style="font-weight: 600; color: #e2e8f0;">${escapeHtml(t.toolName)}</span>
+            <span style="
+              display: inline-block;
+              padding: 2px 8px;
+              border-radius: 10px;
+              font-size: 11px;
+              background: ${color}22;
+              color: ${color};
+              border: 1px solid ${color}44;
+            ">${t.status}</span>
+          </div>
+          <div style="display: flex; align-items: center; gap: 10px;">
+            ${detailsBtn}
+            ${stopBtn}
+            <span style="color: #888; font-size: 12px;" data-elapsed="${escapeHtml(t.taskId)}">${elapsed}</span>
+          </div>
+        </div>
+        <div style="margin-top: 6px; color: #aab; font-size: 12px; font-family: monospace;">
+          <span style="color: #666;">${escapeHtml(t.taskId)}</span>
+          <span style="color: #888; margin: 0 8px;">|</span>
+          <span style="color: #aaa;">${escapeHtml(t.commandSummary)}</span>
+        </div>
+        <div style="margin-top: 2px; color: #777; font-size: 11px;">
+          Started: ${startStr}
+        </div>
+        ${result}
+        ${detailsPanel}
+      </div>
+    `;
+    }).join("");
+    const savedPanels = {};
+    for (const tid of expandedTasks) {
+      const panel = document.getElementById("bg-details-panel-" + tid);
+      if (panel)
+        savedPanels[tid] = panel.innerHTML;
+    }
+    container.innerHTML = rows;
+    container.querySelectorAll(".bg-stop-btn").forEach((btn) => {
+      btn.addEventListener("click", async () => {
+        const taskId = btn.dataset.taskid;
+        if (!taskId)
+          return;
+        btn.disabled = true;
+        btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i>';
+        await window.electronAPI.BGTasks({ type: "interrupt", taskId });
+        await renderBGTasks();
+      });
+    });
+    for (const tid of expandedTasks) {
+      const panel = document.getElementById("bg-details-panel-" + tid);
+      if (panel && savedPanels[tid]) {
+        panel.innerHTML = savedPanels[tid];
+        panel.style.display = "block";
+      }
+    }
+    if (window._bgOutputRefreshInterval) {
+      clearInterval(window._bgOutputRefreshInterval);
+      window._bgOutputRefreshInterval = null;
+    }
+    const runningExpanded = expandedTasks.filter((tid) => {
+      const t = tasks.find((t2) => t2.taskId === tid);
+      return t && t.status === "running";
+    });
+    if (runningExpanded.length > 0) {
+      window._bgOutputRefreshInterval = setInterval(async () => {
+        for (const tid of runningExpanded) {
+          await refreshTaskOutput(tid);
+        }
+      }, 2e3);
+    }
+  }
+  function updateElapsedTimes(tasks) {
+    const container = document.getElementById("bg_tasks_list");
+    if (!container)
+      return;
+    const cards = container.querySelectorAll("[data-taskid]");
+    cards.forEach((card) => {
+      const tid = card.dataset.taskid;
+      const t = tasks.find((t2) => t2.taskId === tid);
+      if (!t)
+        return;
+      const elapsed = t.endTime ? `${((t.endTime - t.startTime) / 1e3).toFixed(1)}s` : `${((Date.now() - t.startTime) / 1e3).toFixed(0)}s running`;
+      const span = card.querySelector(`[data-elapsed="${tid}"]`);
+      if (span)
+        span.textContent = elapsed;
+    });
+  }
+  function escapeHtml(text) {
+    const div = document.createElement("div");
+    div.textContent = text;
+    return div.innerHTML;
+  }
+  window.toggleTaskDetails = async (taskId) => {
+    const panel = document.getElementById("bg-details-panel-" + taskId);
+    if (!panel)
+      return;
+    window._expandedTasks = window._expandedTasks || /* @__PURE__ */ new Set();
+    if (panel.style.display === "none" || panel.style.display === "") {
+      panel.style.display = "block";
+      window._expandedTasks.add(taskId);
+      await loadTaskDetails(taskId);
+    } else {
+      panel.style.display = "none";
+      window._expandedTasks.delete(taskId);
+      window._loadedDetails = window._loadedDetails || /* @__PURE__ */ new Set();
+      window._loadedDetails.delete(taskId);
+    }
+  };
+  async function loadTaskDetails(taskId) {
+    const panel = document.getElementById("bg-details-panel-" + taskId);
+    if (!panel)
+      return;
+    window._loadedDetails = window._loadedDetails || /* @__PURE__ */ new Set();
+    panel.innerHTML = `
+    <div class="bg-task-details">
+      <div class="bg-details-header">
+        <span class="bg-details-title"><i class="fas fa-terminal"></i> Task Output</span>
+        <div class="bg-details-actions">
+          <button class="bg-details-btn" onclick="toggleTaskDetails('${escapeHtml(taskId)}')">
+            <i class="fas fa-chevron-up"></i> Collapse
+          </button>
+        </div>
+      </div>
+      <div style="padding: 20px; text-align: center; color: #888; font-size: 13px;">
+        <i class="fas fa-spinner fa-spin" style="margin-right: 8px;"></i> Loading task output...
+      </div>
+    </div>
+  `;
+    try {
+      const details = await window.electronAPI.BGTaskDetails({ type: "getDetails", taskId });
+      const output = await window.electronAPI.BGTaskDetails({ type: "getOutput", taskId });
+      const outputFilePath = details?.outputFilePath || "N/A";
+      panel.innerHTML = `
+      <div class="bg-task-details">
+        <div class="bg-details-header">
+          <span class="bg-details-title"><i class="fas fa-terminal"></i> Task Output</span>
+          <div class="bg-details-actions">
+            <button class="bg-details-btn" onclick="copyOutputPath('${escapeHtml(taskId)}')">
+              <i class="fas fa-copy"></i> Copy Path
+            </button>
+            <button class="bg-details-btn" onclick="openOutputFolder('${escapeHtml(taskId)}')">
+              <i class="fas fa-folder-open"></i> Open Folder
+            </button>
+            <button class="bg-details-btn" onclick="toggleTaskDetails('${escapeHtml(taskId)}')">
+              <i class="fas fa-chevron-up"></i> Collapse
+            </button>
+          </div>
+        </div>
+        <div class="bg-details-meta">
+          <span><i class="fas fa-file"></i> Output: <code class="bg-details-path">${escapeHtml(outputFilePath)}</code></span>
+        </div>
+        <pre class="bg-details-output"><code>${escapeHtml(output)}</code></pre>
+      </div>
+    `;
+      window._loadedDetails.add(taskId);
+    } catch (err) {
+      panel.innerHTML = `<div class="bg-task-details" style="color: #ef4444; font-size: 12px;">Failed to load details: ${escapeHtml(err.message || "Unknown error")}</div>`;
+    }
+  }
+  async function refreshTaskOutput(taskId) {
+    const panel = document.getElementById("bg-details-panel-" + taskId);
+    if (!panel)
+      return;
+    const codeEl = panel.querySelector(".bg-details-output code");
+    if (!codeEl)
+      return;
+    try {
+      const output = await window.electronAPI.BGTaskDetails({ type: "getOutput", taskId });
+      codeEl.textContent = output;
+    } catch (_err) {
+    }
+  }
+  window.copyOutputPath = async (taskId) => {
+    try {
+      const details = await window.electronAPI.BGTaskDetails({ type: "getDetails", taskId });
+      if (details?.outputFilePath) {
+        await navigator.clipboard.writeText(details.outputFilePath);
+        showLog("success", "Path copied to clipboard");
+      }
+    } catch (_err) {
+      showLog("error", "Failed to copy path");
+    }
+  };
+  window.openOutputFolder = async (taskId) => {
+    try {
+      await window.electronAPI.BGTaskDetails({ type: "openFolder", taskId });
+    } catch (_err) {
+      showLog("error", "Failed to open folder");
+    }
+  };
+  async function showConfig() {
+    const mConfig = document.querySelector("#m-config");
+    if (mConfig)
+      mConfig.style.display = "flex";
+    const config = await window.electronAPI.getConfig();
+    const ai_model = document.getElementById("ai-model");
+    const api_url = document.getElementById("api-url");
+    const api_key = document.getElementById("api-key");
+    ai_model.innerHTML = "";
+    for (const model in config.models) {
+      if (Object.prototype.hasOwnProperty.call(config.models[model], "api_key")) {
+        if (!api_url.value && !api_key.value) {
+          api_url.value = config.models[model]?.api_url || "";
+          api_key.value = config.models[model]?.api_key || "";
+        }
+        const option = createElement(`<option value="${model}">${model}</option>`);
+        ai_model.appendChild(option);
+      }
+    }
+    if (State.chat && State.chat.model) {
+      ai_model.value = State.chat.model;
+      api_url.value = config.models[State.chat.model]?.api_url || "";
+      api_key.value = config.models[State.chat.model]?.api_key || "";
+    }
+    if (State.chat && State.chat.compress_context !== void 0) {
+      DOM.compress_box.checked = State.chat.compress_context;
+    }
+    const memoryLength = document.getElementById("memory-length");
+    if (memoryLength)
+      memoryLength.value = String(State.chat.memory_length ?? "");
+    const longMemoryLength = document.getElementById("long-memory-length");
+    if (longMemoryLength)
+      longMemoryLength.value = String(State.chat.long_memory_length ?? "");
+    const maxTokens = document.getElementById("max-tokens");
+    if (maxTokens)
+      maxTokens.value = String(State.chat.max_tokens ?? "");
+    const maxDisplay = document.getElementById("max-display-messages");
+    if (maxDisplay)
+      maxDisplay.value = String(State.chat.max_display_messages ?? 100);
+    ai_model.onchange = (event) => {
+      api_url.value = config.models[event.target.value]?.api_url || "";
+      api_key.value = config.models[event.target.value]?.api_key || "";
+    };
+    const cli_prompt = document.getElementById("cli-prompt");
+    if (cli_prompt)
+      cli_prompt.value = config.tool_call?.cli_prompt || "";
+    const ssh_host = document.getElementById("ssh-host");
+    if (ssh_host)
+      ssh_host.value = config.tool_call?.ssh_config?.host || "";
+    const ssh_port = document.getElementById("ssh-port");
+    if (ssh_port)
+      ssh_port.value = config.tool_call?.ssh_config?.port || "";
+    const ssh_username = document.getElementById("ssh-username");
+    if (ssh_username)
+      ssh_username.value = config.tool_call?.ssh_config?.username || "";
+    const ssh_password = document.getElementById("ssh-password");
+    if (ssh_password)
+      ssh_password.value = config.tool_call?.ssh_config?.password || "";
+    const ssh_enabled = document.getElementById("ssh-enabled");
+    if (ssh_enabled)
+      ssh_enabled.checked = !!config.tool_call?.ssh_config?.enabled;
+    const biotools_url = document.getElementById("mcp_server-biotools-url");
+    if (biotools_url)
+      biotools_url.value = config.mcp_server?.biotools?.url || "";
+    const biotools_disabled = document.getElementById("mcp_server-biotools-disabled");
+    if (biotools_disabled) {
+      biotools_disabled.checked = config.mcp_server?.biotools?.disabled;
+    }
+    const app_language = document.getElementById("app-language");
+    if (app_language)
+      app_language.value = config.tool_call?.language || "english";
+  }
+  function hideConfig() {
+    if (window._bgAutoRefresh) {
+      clearInterval(window._bgAutoRefresh);
+      window._bgAutoRefresh = null;
+    }
+    document.querySelectorAll(".config-modal").forEach((m) => m.style.display = "none");
+  }
+  async function saveConfig() {
+    const config = await window.electronAPI.getConfig();
+    const ai_model = document.getElementById("ai-model").value;
+    const api_url = document.getElementById("api-url").value;
+    const api_key = document.getElementById("api-key").value;
+    if (!config.models)
+      config.models = {};
+    if (!config.models[ai_model])
+      config.models[ai_model] = { api_url: "", api_key: "" };
+    config.models[ai_model].api_url = api_url;
+    config.models[ai_model].api_key = api_key;
+    State.chat.compress_context = DOM.compress_box.checked;
+    const memoryLength = document.getElementById("memory-length");
+    if (memoryLength)
+      State.chat.memory_length = Number(memoryLength.value) || 0;
+    const longMemoryLength = document.getElementById("long-memory-length");
+    if (longMemoryLength)
+      State.chat.long_memory_length = Number(longMemoryLength.value) || 0;
+    const maxTokens = document.getElementById("max-tokens");
+    if (maxTokens)
+      State.chat.max_tokens = Number(maxTokens.value) || 0;
+    const maxDisplay = document.getElementById("max-display-messages");
+    if (maxDisplay)
+      State.chat.max_display_messages = Number(maxDisplay.value) || 100;
+    await window.electronAPI.setChat(State.chat);
+    if (!config.tool_call)
+      config.tool_call = {};
+    config.tool_call.cli_prompt = document.getElementById("cli-prompt")?.value || "";
+    if (!config.tool_call.ssh_config)
+      config.tool_call.ssh_config = {};
+    config.tool_call.ssh_config.host = document.getElementById("ssh-host")?.value || "";
+    config.tool_call.ssh_config.port = Number(document.getElementById("ssh-port")?.value) || 22;
+    config.tool_call.ssh_config.username = document.getElementById("ssh-username")?.value || "";
+    config.tool_call.ssh_config.password = document.getElementById("ssh-password")?.value || "";
+    config.tool_call.ssh_config.enabled = !!document.getElementById("ssh-enabled")?.checked;
+    if (!config.mcp_server)
+      config.mcp_server = {};
+    if (!config.mcp_server.biotools)
+      config.mcp_server.biotools = {};
+    config.mcp_server.biotools.url = document.getElementById("mcp_server-biotools-url")?.value || "";
+    const biotools_disabled = document.getElementById("mcp_server-biotools-disabled");
+    config.mcp_server.biotools.disabled = biotools_disabled.checked;
+    const app_language = document.getElementById("app-language");
+    if (!config.tool_call)
+      config.tool_call = {};
+    config.tool_call.language = app_language?.value || "english";
+    await window.electronAPI.setConfig(config);
+    if (typeof showLog === "function")
+      showLog("success", "Configuration saved successfully!");
+    hideConfig();
+  }
+
   // main/markdown.ts
   var { Marked } = globalThis.marked;
   var { markedHighlight } = globalThis.markedHighlight;
@@ -349,186 +1149,6 @@ $$
       globalThis.mermaid.initialize({ startOnLoad: false });
     }
   };
-
-  // main/history.ts
-  var historyFilter = "all";
-  var new_item_template = `<div class="history-item" onclick="loadChat('@id')">
-    <div class="history-status"></div>
-    <div class="history-star" onclick="toggleStar('@id')">
-      <i class="far fa-star"></i>
-    </div>
-    <div class="history-text"></div>
-    <div class="history-menu" onclick="showHistoryMenu(event, '@id')">
-      <i class="fas fa-ellipsis-v"></i>
-      <div class="history-menu-dropdown">
-        <div class="history-menu-item" onclick="renameChat('@id')">
-          <i class="fas fa-edit"></i> Rename
-        </div>
-        <div class="history-menu-item" onclick="deleteChat('@id')">
-          <i class="fas fa-trash"></i> Delete
-        </div>
-      </div>
-    </div>
-  </div>`;
-  function addChatItem(chat) {
-    const item = createElement(new_item_template.replace(/@id/g, chat.id));
-    item.getElementsByClassName("history-text")[0].innerText = chat.name || "New Chat";
-    item.getElementsByClassName("history-text")[0].title = chat.name || "New Chat";
-    item.id = chat.id;
-    DOM.history_list.insertBefore(item, DOM.history_list.firstChild);
-    const starEl = item.querySelector(".history-star");
-    const starIcon = starEl.querySelector("i");
-    if (chat.starred) {
-      starIcon.classList.remove("far");
-      starIcon.classList.add("fas");
-      item.classList.add("starred");
-    }
-    starEl.onclick = (e) => {
-      e.stopPropagation();
-      toggleStar(item.id);
-    };
-    item.onclick = () => loadChat(item.id);
-    const menu = item.querySelector(".history-menu");
-    menu.onclick = (e) => showHistoryMenu(e, item.id);
-    const renameBtn = item.querySelector(".history-menu-item:nth-child(1)");
-    renameBtn.onclick = (e) => {
-      e.stopPropagation();
-      renameChat(item.id);
-    };
-    const deleteBtn = item.querySelector(".history-menu-item:nth-child(2)");
-    deleteBtn.onclick = (e) => {
-      e.stopPropagation();
-      deleteChat(item.id);
-    };
-  }
-  function handleNewChat(chat) {
-    addChatItem(chat);
-    updateChat(chat);
-    selectChat(chat.id);
-  }
-  function updateChat(chat) {
-    if (!chat)
-      return;
-    State.chat = chat;
-    toggleMode(State.chat.mode);
-    DOM.tokens.innerText = String(State.chat.tokens || 0);
-    DOM.msg_count.innerText = String(State.chat.msg_count || 0);
-    DOM.seconds.innerText = (State.chat.seconds || 0).toFixed(1);
-    DOM.version.innerText = State.chat.version || "deepseek-chat";
-    DOM.agentMode.innerText = State.chat.agentMode || "transagent";
-    DOM.model_select.value = State.chat.model;
-    DOM.compress_box.checked = State.chat.compress_context || false;
-  }
-  async function selectChat(chatId) {
-    const items = DOM.history_list.getElementsByClassName("history-item");
-    Array.from(items).forEach((item) => {
-      if (item.id == chatId)
-        item.classList.add("active");
-      else
-        item.classList.remove("active");
-    });
-  }
-  async function loadChat(chatId) {
-    window.electronAPI.loadChat(chatId);
-  }
-  async function handleloadChat(chat) {
-    updateChat(chat);
-    const existingItem = document.getElementById(chat.id);
-    if (!existingItem) {
-      addChatItem(chat);
-    }
-    selectChat(chat.id);
-  }
-  async function deleteChat(chatId) {
-    if (confirm("Are you sure you want to delete this conversation?")) {
-      await window.electronAPI.delChat(chatId);
-      const items = DOM.history_list.getElementsByClassName("history-item");
-      Array.from(items).forEach((item) => {
-        if (item.id == chatId)
-          item.remove();
-      });
-    }
-  }
-  function showHistoryMenu(event, chatId) {
-    event.stopPropagation();
-    const menus = document.querySelectorAll(".history-menu-dropdown");
-    menus.forEach((menu2) => menu2.style.display = "none");
-    const target = event.currentTarget;
-    const menu = target.querySelector(".history-menu-dropdown");
-    menu.style.display = "block";
-    State.chat.id = chatId;
-  }
-  function renameChat(chatId) {
-    State.chat.id = chatId;
-    DOM.renameDialog.style.display = "flex";
-    DOM.renameInput.focus();
-  }
-  async function confirmRename() {
-    const newName = DOM.renameInput.value.trim();
-    if (newName && State.chat.id) {
-      await window.electronAPI.renameChat({ id: State.chat.id, name: newName });
-      const items = DOM.history_list.getElementsByClassName("history-item");
-      Array.from(items).forEach((item) => {
-        if (item.id == State.chat.id)
-          item.getElementsByClassName("history-text")[0].innerText = newName;
-      });
-    }
-    DOM.renameDialog.style.display = "none";
-    DOM.renameInput.value = "";
-  }
-  function setHistoryRunning(chatId) {
-    const item = document.getElementById(chatId);
-    if (item) {
-      item.classList.remove("completed");
-      item.classList.add("running");
-    }
-  }
-  function setHistoryCompleted(chatId) {
-    const item = document.getElementById(chatId);
-    if (item) {
-      item.classList.remove("running");
-      item.classList.add("completed");
-    }
-  }
-  function filterHistory(mode) {
-    historyFilter = mode;
-    const buttons = DOM.history_filter.querySelectorAll(".filter-btn");
-    buttons.forEach((btn) => {
-      btn.classList.toggle("active", btn.dataset.filter === mode);
-    });
-    const items = DOM.history_list.getElementsByClassName("history-item");
-    Array.from(items).forEach((item) => {
-      if (mode === "all") {
-        item.style.display = "";
-      } else {
-        const isStarred = item.classList.contains("starred");
-        item.style.display = isStarred ? "" : "none";
-      }
-    });
-  }
-  async function toggleStar(chatId) {
-    const newState = await window.electronAPI.toggleStar(chatId);
-    const items = DOM.history_list.getElementsByClassName("history-item");
-    Array.from(items).forEach((item) => {
-      if (item.id == chatId) {
-        const starEl = item.querySelector(".history-star i");
-        if (starEl) {
-          if (newState) {
-            starEl.classList.remove("far");
-            starEl.classList.add("fas");
-            item.classList.add("starred");
-          } else {
-            starEl.classList.remove("fas");
-            starEl.classList.add("far");
-            item.classList.remove("starred");
-          }
-        }
-      }
-    });
-    if (historyFilter === "starred") {
-      filterHistory("starred");
-    }
-  }
 
   // main/chat.ts
   var user_message_template = `<div class="relative space-y-2 space-x-2" data-role="user" data-id="">
@@ -1019,598 +1639,6 @@ $$
       enterEnd(messageSystem);
     }
   });
-
-  // main/ui.ts
-  function showLog(type, content) {
-    window.electronAPI.showLog({ type, content });
-  }
-  function toggleMode(mode, send = false) {
-    if (send)
-      window.electronAPI.changeMode(mode);
-    DOM.auto.classList.remove("active");
-    DOM.act.classList.remove("active");
-    DOM.plan.classList.remove("active");
-    DOM.flash.classList.remove("active");
-    switch (mode) {
-      case "auto":
-        DOM.auto.classList.add("active");
-        break;
-      case "act":
-        DOM.act.classList.add("active");
-        break;
-      case "plan":
-        DOM.plan.classList.add("active");
-        break;
-      case "flash":
-        DOM.flash.classList.add("active");
-        break;
-    }
-  }
-  function autoResizeTextarea(textarea) {
-    if (!textarea)
-      return;
-    textarea.style.height = "auto";
-    const minHeight = 40;
-    const maxHeight = minHeight * 3;
-    const scrollHeight = textarea.scrollHeight;
-    const newHeight = Math.max(minHeight, Math.min(scrollHeight, maxHeight));
-    textarea.style.height = newHeight + "px";
-    if (DOM.top_div && DOM.bottom_div) {
-      const bottomHeight = DOM.bottom_div.clientHeight;
-      DOM.top_div.style.height = window.innerHeight - bottomHeight + "px";
-    }
-  }
-  function init_size() {
-    if (!DOM.input || !DOM.system_prompt || !DOM.top_div || !DOM.bottom_div)
-      return;
-    const bottomHeight = DOM.bottom_div.clientHeight;
-    DOM.top_div.style.height = window.innerHeight - bottomHeight + "px";
-  }
-  function toggleSidebar() {
-    const sidebar = document.querySelector(".sidebar");
-    if (sidebar) {
-      sidebar.classList.toggle("collapsed");
-      const icon = document.querySelector(".nav-collapse-btn i");
-      if (icon) {
-        icon.classList.toggle("fa-chevron-left");
-        icon.classList.toggle("fa-chevron-right");
-      }
-    }
-  }
-  var htmlContent = `
-<div class="base-container">
-    <div class="base-header">
-      <div class="base-icon">B</div>
-      <h1 class="base-title">I am TransMAgent, an AI agent specialized in transcriptional regulation analysis.</h1>
-    </div>
-    <div class="options-container">
-      <div data-query="Coverage analysis of SNPs on the GATA2 gene" class="option-card">
-        <div class="option-icon">\u{1F4CD}</div>
-        <h3 class="option-title">Regional annotation analysis</h3>
-        <p class="option-desc">Enhancer annotation, transcription factor binding prediction, SNP site analysis"</p>
-      </div>
-      <div data-query="Analyze TP53 gene expression across tissues and generate a heatmap visualization" class="option-card">
-        <div class="option-icon">\u{1F4C8}</div>
-        <h3 class="option-title">Gene expression analysis</h3>
-        <p class="option-desc">Tissue/cell/disease-specific expression profiling, co-expression network analysis, and expression pattern visualization</p>
-      </div>
-      <div data-query="Analyze the enhancer coverage of ESR1, GATA3, FOXA1, and EP300 genes, and identify motifs in overlapping enhancers" class="option-card">
-        <div class="option-icon">\u{1F9EC}</div>
-        <h3 class="option-title">Sequence data analysis</h3>
-        <p class="option-desc">Motif discovery, sequence alignment, deepTools analysis</p>
-      </div>
-    </div>
-  </div>
-`;
-  function handleClear() {
-    DOM.messages.innerHTML = "";
-    DOM.pause.style.display = "none";
-    DOM.pause.innerHTML = "";
-    updateChat({});
-    const optionDom = createElement(htmlContent);
-    const optionCards = optionDom.querySelectorAll(".option-card");
-    optionCards.forEach((card) => {
-      card.addEventListener("click", () => {
-        const query = card.dataset.query;
-        if (query) {
-          State.formData.query = query;
-          State.formData.prompt = DOM.system_prompt.value;
-          startAgentLoop(State.formData);
-          window.electronAPI.agentLoop(State.formData);
-        }
-      });
-      card.style.cursor = "pointer";
-      card.style.transition = "transform 0.2s";
-      card.addEventListener("mouseenter", () => {
-        card.style.transform = "scale(1.02)";
-      });
-      card.addEventListener("mouseleave", () => {
-        card.style.transform = "scale(1)";
-      });
-    });
-    DOM.messages.append(optionDom);
-  }
-  function hideRenameDialog() {
-    DOM.renameDialog.style.display = "none";
-    DOM.renameInput.value = "";
-  }
-  function updateProgress(info) {
-    switch (info.state) {
-      case "start":
-        DOM.progress_bar.style.width = `0%`;
-        DOM.progress_bar.textContent = `0%`;
-        DOM.progress_container.style.display = "block";
-        break;
-      case "progress":
-        DOM.progress_bar.style.width = `${info.progress}%`;
-        DOM.progress_bar.textContent = `${info.progress}%`;
-        DOM.progress_container.style.display = "block";
-        break;
-      case "end":
-        DOM.progress_bar.style.width = `100%`;
-        DOM.progress_bar.textContent = `100%`;
-        setTimeout(() => {
-          DOM.progress_container.style.display = "none";
-          if (info?.filePath)
-            DOM.input.value = `Upload: ${info.filePath}
-${DOM.input.value}`;
-        }, 500);
-        break;
-      case "error":
-        DOM.progress_bar.style.backgroundColor = "#ff4757";
-        DOM.progress_bar.textContent = `\u4E0A\u4F20\u5931\u8D25: ${info.error}`;
-        setTimeout(() => {
-          DOM.progress_container.style.display = "none";
-          DOM.progress_bar.style.backgroundColor = "";
-        }, 3e3);
-        break;
-    }
-  }
-
-  // main/config.ts
-  var editors = {
-    envs: null,
-    tasks: null
-  };
-  function initConfigEvents() {
-    DOM.btn_save_envs.addEventListener("click", async () => {
-      const envs = editors.envs.get();
-      const statu = await window.electronAPI.Envs({ type: "set", envs });
-      if (statu)
-        showLog("success", "Configuration saved successfully!");
-    });
-    DOM.envs.addEventListener("click", async () => {
-      const mEnvs = document.getElementById("m-envs");
-      if (mEnvs)
-        mEnvs.style.display = "flex";
-      const config_envs = await window.electronAPI.Envs({ type: "get" });
-      const editor_env = document.getElementById("editor_env");
-      editors.envs = editors.envs || new JSONEditor(editor_env, {
-        mode: "tree",
-        modes: ["tree", "code"]
-      });
-      editors.envs.set(config_envs);
-    });
-    DOM.btn_save_tasks.addEventListener("click", async () => {
-      const taskList = editors.tasks.get();
-      const statu = await window.electronAPI.Tasks({ type: "set", tasks: taskList });
-      if (statu)
-        showLog("success", "Tasks saved!");
-    });
-    DOM.tasks.addEventListener("click", async () => {
-      const taskList = await window.electronAPI.Tasks({ type: "get" });
-      const mTasks = document.getElementById("m-tasks");
-      if (mTasks)
-        mTasks.style.display = "flex";
-      const editor_tasks = document.getElementById("editor_tasks");
-      editors.tasks = editors.tasks || new JSONEditor(editor_tasks, {
-        mode: "tree",
-        modes: ["tree", "code"]
-      });
-      editors.tasks.set(taskList);
-    });
-    DOM.bgtasks.addEventListener("click", async () => {
-      const modal = document.getElementById("m-bgtasks");
-      if (modal)
-        modal.style.display = "flex";
-      await renderBGTasks();
-      const autoRefresh = setInterval(async () => {
-        if (!modal || modal.style.display !== "flex") {
-          clearInterval(autoRefresh);
-          return;
-        }
-        await renderBGTasks();
-      }, 2e3);
-      window._bgAutoRefresh = autoRefresh;
-    });
-    DOM.btn_clear_bgtasks.addEventListener("click", async () => {
-      await window.electronAPI.BGTasks({ type: "clear" });
-      await renderBGTasks();
-    });
-  }
-  var _lastTasksSnapshot = "";
-  async function renderBGTasks() {
-    const container = document.getElementById("bg_tasks_list");
-    if (!container)
-      return;
-    const expandedTasks = window._expandedTasks ? Array.from(window._expandedTasks) : [];
-    const tasks = await window.electronAPI.BGTasks({ type: "get" });
-    const newSnapshot = JSON.stringify(tasks.map((t) => ({
-      id: t.taskId,
-      status: t.status,
-      summary: t.resultSummary || ""
-    })));
-    if (newSnapshot === _lastTasksSnapshot && tasks.length > 0) {
-      updateElapsedTimes(tasks);
-      return;
-    }
-    _lastTasksSnapshot = newSnapshot;
-    const emptyEl = document.getElementById("bg_tasks_empty");
-    if (!tasks || tasks.length === 0) {
-      _lastTasksSnapshot = "";
-      container.innerHTML = "";
-      const div = document.createElement("div");
-      div.id = "bg_tasks_empty";
-      div.style.cssText = "text-align: center; color: #888; padding: 40px 0; font-size: 14px;";
-      div.textContent = "No background tasks running";
-      container.appendChild(div);
-      return;
-    }
-    const statusColors = {
-      running: "#f59e0b",
-      completed: "#10b981",
-      failed: "#ef4444"
-    };
-    const statusIcons = {
-      running: "fa-spinner fa-spin",
-      completed: "fa-check-circle",
-      failed: "fa-times-circle"
-    };
-    const rows = tasks.map((t) => {
-      const startStr = new Date(t.startTime).toLocaleString();
-      const elapsed = t.endTime ? `${((t.endTime - t.startTime) / 1e3).toFixed(1)}s` : `${((Date.now() - t.startTime) / 1e3).toFixed(0)}s running`;
-      const color = statusColors[t.status] || "#888";
-      const icon = statusIcons[t.status] || "fa-question-circle";
-      const result = t.resultSummary ? `<div style="font-size: 11px; color: #999; margin-top: 4px; word-break: break-all;">${escapeHtml(t.resultSummary)}</div>` : "";
-      const stopBtn = t.status === "running" ? `<button class="bg-stop-btn" data-taskid="${escapeHtml(t.taskId)}" title="Stop task" style="
-          background: transparent;
-          border: 1px solid #ef4444;
-          color: #ef4444;
-          cursor: pointer;
-          padding: 2px 8px;
-          border-radius: 4px;
-          font-size: 11px;
-          transition: background 0.2s;
-        " onmouseover="this.style.background='#ef444422'" onmouseout="this.style.background='transparent'">
-          <i class="fas fa-stop"></i> Stop
-        </button>` : "";
-      const detailsBtn = t.status === "running" || t.status === "completed" || t.status === "failed" ? `<button class="bg-details-toggle-btn" data-taskid="${escapeHtml(t.taskId)}" onclick="toggleTaskDetails('${escapeHtml(t.taskId)}')">
-          <i class="fas fa-terminal"></i> Details
-        </button>` : "";
-      const isExpanded = expandedTasks.includes(t.taskId);
-      const detailsPanel = `<div class="bg-task-details-panel" id="bg-details-panel-${escapeHtml(t.taskId)}" style="display: ${isExpanded ? "block" : "none"};"></div>`;
-      return `
-      <div style="
-        padding: 12px 16px;
-        border-bottom: 1px solid rgba(139, 92, 246, 0.08);
-        font-size: 13px;
-      " data-taskid="${escapeHtml(t.taskId)}">
-        <div style="display: flex; align-items: center; justify-content: space-between;">
-          <div style="display: flex; align-items: center; gap: 10px;">
-            <i class="fas ${icon}" style="color: ${color}; font-size: 16px;"></i>
-            <span style="font-weight: 600; color: #e2e8f0;">${escapeHtml(t.toolName)}</span>
-            <span style="
-              display: inline-block;
-              padding: 2px 8px;
-              border-radius: 10px;
-              font-size: 11px;
-              background: ${color}22;
-              color: ${color};
-              border: 1px solid ${color}44;
-            ">${t.status}</span>
-          </div>
-          <div style="display: flex; align-items: center; gap: 10px;">
-            ${detailsBtn}
-            ${stopBtn}
-            <span style="color: #888; font-size: 12px;" data-elapsed="${escapeHtml(t.taskId)}">${elapsed}</span>
-          </div>
-        </div>
-        <div style="margin-top: 6px; color: #aab; font-size: 12px; font-family: monospace;">
-          <span style="color: #666;">${escapeHtml(t.taskId)}</span>
-          <span style="color: #888; margin: 0 8px;">|</span>
-          <span style="color: #aaa;">${escapeHtml(t.commandSummary)}</span>
-        </div>
-        <div style="margin-top: 2px; color: #777; font-size: 11px;">
-          Started: ${startStr}
-        </div>
-        ${result}
-        ${detailsPanel}
-      </div>
-    `;
-    }).join("");
-    const savedPanels = {};
-    for (const tid of expandedTasks) {
-      const panel = document.getElementById("bg-details-panel-" + tid);
-      if (panel)
-        savedPanels[tid] = panel.innerHTML;
-    }
-    container.innerHTML = rows;
-    container.querySelectorAll(".bg-stop-btn").forEach((btn) => {
-      btn.addEventListener("click", async () => {
-        const taskId = btn.dataset.taskid;
-        if (!taskId)
-          return;
-        btn.disabled = true;
-        btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i>';
-        await window.electronAPI.BGTasks({ type: "interrupt", taskId });
-        await renderBGTasks();
-      });
-    });
-    for (const tid of expandedTasks) {
-      const panel = document.getElementById("bg-details-panel-" + tid);
-      if (panel && savedPanels[tid]) {
-        panel.innerHTML = savedPanels[tid];
-        panel.style.display = "block";
-      }
-    }
-    if (window._bgOutputRefreshInterval) {
-      clearInterval(window._bgOutputRefreshInterval);
-      window._bgOutputRefreshInterval = null;
-    }
-    const runningExpanded = expandedTasks.filter((tid) => {
-      const t = tasks.find((t2) => t2.taskId === tid);
-      return t && t.status === "running";
-    });
-    if (runningExpanded.length > 0) {
-      window._bgOutputRefreshInterval = setInterval(async () => {
-        for (const tid of runningExpanded) {
-          await refreshTaskOutput(tid);
-        }
-      }, 2e3);
-    }
-  }
-  function updateElapsedTimes(tasks) {
-    const container = document.getElementById("bg_tasks_list");
-    if (!container)
-      return;
-    const cards = container.querySelectorAll("[data-taskid]");
-    cards.forEach((card) => {
-      const tid = card.dataset.taskid;
-      const t = tasks.find((t2) => t2.taskId === tid);
-      if (!t)
-        return;
-      const elapsed = t.endTime ? `${((t.endTime - t.startTime) / 1e3).toFixed(1)}s` : `${((Date.now() - t.startTime) / 1e3).toFixed(0)}s running`;
-      const span = card.querySelector(`[data-elapsed="${tid}"]`);
-      if (span)
-        span.textContent = elapsed;
-    });
-  }
-  function escapeHtml(text) {
-    const div = document.createElement("div");
-    div.textContent = text;
-    return div.innerHTML;
-  }
-  window.toggleTaskDetails = async (taskId) => {
-    const panel = document.getElementById("bg-details-panel-" + taskId);
-    if (!panel)
-      return;
-    window._expandedTasks = window._expandedTasks || /* @__PURE__ */ new Set();
-    if (panel.style.display === "none" || panel.style.display === "") {
-      panel.style.display = "block";
-      window._expandedTasks.add(taskId);
-      await loadTaskDetails(taskId);
-    } else {
-      panel.style.display = "none";
-      window._expandedTasks.delete(taskId);
-      window._loadedDetails = window._loadedDetails || /* @__PURE__ */ new Set();
-      window._loadedDetails.delete(taskId);
-    }
-  };
-  async function loadTaskDetails(taskId) {
-    const panel = document.getElementById("bg-details-panel-" + taskId);
-    if (!panel)
-      return;
-    window._loadedDetails = window._loadedDetails || /* @__PURE__ */ new Set();
-    panel.innerHTML = `
-    <div class="bg-task-details">
-      <div class="bg-details-header">
-        <span class="bg-details-title"><i class="fas fa-terminal"></i> Task Output</span>
-        <div class="bg-details-actions">
-          <button class="bg-details-btn" onclick="toggleTaskDetails('${escapeHtml(taskId)}')">
-            <i class="fas fa-chevron-up"></i> Collapse
-          </button>
-        </div>
-      </div>
-      <div style="padding: 20px; text-align: center; color: #888; font-size: 13px;">
-        <i class="fas fa-spinner fa-spin" style="margin-right: 8px;"></i> Loading task output...
-      </div>
-    </div>
-  `;
-    try {
-      const details = await window.electronAPI.BGTaskDetails({ type: "getDetails", taskId });
-      const output = await window.electronAPI.BGTaskDetails({ type: "getOutput", taskId });
-      const outputFilePath = details?.outputFilePath || "N/A";
-      panel.innerHTML = `
-      <div class="bg-task-details">
-        <div class="bg-details-header">
-          <span class="bg-details-title"><i class="fas fa-terminal"></i> Task Output</span>
-          <div class="bg-details-actions">
-            <button class="bg-details-btn" onclick="copyOutputPath('${escapeHtml(taskId)}')">
-              <i class="fas fa-copy"></i> Copy Path
-            </button>
-            <button class="bg-details-btn" onclick="openOutputFolder('${escapeHtml(taskId)}')">
-              <i class="fas fa-folder-open"></i> Open Folder
-            </button>
-            <button class="bg-details-btn" onclick="toggleTaskDetails('${escapeHtml(taskId)}')">
-              <i class="fas fa-chevron-up"></i> Collapse
-            </button>
-          </div>
-        </div>
-        <div class="bg-details-meta">
-          <span><i class="fas fa-file"></i> Output: <code class="bg-details-path">${escapeHtml(outputFilePath)}</code></span>
-        </div>
-        <pre class="bg-details-output"><code>${escapeHtml(output)}</code></pre>
-      </div>
-    `;
-      window._loadedDetails.add(taskId);
-    } catch (err) {
-      panel.innerHTML = `<div class="bg-task-details" style="color: #ef4444; font-size: 12px;">Failed to load details: ${escapeHtml(err.message || "Unknown error")}</div>`;
-    }
-  }
-  async function refreshTaskOutput(taskId) {
-    const panel = document.getElementById("bg-details-panel-" + taskId);
-    if (!panel)
-      return;
-    const codeEl = panel.querySelector(".bg-details-output code");
-    if (!codeEl)
-      return;
-    try {
-      const output = await window.electronAPI.BGTaskDetails({ type: "getOutput", taskId });
-      codeEl.textContent = output;
-    } catch (_err) {
-    }
-  }
-  window.copyOutputPath = async (taskId) => {
-    try {
-      const details = await window.electronAPI.BGTaskDetails({ type: "getDetails", taskId });
-      if (details?.outputFilePath) {
-        await navigator.clipboard.writeText(details.outputFilePath);
-        showLog("success", "Path copied to clipboard");
-      }
-    } catch (_err) {
-      showLog("error", "Failed to copy path");
-    }
-  };
-  window.openOutputFolder = async (taskId) => {
-    try {
-      await window.electronAPI.BGTaskDetails({ type: "openFolder", taskId });
-    } catch (_err) {
-      showLog("error", "Failed to open folder");
-    }
-  };
-  async function showConfig() {
-    const mConfig = document.querySelector("#m-config");
-    if (mConfig)
-      mConfig.style.display = "flex";
-    const config = await window.electronAPI.getConfig();
-    const ai_model = document.getElementById("ai-model");
-    const api_url = document.getElementById("api-url");
-    const api_key = document.getElementById("api-key");
-    ai_model.innerHTML = "";
-    for (const model in config.models) {
-      if (Object.prototype.hasOwnProperty.call(config.models[model], "api_key")) {
-        if (!api_url.value && !api_key.value) {
-          api_url.value = config.models[model]?.api_url || "";
-          api_key.value = config.models[model]?.api_key || "";
-        }
-        const option = createElement(`<option value="${model}">${model}</option>`);
-        ai_model.appendChild(option);
-      }
-    }
-    if (State.chat && State.chat.model) {
-      ai_model.value = State.chat.model;
-      api_url.value = config.models[State.chat.model]?.api_url || "";
-      api_key.value = config.models[State.chat.model]?.api_key || "";
-    }
-    if (State.chat && State.chat.compress_context !== void 0) {
-      DOM.compress_box.checked = State.chat.compress_context;
-    }
-    const memoryLength = document.getElementById("memory-length");
-    if (memoryLength)
-      memoryLength.value = String(State.chat.memory_length ?? "");
-    const longMemoryLength = document.getElementById("long-memory-length");
-    if (longMemoryLength)
-      longMemoryLength.value = String(State.chat.long_memory_length ?? "");
-    const maxTokens = document.getElementById("max-tokens");
-    if (maxTokens)
-      maxTokens.value = String(State.chat.max_tokens ?? "");
-    const maxDisplay = document.getElementById("max-display-messages");
-    if (maxDisplay)
-      maxDisplay.value = String(State.chat.max_display_messages ?? 100);
-    ai_model.onchange = (event) => {
-      api_url.value = config.models[event.target.value]?.api_url || "";
-      api_key.value = config.models[event.target.value]?.api_key || "";
-    };
-    const cli_prompt = document.getElementById("cli-prompt");
-    if (cli_prompt)
-      cli_prompt.value = config.tool_call?.cli_prompt || "";
-    const ssh_host = document.getElementById("ssh-host");
-    if (ssh_host)
-      ssh_host.value = config.tool_call?.ssh_config?.host || "";
-    const ssh_port = document.getElementById("ssh-port");
-    if (ssh_port)
-      ssh_port.value = config.tool_call?.ssh_config?.port || "";
-    const ssh_username = document.getElementById("ssh-username");
-    if (ssh_username)
-      ssh_username.value = config.tool_call?.ssh_config?.username || "";
-    const ssh_password = document.getElementById("ssh-password");
-    if (ssh_password)
-      ssh_password.value = config.tool_call?.ssh_config?.password || "";
-    const ssh_enabled = document.getElementById("ssh-enabled");
-    if (ssh_enabled)
-      ssh_enabled.checked = !!config.tool_call?.ssh_config?.enabled;
-    const biotools_url = document.getElementById("mcp_server-biotools-url");
-    if (biotools_url)
-      biotools_url.value = config.mcp_server?.biotools?.url || "";
-    const biotools_disabled = document.getElementById("mcp_server-biotools-disabled");
-    if (biotools_disabled) {
-      biotools_disabled.checked = config.mcp_server?.biotools?.disabled;
-    }
-  }
-  function hideConfig() {
-    if (window._bgAutoRefresh) {
-      clearInterval(window._bgAutoRefresh);
-      window._bgAutoRefresh = null;
-    }
-    document.querySelectorAll(".config-modal").forEach((m) => m.style.display = "none");
-  }
-  async function saveConfig() {
-    const config = await window.electronAPI.getConfig();
-    const ai_model = document.getElementById("ai-model").value;
-    const api_url = document.getElementById("api-url").value;
-    const api_key = document.getElementById("api-key").value;
-    if (!config.models)
-      config.models = {};
-    if (!config.models[ai_model])
-      config.models[ai_model] = { api_url: "", api_key: "" };
-    config.models[ai_model].api_url = api_url;
-    config.models[ai_model].api_key = api_key;
-    State.chat.compress_context = DOM.compress_box.checked;
-    const memoryLength = document.getElementById("memory-length");
-    if (memoryLength)
-      State.chat.memory_length = Number(memoryLength.value) || 0;
-    const longMemoryLength = document.getElementById("long-memory-length");
-    if (longMemoryLength)
-      State.chat.long_memory_length = Number(longMemoryLength.value) || 0;
-    const maxTokens = document.getElementById("max-tokens");
-    if (maxTokens)
-      State.chat.max_tokens = Number(maxTokens.value) || 0;
-    const maxDisplay = document.getElementById("max-display-messages");
-    if (maxDisplay)
-      State.chat.max_display_messages = Number(maxDisplay.value) || 100;
-    await window.electronAPI.setChat(State.chat);
-    if (!config.tool_call)
-      config.tool_call = {};
-    config.tool_call.cli_prompt = document.getElementById("cli-prompt")?.value || "";
-    if (!config.tool_call.ssh_config)
-      config.tool_call.ssh_config = {};
-    config.tool_call.ssh_config.host = document.getElementById("ssh-host")?.value || "";
-    config.tool_call.ssh_config.port = Number(document.getElementById("ssh-port")?.value) || 22;
-    config.tool_call.ssh_config.username = document.getElementById("ssh-username")?.value || "";
-    config.tool_call.ssh_config.password = document.getElementById("ssh-password")?.value || "";
-    config.tool_call.ssh_config.enabled = !!document.getElementById("ssh-enabled")?.checked;
-    if (!config.mcp_server)
-      config.mcp_server = {};
-    if (!config.mcp_server.biotools)
-      config.mcp_server.biotools = {};
-    config.mcp_server.biotools.url = document.getElementById("mcp_server-biotools-url")?.value || "";
-    const biotools_disabled = document.getElementById("mcp_server-biotools-disabled");
-    config.mcp_server.biotools.disabled = biotools_disabled.checked;
-    await window.electronAPI.setConfig(config);
-    if (typeof showLog === "function")
-      showLog("success", "Configuration saved successfully!");
-    hideConfig();
-  }
 
   // main/renderer.ts
   document.addEventListener("DOMContentLoaded", () => {

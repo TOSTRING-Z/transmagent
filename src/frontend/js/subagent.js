@@ -342,6 +342,11 @@ $$
   marked.use(globalThis.markedKatex({ nonStandard: true, async: true }));
   marked.use({ walkTokens, renderer, async: true, extensions: [thinkExtension] });
 
+  // main/ui.ts
+  function showLog(type, content) {
+    window.electronAPI.showLog({ type, content });
+  }
+
   // main/history.ts
   function setHistoryRunning(chatId) {
     const item = document.getElementById(chatId);
@@ -356,11 +361,6 @@ $$
       item.classList.remove("running");
       item.classList.add("completed");
     }
-  }
-
-  // main/ui.ts
-  function showLog(type, content) {
-    window.electronAPI.showLog({ type, content });
   }
 
   // main/chat.ts

@@ -1,6 +1,6 @@
 {
   "name": "transmagent",
-  "version": "2.0.0",
+  "version": "2.0.1",
   "description": "transmagent",
   "main": "src/backend/dist/main.js",
   "homepage": ".",

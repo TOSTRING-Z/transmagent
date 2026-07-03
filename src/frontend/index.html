@@ -434,6 +434,11 @@
     <i class="fas fa-arrow-down"></i>
   </button>
 
+  <!-- Toggle all system messages floating button -->
+  <button id="toggle-all-messages" class="toggle-all-btn" onclick="toggleAllMessages()" title="Toggle all messages">
+    <i class="fas fa-toggle-on"></i>
+  </button>
+
 </body>
 
 <script src="./js/renderer.js"></script>
@@ -456,6 +461,35 @@
       // Show button when user has scrolled away from bottom (with a 100px threshold)
       const isAtBottom = topDiv.scrollHeight - topDiv.scrollTop - topDiv.clientHeight < 100;
       scrollBtn.style.display = isAtBottom ? 'none' : 'flex';
+    }
+  }
+
+  // Toggle all system messages (expand/collapse)
+  function toggleAllMessages() {
+    const systemMessages = document.querySelectorAll('[data-role="system"]');
+    const toggleBtn = document.getElementById('toggle-all-messages');
+    const toggleIcon = toggleBtn ? toggleBtn.querySelector('i') : null;
+    if (systemMessages.length === 0) return;
+
+    // If any message is currently expanded (no 'message_toggle' class), collapse all;
+    // otherwise expand all.
+    let anyExpanded = false;
+    systemMessages.forEach((el) => {
+      if (!el.classList.contains('message_toggle')) anyExpanded = true;
+    });
+    const shouldExpand = !anyExpanded;
+
+    systemMessages.forEach((el) => {
+      if (shouldExpand) {
+        el.classList.remove('message_toggle');
+      } else {
+        el.classList.add('message_toggle');
+      }
+    });
+
+    // Update icon: fa-toggle-on = expanded (default), fa-toggle-off = collapsed
+    if (toggleIcon) {
+      toggleIcon.className = shouldExpand ? 'fas fa-toggle-on' : 'fas fa-toggle-off';
     }
   }
 
