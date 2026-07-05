@@ -1235,8 +1235,11 @@ $$
   <div class="menu-container">
     <img class="menu system" src="" alt="System Avatar">
   </div>
-  <div class="info hidden">
-    <div class="info-header">Call information</div>
+  <div class="info collapsed">
+    <div class="info-header" data-toggle="info" title="Toggle call information">
+      <span>Call information</span>
+      <i class="fas fa-chevron-down info-toggle-icon"></i>
+    </div>
     <div class="info-content overflow-y-auto" data-content=""></div>
   </div>
   <div class="message" data-content=""></div>
@@ -1809,6 +1812,12 @@ $$
         State.formData.prompt = DOM.system_prompt.value;
         startAgentLoop(State.formData);
         window.electronAPI.agentLoop(State.formData);
+        if (DOM.input) {
+          DOM.input.value = "";
+          autoResizeTextarea(DOM.input);
+          if (DOM.submit)
+            DOM.submit.classList.remove("success");
+        }
       }
     });
     const collapseBtn = document.querySelector(".nav-collapse-btn");

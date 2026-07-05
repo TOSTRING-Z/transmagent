@@ -19,8 +19,11 @@ const system_message_template = `<div class="relative space-y-2 space-x-2" data-
   <div class="menu-container">
     <img class="menu system" src="" alt="System Avatar">
   </div>
-  <div class="info hidden">
-    <div class="info-header">Call information</div>
+  <div class="info collapsed">
+    <div class="info-header" data-toggle="info" title="Toggle call information">
+      <span>Call information</span>
+      <i class="fas fa-chevron-down info-toggle-icon"></i>
+    </div>
     <div class="info-content overflow-y-auto" data-content=""></div>
   </div>
   <div class="message" data-content=""></div>
@@ -512,3 +515,34 @@ window.electronAPI.agentIdle((data) => {
     enterEnd(messageSystem);
   }
 })
+
+/**
+ * Toggle Call information collapse state.
+ * Binds click handler to [data-toggle="info"] elements.
+ */
+export function toggleCallInformation(el: HTMLElement): void {
+  const infoContainer = el.closest('.info');
+  if (!infoContainer) return;
+  infoContainer.classList.toggle('collapsed');
+  const icon = el.querySelector('.info-toggle-icon');
+  if (icon) {
+    if (infoContainer.classList.contains('collapsed')) {
+      icon.classList.remove('fa-chevron-up');
+      icon.classList.add('fa-chevron-down');
+    } else {
+      icon.classList.remove('fa-chevron-down');
+      icon.classList.add('fa-chevron-up');
+    }
+  }
+}
+
+export function initCallInformationToggle(): void {
+  document.addEventListener('click', (e: Event) => {
+    const target = e.target as HTMLElement;
+    const header = target.closest('[data-toggle="info"]') as HTMLElement | null;
+    if (header) {
+      e.stopPropagation();
+      toggleCallInformation(header);
+    }
+  });
+}

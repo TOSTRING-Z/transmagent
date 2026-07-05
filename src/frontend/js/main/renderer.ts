@@ -125,6 +125,15 @@ document.addEventListener("DOMContentLoaded", () => {
       State.formData.prompt = DOM.system_prompt.value;
       startAgentLoop(State.formData);
       window.electronAPI.agentLoop(State.formData);
+    // 清空输入框 — 消息发送后
+    if (DOM.input) {
+      DOM.input.value = '';
+      autoResizeTextarea(DOM.input);
+      // 重置 submit 按钮样式
+      if (DOM.submit) DOM.submit.classList.remove('success');
+    }
+
+    
     }
   });
 

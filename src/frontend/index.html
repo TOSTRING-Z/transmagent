@@ -417,7 +417,7 @@
     <div class="container-fluid min-h-screen flex">
       <div class="w-full flex-grow">
         <!-- Chat messages -->
-        <div class="overflow-y-auto" id="top_div">
+        <div class="top-div-stable" id="top_div">
           <div class="p-4 flex flex-col space-y-4" id="messages"></div>
           <div class="space-x-2 items-start" id="pause"></div>
         </div>
@@ -471,13 +471,28 @@
   </div>
 
 <script>
-    document.getElementById('open_demo')?.addEventListener('click', () => {
-        window.electronAPI.send('open-demo-window');
+    document.getElementById('open_demo')?.addEventListener('click', (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        if (window.electronAPI && typeof window.electronAPI.openDemoWindow === 'function') {
+            window.electronAPI.openDemoWindow();
+        } else if (window.demoAPI && typeof window.demoAPI.openDemoWindow === 'function') {
+            window.demoAPI.openDemoWindow();
+        } else if (window.electronAPI && typeof window.electronAPI.send === 'function') {
+            // 兼容兜底：send 通道已加入白名单（见 preload 修改）
+            window.electronAPI.send('open-demo-window');
+        } else {
+            console.error('[demo] electronAPI unavailable');
+        }
     });
 
-    document.getElementById('expand_editor').addEventListener('click', () => {
-        const content = document.getElementById('input').value;
-        window.electronAPI.send('open-code-editor-content', content);
+    document.getElementById('expand_editor')?.addEventListener('click', () => {
+        const content = document.getElementById('input')?.value || '';
+        if (window.electronAPI && typeof window.electronAPI.openCodeEditorContent === 'function') {
+            window.electronAPI.openCodeEditorContent(content);
+        } else if (window.electronAPI && typeof window.electronAPI.send === 'function') {
+            window.electronAPI.send('open-code-editor-content', content);
+        }
     });
 </script>
   <!-- Scroll to bottom floating button -->
