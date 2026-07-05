@@ -441,9 +441,7 @@ body {
   background-color: rgba(0, 0, 0, 0.15);
   border-radius: 4px;
 }
-#top_div:hover::-webkit-scrollbar {
-  width: 14px;
-}
+/* Layout Shift Fix: removed #top_div:hover::-webkit-scrollbar width change (causes layout shift) */
 #top_div:hover::-webkit-scrollbar-thumb {
   background-color: rgba(0, 0, 0, 0.35);
 }
@@ -845,6 +843,8 @@ body {
 
 .info.collapsed .info-toggle-icon {
   transform: rotate(-90deg);
+
+  display: none;
 }
 
 .info:not(.collapsed) .info-toggle-icon {
@@ -2782,4 +2782,65 @@ input:checked + .slider:before {
   ::-webkit-scrollbar-thumb:hover {
     background: rgba(255, 255, 255, 0.4);
   }
+}
+
+
+/* ============================================================ */
+/* T-16 Aggressive Layout Shift Fix — 激进防重排                  */
+/* ============================================================ */
+/* 问题根因:                                                   */
+/*   1. /* LAYOUT SHIFT FIX: removed #top_div:hover::-webkit-scrollbar width change */       */
+/*      — hover 时滚动条宽度从默认变 14px，导致父容器宽度变化  */
+/*   2. 消息内 pre/code 块 hover 时显示滚动条                    */
+/*   3. .message 容器宽度受 flex 收缩影响                       */
+/*                                                            */
+/* 修复策略:                                                   */
+/*   a) 强制所有消息容器使用 CSS containment                    */
+/*   b) 给滚动容器预留 padding-right 防止挤压                  */
+/*   c) 隐藏 hover 时宽度变化的滚动条规则                      */
+/* ============================================================ */
+
+/* 1. 防止消息容器因滚动条出现而被挤压 */
+.message,
+.info,
+pre,
+#top_div,
+.overflow-y-auto,
+.overflow-auto {
+  scrollbar-gutter: stable;
+  overflow-y: scroll !important;  /* 始终显示滚动条轨道 */
+}
+
+/* 2. CSS Containment — 阻止 hover 引起的 layout 重排向上传播 */
+[data-role="system"],
+[data-role="user"],
+.message-container,
+#top_div {
+  contain: layout style;
+}
+
+/* 3. 消息 .message 容器预留 padding-right 防止文字被滚动条遮挡 */
+.message {
+  padding-right: 12px !important;
+}
+
+/* 4. 强制 hover 时滚动条宽度保持一致（覆盖 L444） */
+#top_div::-webkit-scrollbar,
+#top_div:hover::-webkit-scrollbar {
+  width: 10px !important;
+}
+
+/* 5. 全局滚动条宽度锁定 */
+::-webkit-scrollbar {
+  width: 10px !important;
+  height: 10px !important;
+}
+
+::-webkit-scrollbar-thumb {
+  background: rgba(155, 155, 155, 0.5);
+  border-radius: 5px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: rgba(155, 155, 155, 0.8);
 }

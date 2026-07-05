@@ -1235,7 +1235,7 @@ $$
   <div class="menu-container">
     <img class="menu system" src="" alt="System Avatar">
   </div>
-  <div class="info">
+  <div class="info collapsed">
     <div class="info-header" data-toggle="info" title="Click to toggle call information">
       <span class="info-header-text">
         <i class="fas fa-info-circle info-header-icon"></i>
