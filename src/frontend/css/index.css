@@ -2502,3 +2502,91 @@ input:checked + .slider:before {
   background: #e3f2fd;
   text-decoration: none;
 }
+
+
+/* Quick Verification card styles */
+.btn-verify {
+  padding: 6px 12px;
+  border: 1px solid var(--primary, #2196F3);
+  background: transparent;
+  color: var(--primary, #2196F3);
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 13px;
+  transition: all 0.2s;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+.btn-verify:hover {
+  background: var(--primary, #2196F3);
+  color: #fff;
+}
+.btn-verify:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+.btn-verify-all {
+  background: var(--primary, #2196F3);
+  color: #fff;
+  border-color: var(--primary, #2196F3);
+}
+.btn-verify-all:hover {
+  background: #1976D2;
+  border-color: #1976D2;
+}
+
+/* Quick Verification card - prevent button row from blocking other items */
+.config-card .modern-row[style*="margin-top: 12px"],
+.config-card .verify-button-row {
+  flex-direction: row !important;
+  flex-wrap: wrap !important;
+  gap: 8px !important;
+  align-items: center !important;
+}
+
+.config-card .verify-button-row label {
+  width: 100%;
+  margin-bottom: 4px;
+}
+
+.verify-results {
+  word-wrap: break-word;
+  word-break: break-word;
+}
+
+.verify-results div {
+  max-width: 100%;
+  overflow-x: auto;
+}
+
+.verify-result-box {
+  min-height: 40px;
+  max-height: 200px;
+  overflow-y: auto;
+  padding: 8px;
+  background: rgba(0, 0, 0, 0.03);
+  border: 1px solid rgba(0, 0, 0, 0.08);
+  border-radius: 4px;
+  font-family: monospace;
+  font-size: 12px;
+  white-space: pre-wrap;
+  word-break: break-all;
+}
+.verify-result-box .verify-line {
+  margin: 2px 0;
+  padding: 3px 6px;
+  border-radius: 3px;
+}
+.verify-result-box .verify-ok {
+  background: rgba(34, 197, 94, 0.12);
+  color: #16a34a;
+}
+.verify-result-box .verify-fail {
+  background: rgba(239, 68, 68, 0.12);
+  color: #dc2626;
+}
+.verify-result-box .verify-info {
+  color: #6b7280;
+  font-style: italic;
+}

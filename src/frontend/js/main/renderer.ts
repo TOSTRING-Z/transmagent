@@ -2,7 +2,7 @@ import { DOM } from './globals';
 import { State, ChatState } from './state';
 import { init_size, autoResizeTextarea, handleClear, showLog, toggleMode, toggleSidebar, updateProgress, hideRenameDialog } from './ui';
 import { addChatItem, handleNewChat, deleteChat, renameChat, confirmRename, showHistoryMenu, updateChat, loadChat, handleloadChat, filterHistory } from './history';
-import { initConfigEvents, showConfig, saveConfig, hideConfig } from './config';
+import { initConfigEvents, initVerificationEvents, showConfig, saveConfig, hideConfig } from './config';
 import { userData, infoData, streamData, startAgentLoop, toolData, enterEnd } from './chat';
 import { initMermaid } from './markdown';
 import { getFileName } from './utils';
@@ -15,6 +15,7 @@ document.addEventListener("DOMContentLoaded", () => {
   initMermaid();
   handleClear();
   initConfigEvents();
+  initVerificationEvents();
 
   // Resize Observer
   if (DOM.bottom_div && DOM.top_div) {

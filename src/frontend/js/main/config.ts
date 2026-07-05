@@ -467,6 +467,13 @@ export function hideConfig() {
   document.querySelectorAll('.config-modal').forEach((m: any) => m.style.display = 'none');
 }
 
+// ─── Quick Verification Wiring ───────────────────────────────────────────
+// Unified interface: routes button clicks to backend IPC verifiers
+// (verify-file / verify-ssh / verify-mcp / verify-python / verify-vision / verify-all)
+
+
+
+
 export async function saveConfig() {
   const config = await window.electronAPI.getConfig();
 
@@ -522,4 +529,88 @@ export async function saveConfig() {
   // @ts-ignore
   if (typeof showLog === 'function') showLog('success', 'Configuration saved successfully!');
   hideConfig();
+}
+
+
+
+// ── Quick Verification ──────────────────────────────────────────────
+
+
+
+
+
+
+// ─── Quick Verification (Agent Configuration) ────────────────────────────────
+// Unified interface — python_execute and image_vision verification flows share
+// the same dispatch logic via electronAPI.verifyAll / individual verify IPCs.
+
+type VerifyKind = 'file' | 'ssh' | 'mcp' | 'python' | 'vision' | 'all';
+
+function renderVerifyResult(target: HTMLElement, label: string, result: { success: boolean; message: string; detail?: any }) {
+  const color = result.success ? '#10b981' : '#ef4444';
+  const icon = result.success ? 'fa-check-circle' : 'fa-times-circle';
+  const div = document.createElement('div');
+  div.style.cssText = `padding: 6px 8px; margin-bottom: 4px; border-left: 3px solid ${color}; background: rgba(0,0,0,0.02); border-radius: 3px;`;
+  div.innerHTML = `<i class="fas ${icon}" style="color: ${color};"></i> <b>${label}</b>: ${escapeHtml(result.message)}`;
+  target.appendChild(div);
+}
+async function runVerification(kind: VerifyKind) {
+  const target = document.getElementById('verify-results');
+  if (!target) return;
+  target.innerHTML = '';
+  const loading = document.createElement('div');
+  loading.style.cssText = 'color: #4361ee; font-style: italic;';
+  loading.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Running ' + kind + ' verification...';
+  target.appendChild(loading);
+
+  try {
+    if (kind === 'all') {
+      const pythonBin = (document.getElementById('verify-python-bin') as HTMLInputElement)?.value?.trim();
+      const results = await (window as any).electronAPI.verifyAll({ pythonBin });
+      target.innerHTML = '';
+      if (results.file) renderVerifyResult(target, 'File', results.file);
+      if (results.ssh) renderVerifyResult(target, 'SSH', results.ssh);
+      if (results.mcp) renderVerifyResult(target, 'MCP', results.mcp);
+      if (results.python) renderVerifyResult(target, 'Python', results.python);
+      if (results.vision) renderVerifyResult(target, 'Vision', results.vision);
+      if (Object.keys(results).length === 0) {
+        target.innerHTML = '<div style="color:#888;font-style:italic;">No checks were eligible (configure SSH/MCP/Python/Vision settings first).</div>';
+      }
+    } else if (kind === 'file') {
+      // Backend auto-reads tool_call.extra_prompt + tool_call.cli_prompt
+      const result = await (window as any).electronAPI.verifyFile();
+      target.innerHTML = '';
+      renderVerifyResult(target, 'Prompt Files (extra_prompt + cli_prompt)', result);
+    } else if (kind === 'ssh') {
+      const result = await (window as any).electronAPI.verifySsh();
+      target.innerHTML = '';
+      renderVerifyResult(target, 'SSH', result);
+    } else if (kind === 'mcp') {
+      const result = await (window as any).electronAPI.verifyMcp();
+      target.innerHTML = '';
+      renderVerifyResult(target, 'MCP', result);
+    } else if (kind === 'python') {
+      const pythonBin = (document.getElementById('verify-python-bin') as HTMLInputElement)?.value?.trim() || '';
+      const result = await (window as any).electronAPI.verifyPython(pythonBin);
+      target.innerHTML = '';
+      renderVerifyResult(target, 'Python (python_execute)', result);
+    } else if (kind === 'vision') {
+      const result = await (window as any).electronAPI.verifyVision({});
+      target.innerHTML = '';
+      renderVerifyResult(target, 'Vision (image_vision)', result);
+    }
+  } catch (err: any) {
+    target.innerHTML = '';
+    renderVerifyResult(target, kind.toUpperCase(), { success: false, message: 'IPC error: ' + err.message });
+  }
+}
+
+export function initVerificationEvents() {
+  const buttons = document.querySelectorAll('.btn-verify, .btn-verify-all');
+  buttons.forEach((btn) => {
+    btn.addEventListener('click', () => {
+      const kind = (btn as HTMLElement).getAttribute('data-verify') as VerifyKind;
+      if (kind) runVerification(kind);
+    });
+  });
 }

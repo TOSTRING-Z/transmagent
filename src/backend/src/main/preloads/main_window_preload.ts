@@ -61,4 +61,14 @@ contextBridge.exposeInMainWorld('electronAPI', {
   Tasks: (data: Record<string, any>) => ipcRenderer.invoke('tasks', data),
   BGTasks: (data: Record<string, any>) => ipcRenderer.invoke('bgtasks', data),
   BGTaskDetails: (data: { type: string; taskId: string }) => ipcRenderer.invoke('bgtask-details', data),
+
+  // ── Quick Verification (Agent Configuration) ─────────────────────────
+  // ── Quick Verification (Agent Configuration) ─────────────────────────
+  // File check sources tool_call.extra_prompt / cli_prompt from config internally.
+  verifyFile: () => ipcRenderer.invoke('verify-file'),
+  verifySsh: () => ipcRenderer.invoke('verify-ssh'),
+  verifyMcp: () => ipcRenderer.invoke('verify-mcp'),
+  verifyPython: (pythonBin?: string) => ipcRenderer.invoke('verify-python', pythonBin || ''),
+  verifyVision: (visionConfig?: any) => ipcRenderer.invoke('verify-vision', visionConfig || {}),
+  verifyAll: (params?: { pythonBin?: string; visionConfig?: any }) => ipcRenderer.invoke('verify-all', params || {}),
 });

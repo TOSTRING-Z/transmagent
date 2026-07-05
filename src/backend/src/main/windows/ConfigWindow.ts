@@ -2,6 +2,7 @@ import { BrowserWindow, ipcMain } from 'electron';
 import { BaseWindow } from './BaseWindow';
 import { WindowManager } from './WindowManager';
 import { Plugins }  from '../../core/Plugins';
+import { Verifier } from '../../core/Verifier';
 
 export class ConfigWindow extends BaseWindow {
     constructor(windowManager: WindowManager) {
@@ -58,6 +59,51 @@ export class ConfigWindow extends BaseWindow {
             this.windowManager.alertWindow?.show("success", "config saved, restart to apply");
             this.windowManager.mainWindow.restart(this.windowManager.mainWindow.window);
             return state;
+        });
+
+        // ── Quick Verification IPC Handlers ────────────────────────────
+        // Unified interface: python_execute and image_vision share the
+        // same verify-all flow that probes file/SSH/MCP/python/vision.
+
+        ipcMain.handle('verify-file', async () => {
+            // File check sources tool_call.extra_prompt + cli_prompt from config.
+            // Empty/null paths are skipped silently.
+            const toolCallConfig = this.utils().getConfig('tool_call') || {};
+            return await Verifier.verifyPromptFiles(toolCallConfig);
+        });
+
+        ipcMain.handle('verify-ssh', async () => {
+            const sshConfig = this.utils().getSshConfig();
+            return await Verifier.verifySsh(sshConfig);
+        });
+
+        ipcMain.handle('verify-mcp', async () => {
+            const mcpConfig = this.utils().getConfig('mcp_server');
+            return await Verifier.verifyMcp(mcpConfig);
+        });
+
+        ipcMain.handle('verify-python', async (_, pythonBin: string) => {
+            // python_bin comes from python_execute tool's Parameters
+            return await Verifier.verifyPython(pythonBin);
+        });
+
+        ipcMain.handle('verify-vision', async (_, visionConfig: any) => {
+            // visionConfig typically comes from image_vision tool's Parameters
+            return await Verifier.verifyVision(visionConfig);
+        });
+
+        ipcMain.handle('verify-all', async (_, params: any) => {
+            // Batch verify all configured checks at once
+            const toolCallConfig = this.utils().getConfig('tool_call') || {};
+            const sshConfig = this.utils().getSshConfig();
+            const mcpConfig = this.utils().getConfig('mcp_server');
+            return await Verifier.verifyAll({
+                toolCallConfig,
+                sshConfig,
+                mcpConfig,
+                pythonBin: params?.pythonBin,
+                visionConfig: params?.visionConfig
+            });
         });
     }
 }

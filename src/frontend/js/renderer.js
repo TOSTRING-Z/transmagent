@@ -871,6 +871,78 @@ ${DOM.input.value}`;
       showLog("success", "Configuration saved successfully!");
     hideConfig();
   }
+  function renderVerifyResult(target, label, result) {
+    const color = result.success ? "#10b981" : "#ef4444";
+    const icon = result.success ? "fa-check-circle" : "fa-times-circle";
+    const div = document.createElement("div");
+    div.style.cssText = `padding: 6px 8px; margin-bottom: 4px; border-left: 3px solid ${color}; background: rgba(0,0,0,0.02); border-radius: 3px;`;
+    div.innerHTML = `<i class="fas ${icon}" style="color: ${color};"></i> <b>${label}</b>: ${escapeHtml(result.message)}`;
+    target.appendChild(div);
+  }
+  async function runVerification(kind) {
+    const target = document.getElementById("verify-results");
+    if (!target)
+      return;
+    target.innerHTML = "";
+    const loading = document.createElement("div");
+    loading.style.cssText = "color: #4361ee; font-style: italic;";
+    loading.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Running ' + kind + " verification...";
+    target.appendChild(loading);
+    try {
+      if (kind === "all") {
+        const pythonBin = document.getElementById("verify-python-bin")?.value?.trim();
+        const results = await window.electronAPI.verifyAll({ pythonBin });
+        target.innerHTML = "";
+        if (results.file)
+          renderVerifyResult(target, "File", results.file);
+        if (results.ssh)
+          renderVerifyResult(target, "SSH", results.ssh);
+        if (results.mcp)
+          renderVerifyResult(target, "MCP", results.mcp);
+        if (results.python)
+          renderVerifyResult(target, "Python", results.python);
+        if (results.vision)
+          renderVerifyResult(target, "Vision", results.vision);
+        if (Object.keys(results).length === 0) {
+          target.innerHTML = '<div style="color:#888;font-style:italic;">No checks were eligible (configure SSH/MCP/Python/Vision settings first).</div>';
+        }
+      } else if (kind === "file") {
+        const result = await window.electronAPI.verifyFile();
+        target.innerHTML = "";
+        renderVerifyResult(target, "Prompt Files (extra_prompt + cli_prompt)", result);
+      } else if (kind === "ssh") {
+        const result = await window.electronAPI.verifySsh();
+        target.innerHTML = "";
+        renderVerifyResult(target, "SSH", result);
+      } else if (kind === "mcp") {
+        const result = await window.electronAPI.verifyMcp();
+        target.innerHTML = "";
+        renderVerifyResult(target, "MCP", result);
+      } else if (kind === "python") {
+        const pythonBin = document.getElementById("verify-python-bin")?.value?.trim() || "";
+        const result = await window.electronAPI.verifyPython(pythonBin);
+        target.innerHTML = "";
+        renderVerifyResult(target, "Python (python_execute)", result);
+      } else if (kind === "vision") {
+        const result = await window.electronAPI.verifyVision({});
+        target.innerHTML = "";
+        renderVerifyResult(target, "Vision (image_vision)", result);
+      }
+    } catch (err) {
+      target.innerHTML = "";
+      renderVerifyResult(target, kind.toUpperCase(), { success: false, message: "IPC error: " + err.message });
+    }
+  }
+  function initVerificationEvents() {
+    const buttons = document.querySelectorAll(".btn-verify, .btn-verify-all");
+    buttons.forEach((btn) => {
+      btn.addEventListener("click", () => {
+        const kind = btn.getAttribute("data-verify");
+        if (kind)
+          runVerification(kind);
+      });
+    });
+  }
 
   // main/markdown.ts
   var { Marked } = globalThis.marked;
@@ -1647,6 +1719,7 @@ $$
     initMermaid();
     handleClear();
     initConfigEvents();
+    initVerificationEvents();
     if (DOM.bottom_div && DOM.top_div) {
       const resizeObserver = new ResizeObserver(() => {
         DOM.top_div.style.height = window.innerHeight - DOM.bottom_div.clientHeight + "px";

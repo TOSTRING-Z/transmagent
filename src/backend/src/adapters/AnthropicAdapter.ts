@@ -189,7 +189,7 @@ export class AnthropicAdapter implements ILLMAdapter {
         let reasoning_content = "";
         let thinking_signature: string | undefined = undefined;
         let tool_calls: any[] | undefined = undefined;
-        let tokens: number | undefined = undefined;
+        let tokens: number = 0;
         let is_incremental_tokens: boolean | undefined;
         let finish_reason: string | undefined = undefined;
 
@@ -224,9 +224,21 @@ export class AnthropicAdapter implements ILLMAdapter {
             if (chunk.delta?.stop_reason) {
                 finish_reason = chunk.delta.stop_reason;
             }
+            if (chunk.usage?.input_tokens) {
+                is_incremental_tokens = true;
+                tokens += chunk.usage.input_tokens;
+            }
             if (chunk.usage?.output_tokens) {
                 is_incremental_tokens = true;
                 tokens = chunk.usage.output_tokens;
+            }
+            if (chunk.usage?.cache_creation_input_tokens) {
+                is_incremental_tokens = false;
+                tokens += chunk.usage.cache_creation_input_tokens;
+            }
+            if (chunk.usage?.cache_read_input_tokens) {
+                is_incremental_tokens = false;
+                tokens += chunk.usage.cache_read_input_tokens;
             }
         } else if (chunk.type === "message_stop") {
             // message_stop 前可能携带最终 stop_reason
