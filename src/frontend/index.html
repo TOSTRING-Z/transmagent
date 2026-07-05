@@ -343,6 +343,20 @@
             <div class="card-header">
               <h3><i class="fas fa-dna"></i> MCP Server: BioTools</h3>
             </div>
+            <div class="modern-row toggle-row mb-3" style="margin-bottom: 15px;">
+              <div class="toggle-info">
+                <label for="mcp_server-biotools-disabled">Disable BioTools</label>
+                <span class="info-text">Turn off this service globally.</span>
+              </div>
+              <label class="switch">
+                <input type="checkbox" id="mcp_server-biotools-disabled">
+                <span class="slider round"></span>
+              </label>
+            </div>
+            <div class="modern-row">
+              <label>Server URL</label>
+              <input type="text" id="mcp_server-biotools-url" class="modern-input" placeholder="http://localhost:8080">
+            </div>
           </div>
 <!-- Quick Verification -->
           <div class="config-card">
@@ -388,21 +402,7 @@
             </div>
           
   
-            <div class="modern-row toggle-row mb-3" style="margin-bottom: 15px;">
-              <div class="toggle-info">
-                <label for="mcp_server-biotools-disabled">Disable BioTools</label>
-                <span class="info-text">Turn off this service globally.</span>
-              </div>
-              <label class="switch">
-                <input type="checkbox" id="mcp_server-biotools-disabled">
-                <span class="slider round"></span>
-              </label>
-            </div>
-            <div class="modern-row">
-              <label>Server URL</label>
-              <input type="text" id="mcp_server-biotools-url" class="modern-input" placeholder="http://localhost:8080">
-            </div>
-          </div>
+            
         </div>
 
 

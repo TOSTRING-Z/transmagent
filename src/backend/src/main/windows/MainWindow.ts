@@ -442,9 +442,25 @@ export class MainWindow extends BaseWindow {
             // 直接读取 sessionManager.getChat() 返回的 ChatState.messages
             let payload: { title: string; scenario: string; messages: Array<{ role: string; content: string; info?: string }> };
             try {
-                const chat = this.sessionManager.getChat();   // ChatState | undefined
-                const rawMessages: any[] = Array.isArray(chat?.messages) ? chat!.messages : [];
-                const chatName = (chat && (chat as any).name) ? String((chat as any).name) : '当前会话';
+                const chat = this.sessionManager.getChat();   // ChatState | undefined (仅元数据,不含 messages)
+                // 🎯【真实根因修复】ChatState 上无 messages 字段
+                // 正确路径: session.llmService.chatManager.messages (Message[])
+                //         或 chatManager.getMessages() (自动过滤 del=true 的)
+                let rawMessages: any[] = [];
+                let chatName = '当前会话';
+                try {
+                    const cm = (this as any).session?.()?.llmService?.chatManager;
+                    if (cm && Array.isArray(cm.messages)) {
+                        rawMessages = cm.messages;
+                    } else if (cm && typeof cm.getMessages === 'function') {
+                        rawMessages = cm.getMessages(true) || [];
+                    }
+                    if (chat && typeof (chat as any).name === 'string') {
+                        chatName = (chat as any).name;
+                    }
+                } catch (e) {
+                    console.warn('[MainWindow] Failed to read chatManager.messages, fallback to empty:', e);
+                }
 
                 const mapped: Array<{ role: string; content: string; info?: string }> = [];
                 for (const m of rawMessages) {
