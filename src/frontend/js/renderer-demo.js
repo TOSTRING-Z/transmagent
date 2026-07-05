@@ -730,8 +730,34 @@ $$
       }
     });
   }
+  function applyLivePayload(player, payload, titleEl, scenarioEl) {
+    try {
+      if (!payload || !Array.isArray(payload.messages) || payload.messages.length === 0) {
+        console.warn("[demo] live payload empty, keeping current script");
+        return false;
+      }
+      const live = buildLiveScript(payload);
+      player.setScript(live);
+      if (titleEl)
+        titleEl.textContent = live.title;
+      if (scenarioEl)
+        scenarioEl.textContent = live.scenario;
+      document.querySelectorAll(".script-btn").forEach((btn) => {
+        btn.style.opacity = "0.4";
+        btn.style.cursor = "not-allowed";
+        btn.title = "\u5B9E\u65F6\u4F1A\u8BDD\u6A21\u5F0F\uFF1A\u811A\u672C\u4E0D\u53EF\u5207\u6362";
+        btn.classList.remove("active");
+      });
+      console.log("[demo] live history applied:", live.messages.length, "messages");
+      return true;
+    } catch (err) {
+      console.error("[demo] failed to apply live payload:", err);
+      return false;
+    }
+  }
   function bootstrap() {
-    const initialScript = window.__DEMO_PAYLOAD__ ? buildLiveScript(window.__DEMO_PAYLOAD__) : BUILT_IN_SCRIPT;
+    const payload = window.__DEMO_PAYLOAD__;
+    const initialScript = payload && Array.isArray(payload.messages) && payload.messages.length > 0 ? buildLiveScript(payload) : BUILT_IN_SCRIPT;
     const player = new DemoPlayer(initialScript);
     player.onRender = renderMessage;
     setupConsole(player);
@@ -742,7 +768,8 @@ $$
     const scenarioEl = document.getElementById("script-scenario");
     if (scenarioEl)
       scenarioEl.textContent = initialScript.scenario;
-    if (window.__DEMO_PAYLOAD__) {
+    const liveAvailableAtBoot = payload && Array.isArray(payload.messages) && payload.messages.length > 0;
+    if (liveAvailableAtBoot) {
       document.querySelectorAll(".script-btn").forEach((btn) => {
         btn.style.opacity = "0.4";
         btn.style.cursor = "not-allowed";
@@ -753,39 +780,28 @@ $$
     player.onProgress(0, player.total);
     window.demoPlayer = player;
     if (window.demoAPI && typeof window.demoAPI.onDemoData === "function") {
-      window.demoAPI.onDemoData((payload) => {
-        try {
-          const live = buildLiveScript(payload);
-          player.setScript(live);
-          if (titleEl)
-            titleEl.textContent = live.title;
-          if (scenarioEl)
-            scenarioEl.textContent = live.scenario;
-          console.log("[demo] live history loaded:", live.messages.length, "messages");
-        } catch (err) {
-          console.error("[demo] failed to apply live payload:", err);
-        }
+      window.demoAPI.onDemoData((payload2) => {
+        applyLivePayload(player, payload2, titleEl, scenarioEl);
       });
       if (typeof window.demoAPI.notifyReady === "function") {
         window.demoAPI.notifyReady();
       }
     }
-  }
-  function buildLiveScript(payload) {
-    const title = payload && payload.title ? String(payload.title) : "\u5F53\u524D\u4F1A\u8BDD\u5386\u53F2";
-    const messages = Array.isArray(payload?.messages) ? payload.messages : [];
-    const scenario = payload && payload.scenario ? String(payload.scenario) : `${messages.length} \u6761\u6D88\u606F \xB7 \u9ED8\u8BA4\u95F4\u9694 2s`;
-    return {
-      title,
-      scenario,
-      messages: messages.map((m, i) => ({
-        role: m.role === "user" || m.role === "tool" ? m.role : "system",
-        content: String(m.content || ""),
-        info: m.info ? String(m.info) : void 0,
-        delay: void 0,
-        icon: m.role === "tool" ? "tool" : "agent"
-      }))
-    };
+    if (!liveAvailableAtBoot) {
+      let polls = 0;
+      const poll = window.setInterval(() => {
+        polls++;
+        const p = window.__DEMO_PAYLOAD__;
+        if (p && Array.isArray(p.messages) && p.messages.length > 0) {
+          window.clearInterval(poll);
+          console.log("[demo] __DEMO_PAYLOAD__ arrived after", polls * 200, "ms");
+          applyLivePayload(player, p, titleEl, scenarioEl);
+        } else if (polls >= 25) {
+          window.clearInterval(poll);
+          console.warn("[demo] __DEMO_PAYLOAD__ timeout after 5s, using built-in script");
+        }
+      }, 200);
+    }
   }
   if (document.readyState === "loading") {
     document.addEventListener("DOMContentLoaded", bootstrap);

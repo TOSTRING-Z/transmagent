@@ -5,19 +5,26 @@
 
 :root {
   --primary:        #7c3aed;
-  --primary-dark:   #7c3aed;
+  --primary-dark:   #6d28d9;
   --primary-light:  #a78bfa;
-  --bg-deep:        #0f0d1a;
-  --bg-card:        rgba(31, 26, 54, 0.72);
-  --bg-card-solid:  #1f1a36;
-  --border-soft:    rgba(124, 58, 237, 0.22);
-  --border-strong:  rgba(124, 58, 237, 0.45);
-  --text-primary:   #f3f0ff;
-  --text-secondary: #a78bfa;
-  --text-muted:     #8a82b8;
+  --primary-soft:   rgba(124, 58, 237, 0.08);
+  --bg-deep:        #f8f7fc;
+  --bg-card:        #ffffff;
+  --bg-card-soft:   #faf9ff;
+  --bg-elevated:    #ffffff;
+  --border-soft:    rgba(124, 58, 237, 0.18);
+  --border-strong:  rgba(124, 58, 237, 0.38);
+  --border-mute:    #e9e6f5;
+  --text-primary:   #1f1b2e;
+  --text-secondary: #4c4565;
+  --text-muted:     #8a82a8;
+  --shadow-sm:      0 1px 2px rgba(76, 46, 156, 0.06);
+  --shadow-md:      0 4px 12px rgba(76, 46, 156, 0.08);
+  --shadow-lg:      0 8px 24px rgba(76, 46, 156, 0.12);
   --user-bubble:    linear-gradient(135deg, #7c3aed 0%, #6366f1 100%);
-  --system-bubble:  rgba(31, 26, 54, 0.85);
-  --tool-bubble:    rgba(245, 158, 11, 0.08);
+  --system-bubble:  #ffffff;
+  --tool-bubble:    #fffaf0;
+  --code-bg:        #f6f5fa;
 }
 
 /* ===== 全局隔离 (阻止 index.css 选择器穿透) ===== */

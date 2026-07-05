@@ -445,10 +445,41 @@ function setupKeyboard(player: DemoPlayer) {
 }
 
 // ============ 启动 ============
+/**
+ * 应用 live payload 到 DemoPlayer + UI
+ */
+function applyLivePayload(player: DemoPlayer, payload: any, titleEl: HTMLElement | null, scenarioEl: HTMLElement | null) {
+  try {
+    if (!payload || !Array.isArray(payload.messages) || payload.messages.length === 0) {
+      console.warn('[demo] live payload empty, keeping current script');
+      return false;
+    }
+    const live = buildLiveScript(payload);
+    player.setScript(live);
+    if (titleEl) titleEl.textContent = live.title;
+    if (scenarioEl) scenarioEl.textContent = live.scenario;
+
+    // 禁用脚本切换按钮（实时会话模式）
+    document.querySelectorAll('.script-btn').forEach((btn) => {
+      (btn as HTMLElement).style.opacity = '0.4';
+      (btn as HTMLElement).style.cursor = 'not-allowed';
+      (btn as HTMLElement).title = '实时会话模式：脚本不可切换';
+      btn.classList.remove('active');
+    });
+
+    console.log('[demo] live history applied:', live.messages.length, 'messages');
+    return true;
+  } catch (err) {
+    console.error('[demo] failed to apply live payload:', err);
+    return false;
+  }
+}
+
 function bootstrap() {
   // 优先使用主窗口推送的真实聊天历史；否则降级为内置脚本
-  const initialScript = (window as any).__DEMO_PAYLOAD__
-    ? buildLiveScript((window as any).__DEMO_PAYLOAD__)
+  const payload = (window as any).__DEMO_PAYLOAD__;
+  const initialScript = (payload && Array.isArray(payload.messages) && payload.messages.length > 0)
+    ? buildLiveScript(payload)
     : BUILT_IN_SCRIPT;
 
   const player = new DemoPlayer(initialScript);
@@ -462,8 +493,9 @@ function bootstrap() {
   const scenarioEl = document.getElementById('script-scenario');
   if (scenarioEl) scenarioEl.textContent = initialScript.scenario;
 
-  // 若为实时数据，禁用"内置脚本"切换按钮（语义上实时会话不可切换）
-  if ((window as any).__DEMO_PAYLOAD__) {
+  // 若启动时已有 payload,禁用脚本切换按钮
+  const liveAvailableAtBoot = payload && Array.isArray(payload.messages) && payload.messages.length > 0;
+  if (liveAvailableAtBoot) {
     document.querySelectorAll('.script-btn').forEach((btn) => {
       (btn as HTMLElement).style.opacity = '0.4';
       (btn as HTMLElement).style.cursor = 'not-allowed';
@@ -481,45 +513,32 @@ function bootstrap() {
   // 监听主窗口推送的实时数据（DemoWindow preload 的 demoAPI.onDemoData）
   if ((window as any).demoAPI && typeof (window as any).demoAPI.onDemoData === 'function') {
     (window as any).demoAPI.onDemoData((payload: any) => {
-      try {
-        const live = buildLiveScript(payload);
-        player.setScript(live);
-        if (titleEl) titleEl.textContent = live.title;
-        if (scenarioEl) scenarioEl.textContent = live.scenario;
-        console.log('[demo] live history loaded:', live.messages.length, 'messages');
-      } catch (err) {
-        console.error('[demo] failed to apply live payload:', err);
-      }
+      applyLivePayload(player, payload, titleEl, scenarioEl);
     });
     // 通知主进程 demo 端已就绪，可推送数据
     if (typeof (window as any).demoAPI.notifyReady === 'function') {
       (window as any).demoAPI.notifyReady();
     }
   }
-}
 
-/**
- * 把主窗口推送的 payload 转换成 DemoScript
- * payload 格式: { title, scenario, messages: [{ role, content, info? }] }
- */
-function buildLiveScript(payload: any): DemoScript {
-  const title = (payload && payload.title) ? String(payload.title) : '当前会话历史';
-  const messages = Array.isArray(payload?.messages) ? payload.messages : [];
-  const scenario = (payload && payload.scenario)
-    ? String(payload.scenario)
-    : `${messages.length} 条消息 · 默认间隔 2s`;
-
-  return {
-    title,
-    scenario,
-    messages: messages.map((m: any, i: number) => ({
-      role: (m.role === 'user' || m.role === 'tool') ? m.role : 'system',
-      content: String(m.content || ''),
-      info: m.info ? String(m.info) : undefined,
-      delay: undefined,
-      icon: m.role === 'tool' ? 'tool' : 'agent',
-    })),
-  };
+  // 【双保险】MainWindow 可能通过 executeJavaScript 注入 window.__DEMO_PAYLOAD__
+  // 但 IPC 推送早于 preload 监听注册(potential race condition),这里再做 5s 轮询兜底
+  if (!liveAvailableAtBoot) {
+    let polls = 0;
+    const poll = window.setInterval(() => {
+      polls++;
+      const p = (window as any).__DEMO_PAYLOAD__;
+      if (p && Array.isArray(p.messages) && p.messages.length > 0) {
+        window.clearInterval(poll);
+        console.log('[demo] __DEMO_PAYLOAD__ arrived after', polls * 200, 'ms');
+        applyLivePayload(player, p, titleEl, scenarioEl);
+      } else if (polls >= 25) {
+        // 5s 超时
+        window.clearInterval(poll);
+        console.warn('[demo] __DEMO_PAYLOAD__ timeout after 5s, using built-in script');
+      }
+    }, 200);
+  }
 }
 
 if (document.readyState === 'loading') {

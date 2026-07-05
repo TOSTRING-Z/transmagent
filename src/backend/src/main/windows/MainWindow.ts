@@ -469,8 +469,24 @@ export class MainWindow extends BaseWindow {
                 .then((payload: any) => {
                     // 等到 demo webContents ready 后再推送（最多 5s 重试）
                     const sendPayload = () => {
-                        if (demoWin && (demoWin as any).window && !(demoWin as any).window.isDestroyed()) {
-                            (demoWin as any).window.webContents.send('demo-data', payload);
+                        if (!demoWin || !(demoWin as any).window || (demoWin as any).window.isDestroyed()) return;
+                        const demoWC = (demoWin as any).window.webContents;
+                        // 【双保险 1】先把 payload 注入到 demo 窗口的 window.__DEMO_PAYLOAD__ 全局变量
+                        // 让 main.ts bootstrap 能同步拿到（即使 IPC 监听尚未注册）
+                        try {
+                            const injectScript = `(window).__DEMO_PAYLOAD__ = ${JSON.stringify(payload)};`;
+                            demoWC.executeJavaScript(injectScript, true).catch((err: any) => {
+                                console.error('[MainWindow] Failed to inject __DEMO_PAYLOAD__:', err);
+                            });
+                        } catch (err) {
+                            console.error('[MainWindow] Inject __DEMO_PAYLOAD__ threw:', err);
+                        }
+                        // 【双保险 2】同时通过 IPC 'demo-data' 通道推送（main.ts onDemoData 监听）
+                        try {
+                            demoWC.send('demo-data', payload);
+                            console.log('[MainWindow] Demo payload sent:', payload.messages.length, 'messages');
+                        } catch (err) {
+                            console.error('[MainWindow] Failed to send demo-data IPC:', err);
                         }
                     };
                     const demoWebContents = (demoWin as any).window?.webContents;
