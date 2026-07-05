@@ -7,6 +7,14 @@ import { contextBridge, ipcRenderer } from 'electron';
 contextBridge.exposeInMainWorld('demoAPI', {
     notifyReady: () => ipcRenderer.send('demo-window-ready'),
     platform: process.platform,
+    /**
+     * 接收主窗口推送的聊天历史数据
+     * @param callback 回调函数，参数为 { title, scenario, messages }
+     */
+    onDemoData: (callback: (payload: any) => void) => {
+        ipcRenderer.removeAllListeners('demo-data');
+        ipcRenderer.on('demo-data', (_event, payload) => callback(payload));
+    },
 });
 
 export {};

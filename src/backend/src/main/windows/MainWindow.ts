@@ -432,9 +432,67 @@ export class MainWindow extends BaseWindow {
         ipcMain.on('open-external', (_event, href) => shell.openExternal(href));
 
         ipcMain.on('open-demo-window', () => {
-            if (this.windowManager.demoWindow) {
-                this.windowManager.demoWindow.create();
-            }
+            if (!this.windowManager.demoWindow) return;
+            const demoWin = this.windowManager.demoWindow;
+
+            // 先创建窗口
+            demoWin.create();
+
+            // 从主窗口 DOM 提取当前聊天历史
+            // 仅提取 user / system / tool 三种角色的消息，role 来自 data-role，
+            // content 来自 .message[data-content]，info 来自 .info-content[data-content]
+            const extractScript = `(() => {
+                const messagesEl = document.getElementById('messages');
+                if (!messagesEl) return { title: '当前会话', scenario: '0 条消息', messages: [] };
+                const out = [];
+                messagesEl.querySelectorAll('[data-role]').forEach((el) => {
+                    const role = el.getAttribute('data-role');
+                    if (role !== 'user' && role !== 'system' && role !== 'tool') return;
+                    const msgDiv = el.querySelector('.message');
+                    const content = (msgDiv && msgDiv.getAttribute('data-content')) || (msgDiv ? msgDiv.textContent : '') || '';
+                    let info = '';
+                    if (role === 'tool') {
+                        const infoDiv = el.querySelector('.info-content');
+                        info = (infoDiv && infoDiv.getAttribute('data-content')) || (infoDiv ? infoDiv.textContent : '') || '';
+                    }
+                    if (!content.trim()) return;
+                    out.push({ role, content: content.trim(), info: info.trim() });
+                });
+                const title = (document.title || '当前会话').replace(/\s*-\s*TransMAgent.*$/i, '').trim() || '当前会话';
+                return { title, scenario: out.length + ' 条消息', messages: out };
+            })()`;
+
+            const mainWebContents = this.window?.webContents;
+            if (!mainWebContents) return;
+
+            mainWebContents.executeJavaScript(extractScript, true)
+                .then((payload: any) => {
+                    // 等到 demo webContents ready 后再推送（最多 5s 重试）
+                    const sendPayload = () => {
+                        if (demoWin && (demoWin as any).window && !(demoWin as any).window.isDestroyed()) {
+                            (demoWin as any).window.webContents.send('demo-data', payload);
+                        }
+                    };
+                    const demoWebContents = (demoWin as any).window?.webContents;
+                    if (demoWebContents && !demoWebContents.isLoading()) {
+                        // 延迟 300ms 让 demo 的 preload 注册 onDemoData
+                        setTimeout(sendPayload, 300);
+                    } else if (demoWebContents) {
+                        let elapsed = 0;
+                        const trySend = () => {
+                            elapsed += 100;
+                            if (demoWebContents && !demoWebContents.isLoading()) {
+                                setTimeout(sendPayload, 200);
+                            } else if (elapsed < 5000) {
+                                setTimeout(trySend, 100);
+                            }
+                        };
+                        trySend();
+                    }
+                })
+                .catch((err: any) => {
+                    console.error('[MainWindow] Failed to extract chat history for demo:', err);
+                });
         });
 
         ipcMain.handle('newChat', () => {

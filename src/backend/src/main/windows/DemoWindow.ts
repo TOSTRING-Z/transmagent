@@ -53,9 +53,18 @@ export class DemoWindow extends BaseWindow {
     }
 
     public setup() {
-        // 演示窗口无 IPC 需求；保留扩展点
+        // 演示窗口就绪事件（保留扩展点）
         ipcMain.on('demo-window-ready', () => {
             // 可用于后续状态同步
+        });
+
+        // 主窗口 → 演示窗口：推送当前会话历史
+        // 由 MainWindow 在 open-demo-window 之后调用，
+        // payload: { title: string, scenario: string, messages: Array<{role,content,info?}> }
+        ipcMain.on('send-demo-data', (_event, payload) => {
+            if (this.window && !this.window.isDestroyed()) {
+                this.window.webContents.send('demo-data', payload);
+            }
         });
     }
 

@@ -446,16 +446,80 @@ function setupKeyboard(player: DemoPlayer) {
 
 // ============ 启动 ============
 function bootstrap() {
-  const player = new DemoPlayer(BUILT_IN_SCRIPT);
+  // 优先使用主窗口推送的真实聊天历史；否则降级为内置脚本
+  const initialScript = (window as any).__DEMO_PAYLOAD__
+    ? buildLiveScript((window as any).__DEMO_PAYLOAD__)
+    : BUILT_IN_SCRIPT;
+
+  const player = new DemoPlayer(initialScript);
   player.onRender = renderMessage;
   setupConsole(player);
   setupKeyboard(player);
+
+  // 同步顶部标题 / 场景描述
+  const titleEl = document.getElementById('script-title');
+  if (titleEl) titleEl.textContent = initialScript.title;
+  const scenarioEl = document.getElementById('script-scenario');
+  if (scenarioEl) scenarioEl.textContent = initialScript.scenario;
+
+  // 若为实时数据，禁用"内置脚本"切换按钮（语义上实时会话不可切换）
+  if ((window as any).__DEMO_PAYLOAD__) {
+    document.querySelectorAll('.script-btn').forEach((btn) => {
+      (btn as HTMLElement).style.opacity = '0.4';
+      (btn as HTMLElement).style.cursor = 'not-allowed';
+      (btn as HTMLElement).title = '实时会话模式：脚本不可切换';
+      btn.classList.remove('active');
+    });
+  }
 
   // 初始进度
   player.onProgress(0, player.total);
 
   // 暴露到 window 用于调试
   (window as any).demoPlayer = player;
+
+  // 监听主窗口推送的实时数据（DemoWindow preload 的 demoAPI.onDemoData）
+  if ((window as any).demoAPI && typeof (window as any).demoAPI.onDemoData === 'function') {
+    (window as any).demoAPI.onDemoData((payload: any) => {
+      try {
+        const live = buildLiveScript(payload);
+        player.setScript(live);
+        if (titleEl) titleEl.textContent = live.title;
+        if (scenarioEl) scenarioEl.textContent = live.scenario;
+        console.log('[demo] live history loaded:', live.messages.length, 'messages');
+      } catch (err) {
+        console.error('[demo] failed to apply live payload:', err);
+      }
+    });
+    // 通知主进程 demo 端已就绪，可推送数据
+    if (typeof (window as any).demoAPI.notifyReady === 'function') {
+      (window as any).demoAPI.notifyReady();
+    }
+  }
+}
+
+/**
+ * 把主窗口推送的 payload 转换成 DemoScript
+ * payload 格式: { title, scenario, messages: [{ role, content, info? }] }
+ */
+function buildLiveScript(payload: any): DemoScript {
+  const title = (payload && payload.title) ? String(payload.title) : '当前会话历史';
+  const messages = Array.isArray(payload?.messages) ? payload.messages : [];
+  const scenario = (payload && payload.scenario)
+    ? String(payload.scenario)
+    : `${messages.length} 条消息 · 默认间隔 2s`;
+
+  return {
+    title,
+    scenario,
+    messages: messages.map((m: any, i: number) => ({
+      role: (m.role === 'user' || m.role === 'tool') ? m.role : 'system',
+      content: String(m.content || ''),
+      info: m.info ? String(m.info) : undefined,
+      delay: undefined,
+      icon: m.role === 'tool' ? 'tool' : 'agent',
+    })),
+  };
 }
 
 if (document.readyState === 'loading') {
