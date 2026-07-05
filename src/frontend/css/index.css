@@ -199,10 +199,12 @@ body {
 }
 
 .history-list {
-  overflow-y: auto;
+  overflow-y: scroll;
   height: 100%;
   padding-right: 5px;
   padding-bottom: 20px;
+
+  scrollbar-gutter: stable;
 }
 
 .history-text {
@@ -795,17 +797,78 @@ body {
   opacity: 1;
 }
 
-/* Call Information */
 
-/* Call Information — Collapsible */
+/* Call Information — 白色主题 + 优雅折叠 */
+.info {
+  margin: 8px 0;
+  border-radius: 8px;
+  background: var(--panel);
+  border: 1px solid #e8eef5;
+  overflow: hidden;
+  transition: all 0.2s ease;
+}
+
 .info .info-header {
   cursor: pointer;
   user-select: none;
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 4px 0;
+  padding: 8px 12px;
+  background: var(--panel);
+  color: var(--text);
+  font-size: 13px;
+  font-weight: 500;
+  transition: background 0.15s ease;
 }
+
+.info .info-header:hover {
+  background: #eef4fb;
+}
+
+.info .info-header-text {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.info .info-header-icon {
+  color: var(--primary);
+  font-size: 13px;
+}
+
+.info .info-toggle-icon {
+  font-size: 11px;
+  color: #6b7c8e;
+  transition: transform 0.25s ease;
+}
+
+.info.collapsed .info-toggle-icon {
+  transform: rotate(-90deg);
+}
+
+.info:not(.collapsed) .info-toggle-icon {
+  transform: rotate(0deg);
+}
+
+.info.collapsed .info-content {
+  display: none;
+}
+
+.info:not(.collapsed) .info-content {
+  display: block;
+  padding: 8px 12px 12px;
+  max-height: 320px;
+  overflow-y: scroll;
+  font-size: 12px;
+  color: #4a5b6e;
+  line-height: 1.5;
+  background: #ffffff;
+  border-top: 1px solid #eef2f7;
+
+  scrollbar-gutter: stable;
+}
+
 
 .info .info-header:hover {
   opacity: 0.85;
@@ -895,13 +958,15 @@ body {
 
 .info-content {
   max-height: calc(80vh - 15px);
-  overflow-y: auto;
+  overflow-y: scroll;
   overflow-x: hidden;
   border: 1px solid #e9e9e9;
   border-top: none;
   border-radius: 0 0 12px 12px;
   background: #fafafa;
   padding: 16px;
+
+  scrollbar-gutter: stable;
 }
 
 .info-content p {
@@ -917,7 +982,7 @@ body {
   flex-direction: row;
   align-items: center;
   max-height: 200px;
-  overflow-y: auto;
+  overflow-y: scroll;
   overflow-x: hidden;
   padding: 14px 16px;
   background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
@@ -926,6 +991,8 @@ body {
   font-size: 14px;
   font-weight: 600;
   letter-spacing: 0.5px;
+
+  scrollbar-gutter: stable;
 }
 
 .info-header::before {
@@ -1666,9 +1733,11 @@ body {
 
 .form-group {
   flex: 1;
-  overflow-y: auto;
+  overflow-y: scroll;
   padding-right: 12px; /* 为滚动条留出空间 */
   margin-bottom: 0;
+
+  scrollbar-gutter: stable;
 }
 
 .form-group h3 {
@@ -1834,13 +1903,15 @@ body {
 
 .message_toggle .message {
   max-height: 10rem;
-  overflow-y: auto;
+  overflow-y: scroll;
   transition: max-height 0.3s ease;
   scrollbar-width: thin;
   -webkit-overflow-scrolling: touch;
   /* 提升移动端体验 */
   scrollbar-color: var(--primary) transparent;
   /* 定制 Firefox 滚动条颜色 */
+
+  scrollbar-gutter: stable;
 }
 
 /* 赞和踩 */
@@ -2142,8 +2213,10 @@ input:checked + .slider:before {
 
 .config-body {
   padding: 24px;
-  overflow-y: auto;
+  overflow-y: scroll;
   flex: 1;
+
+  scrollbar-gutter: stable;
 }
 
 /* 滚动条美化 */
@@ -2628,7 +2701,7 @@ input:checked + .slider:before {
 .verify-result-box {
   min-height: 40px;
   max-height: 200px;
-  overflow-y: auto;
+  overflow-y: scroll;
   padding: 8px;
   background: rgba(0, 0, 0, 0.03);
   border: 1px solid rgba(0, 0, 0, 0.08);
@@ -2637,6 +2710,8 @@ input:checked + .slider:before {
   font-size: 12px;
   white-space: pre-wrap;
   word-break: break-all;
+
+  scrollbar-gutter: stable;
 }
 .verify-result-box .verify-line {
   margin: 2px 0;
@@ -2660,4 +2735,51 @@ input:checked + .slider:before {
 .top-div-stable {
   overflow-y: scroll !important;
   scrollbar-gutter: stable;
+}
+
+
+/* ============================================================ */
+/* Layout Shift Fix — 全局滚动条占位                              */
+/* ============================================================ */
+/* 解决 hover 显示滚动条时的 layout shift（文字换行闪烁）       */
+/* 强制所有 overflow-y-auto 容器预留滚动条宽度                    */
+
+.overflow-y-auto {
+  scrollbar-gutter: stable;
+  overflow-y: scroll;  /* 始终显示滚动条轨道，hover 时无变化 */
+}
+
+/* 当容器没有 overflow-y-auto 类但有 overflow-y: scroll/auto 时也确保占位 */
+* {
+  scrollbar-gutter: stable;
+}
+
+/* 自定义滚动条样式（Electron / Webkit） */
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  background: rgba(0, 0, 0, 0.2);
+  border-radius: 4px;
+  transition: background 0.2s ease;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: rgba(0, 0, 0, 0.4);
+}
+
+/* 暗色主题适配 */
+@media (prefers-color-scheme: dark) {
+  ::-webkit-scrollbar-thumb {
+    background: rgba(255, 255, 255, 0.25);
+  }
+  ::-webkit-scrollbar-thumb:hover {
+    background: rgba(255, 255, 255, 0.4);
+  }
 }

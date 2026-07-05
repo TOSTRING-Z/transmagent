@@ -229,22 +229,14 @@ class DemoPlayer {
 }
 
 // ============ 模板 ============
-const user_message_template = `<div class="relative space-y-2 space-x-2 demo-msg" data-role="user" data-idx="">
-  <div class="flex flex-row-reverse w-full">
-    <div class="menu-container">
-      <img class="menu user" src="../img/user.svg" alt="User Avatar">
-    </div>
-    <div class="message"></div>
-  </div>
+const user_message_template = `<div class="demo-msg" data-role="user" data-idx="">
+  <div class="bubble"></div>
 </div>`;
 
-const system_message_template = `<div class="relative space-y-2 space-x-2 demo-msg" data-role="system" data-idx="">
-  <div class="menu-container">
-    <img class="menu system" src="" alt="System Avatar">
-  </div>
+const system_message_template = `<div class="demo-msg" data-role="system" data-idx="">
   <div class="info hidden">
     <div class="info-header">Call information</div>
-    <div class="info-content overflow-y-auto" data-content=""></div>
+    <div class="info-content" data-content=""></div>
   </div>
   <div class="message" data-content=""></div>
   <div class="thinking">
@@ -274,12 +266,9 @@ async function renderMessage(msg: DemoMessage, idx: number) {
     wrapper.innerHTML = user_message_template;
     const node = wrapper.firstElementChild as HTMLElement;
     node.dataset.idx = String(idx);
-    const messageDiv = node.getElementsByClassName('message')[0] as HTMLElement;
-    const textDiv = document.createElement('div');
-    textDiv.className = 'message-text';
-    textDiv.innerText = msg.content;
-    messageDiv.appendChild(textDiv);
-    messageDiv.dataset.content = msg.content;
+    const bubble = node.getElementsByClassName('bubble')[0] as HTMLElement;
+    bubble.textContent = msg.content;
+    bubble.dataset.content = msg.content;
     messagesEl.appendChild(node);
     return;
   }
@@ -290,9 +279,6 @@ async function renderMessage(msg: DemoMessage, idx: number) {
   const node = wrapper.firstElementChild as HTMLElement;
   node.dataset.idx = String(idx);
   node.dataset.role = msg.role;
-
-  const menu = node.getElementsByClassName('menu')[0] as HTMLImageElement;
-  menu.src = `../img/${msg.icon || (msg.role === 'tool' ? 'tool' : 'agent')}.svg`;
 
   const messageDiv = node.getElementsByClassName('message')[0] as HTMLElement;
   const thinking = node.getElementsByClassName('thinking')[0] as HTMLElement;
@@ -334,6 +320,12 @@ async function renderMessage(msg: DemoMessage, idx: number) {
 function setupConsole(player: DemoPlayer) {
   const progressBar = document.getElementById('progress-bar-inner') as HTMLDivElement;
   const progressTrack = document.getElementById('progress-track') as HTMLDivElement;
+
+  // 首次播放前清空占位节点
+  const empty = document.querySelector('.demo-empty');
+  if (empty && empty.parentElement === document.getElementById('messages')) {
+    empty.remove();
+  }
 
   player.onProgress = (current, total) => {
     const pct = total > 0 ? (current / total) * 100 : 0;

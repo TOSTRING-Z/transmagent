@@ -526,21 +526,13 @@ $$
       scrollToBottom();
     }
   };
-  var user_message_template = `<div class="relative space-y-2 space-x-2 demo-msg" data-role="user" data-idx="">
-  <div class="flex flex-row-reverse w-full">
-    <div class="menu-container">
-      <img class="menu user" src="../img/user.svg" alt="User Avatar">
-    </div>
-    <div class="message"></div>
-  </div>
+  var user_message_template = `<div class="demo-msg" data-role="user" data-idx="">
+  <div class="bubble"></div>
 </div>`;
-  var system_message_template = `<div class="relative space-y-2 space-x-2 demo-msg" data-role="system" data-idx="">
-  <div class="menu-container">
-    <img class="menu system" src="" alt="System Avatar">
-  </div>
+  var system_message_template = `<div class="demo-msg" data-role="system" data-idx="">
   <div class="info hidden">
     <div class="info-header">Call information</div>
-    <div class="info-content overflow-y-auto" data-content=""></div>
+    <div class="info-content" data-content=""></div>
   </div>
   <div class="message" data-content=""></div>
   <div class="thinking">
@@ -566,12 +558,9 @@ $$
       wrapper2.innerHTML = user_message_template;
       const node2 = wrapper2.firstElementChild;
       node2.dataset.idx = String(idx);
-      const messageDiv2 = node2.getElementsByClassName("message")[0];
-      const textDiv = document.createElement("div");
-      textDiv.className = "message-text";
-      textDiv.innerText = msg.content;
-      messageDiv2.appendChild(textDiv);
-      messageDiv2.dataset.content = msg.content;
+      const bubble = node2.getElementsByClassName("bubble")[0];
+      bubble.textContent = msg.content;
+      bubble.dataset.content = msg.content;
       messagesEl.appendChild(node2);
       return;
     }
@@ -580,8 +569,6 @@ $$
     const node = wrapper.firstElementChild;
     node.dataset.idx = String(idx);
     node.dataset.role = msg.role;
-    const menu = node.getElementsByClassName("menu")[0];
-    menu.src = `../img/${msg.icon || (msg.role === "tool" ? "tool" : "agent")}.svg`;
     const messageDiv = node.getElementsByClassName("message")[0];
     const thinking = node.getElementsByClassName("thinking")[0];
     if (thinking)
@@ -615,6 +602,10 @@ $$
   function setupConsole(player) {
     const progressBar = document.getElementById("progress-bar-inner");
     const progressTrack = document.getElementById("progress-track");
+    const empty = document.querySelector(".demo-empty");
+    if (empty && empty.parentElement === document.getElementById("messages")) {
+      empty.remove();
+    }
     player.onProgress = (current, total) => {
       const pct = total > 0 ? current / total * 100 : 0;
       if (progressBar)

@@ -1235,12 +1235,15 @@ $$
   <div class="menu-container">
     <img class="menu system" src="" alt="System Avatar">
   </div>
-  <div class="info collapsed">
-    <div class="info-header" data-toggle="info" title="Toggle call information">
-      <span>Call information</span>
+  <div class="info">
+    <div class="info-header" data-toggle="info" title="Click to toggle call information">
+      <span class="info-header-text">
+        <i class="fas fa-info-circle info-header-icon"></i>
+        Call information
+      </span>
       <i class="fas fa-chevron-down info-toggle-icon"></i>
     </div>
-    <div class="info-content overflow-y-auto" data-content=""></div>
+    <div class="info-content" data-content=""></div>
   </div>
   <div class="message" data-content=""></div>
   <div class="thinking">
@@ -1714,6 +1717,33 @@ $$
       enterEnd(messageSystem);
     }
   });
+  function toggleCallInformation(el) {
+    const infoContainer = el.closest(".info");
+    if (!infoContainer)
+      return;
+    infoContainer.classList.toggle("collapsed");
+    const icon = el.querySelector(".info-toggle-icon");
+    if (icon) {
+      if (infoContainer.classList.contains("collapsed")) {
+        icon.classList.remove("fa-chevron-up");
+        icon.classList.add("fa-chevron-down");
+      } else {
+        icon.classList.remove("fa-chevron-down");
+        icon.classList.add("fa-chevron-up");
+      }
+    }
+  }
+  function initCallInformationToggle() {
+    document.addEventListener("click", (e) => {
+      const target = e.target;
+      const header = target.closest('[data-toggle="info"]');
+      if (header) {
+        e.stopPropagation();
+        e.preventDefault();
+        toggleCallInformation(header);
+      }
+    });
+  }
 
   // main/renderer.ts
   document.addEventListener("DOMContentLoaded", () => {
@@ -1722,6 +1752,7 @@ $$
     initMermaid();
     handleClear();
     initConfigEvents();
+    initCallInformationToggle();
     initVerificationEvents();
     if (DOM.bottom_div && DOM.top_div) {
       const resizeObserver = new ResizeObserver(() => {
