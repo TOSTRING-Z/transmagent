@@ -431,6 +431,12 @@ export class MainWindow extends BaseWindow {
 
         ipcMain.on('open-external', (_event, href) => shell.openExternal(href));
 
+        ipcMain.on('open-demo-window', () => {
+            if (this.windowManager.demoWindow) {
+                this.windowManager.demoWindow.create();
+            }
+        });
+
         ipcMain.handle('newChat', () => {
             this.sessionManager.updateSession();
             this.updateVersionsSubmenu();

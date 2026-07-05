@@ -8,6 +8,7 @@ import { CodeWindow } from "./CodeWindow";
 import { ToolWindow } from "./ToolWindow";
 import { SubAgentWindow } from "./SubAgentWindow";
 import { ConfirmationWindow } from "./ConfirmationWindow";
+import { DemoWindow } from "./DemoWindow";
 
 export class WindowManager {
     public static instance: WindowManager;
@@ -22,6 +23,7 @@ export class WindowManager {
     public toolWindow!: ToolWindow;
     public subAgentWindow!: SubAgentWindow;
     public confirmationWindow!: ConfirmationWindow;
+    public demoWindow!: DemoWindow;
 
     constructor() {
         if (!WindowManager.instance) {
@@ -38,6 +40,8 @@ export class WindowManager {
             this.toolWindow.setup();
             this.confirmationWindow = new ConfirmationWindow(this);
             this.confirmationWindow.setup();
+            // Demo 窗口：按需懒创建（首次触发时再 create）
+            this.demoWindow = new DemoWindow(this);
         }
         return WindowManager.instance;
     }
@@ -52,5 +56,6 @@ export class WindowManager {
         this.codeWindow.destroy();
         this.toolWindow.destroy();
         this.confirmationWindow.destroy();
+        this.demoWindow?.destroy();
     }
 }

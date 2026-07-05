@@ -25,16 +25,31 @@ const buildSubagentOptions = {
   format: 'iife',
 };
 
-async function build(options) {
+// Demo 模式独立窗口的入口
+const buildDemoOptions = {
+  entryPoints: [path.join(__dirname, 'demo', 'main.ts')],
+  outfile: path.join(__dirname, 'renderer-demo.js'),
+  bundle: true,
+  minify: false,
+  sourcemap: true,
+  platform: 'browser',
+  target: ['es2020'],
+  format: 'iife',
+};
+
+async function build(options, label) {
   if (watchMode) {
     const ctx = await esbuild.context(options);
     await ctx.watch();
-    console.log('👀 Watching for changes...');
+    console.log(`👀 Watching ${label}...`);
   } else {
     await esbuild.build(options);
-    console.log('✅ Build successful! renderer.js generated.');
+    console.log(`✅ Build successful: ${label}`);
   }
 }
 
-build(buildRendererOptions).catch(() => process.exit(1));
-build(buildSubagentOptions).catch(() => process.exit(1));
+Promise.all([
+  build(buildRendererOptions, 'renderer.js'),
+  build(buildSubagentOptions, 'subagent.js'),
+  build(buildDemoOptions, 'renderer-demo.js'),
+]).catch(() => process.exit(1));

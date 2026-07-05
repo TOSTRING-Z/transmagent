@@ -1,0 +1,139 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self';
+           script-src 'self' 'unsafe-inline';
+           style-src 'self' 'unsafe-inline';
+           img-src 'self' data:;" />
+  <title>演示模式 - TransMAgent Demo Mode</title>
+  <link rel="stylesheet" href="css/output.css" />
+  <link rel="stylesheet" href="css/atom-one-light.min.css" />
+  <link rel="stylesheet" href="css/fontawesome-free/css/all.min.css" />
+  <link rel="stylesheet" href="css/index.css" />
+  <link rel="stylesheet" href="css/katex.min.css" />
+  <link rel="stylesheet" href="css/demo.css" />
+  <script src="js/katex.min.js"></script>
+  <script src="js/marked.umd.js"></script>
+  <script src="js/masked_high_light.js"></script>
+  <script src="js/index.umd.js"></script>
+  <script src="js/highlight.min.js"></script>
+  <script src="js/mermaid.min.js"></script>
+</head>
+<body class="demo-mode-body">
+  <!-- 顶部状态条 -->
+  <header class="demo-header">
+    <div class="demo-header-left">
+      <i class="fas fa-play-circle demo-logo"></i>
+      <div class="demo-title-block">
+        <h1 id="script-title" class="demo-title">TransMAgent · 演示模式</h1>
+        <span id="script-scenario" class="demo-subtitle">单细胞转录组细胞类型注释 · 8 条消息 · 默认间隔 2s</span>
+      </div>
+    </div>
+    <div class="demo-header-right">
+      <span class="demo-badge"><i class="fas fa-bolt"></i> 不调用 API</span>
+      <span class="demo-badge"><i class="fas fa-clock"></i> 间隔 <strong id="interval-value">2.0s</strong></span>
+      <span class="demo-badge"><i class="fas fa-tachometer-alt"></i> <strong>1x</strong></span>
+    </div>
+  </header>
+
+  <!-- 消息流区 -->
+  <main class="demo-main">
+    <div id="top_div" class="demo-top-div">
+      <div id="messages" class="demo-messages">
+        <div class="demo-empty">
+          <i class="fas fa-play-circle"></i>
+          <p>点击下方 <strong>播放</strong> 按钮开始演示</p>
+          <p class="demo-empty-hint">支持快捷键：<kbd>Space</kbd> 播放/暂停 · <kbd>←</kbd> <kbd>→</kbd> 上下条 · <kbd>Home</kbd> <kbd>End</kbd> 跳到首/末</p>
+        </div>
+      </div>
+    </div>
+  </main>
+
+  <!-- 控制台 -->
+  <footer class="demo-console">
+    <!-- 脚本选择 -->
+    <div class="console-row console-row-top">
+      <div class="script-group">
+        <span class="console-label"><i class="fas fa-book"></i> 演示脚本</span>
+        <button class="script-btn active" data-script="scrna">
+          <i class="fas fa-dna"></i> 单细胞转录组
+        </button>
+        <button class="script-btn" data-script="tf">
+          <i class="fas fa-project-diagram"></i> TF 调控网络
+        </button>
+      </div>
+
+      <div class="progress-group">
+        <span id="progress-counter" class="progress-counter">0 / 8</span>
+        <div id="progress-track" class="progress-track">
+          <div id="progress-bar-inner" class="progress-bar-inner"></div>
+          <div class="progress-ticks" id="progress-ticks"></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- 主控制 -->
+    <div class="console-row console-row-main">
+      <div class="transport-group">
+        <button id="btn-prev" class="ctrl-btn ctrl-btn-ghost" title="上一条 (←)">
+          <i class="fas fa-step-backward"></i>
+        </button>
+        <button id="btn-play" class="ctrl-btn ctrl-btn-primary" title="播放 (Space)">
+          <i id="icon-play" class="fas fa-play"></i>
+        </button>
+        <button id="btn-stop" class="ctrl-btn ctrl-btn-ghost" title="停止">
+          <i class="fas fa-stop"></i>
+        </button>
+        <button id="btn-next" class="ctrl-btn ctrl-btn-ghost" title="下一条 (→)">
+          <i class="fas fa-step-forward"></i>
+        </button>
+      </div>
+
+      <div class="interval-group">
+        <span class="console-label"><i class="fas fa-hourglass-half"></i> 间隔</span>
+        <input id="interval-slider" type="range" min="500" max="10000" step="100" value="2000" class="slider" />
+        <span id="interval-value-display" class="value-display">2.0s</span>
+      </div>
+
+      <div class="speed-group">
+        <span class="console-label"><i class="fas fa-tachometer-alt"></i> 倍速</span>
+        <button class="speed-btn" data-speed="0.5">0.5x</button>
+        <button class="speed-btn active" data-speed="1">1x</button>
+        <button class="speed-btn" data-speed="1.5">1.5x</button>
+        <button class="speed-btn" data-speed="2">2x</button>
+      </div>
+
+      <div class="loop-group">
+        <span class="console-label"><i class="fas fa-sync-alt"></i> 循环</span>
+        <button class="loop-btn active" data-loop="none" title="播放完毕即停止">不循环</button>
+        <button class="loop-btn" data-loop="loop" title="从头循环播放">列表</button>
+        <button class="loop-btn" data-loop="pingpong" title="正反双向播放">乒乓</button>
+      </div>
+    </div>
+
+    <!-- 统计信息 -->
+    <div class="console-row console-row-stats">
+      <div class="stat-item">
+        <i class="fas fa-comment"></i>
+        <span>消息：<strong id="stat-current">0</strong> / <strong id="stat-total">8</strong></span>
+      </div>
+      <div class="stat-item">
+        <i class="fas fa-clock"></i>
+        <span>预计总时长：<strong>~16s</strong>（间隔 2.0s × 8）</span>
+      </div>
+      <div class="stat-item">
+        <i class="fas fa-info-circle"></i>
+        <span>当前循环：<strong id="loop-label">不循环</strong></span>
+      </div>
+      <div class="stat-item stat-spacer"></div>
+      <div class="stat-item">
+        <i class="fas fa-keyboard"></i>
+        <span><kbd>Space</kbd> · <kbd>←</kbd> <kbd>→</kbd> · <kbd>Home</kbd> <kbd>End</kbd></span>
+      </div>
+    </div>
+  </footer>
+
+  <script src="js/renderer-demo.js"></script>
+</body>
+</html>
