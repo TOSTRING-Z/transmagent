@@ -438,77 +438,108 @@ export class MainWindow extends BaseWindow {
             // 先创建窗口
             demoWin.create();
 
-            // 从主窗口 DOM 提取当前聊天历史
-            // 仅提取 user / system / tool 三种角色的消息，role 来自 data-role，
-            // content 来自 .message[data-content]，info 来自 .info-content[data-content]
-            const extractScript = `(() => {
-                const messagesEl = document.getElementById('messages');
-                if (!messagesEl) return { title: '当前会话', scenario: '0 条消息', messages: [] };
-                const out = [];
-                messagesEl.querySelectorAll('[data-role]').forEach((el) => {
-                    const role = el.getAttribute('data-role');
-                    if (role !== 'user' && role !== 'system' && role !== 'tool') return;
-                    const msgDiv = el.querySelector('.message');
-                    const content = (msgDiv && msgDiv.getAttribute('data-content')) || (msgDiv ? msgDiv.textContent : '') || '';
+            // 🎯【用户指令】消息从后端 SessionManager 获取,不要走前端 DOM 提取
+            // 直接读取 sessionManager.getChat() 返回的 ChatState.messages
+            let payload: { title: string; scenario: string; messages: Array<{ role: string; content: string; info?: string }> };
+            try {
+                const chat = this.sessionManager.getChat();   // ChatState | undefined
+                const rawMessages: any[] = Array.isArray(chat?.messages) ? chat!.messages : [];
+                const chatName = (chat && (chat as any).name) ? String((chat as any).name) : '当前会话';
+
+                const mapped: Array<{ role: string; content: string; info?: string }> = [];
+                for (const m of rawMessages) {
+                    // 仅取四种核心角色
+                    const role = m?.role;
+                    if (role !== 'user' && role !== 'assistant' && role !== 'system' && role !== 'tool') continue;
+                    // 提取纯文本 content
+                    let content = '';
+                    if (typeof m?.content === 'string') {
+                        content = m.content;
+                    } else if (Array.isArray(m?.content)) {
+                        // MessageContent[] → 拼 text 类
+                        content = m.content
+                            .filter((c: any) => c && (c.type === 'text' || c.type === 'thinking'))
+                            .map((c: any) => (c.text ?? c.thinking ?? ''))
+                            .join('\n');
+                        // 如果有 reasoning_content,加在前面
+                        if (m.reasoning_content && typeof m.reasoning_content === 'string' && m.reasoning_content.trim()) {
+                            content = `<think>\n${m.reasoning_content.trim()}\n</think>\n\n` + content;
+                        }
+                    }
+                    content = (content || '').toString().trim();
+                    if (!content) continue;
+
+                    // tool 角色:把 tool_call_name / params 作为 info
                     let info = '';
                     if (role === 'tool') {
-                        const infoDiv = el.querySelector('.info-content');
-                        info = (infoDiv && infoDiv.getAttribute('data-content')) || (infoDiv ? infoDiv.textContent : '') || '';
+                        const tname = m.tool_call_name ? String(m.tool_call_name) : '';
+                        info = tname ? `🔧 ${tname}` : '';
+                    } else if (role === 'assistant' && Array.isArray(m.tool_calls) && m.tool_calls.length > 0) {
+                        // assistant 调用工具:把工具名作为 info 显示
+                        const names = m.tool_calls
+                            .map((tc: any) => tc?.function?.name || tc?.name || '')
+                            .filter(Boolean)
+                            .join(', ');
+                        info = names ? `🔧 调用: ${names}` : '';
                     }
-                    if (!content.trim()) return;
-                    out.push({ role, content: content.trim(), info: info.trim() });
-                });
-                const title = (document.title || '当前会话').replace(/\s*-\s*TransMAgent.*$/i, '').trim() || '当前会话';
-                return { title, scenario: out.length + ' 条消息', messages: out };
-            })()`;
 
-            const mainWebContents = this.window?.webContents;
-            if (!mainWebContents) return;
+                    // 映射 demo 期望的三角色
+                    let demoRole: 'user' | 'system' | 'tool';
+                    if (role === 'user') demoRole = 'user';
+                    else if (role === 'tool') demoRole = 'tool';
+                    else demoRole = 'system';   // assistant / system 都映射为 system
 
-            mainWebContents.executeJavaScript(extractScript, true)
-                .then((payload: any) => {
-                    // 等到 demo webContents ready 后再推送（最多 5s 重试）
-                    const sendPayload = () => {
-                        if (!demoWin || !(demoWin as any).window || (demoWin as any).window.isDestroyed()) return;
-                        const demoWC = (demoWin as any).window.webContents;
-                        // 【双保险 1】先把 payload 注入到 demo 窗口的 window.__DEMO_PAYLOAD__ 全局变量
-                        // 让 main.ts bootstrap 能同步拿到（即使 IPC 监听尚未注册）
-                        try {
-                            const injectScript = `(window).__DEMO_PAYLOAD__ = ${JSON.stringify(payload)};`;
-                            demoWC.executeJavaScript(injectScript, true).catch((err: any) => {
-                                console.error('[MainWindow] Failed to inject __DEMO_PAYLOAD__:', err);
-                            });
-                        } catch (err) {
-                            console.error('[MainWindow] Inject __DEMO_PAYLOAD__ threw:', err);
-                        }
-                        // 【双保险 2】同时通过 IPC 'demo-data' 通道推送（main.ts onDemoData 监听）
-                        try {
-                            demoWC.send('demo-data', payload);
-                            console.log('[MainWindow] Demo payload sent:', payload.messages.length, 'messages');
-                        } catch (err) {
-                            console.error('[MainWindow] Failed to send demo-data IPC:', err);
-                        }
-                    };
-                    const demoWebContents = (demoWin as any).window?.webContents;
+                    mapped.push({ role: demoRole, content, info: info || undefined });
+                }
+
+                payload = {
+                    title: chatName,
+                    scenario: `${mapped.length} 条消息 · 默认间隔 2s`,
+                    messages: mapped,
+                };
+                console.log('[MainWindow] Demo payload built from SessionManager:', mapped.length, 'messages from', rawMessages.length, 'raw');
+            } catch (err) {
+                console.error('[MainWindow] Failed to build demo payload from SessionManager:', err);
+                payload = { title: '当前会话', scenario: '0 条消息', messages: [] };
+            }
+
+            // 等到 demo webContents ready 后再推送(最多 5s 重试) + 双通道
+            const sendPayload = () => {
+                if (!demoWin || !(demoWin as any).window || (demoWin as any).window.isDestroyed()) return;
+                const demoWC = (demoWin as any).window.webContents;
+                // 【双保险 1】先把 payload 注入到 demo 窗口的 window.__DEMO_PAYLOAD__ 全局变量
+                try {
+                    const injectScript = `(window).__DEMO_PAYLOAD__ = ${JSON.stringify(payload)};`;
+                    demoWC.executeJavaScript(injectScript, true).catch((err: any) => {
+                        console.error('[MainWindow] Failed to inject __DEMO_PAYLOAD__:', err);
+                    });
+                } catch (err) {
+                    console.error('[MainWindow] Inject __DEMO_PAYLOAD__ threw:', err);
+                }
+                // 【双保险 2】同时通过 IPC 'demo-data' 通道推送
+                try {
+                    demoWC.send('demo-data', payload);
+                    console.log('[MainWindow] Demo payload sent:', payload.messages.length, 'messages');
+                } catch (err) {
+                    console.error('[MainWindow] Failed to send demo-data IPC:', err);
+                }
+            };
+            const demoWebContents = (demoWin as any).window?.webContents;
+            if (demoWebContents && !demoWebContents.isLoading()) {
+                // 延迟 300ms 让 demo 的 preload 注册 onDemoData
+                setTimeout(sendPayload, 300);
+            } else if (demoWebContents) {
+                let elapsed = 0;
+                const trySend = () => {
+                    elapsed += 100;
                     if (demoWebContents && !demoWebContents.isLoading()) {
-                        // 延迟 300ms 让 demo 的 preload 注册 onDemoData
-                        setTimeout(sendPayload, 300);
-                    } else if (demoWebContents) {
-                        let elapsed = 0;
-                        const trySend = () => {
-                            elapsed += 100;
-                            if (demoWebContents && !demoWebContents.isLoading()) {
-                                setTimeout(sendPayload, 200);
-                            } else if (elapsed < 5000) {
-                                setTimeout(trySend, 100);
-                            }
-                        };
-                        trySend();
+                        setTimeout(sendPayload, 200);
+                    } else if (elapsed < 5000) {
+                        setTimeout(trySend, 100);
                     }
-                })
-                .catch((err: any) => {
-                    console.error('[MainWindow] Failed to extract chat history for demo:', err);
-                });
+                };
+                trySend();
+            }
         });
 
         ipcMain.handle('newChat', () => {
