@@ -7,7 +7,7 @@
   --text: #2c3e50;
   --tw-bg-opacity: 0;
   --action-gap: 12px;
-  --message-left: 30px;
+  --message-left: 35px;
   --s-width: 0px;
 }
 
@@ -548,9 +548,6 @@ body {
 }
 
 #open_demo {
-  position: absolute;
-  right: 78px;
-  bottom: 0px;
   background: transparent;
   border: none;
   cursor: pointer;
@@ -798,7 +795,7 @@ body {
 
 /* Call Information — 白色主题 + 优雅折叠 */
 .info {
-  margin: 8px 0;
+  margin-left: var(--message-left);
   border-radius: 8px;
   background: var(--panel);
   border: 1px solid #e8eef5;
@@ -891,13 +888,6 @@ body {
   transform: rotate(0deg);
 }
 
-.info {
-  padding-left: var(--message-left);
-  margin: 1rem 0;
-  padding-left: var(--message-left);
-  margin: 16px 0;
-}
-
 .info-item {
   padding: 12px 0;
   border-bottom: 1px dashed #e0e0e0;
@@ -960,8 +950,6 @@ body {
   max-height: calc(80vh - 15px);
   overflow-y: scroll;
   overflow-x: hidden;
-  border: 1px solid #e9e9e9;
-  border-top: none;
   border-radius: 0 0 12px 12px;
   background: #fafafa;
   padding: 16px;
@@ -993,11 +981,6 @@ body {
   letter-spacing: 0.5px;
 
   scrollbar-gutter: stable;
-}
-
-.info-header::before {
-  content: '📋';
-  margin-right: 8px;
 }
 
 .info-content hr {
@@ -2747,11 +2730,6 @@ input:checked + .slider:before {
 .overflow-y-auto {
   scrollbar-gutter: stable;
   overflow-y: scroll;  /* 始终显示滚动条轨道，hover 时无变化 */
-}
-
-/* 当容器没有 overflow-y-auto 类但有 overflow-y: scroll/auto 时也确保占位 */
-* {
-  scrollbar-gutter: stable;
 }
 
 /* 自定义滚动条样式（Electron / Webkit） */

@@ -1020,7 +1020,7 @@ export class ToolCall extends LLMBase implements ISchedulableAgent {
                                     this.events.emitEvent('streamData', {
                                         ...chat,
                                         ...message,
-                                        content: `\n\n- 📋 **Task ${taskNumber}** | ${toolInfo.content && (j === 0 || toolInfo.content !== toolInfos[0].content) ? toolInfo.content : toolInfo.tool_call_name}`,
+                                        content: `\n\n- 📋 **Tool ${taskNumber}** | ${toolInfo.content && (j === 0 || toolInfo.content !== toolInfos[0].content) ? toolInfo.content : toolInfo.tool_call_name}`,
                                         end: true
                                     });
                                 if (["ask_user"].includes(toolInfo.tool_call_name as string)) {
