@@ -61,7 +61,7 @@ html, body {
   padding: 12px 20px;
   background: var(--bg-card);
   border-bottom: 1px solid var(--border-mute);
-  box-shadow: var(--shadow-sm);
+  box-shadow: none;
   flex-shrink: 0;
   z-index: 10;
 }
@@ -357,7 +357,18 @@ html, body {
   color: var(--primary-dark);
 }
 .demo-msg .message tr:nth-child(even) td { background: var(--bg-card-soft); }
-.demo-msg .message a { color: var(--primary); text-decoration: underline; text-decoration-color: var(--border-strong); }
+.demo-msg .message a {
+  color: var(--primary);
+  text-decoration: underline;
+  text-decoration-color: var(--border-strong);
+  word-break: break-all;
+  overflow-wrap: anywhere;
+}
+.demo-msg .message { word-break: break-word; overflow-wrap: anywhere; }
+.demo-msg .message p { word-break: break-word; overflow-wrap: anywhere; }
+.demo-msg .message li,
+.demo-msg .message td,
+.demo-msg .message th { word-break: break-word; overflow-wrap: anywhere; }
 .demo-msg .message a:hover { color: var(--primary-dark); }
 .demo-msg .message img { max-width: 100%; border-radius: 8px; margin: 6px 0; }
 .demo-msg .message strong { color: var(--text-primary); font-weight: 700; }
@@ -366,11 +377,12 @@ html, body {
 /* ===== 代码块 ===== */
 .demo-msg .code-container {
   position: relative;
-  margin: 10px 0;
-  background: rgba(0, 0, 0, 0.4);
+  margin: 8px 0;
+  background: var(--bg-card-soft);
   border: 1px solid var(--border-soft);
-  border-radius: 8px;
+  border-radius: 6px;
   overflow: hidden;
+  box-shadow: none;
 }
 
 .demo-msg .code-header {
@@ -418,7 +430,18 @@ html, body {
 
 .demo-msg .code-content { padding: 10px 14px; overflow-x: auto; max-height: 500px; }
 .demo-msg .code-content.collapsed { max-height: 130px; overflow: hidden; }
-.demo-msg .code-content pre { margin: 0; }
+.demo-msg .code-content pre {
+  margin: 0;
+  padding: 10px 14px;
+  background: var(--bg-card-soft);
+  color: var(--text-primary);
+  font-family: 'JetBrains Mono', 'Consolas', 'Menlo', monospace;
+  font-size: 12.5px;
+  line-height: 1.6;
+  word-break: break-all;
+  overflow-wrap: anywhere;
+  white-space: pre-wrap;
+}
 
 /* ===== Mermaid 流程图 ===== */
 .demo-msg .mermaid-diagram {
@@ -676,6 +699,163 @@ html, body {
   margin: 0 2px;
 }
 .stat-spacer { flex: 1 1 auto; }
+
+
+
+/* ============ 工具输出专用样式 (现代简洁卡片) ============ */
+
+/* 通用工具外壳 */
+.demo-msg .tool-output {
+  margin: 8px 0;
+  border-radius: 8px;
+  border: 1px solid var(--border-soft);
+  background: var(--bg-card);
+  overflow: hidden;
+  font-family: 'JetBrains Mono', 'Consolas', 'Menlo', monospace;
+  font-size: 12px;
+  line-height: 1.55;
+  box-shadow: none;
+}
+
+.demo-msg .tool-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 12px;
+  background: var(--bg-card-soft);
+  border-bottom: 1px solid var(--border-mute);
+  font-size: 11.5px;
+  font-weight: 600;
+  letter-spacing: 0.2px;
+}
+
+.demo-msg .tool-header .tool-icon {
+  width: 18px;
+  height: 18px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 5px;
+  color: white;
+  font-size: 10px;
+  flex-shrink: 0;
+}
+
+.demo-msg .tool-header .tool-name { color: var(--primary-dark); }
+.demo-msg .tool-header .tool-badge {
+  margin-left: auto;
+  padding: 1px 8px;
+  border-radius: 999px;
+  font-size: 10px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.4px;
+}
+.demo-msg .tool-header .tool-badge.ok    { background: rgba(34,197,94,0.12); color: #16a34a; }
+.demo-msg .tool-header .tool-badge.warn  { background: rgba(245,158,11,0.12); color: #d97706; }
+.demo-msg .tool-header .tool-badge.error { background: rgba(239,68,68,0.14); color: #dc2626; }
+.demo-msg .tool-header .tool-badge.info  { background: rgba(99,102,241,0.12); color: #6366f1; }
+
+.demo-msg .tool-body {
+  padding: 8px 12px;
+  color: var(--text-secondary);
+  word-break: break-all;
+  overflow-wrap: anywhere;
+  white-space: pre-wrap;
+  max-height: 360px;
+  overflow-y: auto;
+}
+
+/* 列表型工具(list_dir / web_crawler 等) */
+.demo-msg .tool-list {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 6px 0;
+}
+.demo-msg .tool-list-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 5px 12px;
+  border-radius: 4px;
+  font-size: 12.5px;
+  color: var(--text-primary);
+  transition: background 0.15s;
+}
+.demo-msg .tool-list-item:hover { background: var(--primary-soft); }
+.demo-msg .tool-list-item::before {
+  content: '';
+  width: 4px;
+  height: 4px;
+  border-radius: 50%;
+  background: var(--primary-light);
+  flex-shrink: 0;
+}
+.demo-msg .tool-list-item.is-url {
+  font-family: 'JetBrains Mono', 'Consolas', monospace;
+  font-size: 12px;
+  color: var(--primary);
+  word-break: break-all;
+  overflow-wrap: anywhere;
+  white-space: normal;
+}
+.demo-msg .tool-list-item.is-url::before { background: var(--primary); border-radius: 2px; width: 6px; height: 6px; }
+
+/* 键值对(对象) */
+.demo-msg .tool-kv {
+  display: grid;
+  grid-template-columns: max-content 1fr;
+  gap: 4px 12px;
+  padding: 4px 0;
+}
+.demo-msg .tool-kv .k {
+  color: var(--primary-dark);
+  font-weight: 600;
+  font-size: 11.5px;
+}
+.demo-msg .tool-kv .v {
+  color: var(--text-primary);
+  word-break: break-all;
+  overflow-wrap: anywhere;
+}
+
+/* url 行 (web_crawler_toolkit 返回结构) */
+.demo-msg .tool-url-row {
+  display: flex;
+  flex-direction: column;
+  padding: 8px 12px;
+  border-bottom: 1px solid var(--border-mute);
+}
+.demo-msg .tool-url-row:last-child { border-bottom: none; }
+.demo-msg .tool-url-row .tool-url-title {
+  font-weight: 600;
+  color: var(--text-primary);
+  font-size: 12.5px;
+  margin-bottom: 2px;
+}
+.demo-msg .tool-url-row .tool-url-link {
+  font-family: 'JetBrains Mono', 'Consolas', monospace;
+  font-size: 11.5px;
+  color: var(--primary);
+  word-break: break-all;
+  overflow-wrap: anywhere;
+  text-decoration: none;
+}
+.demo-msg .tool-url-row .tool-url-link:hover { text-decoration: underline; }
+
+/* 状态行(关键成功/失败信息) */
+.demo-msg .tool-status {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 2px 8px;
+  border-radius: 999px;
+  font-size: 11px;
+  font-weight: 600;
+}
+.demo-msg .tool-status.ok    { background: rgba(34,197,94,0.12); color: #16a34a; }
+.demo-msg .tool-status.error { background: rgba(239,68,68,0.14); color: #dc2626; }
 
 /* ===== 响应式 ===== */
 @media (max-width: 900px) {
