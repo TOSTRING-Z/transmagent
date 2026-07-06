@@ -453,7 +453,7 @@ export class MainWindow extends BaseWindow {
                     if (cm && Array.isArray(cm.messages)) {
                         rawMessages = cm.messages;
                     } else if (cm && typeof cm.getMessages === 'function') {
-                        rawMessages = cm.getMessages(true) || [];
+                        rawMessages = cm.getMessages(false) || [];
                     }
                     if (chat && typeof (chat as any).name === 'string') {
                         chatName = (chat as any).name;

@@ -1,6 +1,9 @@
 // @ts-nocheck
 // 演示引擎核心 - DemoPlayer + 控制台事件 + 消息渲染
-import { BUILT_IN_SCRIPT, TF_NETWORK_SCRIPT, DemoScript, DemoMessage } from './data';
+// ⚠️ T-10 commit: 已彻底移除所有内置固定 demo 兜底 (BUILT_IN_SCRIPT / TF_NETWORK_SCRIPT)
+// 演示数据现在 100% 来自后端 SessionManager.getChat().messages,
+// 无数据时显示空状态 UI 而非降级播放任何固定案例。
+import { EMPTY_SCRIPT, DemoScript, DemoMessage } from './data';
 import { renderMarkdown } from './markdown';
 
 // ============ 类型 ============
@@ -67,6 +70,10 @@ class DemoPlayer {
 
   async play() {
     if (this.isPlaying) return;
+    if (this.total === 0) {
+      console.warn('[demo] no messages to play');
+      return;
+    }
     if (this.index >= this.total) {
       this.index = 0;
     }
@@ -122,6 +129,7 @@ class DemoPlayer {
 
   async jumpTo(target: number) {
     this.pause();
+    if (this.total === 0) return;
     target = Math.max(0, Math.min(this.total - 1, target));
     const messages = document.getElementById('messages');
     if (!messages) return;
@@ -246,6 +254,47 @@ const system_message_template = `<div class="demo-msg" data-role="system" data-i
   </div>
 </div>`;
 
+// ============ 空状态渲染 ============
+function renderEmptyState(reason: 'no-history' | 'timeout' | 'error') {
+  const messagesEl = document.getElementById('messages');
+  if (!messagesEl) return;
+  const titleEl = document.getElementById('script-title');
+  const scenarioEl = document.getElementById('script-scenario');
+
+  const cfg: Record<typeof reason, { title: string; scenario: string; hint: string }> = {
+    'no-history': {
+      title: '当前无会话历史',
+      scenario: '请先在主窗口发起对话,演示窗口将自动加载您的真实聊天记录',
+      hint: '💡 在主窗口输入消息后,再次点击演示按钮即可加载会话历史',
+    },
+    'timeout': {
+      title: '未接收到会话数据',
+      scenario: '5 秒内主窗口未推送有效 payload (可能主窗口聊天历史为空)',
+      hint: '💡 请确认主窗口存在聊天记录,然后重新打开演示窗口',
+    },
+    'error': {
+      title: '数据加载失败',
+      scenario: '解析后端 payload 时出错,已停止播放',
+      hint: '💡 请查看主进程日志或重新打开演示窗口',
+    },
+  };
+  const c = cfg[reason];
+
+  if (titleEl) titleEl.textContent = c.title;
+  if (scenarioEl) scenarioEl.textContent = c.scenario;
+
+  messagesEl.innerHTML = `
+    <div class="demo-empty-state">
+      <div class="demo-empty-icon">
+        <i class="fas fa-comments"></i>
+      </div>
+      <div class="demo-empty-title">${c.title}</div>
+      <div class="demo-empty-scenario">${c.scenario}</div>
+      <div class="demo-empty-hint">${c.hint}</div>
+    </div>
+  `;
+}
+
 // ============ 滚动 ============
 function scrollToBottom() {
   const topDiv = document.getElementById('top_div');
@@ -359,6 +408,10 @@ function setupConsole(player: DemoPlayer) {
   const btnPlay = document.getElementById('btn-play');
   const iconPlay = document.getElementById('icon-play');
   btnPlay?.addEventListener('click', () => {
+    if (player.total === 0) {
+      console.warn('[demo] no messages, cannot play');
+      return;
+    }
     if (player.playing) player.pause();
     else player.play();
   });
@@ -403,19 +456,13 @@ function setupConsole(player: DemoPlayer) {
     if (title) title.setAttribute('title', player.playing ? '暂停 (Space)' : '播放 (Space)');
   };
 
-  document.querySelectorAll('.script-btn').forEach(btn => {
-    btn.addEventListener('click', () => {
-      const key = (btn as HTMLElement).dataset.script;
-      const script = key === 'tf' ? TF_NETWORK_SCRIPT : BUILT_IN_SCRIPT;
-      player.setScript(script);
-      const titleEl = document.getElementById('script-title');
-      if (titleEl) titleEl.textContent = script.title;
-      const scenarioEl = document.getElementById('script-scenario');
-      if (scenarioEl) scenarioEl.textContent = script.scenario;
-      document.querySelectorAll('.script-btn').forEach(b => b.classList.remove('active'));
-      btn.classList.add('active');
-      player.onProgress(0, script.messages.length);
-    });
+  // ⚠️ T-10 commit: 已彻底移除 .script-btn 切换逻辑
+  // (不再切换 BUILT_IN_SCRIPT / TF_NETWORK_SCRIPT,实时会话模式下脚本不可切换)
+  document.querySelectorAll('.script-btn').forEach((btn) => {
+    (btn as HTMLElement).style.opacity = '0.4';
+    (btn as HTMLElement).style.cursor = 'not-allowed';
+    (btn as HTMLElement).title = '实时会话模式:脚本不可切换';
+    btn.classList.remove('active');
   });
 }
 
@@ -426,6 +473,7 @@ function setupKeyboard(player: DemoPlayer) {
     if (tag === 'INPUT' || tag === 'TEXTAREA') return;
     if (e.code === 'Space') {
       e.preventDefault();
+      if (player.total === 0) return;
       if (player.playing) player.pause();
       else player.play();
     } else if (e.code === 'ArrowLeft') {
@@ -444,29 +492,32 @@ function setupKeyboard(player: DemoPlayer) {
   });
 }
 
-// ============ 启动 ============
-/**
- * 应用 live payload 到 DemoPlayer + UI
- */
-function applyLivePayload(player: DemoPlayer, payload: any, titleEl: HTMLElement | null, scenarioEl: HTMLElement | null) {
+// ============ 将后端 payload 转换为 DemoScript ============
+function buildLiveScript(payload: any): DemoScript {
+  const msgs = Array.isArray(payload?.messages) ? payload.messages : [];
+  return {
+    title: typeof payload?.title === 'string' ? payload.title : '当前会话回放',
+    scenario: typeof payload?.scenario === 'string' ? payload.scenario : `${msgs.length} 条消息 · 默认间隔 2s`,
+    totalDurationHint: '',
+    messages: msgs.map((m: any) => ({
+      role: (m.role === 'user' || m.role === 'tool') ? m.role : 'system',
+      content: typeof m.content === 'string' ? m.content : '',
+      info: typeof m.info === 'string' ? m.info : undefined,
+    })),
+  };
+}
+
+// ============ 应用 live payload ============
+function applyLivePayload(player: DemoPlayer, payload: any, titleEl: HTMLElement | null, scenarioEl: HTMLElement | null): boolean {
   try {
     if (!payload || !Array.isArray(payload.messages) || payload.messages.length === 0) {
-      console.warn('[demo] live payload empty, keeping current script');
+      console.warn('[demo] live payload empty/invalid');
       return false;
     }
     const live = buildLiveScript(payload);
     player.setScript(live);
     if (titleEl) titleEl.textContent = live.title;
     if (scenarioEl) scenarioEl.textContent = live.scenario;
-
-    // 禁用脚本切换按钮（实时会话模式）
-    document.querySelectorAll('.script-btn').forEach((btn) => {
-      (btn as HTMLElement).style.opacity = '0.4';
-      (btn as HTMLElement).style.cursor = 'not-allowed';
-      (btn as HTMLElement).title = '实时会话模式：脚本不可切换';
-      btn.classList.remove('active');
-    });
-
     console.log('[demo] live history applied:', live.messages.length, 'messages');
     return true;
   } catch (err) {
@@ -475,12 +526,11 @@ function applyLivePayload(player: DemoPlayer, payload: any, titleEl: HTMLElement
   }
 }
 
+// ============ 启动 ============
 function bootstrap() {
-  // 优先使用主窗口推送的真实聊天历史；否则降级为内置脚本
-  const payload = (window as any).__DEMO_PAYLOAD__;
-  const initialScript = (payload && Array.isArray(payload.messages) && payload.messages.length > 0)
-    ? buildLiveScript(payload)
-    : BUILT_IN_SCRIPT;
+  // ⚠️ T-10 commit: 不再降级到任何内置固定脚本
+  // 无 payload 时显示空状态 UI,等待主进程 IPC 推送或 window.__DEMO_PAYLOAD__ 注入
+  const initialScript = EMPTY_SCRIPT;
 
   const player = new DemoPlayer(initialScript);
   player.onRender = renderMessage;
@@ -493,37 +543,38 @@ function bootstrap() {
   const scenarioEl = document.getElementById('script-scenario');
   if (scenarioEl) scenarioEl.textContent = initialScript.scenario;
 
-  // 若启动时已有 payload,禁用脚本切换按钮
-  const liveAvailableAtBoot = payload && Array.isArray(payload.messages) && payload.messages.length > 0;
-  if (liveAvailableAtBoot) {
-    document.querySelectorAll('.script-btn').forEach((btn) => {
-      (btn as HTMLElement).style.opacity = '0.4';
-      (btn as HTMLElement).style.cursor = 'not-allowed';
-      (btn as HTMLElement).title = '实时会话模式：脚本不可切换';
-      btn.classList.remove('active');
-    });
-  }
-
-  // 初始进度
+  // 初始进度 (空)
   player.onProgress(0, player.total);
 
   // 暴露到 window 用于调试
   (window as any).demoPlayer = player;
 
-  // 监听主窗口推送的实时数据（DemoWindow preload 的 demoAPI.onDemoData）
+  let applied = false;
+
+  // 路径 A: 启动时直接读取已注入的 window.__DEMO_PAYLOAD__
+  const bootPayload = (window as any).__DEMO_PAYLOAD__;
+  if (bootPayload && Array.isArray(bootPayload.messages) && bootPayload.messages.length > 0) {
+    applied = applyLivePayload(player, bootPayload, titleEl, scenarioEl);
+  } else {
+    // 显示空状态
+    renderEmptyState('no-history');
+  }
+
+  // 路径 B: 监听主窗口 IPC 推送 (DemoWindow preload 的 demoAPI.onDemoData)
   if ((window as any).demoAPI && typeof (window as any).demoAPI.onDemoData === 'function') {
     (window as any).demoAPI.onDemoData((payload: any) => {
-      applyLivePayload(player, payload, titleEl, scenarioEl);
+      const ok = applyLivePayload(player, payload, titleEl, scenarioEl);
+      if (ok) applied = true;
     });
-    // 通知主进程 demo 端已就绪，可推送数据
+    // 通知主进程 demo 端已就绪,可推送数据
     if (typeof (window as any).demoAPI.notifyReady === 'function') {
       (window as any).demoAPI.notifyReady();
     }
   }
 
-  // 【双保险】MainWindow 可能通过 executeJavaScript 注入 window.__DEMO_PAYLOAD__
-  // 但 IPC 推送早于 preload 监听注册(potential race condition),这里再做 5s 轮询兜底
-  if (!liveAvailableAtBoot) {
+  // 路径 C: 【双保险】轮询 window.__DEMO_PAYLOAD__,防止 IPC race condition
+  // 超时后显示空状态(不再降级到任何固定 demo)
+  if (!applied) {
     let polls = 0;
     const poll = window.setInterval(() => {
       polls++;
@@ -533,9 +584,9 @@ function bootstrap() {
         console.log('[demo] __DEMO_PAYLOAD__ arrived after', polls * 200, 'ms');
         applyLivePayload(player, p, titleEl, scenarioEl);
       } else if (polls >= 25) {
-        // 5s 超时
         window.clearInterval(poll);
-        console.warn('[demo] __DEMO_PAYLOAD__ timeout after 5s, using built-in script');
+        console.warn('[demo] __DEMO_PAYLOAD__ timeout after 5s, showing empty state');
+        if (!applied) renderEmptyState('timeout');
       }
     }, 200);
   }

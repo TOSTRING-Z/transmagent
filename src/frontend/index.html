@@ -25,25 +25,37 @@
       border-radius: 8px;
       animation: fadeIn 0.2s ease-out;
     }
+
     @keyframes fadeIn {
-      from { opacity: 0; transform: translateY(-4px); }
-      to { opacity: 1; transform: translateY(0); }
+      from {
+        opacity: 0;
+        transform: translateY(-4px);
+      }
+
+      to {
+        opacity: 1;
+        transform: translateY(0);
+      }
     }
+
     .bg-details-header {
       display: flex;
       justify-content: space-between;
       align-items: center;
       margin-bottom: 8px;
     }
+
     .bg-details-title {
       font-weight: 600;
       color: #e2e8f0;
       font-size: 13px;
     }
+
     .bg-details-actions {
       display: flex;
       gap: 8px;
     }
+
     .bg-details-btn {
       background: rgba(139, 92, 246, 0.1);
       border: 1px solid rgba(139, 92, 246, 0.2);
@@ -54,18 +66,22 @@
       cursor: pointer;
       transition: all 0.2s;
     }
+
     .bg-details-btn:hover {
       background: rgba(139, 92, 246, 0.2);
     }
+
     .bg-details-meta {
       font-size: 11px;
       color: #888;
       margin-bottom: 8px;
     }
+
     .bg-details-path {
       color: #a78bfa;
       font-family: monospace;
     }
+
     .bg-details-output {
       max-height: 250px;
       overflow-y: auto;
@@ -79,6 +95,7 @@
       white-space: pre-wrap;
       word-break: break-all;
     }
+
     .bg-details-toggle-btn {
       background: rgba(139, 92, 246, 0.08);
       border: 1px solid rgba(139, 92, 246, 0.15);
@@ -90,6 +107,7 @@
       transition: all 0.2s;
       margin-right: 6px;
     }
+
     .bg-details-toggle-btn:hover {
       background: rgba(139, 92, 246, 0.2);
     }
@@ -150,7 +168,8 @@
     <!-- 环境变量弹窗 -->
     <div class="config-modal" id="m-envs" onclick="hideConfig()">
       <div class="config-content" onclick="event.stopPropagation()">
-        <h2 style="background: linear-gradient(135deg, var(--primary) 0%, #8b5cf6 100%); -webkit-background-clip: text; -webkit-text-fill-color: transparent; margin-bottom: 24px; padding-bottom: 16px; border-bottom: 2px solid rgba(139, 92, 246, 0.1); font-size: 1.5rem; display: flex; align-items: center; gap: 10px;">
+        <h2
+          style="background: linear-gradient(135deg, var(--primary) 0%, #8b5cf6 100%); -webkit-background-clip: text; -webkit-text-fill-color: transparent; margin-bottom: 24px; padding-bottom: 16px; border-bottom: 2px solid rgba(139, 92, 246, 0.1); font-size: 1.5rem; display: flex; align-items: center; gap: 10px;">
           <i class="fas fa-tools" style="-webkit-text-fill-color: var(--primary);"></i> Agent Environment Variables
         </h2>
 
@@ -170,7 +189,8 @@
     <!-- 任务列表窗口 -->
     <div class="config-modal" id="m-tasks" onclick="hideConfig()">
       <div class="config-content" onclick="event.stopPropagation()">
-        <h2 style="background: linear-gradient(135deg, var(--primary) 0%, #8b5cf6 100%); -webkit-background-clip: text; -webkit-text-fill-color: transparent; margin-bottom: 24px; padding-bottom: 16px; border-bottom: 2px solid rgba(139, 92, 246, 0.1); font-size: 1.5rem; display: flex; align-items: center; gap: 10px;">
+        <h2
+          style="background: linear-gradient(135deg, var(--primary) 0%, #8b5cf6 100%); -webkit-background-clip: text; -webkit-text-fill-color: transparent; margin-bottom: 24px; padding-bottom: 16px; border-bottom: 2px solid rgba(139, 92, 246, 0.1); font-size: 1.5rem; display: flex; align-items: center; gap: 10px;">
           <i class="fas fa-tools" style="-webkit-text-fill-color: var(--primary);"></i> Agent Tasks
         </h2>
 
@@ -190,7 +210,8 @@
     <!-- 后台任务窗口 -->
     <div class="config-modal" id="m-bgtasks" onclick="hideConfig()">
       <div class="config-content" onclick="event.stopPropagation()">
-        <h2 style="background: linear-gradient(135deg, var(--primary) 0%, #8b5cf6 100%); -webkit-background-clip: text; -webkit-text-fill-color: transparent; margin-bottom: 24px; padding-bottom: 16px; border-bottom: 2px solid rgba(139, 92, 246, 0.1); font-size: 1.5rem; display: flex; align-items: center; gap: 10px;">
+        <h2
+          style="background: linear-gradient(135deg, var(--primary) 0%, #8b5cf6 100%); -webkit-background-clip: text; -webkit-text-fill-color: transparent; margin-bottom: 24px; padding-bottom: 16px; border-bottom: 2px solid rgba(139, 92, 246, 0.1); font-size: 1.5rem; display: flex; align-items: center; gap: 10px;">
           <i class="fas fa-spinner" style="-webkit-text-fill-color: var(--primary);"></i> Background Tasks
         </h2>
 
@@ -213,13 +234,14 @@
 
     <!-- 配置弹窗 -->
     <!-- 小圆华丽升级的配置面板 -->
-    <div class="config-modal" id="m-config" onclick="hideConfig()" style="display: none; justify-content: center; align-items: center; background: rgba(0,0,0,0.5); position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; z-index: 1000;">
+    <div class="config-modal" id="m-config" onclick="hideConfig()"
+      style="display: none; justify-content: center; align-items: center; background: rgba(0,0,0,0.5); position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; z-index: 1000;">
       <div class="modern-config" onclick="event.stopPropagation()">
         <div class="config-header">
           <h2><i class="fas fa-sliders-h"></i> Agent Configuration</h2>
           <button class="close-btn" onclick="hideConfig()"><i class="fas fa-times"></i></button>
         </div>
-        
+
         <div class="config-body">
           <!-- Language -->
           <div class="config-card">
@@ -277,15 +299,18 @@
             </div>
             <div class="modern-row">
               <label>Memory Length</label>
-              <input type="number" id="memory-length" class="modern-input" placeholder="Number of recent messages to keep" min="1">
+              <input type="number" id="memory-length" class="modern-input"
+                placeholder="Number of recent messages to keep" min="1">
             </div>
             <div class="modern-row">
               <label>Long Memory Length</label>
-              <input type="number" id="long-memory-length" class="modern-input" placeholder="Number of long-term memory entries" min="0">
+              <input type="number" id="long-memory-length" class="modern-input"
+                placeholder="Number of long-term memory entries" min="0">
             </div>
             <div class="modern-row">
               <label>Max Tokens</label>
-              <input type="number" id="max-tokens" class="modern-input" placeholder="Maximum token limit for response" min="1">
+              <input type="number" id="max-tokens" class="modern-input" placeholder="Maximum token limit for response"
+                min="1">
             </div>
             <div class="modern-row">
               <label>Max Display Messages</label>
@@ -358,18 +383,21 @@
               <input type="text" id="mcp_server-biotools-url" class="modern-input" placeholder="http://localhost:8080">
             </div>
           </div>
-<!-- Quick Verification -->
+
+          <!-- Quick Verification -->
           <div class="config-card">
             <div class="card-header">
               <h3><i class="fas fa-check-circle"></i> Quick Verification</h3>
-              <p class="card-desc">Run quick checks against configured endpoints (file paths / SSH / MCP / Python / Vision).</p>
+              <p class="card-desc">Run quick checks against configured endpoints (file paths / SSH / MCP / Python /
+                Vision).</p>
             </div>
             <div class="modern-row">
               <label>Python Binary (for python_execute)</label>
               <input type="text" id="verify-python-bin" class="modern-input" placeholder="python">
             </div>
             <div class="info-text" style="margin-top: 4px; font-size: 12px;">
-              <i class="fas fa-info-circle"></i> File check validates <code>tool_call.extra_prompt</code> and <code>tool_call.cli_prompt</code> paths automatically (empty values are skipped).
+              <i class="fas fa-info-circle"></i> File check validates <code>tool_call.extra_prompt</code> and
+              <code>tool_call.cli_prompt</code> paths automatically (empty values are skipped).
             </div>
             <div class="modern-row" style="display: flex; flex-wrap: wrap; gap: 8px; margin-top: 12px;">
               <button type="button" class="btn-verify" data-verify="file"
@@ -397,12 +425,12 @@
                 <i class="fas fa-check-double"></i> Verify All
               </button>
             </div>
-            <div class="verify-results" id="verify-results" style="margin-top: 12px; padding: 8px; background: rgba(0,0,0,0.02); border-radius: 4px; font-family: monospace; font-size: 12px; max-height: 200px; overflow-y: auto;">
-              <div class="verify-empty" style="color: #888; font-style: italic;">Click a button above to run verification checks.</div>
+            <div class="verify-results" id="verify-results"
+              style="margin-top: 12px; padding: 8px; background: rgba(0,0,0,0.02); border-radius: 4px; font-family: monospace; font-size: 12px; max-height: 200px; overflow-y: auto;">
+              <div class="verify-empty" style="color: #888; font-style: italic;">Click a button above to run
+                verification checks.</div>
             </div>
-          
-  
-            
+          </div>
         </div>
 
 
@@ -446,8 +474,10 @@
           <div class="flex relative">
             <textarea class="flex-grow p-2 rounded-l-lg" rows="1" placeholder="User Prompt/Text" id="input"></textarea>
             <button class="p-2 text-white rounded-r-lg img-mode" id="submit"></button>
-            <button class="p-2 ml-1 text-gray-400 hover:text-white" id="expand_editor" title="Code IDE Mode"><i class="fas fa-code"></i></button>
-            <button class="p-2 ml-1 text-gray-400 hover:text-white" id="open_demo" title="演示模式 (Demo Mode)"><i class="fas fa-play-circle"></i></button>
+            <button class="p-2 ml-1 text-gray-400 hover:text-white" id="expand_editor" title="Code IDE Mode"><i
+                class="fas fa-code"></i></button>
+            <button class="p-2 ml-1 text-gray-400 hover:text-white" id="open_demo" title="Demo Mode"><i
+                class="fas fa-play-circle"></i></button>
           </div>
           <div class="status-bar">
             <div class="status-bar-content">
@@ -470,31 +500,31 @@
     </div>
   </div>
 
-<script>
+  <script>
     document.getElementById('open_demo')?.addEventListener('click', (e) => {
-        e.preventDefault();
-        e.stopPropagation();
-        if (window.electronAPI && typeof window.electronAPI.openDemoWindow === 'function') {
-            window.electronAPI.openDemoWindow();
-        } else if (window.demoAPI && typeof window.demoAPI.openDemoWindow === 'function') {
-            window.demoAPI.openDemoWindow();
-        } else if (window.electronAPI && typeof window.electronAPI.send === 'function') {
-            // 兼容兜底：send 通道已加入白名单（见 preload 修改）
-            window.electronAPI.send('open-demo-window');
-        } else {
-            console.error('[demo] electronAPI unavailable');
-        }
+      e.preventDefault();
+      e.stopPropagation();
+      if (window.electronAPI && typeof window.electronAPI.openDemoWindow === 'function') {
+        window.electronAPI.openDemoWindow();
+      } else if (window.demoAPI && typeof window.demoAPI.openDemoWindow === 'function') {
+        window.demoAPI.openDemoWindow();
+      } else if (window.electronAPI && typeof window.electronAPI.send === 'function') {
+        // 兼容兜底：send 通道已加入白名单（见 preload 修改）
+        window.electronAPI.send('open-demo-window');
+      } else {
+        console.error('[demo] electronAPI unavailable');
+      }
     });
 
     document.getElementById('expand_editor')?.addEventListener('click', () => {
-        const content = document.getElementById('input')?.value || '';
-        if (window.electronAPI && typeof window.electronAPI.openCodeEditorContent === 'function') {
-            window.electronAPI.openCodeEditorContent(content);
-        } else if (window.electronAPI && typeof window.electronAPI.send === 'function') {
-            window.electronAPI.send('open-code-editor-content', content);
-        }
+      const content = document.getElementById('input')?.value || '';
+      if (window.electronAPI && typeof window.electronAPI.openCodeEditorContent === 'function') {
+        window.electronAPI.openCodeEditorContent(content);
+      } else if (window.electronAPI && typeof window.electronAPI.send === 'function') {
+        window.electronAPI.send('open-code-editor-content', content);
+      }
     });
-</script>
+  </script>
   <!-- Scroll to bottom floating button -->
   <button id="scroll-to-bottom" class="scroll-to-bottom-btn" onclick="scrollToBottom()" title="Scroll to bottom">
     <i class="fas fa-arrow-down"></i>
