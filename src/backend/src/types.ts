@@ -114,6 +114,7 @@ export interface BaseMessage {
     react?: boolean;
     del?: boolean;
     thumb?: number; // 1:up, 0:null, -1:down
+    session_summary?: boolean;
 }
 
 // 2. 继承基础接口

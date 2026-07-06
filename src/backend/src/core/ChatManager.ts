@@ -80,7 +80,7 @@ export class ChatManager {
     }
 
     public pushUserMessage(msg: any) {
-        const userMsg: UserMessage = { role: "user", content: msg.content, group_id: msg.group_id, context_id: msg.context_id, show: true, react: false };
+        const userMsg: UserMessage = { role: "user", content: msg.content, group_id: msg.group_id, context_id: msg.context_id, session_summary: msg?.session_summary, show: true, react: false };
         this.pushMessage(userMsg, msg.uuid);
     }
     public pushAssistantMessageWithToolCalls(msg: any) {
@@ -367,7 +367,15 @@ export class ChatManager {
     public getMemory(): Message[] {
         let messages = this.getMessages(false);
         messages = this.compressContext(messages);
-
+        let session_summary_index = -1;
+        for (let i = messages.length - 1; i >= 0; i--) {
+            if (messages[i]?.session_summary) {
+                session_summary_index = i;
+                break;
+            }
+        }
+        if (session_summary_index != -1)
+            messages = messages.slice(session_summary_index);
         // 截取最近记忆
         if (messages.length > this.chat.memory_length) {
             let startIdx = this.getStartIdx();

@@ -665,9 +665,7 @@ export class ToolCall extends LLMBase implements ISchedulableAgent {
 
         const chat = this.llmService.chatManager.chat;
         if (chat.tokens >= chat.max_tokens) {
-            this.llmAssistant.kvCacheSummary();
-            chat.long_memory_length = Math.floor(chat.long_memory_length / 2);
-            chat.memory_length = Math.floor(chat.memory_length / 2);
+            this.llmAssistant.kvCacheSummary(data);
         }
 
         return false;

@@ -450,9 +450,7 @@ export class MainWindow extends BaseWindow {
                 let chatName = '当前会话';
                 try {
                     const cm = (this as any).session?.()?.llmService?.chatManager;
-                    if (cm && Array.isArray(cm.messages)) {
-                        rawMessages = cm.messages;
-                    } else if (cm && typeof cm.getMessages === 'function') {
+                    if (cm && typeof cm.getMessages === 'function') {
                         rawMessages = cm.getMessages(false) || [];
                     }
                     if (chat && typeof (chat as any).name === 'string') {

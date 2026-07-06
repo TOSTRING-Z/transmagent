@@ -366,7 +366,7 @@ ${consoleOutput}
 
     // ==================== KV Cache 总结助手功能 ====================
 
-    public async kvCacheSummary() {
+    public async kvCacheSummary(data) {
         try {
             const react_agent = this.createTempAgent();
             react_agent.llmService.chatManager.fixMessages();
@@ -410,8 +410,10 @@ Provide a dense, structured summary in ${this.llmService.environment_details?.la
                 if (summaryContent) {
                     const messages = this.llmService.chatManager.messages;
                     if (messages.length > 0) {
-                        const lastMsg = messages[messages.length - 1];
-                        lastMsg.content = (lastMsg.content as string) + `\n\n[SESSION SUMMARY]\n${summaryContent}`;
+                        const lastMsg = {...messages[messages.length - 1]};
+                        lastMsg.content = `\n\n[SESSION SUMMARY]\n${summaryContent}`;
+                        lastMsg.session_summary = true;
+                        this.llmService.chatManager.pushUserMessage({...lastMsg, uuid: data.uuid})
                         logger.log(`[KVCacheSummary] Appended summary to last message`);
                     }
                 }
