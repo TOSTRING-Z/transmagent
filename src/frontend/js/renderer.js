@@ -760,7 +760,12 @@ ${DOM.input.value}`;
         ai_model.appendChild(option);
       }
     }
+    const session_ai_model = document.getElementById("session-ai-model");
+    if (session_ai_model)
+      session_ai_model.innerHTML = ai_model.innerHTML;
     if (State.chat && State.chat.model) {
+      if (session_ai_model)
+        session_ai_model.value = State.chat.model;
       ai_model.value = State.chat.model;
       api_url.value = config.models[State.chat.model]?.api_url || "";
       api_key.value = config.models[State.chat.model]?.api_key || "";
@@ -835,6 +840,7 @@ ${DOM.input.value}`;
   async function saveConfig() {
     const config = await window.electronAPI.getConfig();
     const ai_model = document.getElementById("ai-model").value;
+    const session_ai_model = document.getElementById("session-ai-model");
     const api_url = document.getElementById("api-url").value;
     const api_key = document.getElementById("api-key").value;
     if (!config.models)
@@ -843,6 +849,8 @@ ${DOM.input.value}`;
       config.models[ai_model] = { api_url: "", api_key: "" };
     config.models[ai_model].api_url = api_url;
     config.models[ai_model].api_key = api_key;
+    if (session_ai_model)
+      State.chat.model = session_ai_model.value || State.chat.model;
     State.chat.compress_context = DOM.compress_box.checked;
     const memoryLength = document.getElementById("memory-length");
     if (memoryLength)

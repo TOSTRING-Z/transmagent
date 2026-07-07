@@ -261,14 +261,22 @@
             </div>
           </div>
 
-          <!-- AI Model -->
+          <div class="config-card" style="border-style: dashed;">
+            <div class="card-header">
+              <h3><i class="fas fa-globe"></i> Global Configuration</h3>
+              <p class="card-desc">Saved to the shared app config and reused across chats.</p>
+            </div>
+            <div class="info-text">Includes model credentials, language, Python/Vision tools, CLI/SSH, and MCP service settings.</div>
+          </div>
+
+          <!-- Global: AI Model Credentials -->
           <div class="config-card">
             <div class="card-header">
-              <h3><i class="fas fa-robot"></i> Core Intelligence</h3>
-              <p class="card-desc">Select and configure the underlying language model.</p>
+              <h3><i class="fas fa-robot"></i> Model Credentials</h3>
+              <p class="card-desc">Select a model entry and edit its shared API endpoint and key.</p>
             </div>
             <div class="modern-row">
-              <label>Model Engine</label>
+              <label>Model Entry</label>
               <select id="ai-model" class="modern-input"></select>
             </div>
             <div class="modern-row">
@@ -281,11 +289,123 @@
             </div>
           </div>
 
-          <!-- Memory Optimization -->
+          <!-- Global: Python Execute -->
+          <div class="config-card">
+            <div class="card-header">
+              <h3><i class="fas fa-code"></i> Python Execute</h3>
+              <p class="card-desc">Configure `python_execute.params.python_bin` for Python execution and verification.</p>
+            </div>
+            <div class="modern-row">
+              <label>Python Binary</label>
+              <input type="text" id="python-execute-bin" class="modern-input" placeholder="python">
+            </div>
+          </div>
+
+          <!-- Global: Vision -->
+          <div class="config-card">
+            <div class="card-header">
+              <h3><i class="fas fa-eye"></i> Vision</h3>
+              <p class="card-desc">Configure `plugins.image_vision.params` for the image vision tool.</p>
+            </div>
+            <div class="modern-row">
+              <label>Vision API URL</label>
+              <input type="text" id="vision-api-url" class="modern-input" placeholder="https://api.openai.com/v1/chat/completions">
+            </div>
+            <div class="modern-row">
+              <label>Vision API Key</label>
+              <input type="password" id="vision-api-key" class="modern-input" placeholder="Your vision API key">
+            </div>
+            <div class="modern-row">
+              <label>Vision Model</label>
+              <input type="text" id="vision-model" class="modern-input" placeholder="gpt-5.4-mini">
+            </div>
+          </div>
+
+          <!-- Global: CLI / SSH -->
+          <div class="config-card">
+            <div class="card-header">
+              <h3><i class="fas fa-terminal"></i> CLI & SSH Connection</h3>
+              <p class="card-desc">Shared remote execution and prompt-path settings.</p>
+            </div>
+            <div class="modern-row toggle-row mb-3" style="margin-bottom: 15px;">
+              <div class="toggle-info">
+                <label for="ssh-enabled">Enable Remote Execution (SSH)</label>
+                <span class="info-text">Execute CLI commands on a remote server.</span>
+              </div>
+              <label class="switch">
+                <input type="checkbox" id="ssh-enabled">
+                <span class="slider round"></span>
+              </label>
+            </div>
+            <div class="modern-row">
+              <label>CLI Prompt File</label>
+              <input type="text" id="cli-prompt" class="modern-input">
+            </div>
+            <div class="modern-row">
+              <label>SSH Host</label>
+              <input type="text" id="ssh-host" class="modern-input" placeholder="127.0.0.1">
+            </div>
+            <div class="modern-row">
+              <label>SSH Port</label>
+              <input type="number" id="ssh-port" class="modern-input" placeholder="22">
+            </div>
+            <div class="modern-row">
+              <label>SSH Username</label>
+              <input type="text" id="ssh-username" class="modern-input" placeholder="root">
+            </div>
+            <div class="modern-row">
+              <label>SSH Password</label>
+              <input type="password" id="ssh-password" class="modern-input">
+            </div>
+          </div>
+
+          <!-- Global: MCP Services -->
+          <div class="config-card">
+            <div class="card-header">
+              <h3><i class="fas fa-dna"></i> MCP Server: BioTools</h3>
+              <p class="card-desc">Shared MCP endpoint and availability settings.</p>
+            </div>
+            <div class="modern-row toggle-row mb-3" style="margin-bottom: 15px;">
+              <div class="toggle-info">
+                <label for="mcp_server-biotools-disabled">Disable BioTools</label>
+                <span class="info-text">Turn off this service globally.</span>
+              </div>
+              <label class="switch">
+                <input type="checkbox" id="mcp_server-biotools-disabled">
+                <span class="slider round"></span>
+              </label>
+            </div>
+            <div class="modern-row">
+              <label>Server URL</label>
+              <input type="text" id="mcp_server-biotools-url" class="modern-input" placeholder="http://localhost:8080">
+            </div>
+          </div>
+
+          <div class="config-card" style="border-style: dashed;">
+            <div class="card-header">
+              <h3><i class="fas fa-comments"></i> Session Configuration</h3>
+              <p class="card-desc">Saved with the current chat and only affects this conversation.</p>
+            </div>
+            <div class="info-text">Includes the active model selection and memory-related runtime behavior for the current chat.</div>
+          </div>
+
+          <!-- Session: Model -->
+          <div class="config-card">
+            <div class="card-header">
+              <h3><i class="fas fa-microchip"></i> Active Chat Model</h3>
+              <p class="card-desc">Choose which model entry the current chat uses.</p>
+            </div>
+            <div class="modern-row">
+              <label>Model Engine</label>
+              <select id="session-ai-model" class="modern-input"></select>
+            </div>
+          </div>
+
+          <!-- Session: Memory Optimization -->
           <div class="config-card">
             <div class="card-header">
               <h3><i class="fas fa-brain"></i> Advanced Options</h3>
-              <p class="card-desc">Optimize memory usage and agent behaviors.</p>
+              <p class="card-desc">Optimize memory usage and agent behaviors for the current chat.</p>
             </div>
             <div class="modern-row toggle-row">
               <div class="toggle-info">
@@ -323,95 +443,6 @@
                 <option value="500">500</option>
                 <option value="0">ALL</option>
               </select>
-            </div>
-          </div>
-
-          <!-- Plugin: Vision -->
-          <div class="config-card">
-            <div class="card-header">
-              <h3><i class="fas fa-code"></i> Python Execute</h3>
-              <p class="card-desc">Configure `python_execute.params.python_bin` for Python execution and verification.</p>
-            </div>
-            <div class="modern-row">
-              <label>Python Binary</label>
-              <input type="text" id="python-execute-bin" class="modern-input" placeholder="python">
-            </div>
-          </div>
-
-          <div class="config-card">
-            <div class="card-header">
-              <h3><i class="fas fa-eye"></i> Vision</h3>
-              <p class="card-desc">Configure `plugins.image_vision.params` for the image vision tool.</p>
-            </div>
-            <div class="modern-row">
-              <label>Vision API URL</label>
-              <input type="text" id="vision-api-url" class="modern-input" placeholder="https://api.openai.com/v1/chat/completions">
-            </div>
-            <div class="modern-row">
-              <label>Vision API Key</label>
-              <input type="password" id="vision-api-key" class="modern-input" placeholder="Your vision API key">
-            </div>
-            <div class="modern-row">
-              <label>Vision Model</label>
-              <input type="text" id="vision-model" class="modern-input" placeholder="gpt-5.4-mini">
-            </div>
-          </div>
-
-          <!-- Plugin: CLI / SSH -->
-          <div class="config-card">
-            <div class="card-header">
-              <h3><i class="fas fa-terminal"></i> CLI & SSH Connection</h3>
-            </div>
-            <div class="modern-row toggle-row mb-3" style="margin-bottom: 15px;">
-              <div class="toggle-info">
-                <label for="ssh-enabled">Enable Remote Execution (SSH)</label>
-                <span class="info-text">Execute CLI commands on a remote server.</span>
-              </div>
-              <label class="switch">
-                <input type="checkbox" id="ssh-enabled">
-                <span class="slider round"></span>
-              </label>
-            </div>
-            <div class="modern-row">
-              <label>CLI Prompt File</label>
-              <input type="text" id="cli-prompt" class="modern-input">
-            </div>
-            <div class="modern-row">
-              <label>SSH Host</label>
-              <input type="text" id="ssh-host" class="modern-input" placeholder="127.0.0.1">
-            </div>
-            <div class="modern-row">
-              <label>SSH Port</label>
-              <input type="number" id="ssh-port" class="modern-input" placeholder="22">
-            </div>
-            <div class="modern-row">
-              <label>SSH Username</label>
-              <input type="text" id="ssh-username" class="modern-input" placeholder="root">
-            </div>
-            <div class="modern-row">
-              <label>SSH Password</label>
-              <input type="password" id="ssh-password" class="modern-input">
-            </div>
-          </div>
-
-          <!-- MCP Services: BioTools -->
-          <div class="config-card">
-            <div class="card-header">
-              <h3><i class="fas fa-dna"></i> MCP Server: BioTools</h3>
-            </div>
-            <div class="modern-row toggle-row mb-3" style="margin-bottom: 15px;">
-              <div class="toggle-info">
-                <label for="mcp_server-biotools-disabled">Disable BioTools</label>
-                <span class="info-text">Turn off this service globally.</span>
-              </div>
-              <label class="switch">
-                <input type="checkbox" id="mcp_server-biotools-disabled">
-                <span class="slider round"></span>
-              </label>
-            </div>
-            <div class="modern-row">
-              <label>Server URL</label>
-              <input type="text" id="mcp_server-biotools-url" class="modern-input" placeholder="http://localhost:8080">
             </div>
           </div>
 
