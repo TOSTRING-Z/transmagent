@@ -229,6 +229,7 @@ html, body {
   display: flex;
   gap: 12px;
   min-width: 0;
+  width: 100%;
 }
 
 .demo-msg .msg-avatar {
@@ -252,6 +253,7 @@ html, body {
   gap: 8px;
   min-width: 0;
   width: 100%;
+  flex: 1 1 auto;
 }
 
 .demo-msg .msg-meta {
@@ -302,7 +304,9 @@ html, body {
 }
 
 .demo-msg .bubble {
-  width: min(100%, 720px);
+  width: 100%;
+  max-width: 720px;
+  min-width: 0;
   padding: 14px 16px;
   border-radius: 18px;
   font-size: 14px;
@@ -310,6 +314,7 @@ html, body {
   word-break: break-word;
   overflow-wrap: anywhere;
   white-space: pre-wrap;
+  align-self: flex-start;
 }
 
 .demo-msg[data-role="user"] .msg-avatar {
@@ -403,13 +408,16 @@ html, body {
 
 /* ===== Tool 信息面板 ===== */
 .demo-msg .info {
-  width: min(100%, 720px);
+  width: 100%;
+  max-width: 720px;
+  min-width: 0;
   padding: 10px 12px;
   background: linear-gradient(180deg, #fffdf7 0%, #fff8eb 100%);
   border: 1px solid rgba(245, 158, 11, 0.20);
   border-radius: 14px;
   font-size: 12px;
   box-shadow: var(--shadow-sm);
+  align-self: flex-start;
 }
 
 .demo-msg .info.hidden { display: none !important; }

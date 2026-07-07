@@ -455,21 +455,7 @@ $$
       scrollToBottom();
     }
   };
-  var user_message_template = `<div class="demo-msg" data-role="user" data-idx="">
-  <div class="bubble"></div>
-</div>`;
-  var system_message_template = `<div class="demo-msg" data-role="system" data-idx="">
-  <div class="info hidden">
-    <div class="info-header">Call information</div>
-    <div class="info-content" data-content=""></div>
-  </div>
-  <div class="message" data-content=""></div>
-  <div class="thinking">
-    <div class="dot"></div>
-    <div class="dot"></div>
-    <div class="dot"></div>
-  </div>
-</div>`;
+  var timeline_message_template = `<div class="demo-msg" data-role="system"><div class="timeline-rail" aria-hidden="true"><div class="timeline-line"></div><div class="timeline-dot"></div></div><div class="msg-shell"><div class="msg-avatar">A</div><div class="msg-card"><div class="msg-meta"><div class="msg-meta-left"><span class="role-badge">系统响应</span><span class="msg-index">#01</span></div><span class="msg-caption">分析 / 解释</span></div><div class="thinking hidden"><span class="dot"></span><span class="dot"></span><span class="dot"></span></div><div class="bubble message"></div><div class="info hidden"><div class="info-header">工具信息</div><div class="info-content"></div></div></div></div></div>`;
   function renderEmptyState(reason) {
     const messagesEl = document.getElementById("messages");
     if (!messagesEl)
@@ -517,50 +503,89 @@ $$
       });
     }
   }
+  function getRoleMeta(msg) {
+    if (msg.role === "user") {
+      return {
+        badge: "用户输入",
+        caption: "需求 / 指令",
+        avatar: "U"
+      };
+    }
+    if (msg.role === "tool") {
+      return {
+        badge: "工具输出",
+        caption: "执行结果",
+        avatar: "T"
+      };
+    }
+    return {
+      badge: "系统响应",
+      caption: "分析 / 解释",
+      avatar: "A"
+    };
+  }
+  function compactToolText(content) {
+    return content.replace(/\r\n/g, "\n").replace(/\n\s*\n+/g, "\n").trim();
+  }
   async function renderMessage(msg, idx) {
     const messagesEl = document.getElementById("messages");
     if (!messagesEl)
       return;
-    if (msg.role === "user") {
-      const wrapper2 = document.createElement("div");
-      wrapper2.innerHTML = user_message_template;
-      const node2 = wrapper2.firstElementChild;
-      node2.dataset.idx = String(idx);
-      const bubble = node2.getElementsByClassName("bubble")[0];
-      bubble.textContent = msg.content;
-      bubble.dataset.content = msg.content;
-      messagesEl.appendChild(node2);
-      return;
-    }
     const wrapper = document.createElement("div");
-    wrapper.innerHTML = system_message_template;
+    wrapper.innerHTML = timeline_message_template;
     const node = wrapper.firstElementChild;
     node.dataset.idx = String(idx);
     node.dataset.role = msg.role;
-    const messageDiv = node.getElementsByClassName("message")[0];
+    const meta = getRoleMeta(msg);
+    const avatar = node.getElementsByClassName("msg-avatar")[0];
+    const badge = node.getElementsByClassName("role-badge")[0];
+    const caption = node.getElementsByClassName("msg-caption")[0];
+    const msgIndex = node.getElementsByClassName("msg-index")[0];
+    const bubble = node.getElementsByClassName("bubble")[0];
     const thinking = node.getElementsByClassName("thinking")[0];
+    const rail = node.getElementsByClassName("timeline-rail")[0];
+    if (avatar)
+      avatar.textContent = meta.avatar;
+    if (badge)
+      badge.textContent = meta.badge;
+    if (caption)
+      caption.textContent = meta.caption;
+    if (msgIndex)
+      msgIndex.textContent = `#${String(idx + 1).padStart(2, "0")}`;
+    if (idx === 0 && rail)
+      rail.classList.add("is-first");
+    if (msg.role === "user") {
+      if (thinking)
+        thinking.classList.add("hidden");
+      bubble.textContent = msg.content;
+      bubble.dataset.content = msg.content;
+      messagesEl.appendChild(node);
+      return;
+    }
     if (thinking)
       thinking.classList.remove("hidden");
     messagesEl.appendChild(node);
     const thinkMs = Math.min(600, 200 + msg.content.length / 20);
     await new Promise((r) => setTimeout(r, thinkMs));
+    const messageContent = msg.role === "tool" ? compactToolText(msg.content) : msg.content;
     try {
-      const html = await renderMarkdown(msg.content);
-      messageDiv.innerHTML = html;
-      messageDiv.dataset.content = msg.content;
+      const html = await renderMarkdown(messageContent);
+      bubble.innerHTML = html;
+      bubble.dataset.content = messageContent;
     } catch (e) {
-      messageDiv.innerText = msg.content;
+      bubble.innerText = messageContent;
     }
     if (msg.role === "tool" && msg.info) {
       const infoDiv = node.getElementsByClassName("info")[0];
       const infoContent = node.getElementsByClassName("info-content")[0];
       if (infoDiv && infoContent) {
+        const compactInfo = compactToolText(msg.info);
         infoDiv.classList.remove("hidden");
         try {
-          const infoHtml = await renderMarkdown(msg.info);
+          const infoHtml = await renderMarkdown(compactInfo);
           infoContent.innerHTML = infoHtml;
         } catch (e) {
-          infoContent.innerText = msg.info;
+          infoContent.innerText = compactInfo;
         }
       }
     }
