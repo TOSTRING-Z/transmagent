@@ -82,14 +82,22 @@ export class ConfigWindow extends BaseWindow {
             return await Verifier.verifyMcp(mcpConfig);
         });
 
-        ipcMain.handle('verify-python', async (_, pythonBin: string) => {
-            // python_bin comes from python_execute tool's Parameters
-            return await Verifier.verifyPython(pythonBin);
+        ipcMain.handle('verify-python', async () => {
+            const config = this.utils().getConfig() || {};
+            return await Verifier.verifyPython(config?.python_execute?.params);
         });
 
         ipcMain.handle('verify-vision', async (_, visionConfig: any) => {
-            // visionConfig typically comes from image_vision tool's Parameters
-            return await Verifier.verifyVision(visionConfig);
+            // Prefer the live form payload; otherwise fall back to persisted plugin config.
+            const config = this.utils().getConfig() || {};
+            const fallbackVisionConfig = {
+                plugins: {
+                    image_vision: {
+                        params: config?.plugins?.image_vision?.params || {}
+                    }
+                }
+            };
+            return await Verifier.verifyVision(visionConfig && Object.keys(visionConfig).length ? visionConfig : fallbackVisionConfig);
         });
 
         ipcMain.handle('verify-all', async (_, params: any) => {
@@ -101,8 +109,16 @@ export class ConfigWindow extends BaseWindow {
                 toolCallConfig,
                 sshConfig,
                 mcpConfig,
-                pythonBin: params?.pythonBin,
-                visionConfig: params?.visionConfig
+                pythonConfig: this.utils().getConfig()?.python_execute?.params || {},
+                visionConfig: params?.visionConfig && Object.keys(params.visionConfig).length
+                    ? params.visionConfig
+                    : {
+                        plugins: {
+                            image_vision: {
+                                params: this.utils().getConfig()?.plugins?.image_vision?.params || {}
+                            }
+                        }
+                    }
             });
         });
     }

@@ -326,6 +326,37 @@
             </div>
           </div>
 
+          <!-- Plugin: Vision -->
+          <div class="config-card">
+            <div class="card-header">
+              <h3><i class="fas fa-code"></i> Python Execute</h3>
+              <p class="card-desc">Configure `python_execute.params.python_bin` for Python execution and verification.</p>
+            </div>
+            <div class="modern-row">
+              <label>Python Binary</label>
+              <input type="text" id="python-execute-bin" class="modern-input" placeholder="python">
+            </div>
+          </div>
+
+          <div class="config-card">
+            <div class="card-header">
+              <h3><i class="fas fa-eye"></i> Vision</h3>
+              <p class="card-desc">Configure `plugins.image_vision.params` for the image vision tool.</p>
+            </div>
+            <div class="modern-row">
+              <label>Vision API URL</label>
+              <input type="text" id="vision-api-url" class="modern-input" placeholder="https://api.openai.com/v1/chat/completions">
+            </div>
+            <div class="modern-row">
+              <label>Vision API Key</label>
+              <input type="password" id="vision-api-key" class="modern-input" placeholder="Your vision API key">
+            </div>
+            <div class="modern-row">
+              <label>Vision Model</label>
+              <input type="text" id="vision-model" class="modern-input" placeholder="gpt-5.4-mini">
+            </div>
+          </div>
+
           <!-- Plugin: CLI / SSH -->
           <div class="config-card">
             <div class="card-header">
@@ -390,10 +421,6 @@
               <h3><i class="fas fa-check-circle"></i> Quick Verification</h3>
               <p class="card-desc">Run quick checks against configured endpoints (file paths / SSH / MCP / Python /
                 Vision).</p>
-            </div>
-            <div class="modern-row">
-              <label>Python Binary (for python_execute)</label>
-              <input type="text" id="verify-python-bin" class="modern-input" placeholder="python">
             </div>
             <div class="info-text" style="margin-top: 4px; font-size: 12px;">
               <i class="fas fa-info-circle"></i> File check validates <code>tool_call.extra_prompt</code> and

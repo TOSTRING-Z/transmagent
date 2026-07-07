@@ -227,49 +227,6 @@ $$
   async function renderMarkdown(content) {
     return await marked.parse(content);
   }
-  function tryFormatJson(content) {
-    if (typeof content !== "string")
-      return null;
-    const trimmed = content.trim();
-    if (!trimmed)
-      return null;
-    const looksLikeJson = (trimmed.startsWith("{") && trimmed.endsWith("}")) || (trimmed.startsWith("[") && trimmed.endsWith("]"));
-    if (!looksLikeJson)
-      return null;
-    try {
-      const parsed = JSON.parse(trimmed);
-      return JSON.stringify(parsed, null, 2);
-    } catch {
-      return null;
-    }
-  }
-  async function renderMessageContent(msg) {
-    const prettyJson = tryFormatJson(msg.content);
-    if (msg.role === "tool" && prettyJson !== null) {
-      const escaped = prettyJson.replace(/[&<>]/g, (char) => {
-        if (char === "&")
-          return "&amp;";
-        if (char === "<")
-          return "&lt;";
-        return "&gt;";
-      });
-      return `<div class="code-container json-output" data-collapsed="false">
-  <div class="code-header">
-    <div class="code-header-left">
-      <span class="language-tag">json</span>
-      <span class="line-count">${prettyJson.split("\n").length} lines</span>
-    </div>
-    <div class="code-header-right">
-      <button class="copy-btn" onclick="window.copyCode(this, event)" data-code="${encodeURIComponent(prettyJson)}" title="Copy code">Copy</button>
-    </div>
-  </div>
-  <div class="code-content">
-    <pre class="hljs"><code>${escaped}</code></pre>
-  </div>
-</div>`;
-    }
-    return await renderMarkdown(msg.content);
-  }
 
   // demo/main.ts
   var DemoPlayer = class {
@@ -513,20 +470,15 @@ $$
         </div>
         <span class="msg-caption"></span>
       </div>
-      <div class="msg-body">
-        <div class="info hidden">
-          <div class="info-header">
-            <i class="fas fa-screwdriver-wrench"></i>
-            <span>调用信息</span>
-          </div>
-          <div class="info-content" data-content=""></div>
-        </div>
-        <div class="bubble message" data-content=""></div>
-        <div class="thinking">
-          <div class="dot"></div>
-          <div class="dot"></div>
-          <div class="dot"></div>
-        </div>
+      <div class="info hidden">
+        <div class="info-header">Call information</div>
+        <div class="info-content" data-content=""></div>
+      </div>
+      <div class="bubble message" data-content=""></div>
+      <div class="thinking">
+        <div class="dot"></div>
+        <div class="dot"></div>
+        <div class="dot"></div>
       </div>
     </div>
   </div>
@@ -640,7 +592,7 @@ $$
     const thinkMs = Math.min(600, 200 + msg.content.length / 20);
     await new Promise((r) => setTimeout(r, thinkMs));
     try {
-      const html = await renderMessageContent(msg);
+      const html = await renderMarkdown(msg.content);
       bubble.innerHTML = html;
       bubble.dataset.content = msg.content;
     } catch (e) {
@@ -652,13 +604,8 @@ $$
       if (infoDiv && infoContent) {
         infoDiv.classList.remove("hidden");
         try {
-          const prettyInfoJson = tryFormatJson(msg.info);
-          if (prettyInfoJson !== null) {
-            infoContent.textContent = prettyInfoJson;
-          } else {
-            const infoHtml = await renderMarkdown(msg.info);
-            infoContent.innerHTML = infoHtml;
-          }
+          const infoHtml = await renderMarkdown(msg.info);
+          infoContent.innerHTML = infoHtml;
         } catch (e) {
           infoContent.innerText = msg.info;
         }
@@ -668,21 +615,6 @@ $$
       thinking.classList.add("hidden");
   }
   function setupConsole(player) {
-    function updateDurationStat(player) {
-      const statDuration = document.getElementById("stat-duration");
-      const statFormula = document.getElementById("stat-formula");
-      if (statDuration && statFormula) {
-        const intervalSec = player.interval / 1000;
-        const duration = (intervalSec * player.total) / player.speed;
-        statDuration.textContent = "~" + duration.toFixed(1) + "s";
-        let formulaStr = intervalSec.toFixed(1) + "s × " + player.total;
-        if (player.speed !== 1) {
-          formulaStr += " ÷ " + player.speed;
-        }
-        statFormula.textContent = formulaStr;
-      }
-    }
-
     const progressBar = document.getElementById("progress-bar-inner");
     const progressTrack = document.getElementById("progress-track");
     const empty = document.querySelector(".demo-empty");
@@ -702,8 +634,6 @@ $$
       const statTotal = document.getElementById("stat-total");
       if (statTotal)
         statTotal.textContent = String(total);
-      
-      updateDurationStat(player);
     };
     let isDragging = false;
     function seekFromEvent(e) {
@@ -743,16 +673,11 @@ $$
     document.getElementById("btn-next")?.addEventListener("click", () => player.next());
     const intervalSlider = document.getElementById("interval-slider");
     const intervalValue = document.getElementById("interval-value");
-    const intervalValueDisplay = document.getElementById("interval-value-display");
     intervalSlider?.addEventListener("input", () => {
       const v = parseInt(intervalSlider.value, 10);
       player.setInterval(v);
-      const textVal = (v / 1e3).toFixed(1) + "s";
       if (intervalValue)
-        intervalValue.textContent = textVal;
-      if (intervalValueDisplay)
-        intervalValueDisplay.textContent = textVal;
-      updateDurationStat(player);
+        intervalValue.textContent = (v / 1e3).toFixed(1) + "s";
     });
     document.querySelectorAll(".speed-btn").forEach((btn) => {
       btn.addEventListener("click", () => {
@@ -760,7 +685,6 @@ $$
         player.setSpeed(s);
         document.querySelectorAll(".speed-btn").forEach((b) => b.classList.remove("active"));
         btn.classList.add("active");
-        updateDurationStat(player);
       });
     });
     document.querySelectorAll(".loop-btn").forEach((btn) => {

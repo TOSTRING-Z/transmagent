@@ -192,7 +192,7 @@ export const getSessionId = (): string => {
 
 export const getDefaultConfig = (key: string | null = null): any => {
 
-    const defaultConfigPath = getDefault(sysConfig["transagent"]);
+    const defaultConfigPath = '/home/tostring/.transmagent/configs/config_transagent.json';
 
     let defaultConfig = existsSync(defaultConfigPath) ? parseJsonContent(readFileSync(defaultConfigPath, 'utf-8')) : {};
 

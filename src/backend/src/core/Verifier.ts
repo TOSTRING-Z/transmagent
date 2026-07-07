@@ -158,9 +158,11 @@ export class Verifier {
      * 4. Python environment validation
      * Verifies python_execute tool's python_bin parameter is usable
      */
-    public static verifyPython(pythonBin: string): Promise<VerifyResult> {
+    public static verifyPython(pythonConfig: string | { python_bin?: string } | undefined | null): Promise<VerifyResult> {
         return new Promise((resolve) => {
-            const cmd = pythonBin || 'python';
+            const cmd = typeof pythonConfig === 'string'
+                ? pythonConfig || 'python'
+                : pythonConfig?.python_bin || 'python';
             const proc = spawn(cmd, ['--version'], { env: { ...process.env, PYTHONIOENCODING: 'utf-8' } });
 
             let stdout = '';
@@ -209,9 +211,12 @@ export class Verifier {
             if (!visionConfig) {
                 return { success: false, message: 'Vision config is empty' };
             }
-            const { base_url, api_key, model } = visionConfig;
-            if (!base_url) {
-                return { success: false, message: 'Vision base_url not configured' };
+
+            const params = visionConfig?.plugins?.image_vision?.params || visionConfig;
+            const { api_url, api_key, model } = params || {};
+
+            if (!api_url) {
+                return { success: false, message: 'Vision api_url not configured' };
             }
             if (!api_key) {
                 return { success: false, message: 'Vision api_key not configured' };
@@ -219,9 +224,8 @@ export class Verifier {
 
             // Send a minimal request to verify connectivity and auth.
             // Most OpenAI-compatible APIs support /models endpoint or a tiny chat completion.
-            const url = `${base_url.replace(/\/$/, '')}/chat/completions`;
-            const response = await axios.post(url, {
-                model: model || 'gpt-4-vision-preview',
+            const response = await axios.post(api_url, {
+                model: model || 'gpt-4.1-mini',
                 messages: [{ role: 'user', content: 'ping' }],
                 max_tokens: 1
             }, {
@@ -233,7 +237,7 @@ export class Verifier {
             if (response.status === 200) {
                 return {
                     success: true,
-                    message: `Vision API OK: ${model || 'default model'} at ${base_url}`
+                    message: `Vision API OK: ${model || 'default model'} at ${api_url}`
                 };
             }
             if (response.status === 401 || response.status === 403) {
@@ -247,11 +251,12 @@ export class Verifier {
                 message: `Vision API returned ${response.status}: ${JSON.stringify(response.data?.error || response.data).slice(0, 200)}`
             };
         } catch (err: any) {
+            const apiUrl = visionConfig?.plugins?.image_vision?.params?.api_url || visionConfig?.api_url;
             if (err.code === 'ECONNREFUSED') {
-                return { success: false, message: `Vision API connection refused: ${visionConfig?.base_url}` };
+                return { success: false, message: `Vision API connection refused: ${apiUrl}` };
             }
             if (err.code === 'ENOTFOUND') {
-                return { success: false, message: `Vision API host not found: ${visionConfig?.base_url}` };
+                return { success: false, message: `Vision API host not found: ${apiUrl}` };
             }
             return { success: false, message: `Vision error: ${err.message}` };
         }
@@ -264,7 +269,7 @@ export class Verifier {
         toolCallConfig?: any;
         sshConfig?: any;
         mcpConfig?: any;
-        pythonBin?: string;
+        pythonConfig?: { python_bin?: string } | string;
         visionConfig?: any;
     }): Promise<Record<string, VerifyResult>> {
         const results: Record<string, VerifyResult> = {};
@@ -275,7 +280,7 @@ export class Verifier {
         // SSH check (parallel)
         const sshPromise = params.sshConfig ? this.verifySsh(params.sshConfig) : Promise.resolve(null);
         const mcpPromise = params.mcpConfig ? this.verifyMcp(params.mcpConfig) : Promise.resolve(null);
-        const pyPromise = this.verifyPython(params.pythonBin || '');
+        const pyPromise = this.verifyPython(params.pythonConfig);
         const visionPromise = params.visionConfig ? this.verifyVision(params.visionConfig) : Promise.resolve(null);
 
         const [ssh, mcp, py, vision] = await Promise.all([sshPromise, mcpPromise, pyPromise, visionPromise]);
