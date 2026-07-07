@@ -125,7 +125,7 @@ export class ElectronUIController {
         emitter.onEvent('toolStart', (p) =>
             this.send('streamData', {
                 ...p,
-                content: `\n\n- 📋 **Task ${p.taskNumber}** | ${p.content}`,
+                content: `\n\n- 📋 **Tool ${p.taskNumber}** | ${p.content}`,
                 reasoning_content: p.reasoning_content,
             })
         );
