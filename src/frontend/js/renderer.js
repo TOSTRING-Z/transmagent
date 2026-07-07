@@ -130,29 +130,50 @@
     }
   }
   var htmlContent = `
-<div class="base-container">
-    <div class="base-header">
-      <div class="base-icon">B</div>
-      <h1 class="base-title">I am TransMAgent, an AI agent specialized in transcriptional regulation analysis.</h1>
-    </div>
-    <div class="options-container">
-      <div data-mode="transagent" class="option-card mode-card">
-        <div class="option-icon">\u{1F9E0}</div>
-        <h3 class="option-title">TransAgent</h3>
-        <p class="option-desc">Default mode with serial task and tool scheduling, following the "subtask \u2013 record \u2013 reflect" workflow</p>
-      </div>
-      <div data-mode="multagent" class="option-card mode-card">
-        <div class="option-icon">\u{1F916}</div>
-        <h3 class="option-title">MultAgent</h3>
-        <p class="option-desc">Multi-agent collaboration mode driven by task documents, enabling specialized division of labor across sub-agents</p>
-      </div>
-      <div data-mode="baseagent" class="option-card mode-card">
-        <div class="option-icon">\u2699\uFE0F</div>
-        <h3 class="option-title">BaseAgent</h3>
-        <p class="option-desc">Base mode for general instruction handling, providing straightforward command execution</p>
+<div class="base-container myocardial-home">
+  <section class="myocardial-hero">
+    <div class="myocardial-visual">
+      <img src="img/myocardial-transcription-hero.png" alt="Myocardial transcription regulation intelligence" class="myocardial-hero-image" />
+      <div class="myocardial-visual-badge">
+        <span>Cardio-Omics</span>
+        <strong>TF \xB7 Gene \xB7 Pathway</strong>
       </div>
     </div>
-  </div>
+
+    <div class="myocardial-panel">
+      <div class="myocardial-kicker">TransMAgent for Myocardial Disease</div>
+      <h1 class="base-title myocardial-title">\u5FC3\u808C\u75BE\u75C5\u8F6C\u5F55\u8C03\u63A7\u667A\u80FD\u4F53</h1>
+      <p class="myocardial-subtitle">
+        \u9762\u5411\u5FC3\u8870\u3001\u5FC3\u808C\u80A5\u539A\u3001\u7F3A\u8840\u518D\u704C\u6CE8\u4E0E\u5FC3\u808C\u75C5\u7814\u7A76\uFF0C\u6574\u5408\u8F6C\u5F55\u56E0\u5B50\u3001\u9776\u57FA\u56E0\u3001\u901A\u8DEF\u5BCC\u96C6\u548C\u8C03\u63A7\u7F51\u7EDC\u63A8\u65AD\uFF0C\u8F85\u52A9\u4ECE\u7EC4\u5B66\u6570\u636E\u4E2D\u53D1\u73B0\u53EF\u89E3\u91CA\u7684\u75BE\u75C5\u673A\u5236\u3002
+      </p>
+
+      <div class="myocardial-tags">
+        <span>\u{1FAC0} \u5FC3\u808C\u75BE\u75C5\u673A\u5236</span>
+        <span>\u{1F9EC} \u8F6C\u5F55\u56E0\u5B50\u8C03\u63A7</span>
+        <span>\u{1F4CA} \u5DEE\u5F02\u8868\u8FBE\u89E3\u6790</span>
+        <span>\u{1F517} \u8C03\u63A7\u7F51\u7EDC\u63A8\u65AD</span>
+      </div>
+
+      <div class="options-container myocardial-options">
+        <div data-mode="transagent" class="option-card mode-card">
+          <div class="option-icon">\u{1FAC0}</div>
+          <h3 class="option-title">\u5FC3\u808C\u75BE\u75C5\u5206\u6790</h3>
+          <p class="option-desc">\u56F4\u7ED5\u75BE\u75C5\u8868\u578B\u3001\u5019\u9009\u57FA\u56E0\u548C\u901A\u8DEF\u8BC1\u636E\uFF0C\u4E32\u884C\u62C6\u89E3\u5206\u6790\u4EFB\u52A1\u5E76\u6C89\u6DC0\u53EF\u8FFD\u8E2A\u7ED3\u8BBA\u3002</p>
+        </div>
+        <div data-mode="multagent" class="option-card mode-card">
+          <div class="option-icon">\u{1F9EC}</div>
+          <h3 class="option-title">\u8F6C\u5F55\u8C03\u63A7\u89E3\u6790</h3>
+          <p class="option-desc">\u805A\u7126\u8F6C\u5F55\u56E0\u5B50\u3001\u9776\u57FA\u56E0\u3001\u589E\u5F3A\u5B50\u7EBF\u7D22\u4E0E\u4E0A\u4E0B\u6E38\u8C03\u63A7\u5173\u7CFB\uFF0C\u6784\u5EFA\u673A\u5236\u5047\u8BBE\u3002</p>
+        </div>
+        <div data-mode="baseagent" class="option-card mode-card">
+          <div class="option-icon">\u{1F9E0}</div>
+          <h3 class="option-title">\u591A\u667A\u80FD\u4F53\u673A\u5236\u63A8\u65AD</h3>
+          <p class="option-desc">\u7EC4\u7EC7\u68C0\u7D22\u3001\u8BA1\u7B97\u3001\u53EF\u89C6\u5316\u548C\u7ED3\u679C\u89E3\u91CA\u667A\u80FD\u4F53\u534F\u4F5C\uFF0C\u5F62\u6210\u5FC3\u808C\u8C03\u63A7\u5206\u6790\u62A5\u544A\u3002</p>
+        </div>
+      </div>
+    </div>
+  </section>
+</div>
 `;
   function handleClear() {
     DOM.messages.innerHTML = "";

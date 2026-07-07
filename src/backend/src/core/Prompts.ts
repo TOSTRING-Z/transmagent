@@ -257,8 +257,9 @@ Your output must be parsed by a strict JSON parser.
 
 **[STATE 1: TASK IN PROGRESS] -> JSON ONLY**
 If the overarching goal is NOT 100% complete, you MUST output valid JSON for your tool execution.
-- 🚫 **NO TEXT OUTSIDE JSON**: Do not output ANY plain text before or after the JSON block. Do not say "Done" or "Moving to next step" outside the JSON.
-- ✅ **EXPLAIN BEHAVIOR IN "content"**: You MUST use the \`"content"\` field inside the JSON to provide the immediate internal reasoning and purpose behind this specific step, tailored to the operational boundaries of the active mode. *(Note: This field serves as your cognitive workspace; write your core reasoning here in the requested target language, but DO NOT print or reveal raw meta instructions or HUD details).*
+- 🚫 **NO TEXT OUTSIDE JSON**: Do not output ANY plain text before or after the JSON block.
+- ⚠️ **MANDATORY TOOL TRIGGER**: Every JSON block MUST contain a valid, existing tool name from the manifest in the \`"tool"\` field. You are STRICTLY FORBIDDEN from outputting a JSON with an empty, missing, or null \`"tool"\` field. If you are inspecting or analyzing, you MUST invoke a read-only tool to back up your thoughts.
+- ✅ **EXPLAIN BEHAVIOR IN "content"**: Use the \`"content"\` field inside the JSON to provide the immediate internal reasoning...
 
 **Tool Use Schema**:
 {

@@ -250,10 +250,23 @@ html, body {
 .demo-msg .msg-card {
   display: flex;
   flex-direction: column;
-  gap: 8px;
+  gap: 10px;
   min-width: 0;
   width: 100%;
   flex: 1 1 auto;
+}
+
+.demo-msg .msg-body {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  min-width: 0;
+  padding: 12px 14px 14px;
+  background: rgba(255, 255, 255, 0.56);
+  border: 1px solid rgba(124, 58, 237, 0.08);
+  border-radius: 22px;
+  box-shadow: 0 10px 30px rgba(76, 46, 156, 0.06);
+  backdrop-filter: blur(10px);
 }
 
 .demo-msg .msg-meta {
@@ -262,7 +275,7 @@ html, body {
   justify-content: space-between;
   gap: 12px;
   min-width: 0;
-  padding-top: 2px;
+  padding: 2px 4px 0;
 }
 
 .demo-msg .msg-meta-left {
@@ -289,6 +302,7 @@ html, body {
   font-size: 11px;
   font-weight: 700;
   letter-spacing: 0.02em;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.6);
 }
 
 .demo-msg .msg-index {
@@ -301,20 +315,23 @@ html, body {
   color: var(--text-muted);
   font-size: 12px;
   white-space: nowrap;
+  padding-right: 4px;
 }
 
 .demo-msg .bubble {
   width: 100%;
   max-width: 720px;
   min-width: 0;
-  padding: 14px 16px;
-  border-radius: 18px;
+  padding: 16px 18px;
+  border-radius: 20px;
   font-size: 14px;
-  line-height: 1.68;
+  line-height: 1.72;
   word-break: break-word;
   overflow-wrap: anywhere;
-  white-space: pre-wrap;
+  white-space: normal;
   align-self: flex-start;
+  position: relative;
+  overflow: hidden;
 }
 
 .demo-msg[data-role="user"] .msg-avatar {
@@ -330,10 +347,15 @@ html, body {
   background: rgba(124, 58, 237, 0.12);
 }
 
+.demo-msg[data-role="user"] .msg-body {
+  background: linear-gradient(180deg, rgba(124, 58, 237, 0.08) 0%, rgba(99, 102, 241, 0.04) 100%);
+  border-color: rgba(124, 58, 237, 0.12);
+}
+
 .demo-msg[data-role="user"] .bubble {
   background: var(--user-bubble);
   color: #fff;
-  border-radius: 18px 18px 6px 18px;
+  border-radius: 20px 20px 8px 20px;
   box-shadow: 0 10px 24px rgba(124, 58, 237, 0.24);
 }
 
@@ -343,6 +365,10 @@ html, body {
 
 .demo-msg[data-role="system"] .timeline-dot {
   background: #6366f1;
+}
+
+.demo-msg[data-role="system"] .msg-body {
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.96) 0%, rgba(250, 249, 255, 0.92) 100%);
 }
 
 .demo-msg[data-role="system"] .bubble {
@@ -368,6 +394,11 @@ html, body {
   color: #b45309;
 }
 
+.demo-msg[data-role="tool"] .msg-body {
+  background: linear-gradient(180deg, rgba(255, 248, 235, 0.78) 0%, rgba(255, 251, 240, 0.92) 100%);
+  border-color: rgba(245, 158, 11, 0.12);
+}
+
 .demo-msg[data-role="tool"] .bubble {
   background: linear-gradient(180deg, #fffaf0 0%, #fff7e6 100%);
   border: 1px solid rgba(245, 158, 11, 0.26);
@@ -387,6 +418,7 @@ html, body {
   border: 1px solid var(--border-soft);
   border-radius: 14px;
   box-shadow: var(--shadow-sm);
+  margin-left: 2px;
 }
 
 .demo-msg .thinking.hidden { display: none !important; }
@@ -411,10 +443,10 @@ html, body {
   width: 100%;
   max-width: 720px;
   min-width: 0;
-  padding: 10px 12px;
+  padding: 12px 14px;
   background: linear-gradient(180deg, #fffdf7 0%, #fff8eb 100%);
   border: 1px solid rgba(245, 158, 11, 0.20);
-  border-radius: 14px;
+  border-radius: 16px;
   font-size: 12px;
   box-shadow: var(--shadow-sm);
   align-self: flex-start;
@@ -422,20 +454,25 @@ html, body {
 
 .demo-msg .info.hidden { display: none !important; }
 .demo-msg .info-header {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
   font-weight: 700;
   color: #b45309;
-  margin-bottom: 6px;
+  margin-bottom: 8px;
   font-size: 11px;
   text-transform: uppercase;
   letter-spacing: 0.06em;
 }
 .demo-msg .info-content {
   color: var(--text-secondary);
-  max-height: 200px;
-  overflow-y: auto;
+  max-height: 220px;
+  overflow: auto;
   font-family: 'Consolas', monospace;
   font-size: 11px;
-  line-height: 1.5;
+  line-height: 1.58;
+  padding-right: 2px;
+  white-space: pre-wrap;
 }
 
 /* ===== Markdown 排版 (demo-msg 内 scoped) ===== */
@@ -450,20 +487,22 @@ html, body {
 .demo-msg .message h2 { font-size: 17px; }
 .demo-msg .message h3 { font-size: 15px; }
 
-.demo-msg .message p { margin: 3px 0; line-height: 1.58; }
+.demo-msg .message > :first-child { margin-top: 0; }
+.demo-msg .message > :last-child { margin-bottom: 0; }
+.demo-msg .message p { margin: 6px 0; line-height: 1.68; }
 
 .demo-msg .message ul, .demo-msg .message ol {
-  margin: 4px 0;
+  margin: 8px 0;
   padding-left: 22px;
 }
-.demo-msg .message li { margin: 2px 0; line-height: 1.55; }
+.demo-msg .message li { margin: 4px 0; line-height: 1.62; }
 
 .demo-msg .message blockquote {
-  margin: 6px 0;
-  padding: 6px 12px;
+  margin: 10px 0;
+  padding: 10px 14px;
   background: var(--primary-soft);
   border-left: 3px solid var(--primary);
-  border-radius: 4px;
+  border-radius: 10px;
   color: var(--text-secondary);
   font-style: italic;
 }
@@ -556,19 +595,30 @@ html, body {
   color: #4ade80;
 }
 
-.demo-msg .code-content { padding: 10px 14px; overflow-x: auto; max-height: 500px; }
+.demo-msg .code-content { padding: 0; overflow: auto; max-height: 500px; }
 .demo-msg .code-content.collapsed { max-height: 130px; overflow: hidden; }
 .demo-msg .code-content pre {
   margin: 0;
-  padding: 10px 14px;
+  padding: 14px 16px;
   background: var(--bg-card-soft);
   color: var(--text-primary);
   font-family: 'JetBrains Mono', 'Consolas', 'Menlo', monospace;
   font-size: 12.5px;
-  line-height: 1.6;
-  word-break: break-all;
-  overflow-wrap: anywhere;
-  white-space: pre-wrap;
+  line-height: 1.65;
+  word-break: normal;
+  overflow-wrap: normal;
+  white-space: pre;
+  min-width: max-content;
+}
+
+.demo-msg .code-content code {
+  white-space: inherit;
+  word-break: inherit;
+  overflow-wrap: inherit;
+}
+
+.demo-msg .json-output .code-content pre {
+  background: linear-gradient(180deg, #fbfaff 0%, #f6f4ff 100%);
 }
 
 /* ===== Mermaid 流程图 ===== */
