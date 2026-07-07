@@ -6,6 +6,7 @@ import { contextBridge, ipcRenderer } from 'electron';
 // (e.g. arbitrary file system or shell access via the main process).
 const ALLOWED_SEND_CHANNELS = new Set<string>([
   'response-system-prompt',
+  'open-code-editor-content',
 ]);
 
 contextBridge.exposeInMainWorld('electronAPI', {
@@ -62,8 +63,6 @@ contextBridge.exposeInMainWorld('electronAPI', {
   BGTasks: (data: Record<string, any>) => ipcRenderer.invoke('bgtasks', data),
   BGTaskDetails: (data: { type: string; taskId: string }) => ipcRenderer.invoke('bgtask-details', data),
 
-  // ── Quick Verification (Agent Configuration) ─────────────────────────
-  // ── Quick Verification (Agent Configuration) ─────────────────────────
   // File check sources tool_call.extra_prompt / cli_prompt from config internally.
   verifyFile: () => ipcRenderer.invoke('verify-file'),
   verifySsh: () => ipcRenderer.invoke('verify-ssh'),
@@ -72,4 +71,5 @@ contextBridge.exposeInMainWorld('electronAPI', {
   verifyVision: (visionConfig?: any) => ipcRenderer.invoke('verify-vision', visionConfig || {}),
   verifyAll: (params?: { pythonBin?: string; visionConfig?: any }) => ipcRenderer.invoke('verify-all', params || {}),
   openDemoWindow: () => ipcRenderer.send('open-demo-window'),
+  openCodeEditorContent: (content: string) => ipcRenderer.send('open-code-editor-content', content),
 });
