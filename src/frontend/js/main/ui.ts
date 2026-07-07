@@ -74,50 +74,29 @@ export function toggleSidebar() {
 // 3 Agent mode cards. Clicking a card ONLY switches the active Agent mode
 // (state + status bar + backend sync). No query is launched.
 const htmlContent = `
-<div class="base-container myocardial-home">
-  <section class="myocardial-hero">
-    <div class="myocardial-visual">
-      <img src="img/myocardial-transcription-hero.png" alt="Myocardial transcription regulation intelligence" class="myocardial-hero-image" />
-      <div class="myocardial-visual-badge">
-        <span>Cardio-Omics</span>
-        <strong>TF · Gene · Pathway</strong>
+<div class="base-container">
+    <div class="base-header">
+      <div class="base-icon">B</div>
+      <h1 class="base-title">I am TransMAgent, an AI agent specialized in transcriptional regulation analysis.</h1>
+    </div>
+    <div class="options-container">
+      <div data-mode="transagent" class="option-card mode-card">
+        <div class="option-icon">🧠</div>
+        <h3 class="option-title">TransAgent</h3>
+        <p class="option-desc">Default mode with serial task and tool scheduling, following the "subtask – record – reflect" workflow</p>
+      </div>
+      <div data-mode="multagent" class="option-card mode-card">
+        <div class="option-icon">🤖</div>
+        <h3 class="option-title">MultAgent</h3>
+        <p class="option-desc">Multi-agent collaboration mode driven by task documents, enabling specialized division of labor across sub-agents</p>
+      </div>
+      <div data-mode="baseagent" class="option-card mode-card">
+        <div class="option-icon">⚙️</div>
+        <h3 class="option-title">BaseAgent</h3>
+        <p class="option-desc">Base mode for general instruction handling, providing straightforward command execution</p>
       </div>
     </div>
-
-    <div class="myocardial-panel">
-      <div class="myocardial-kicker">TransMAgent for Myocardial Disease</div>
-      <h1 class="base-title myocardial-title">心肌疾病转录调控智能体</h1>
-      <p class="myocardial-subtitle">
-        面向心衰、心肌肥厚、缺血再灌注与心肌病研究，整合转录因子、靶基因、通路富集和调控网络推断，辅助从组学数据中发现可解释的疾病机制。
-      </p>
-
-      <div class="myocardial-tags">
-        <span>🫀 心肌疾病机制</span>
-        <span>🧬 转录因子调控</span>
-        <span>📊 差异表达解析</span>
-        <span>🔗 调控网络推断</span>
-      </div>
-
-      <div class="options-container myocardial-options">
-        <div data-mode="transagent" class="option-card mode-card">
-          <div class="option-icon">🫀</div>
-          <h3 class="option-title">心肌疾病分析</h3>
-          <p class="option-desc">围绕疾病表型、候选基因和通路证据，串行拆解分析任务并沉淀可追踪结论。</p>
-        </div>
-        <div data-mode="multagent" class="option-card mode-card">
-          <div class="option-icon">🧬</div>
-          <h3 class="option-title">转录调控解析</h3>
-          <p class="option-desc">聚焦转录因子、靶基因、增强子线索与上下游调控关系，构建机制假设。</p>
-        </div>
-        <div data-mode="baseagent" class="option-card mode-card">
-          <div class="option-icon">🧠</div>
-          <h3 class="option-title">多智能体机制推断</h3>
-          <p class="option-desc">组织检索、计算、可视化和结果解释智能体协作，形成心肌调控分析报告。</p>
-        </div>
-      </div>
-    </div>
-  </section>
-</div>
+  </div>
 `;
 
 export function handleClear() {
