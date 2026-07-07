@@ -237,20 +237,32 @@ class DemoPlayer {
 }
 
 // ============ 模板 ============
-const user_message_template = `<div class="demo-msg" data-role="user" data-idx="">
-  <div class="bubble"></div>
-</div>`;
-
-const system_message_template = `<div class="demo-msg" data-role="system" data-idx="">
-  <div class="info hidden">
-    <div class="info-header">Call information</div>
-    <div class="info-content" data-content=""></div>
+const timeline_message_template = `<div class="demo-msg" data-role="system" data-idx="">
+  <div class="timeline-rail" aria-hidden="true">
+    <div class="timeline-line"></div>
+    <div class="timeline-dot"></div>
   </div>
-  <div class="message" data-content=""></div>
-  <div class="thinking">
-    <div class="dot"></div>
-    <div class="dot"></div>
-    <div class="dot"></div>
+  <div class="msg-shell">
+    <div class="msg-avatar"></div>
+    <div class="msg-card">
+      <div class="msg-meta">
+        <div class="msg-meta-left">
+          <span class="role-badge"></span>
+          <span class="msg-index"></span>
+        </div>
+        <span class="msg-caption"></span>
+      </div>
+      <div class="info hidden">
+        <div class="info-header">Call information</div>
+        <div class="info-content" data-content=""></div>
+      </div>
+      <div class="bubble message" data-content=""></div>
+      <div class="thinking">
+        <div class="dot"></div>
+        <div class="dot"></div>
+        <div class="dot"></div>
+      </div>
+    </div>
   </div>
 </div>`;
 
@@ -306,46 +318,74 @@ function scrollToBottom() {
 }
 
 // ============ 消息渲染 ============
+function getRoleMeta(msg: DemoMessage) {
+  if (msg.role === 'user') {
+    return {
+      badge: '用户输入',
+      caption: '需求 / 指令',
+      avatar: 'U',
+    };
+  }
+  if (msg.role === 'tool') {
+    return {
+      badge: '工具输出',
+      caption: '执行结果',
+      avatar: 'T',
+    };
+  }
+  return {
+    badge: '系统响应',
+    caption: '分析 / 解释',
+    avatar: 'A',
+  };
+}
+
 async function renderMessage(msg: DemoMessage, idx: number) {
   const messagesEl = document.getElementById('messages');
   if (!messagesEl) return;
 
+  const wrapper = document.createElement('div');
+  wrapper.innerHTML = timeline_message_template;
+  const node = wrapper.firstElementChild as HTMLElement;
+  node.dataset.idx = String(idx);
+  node.dataset.role = msg.role;
+
+  const meta = getRoleMeta(msg);
+  const avatar = node.getElementsByClassName('msg-avatar')[0] as HTMLElement;
+  const badge = node.getElementsByClassName('role-badge')[0] as HTMLElement;
+  const caption = node.getElementsByClassName('msg-caption')[0] as HTMLElement;
+  const msgIndex = node.getElementsByClassName('msg-index')[0] as HTMLElement;
+  const bubble = node.getElementsByClassName('bubble')[0] as HTMLElement;
+  const thinking = node.getElementsByClassName('thinking')[0] as HTMLElement;
+  const rail = node.getElementsByClassName('timeline-rail')[0] as HTMLElement;
+
+  if (avatar) avatar.textContent = meta.avatar;
+  if (badge) badge.textContent = meta.badge;
+  if (caption) caption.textContent = meta.caption;
+  if (msgIndex) msgIndex.textContent = `#${String(idx + 1).padStart(2, '0')}`;
+  if (idx === 0 && rail) rail.classList.add('is-first');
+
   if (msg.role === 'user') {
-    const wrapper = document.createElement('div');
-    wrapper.innerHTML = user_message_template;
-    const node = wrapper.firstElementChild as HTMLElement;
-    node.dataset.idx = String(idx);
-    const bubble = node.getElementsByClassName('bubble')[0] as HTMLElement;
+    if (thinking) thinking.classList.add('hidden');
     bubble.textContent = msg.content;
     bubble.dataset.content = msg.content;
     messagesEl.appendChild(node);
     return;
   }
 
-  // system / tool
-  const wrapper = document.createElement('div');
-  wrapper.innerHTML = system_message_template;
-  const node = wrapper.firstElementChild as HTMLElement;
-  node.dataset.idx = String(idx);
-  node.dataset.role = msg.role;
-
-  const messageDiv = node.getElementsByClassName('message')[0] as HTMLElement;
-  const thinking = node.getElementsByClassName('thinking')[0] as HTMLElement;
-
   if (thinking) thinking.classList.remove('hidden');
   messagesEl.appendChild(node);
 
-  // 模拟思考延时
+  // 模拟思考延时,让系统/工具消息更有演示节奏
   const thinkMs = Math.min(600, 200 + msg.content.length / 20);
   await new Promise(r => setTimeout(r, thinkMs));
 
-  // 渲染 Markdown
   try {
     const html = await renderMarkdown(msg.content);
-    messageDiv.innerHTML = html;
-    messageDiv.dataset.content = msg.content;
+    bubble.innerHTML = html;
+    bubble.dataset.content = msg.content;
   } catch (e) {
-    messageDiv.innerText = msg.content;
+    bubble.innerText = msg.content;
   }
 
   if (msg.role === 'tool' && msg.info) {
