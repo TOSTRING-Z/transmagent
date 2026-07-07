@@ -455,7 +455,34 @@ $$
       scrollToBottom();
     }
   };
-  var timeline_message_template = `<div class="demo-msg" data-role="system"><div class="timeline-rail" aria-hidden="true"><div class="timeline-line"></div><div class="timeline-dot"></div></div><div class="msg-shell"><div class="msg-avatar">A</div><div class="msg-card"><div class="msg-meta"><div class="msg-meta-left"><span class="role-badge">系统响应</span><span class="msg-index">#01</span></div><span class="msg-caption">分析 / 解释</span></div><div class="thinking hidden"><span class="dot"></span><span class="dot"></span><span class="dot"></span></div><div class="bubble message"></div><div class="info hidden"><div class="info-header">工具信息</div><div class="info-content"></div></div></div></div></div>`;
+  var timeline_message_template = `<div class="demo-msg" data-role="system" data-idx="">
+  <div class="timeline-rail" aria-hidden="true">
+    <div class="timeline-line"></div>
+    <div class="timeline-dot"></div>
+  </div>
+  <div class="msg-shell">
+    <div class="msg-avatar"></div>
+    <div class="msg-card">
+      <div class="msg-meta">
+        <div class="msg-meta-left">
+          <span class="role-badge"></span>
+          <span class="msg-index"></span>
+        </div>
+        <span class="msg-caption"></span>
+      </div>
+      <div class="info hidden">
+        <div class="info-header">Call information</div>
+        <div class="info-content" data-content=""></div>
+      </div>
+      <div class="bubble message" data-content=""></div>
+      <div class="thinking">
+        <div class="dot"></div>
+        <div class="dot"></div>
+        <div class="dot"></div>
+      </div>
+    </div>
+  </div>
+</div>`;
   function renderEmptyState(reason) {
     const messagesEl = document.getElementById("messages");
     if (!messagesEl)
@@ -506,26 +533,23 @@ $$
   function getRoleMeta(msg) {
     if (msg.role === "user") {
       return {
-        badge: "用户输入",
-        caption: "需求 / 指令",
+        badge: "\u7528\u6237\u8F93\u5165",
+        caption: "\u9700\u6C42 / \u6307\u4EE4",
         avatar: "U"
       };
     }
     if (msg.role === "tool") {
       return {
-        badge: "工具输出",
-        caption: "执行结果",
+        badge: "\u5DE5\u5177\u8F93\u51FA",
+        caption: "\u6267\u884C\u7ED3\u679C",
         avatar: "T"
       };
     }
     return {
-      badge: "系统响应",
-      caption: "分析 / 解释",
+      badge: "\u7CFB\u7EDF\u54CD\u5E94",
+      caption: "\u5206\u6790 / \u89E3\u91CA",
       avatar: "A"
     };
-  }
-  function compactToolText(content) {
-    return content.replace(/\r\n/g, "\n").replace(/\n\s*\n+/g, "\n").trim();
   }
   async function renderMessage(msg, idx) {
     const messagesEl = document.getElementById("messages");
@@ -567,25 +591,23 @@ $$
     messagesEl.appendChild(node);
     const thinkMs = Math.min(600, 200 + msg.content.length / 20);
     await new Promise((r) => setTimeout(r, thinkMs));
-    const messageContent = msg.role === "tool" ? compactToolText(msg.content) : msg.content;
     try {
-      const html = await renderMarkdown(messageContent);
+      const html = await renderMarkdown(msg.content);
       bubble.innerHTML = html;
-      bubble.dataset.content = messageContent;
+      bubble.dataset.content = msg.content;
     } catch (e) {
-      bubble.innerText = messageContent;
+      bubble.innerText = msg.content;
     }
     if (msg.role === "tool" && msg.info) {
       const infoDiv = node.getElementsByClassName("info")[0];
       const infoContent = node.getElementsByClassName("info-content")[0];
       if (infoDiv && infoContent) {
-        const compactInfo = compactToolText(msg.info);
         infoDiv.classList.remove("hidden");
         try {
-          const infoHtml = await renderMarkdown(compactInfo);
+          const infoHtml = await renderMarkdown(msg.info);
           infoContent.innerHTML = infoHtml;
         } catch (e) {
-          infoContent.innerText = compactInfo;
+          infoContent.innerText = msg.info;
         }
       }
     }

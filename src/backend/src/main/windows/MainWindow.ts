@@ -1064,6 +1064,7 @@ export class MainWindow extends BaseWindow {
                             this.windowManager.modelWindow?.window?.webContents.openDevTools();
                             this.windowManager.toolWindow?.window?.webContents.openDevTools();
                             this.windowManager.codeWindow?.window?.webContents.openDevTools();
+                            this.windowManager.demoWindow?.window?.webContents.openDevTools();
                         }
                     },
                 ]

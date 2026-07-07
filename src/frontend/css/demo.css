@@ -450,17 +450,17 @@ html, body {
 .demo-msg .message h2 { font-size: 17px; }
 .demo-msg .message h3 { font-size: 15px; }
 
-.demo-msg .message p { margin: 6px 0; line-height: 1.7; }
+.demo-msg .message p { margin: 3px 0; line-height: 1.58; }
 
 .demo-msg .message ul, .demo-msg .message ol {
-  margin: 8px 0;
-  padding-left: 24px;
+  margin: 4px 0;
+  padding-left: 22px;
 }
-.demo-msg .message li { margin: 4px 0; line-height: 1.65; }
+.demo-msg .message li { margin: 2px 0; line-height: 1.55; }
 
 .demo-msg .message blockquote {
-  margin: 10px 0;
-  padding: 8px 14px;
+  margin: 6px 0;
+  padding: 6px 12px;
   background: var(--primary-soft);
   border-left: 3px solid var(--primary);
   border-radius: 4px;
@@ -470,7 +470,7 @@ html, body {
 
 .demo-msg .message table {
   border-collapse: collapse;
-  margin: 10px 0;
+  margin: 6px 0;
   width: 100%;
   font-size: 13px;
 }
@@ -492,7 +492,7 @@ html, body {
   word-break: break-all;
   overflow-wrap: anywhere;
 }
-.demo-msg .message { word-break: break-word; overflow-wrap: anywhere; }
+.demo-msg .message { word-break: break-word; overflow-wrap: anywhere; line-height: 1.58; }
 .demo-msg .message p { word-break: break-word; overflow-wrap: anywhere; }
 .demo-msg .message li,
 .demo-msg .message td,
