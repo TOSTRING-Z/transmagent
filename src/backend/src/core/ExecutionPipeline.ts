@@ -219,6 +219,10 @@ export function createBackgroundMessageMiddleware(
                 logger.log(
                     `[BackgroundMsgMiddleware] Injecting agent message into session "${sessionId}"`
                 );
+            } else if (pending.type === 'external_task') {
+                logger.log(
+                    `[BackgroundMsgMiddleware] Injecting external task "${pending.taskId}" into session "${sessionId}"`
+                );
             }
 
             // 将完整的 pending 消息对象交给外层处理

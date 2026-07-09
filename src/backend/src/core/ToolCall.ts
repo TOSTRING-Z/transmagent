@@ -6,7 +6,7 @@ import { LLMBase, State, MODE_LABELS, MODE_KEYS } from './LLMBase';
 import { CHAT_CONST } from '../utils/globals';
 import { formatString } from '../utils/format';
 import { LLMService } from './LLMService';
-import { AssistantMessage, ChatState, Message, ToolInfo } from '../types';
+import { AssistantMessage, ChatState, Message, ToolInfo, UserMessage } from '../types';
 import { MCPClient } from './McpClient';
 import Prompts, { MODE_CONSTRAINTS } from './Prompts';
 import MemoryManager from '../data/MemoryManager';
@@ -32,7 +32,7 @@ import {
     createBackgroundMessageMiddleware,
     ConfirmationGate,
 } from './ExecutionPipeline';
-import { BackgroundTaskRegistry } from './BackgroundTaskRegistry';
+import { BackgroundTaskRegistry, PendingMessage } from './BackgroundTaskRegistry';
 
 const { all, any, not, always } = ToolDSL;
 const { isSubagent, isMode, hasArg, isAgentMode } = Primitives;
@@ -63,6 +63,7 @@ export interface EnvironmentDetails {
     system_arch: string;
     language: string;
     tmpdir: string;
+    session_id: string;
     time: string;
     envs: string | null;
     todolist: string | null;
@@ -85,7 +86,9 @@ type ExternalHookEventName =
     | 'tool_call_before'
     | 'tool_call_after'
     | 'background_task_before'
-    | 'background_task_after';
+    | 'background_task_after'
+    | 'external_task_before'
+    | 'external_task_after';
 
 type ToolPolicyFn = (ctx: {
     args: Record<string, any>;
@@ -150,6 +153,8 @@ export class ToolCall extends LLMBase {
         'tool_call_after',
         'background_task_before',
         'background_task_after',
+        'external_task_before',
+        'external_task_after',
     ]);
 
     constructor(
@@ -219,6 +224,7 @@ export class ToolCall extends LLMBase {
             system_arch: this.utils.getConfig("tool_call")?.system_arch || os.arch(),
             language: this.utils.getLanguage(),
             tmpdir: this.utils.getConfig("tool_call")?.tmpdir || os.tmpdir(),
+            session_id: this.llmService.chatManager.chat.id || '',
             time: formatDate(),
             envs: null,
             todolist: null,
@@ -300,9 +306,11 @@ export class ToolCall extends LLMBase {
             this.registeredBgSessionId = sessionId;
 
             BackgroundTaskRegistry.registerHandler(sessionId, (msg) => {
-                this.triggerExternalHook('background_task_before', {
+                const hookEventBase = msg.type === 'external_task' ? 'external_task' : 'background_task';
+                this.triggerExternalHook(`${hookEventBase}_before`, {
                     message_type: msg.type,
                     task_id: msg.taskId || null,
+                    source_path: msg.sourcePath || null,
                     content: msg.content,
                 });
 
@@ -314,34 +322,27 @@ export class ToolCall extends LLMBase {
                     return false;
                 }
 
-                let appendedText = '';
-                if (msg.type === 'task_result') {
-                    logger.log(`[ToolCall] Background handler: delivering task result "${msg.taskId}" to session "${sessionId}"`);
-                    appendedText = this.prompts.getTaskResultPrompt(msg.taskId || 'unknown_task', msg.content);
-                } else if (msg.type === 'agent_message') {
-                    logger.log(`[ToolCall] Background handler: delivering agent message to session "${sessionId}"`);
-                    appendedText = `\n${msg.content}`;
+                const appendedText = this.formatPendingMessage(msg);
+                if (!appendedText) {
+                    logger.warn(`[ToolCall] Background handler: unsupported message type "${msg.type}"`);
+                    return true;
                 }
 
                 const currentUUID = this.setUUID();
-                const messages = this.llmService.chatManager.messages;
-                const lastMsg = messages[messages.length - 1];
-                if (lastMsg) {
-                    lastMsg.content = (lastMsg.content || '') + appendedText;
-                }
+                const injectedContent = this.injectPendingMessage(msg, appendedText);
 
                 this.events.emitEvent('streamData', {
                     ...this.llmService.chatManager.chat,
-                    content: appendedText,
+                    content: injectedContent,
                     uuid: currentUUID,
                 });
 
-                const wakeReason = msg.type === 'task_result' ? `task "${msg.taskId}"` : 'incoming agent message';
+                const wakeReason = this.getPendingMessageWakeReason(msg);
                 logger.log(`[ToolCall] Waking agent from "${this.state}" state for ${wakeReason}`);
 
                 this.llmService.stopFlag = false;
                 const wakeData = this.getDataDefault({
-                    query: '[SYSTEM: A background task or agent message has been delivered above. Please review the injected information and respond to the user with a summary or acknowledgment.]',
+                    query: this.getPendingMessageWakePrompt(msg),
                 });
                 wakeData.uuid = currentUUID;
 
@@ -350,9 +351,10 @@ export class ToolCall extends LLMBase {
                         logger.error('[ToolCall] Background wake-up callReAct error:', err);
                     })
                     .finally(() => {
-                        this.triggerExternalHook('background_task_after', {
+                        this.triggerExternalHook(`${hookEventBase}_after`, {
                             message_type: msg.type,
                             task_id: msg.taskId || null,
+                            source_path: msg.sourcePath || null,
                             wake_reason: wakeReason,
                         });
                     });
@@ -362,22 +364,17 @@ export class ToolCall extends LLMBase {
         const bgMsgMW = createBackgroundMessageMiddleware(
             () => this.llmService.chatManager.chat.id,
             (msg) => {
-                let appendedText = '';
-                if (msg.type === 'task_result') {
-                    appendedText = this.prompts.getTaskResultPrompt(msg.taskId || 'unknown_task', msg.content);
-                } else if (msg.type === 'agent_message') {
-                    appendedText = `\n${msg.content}`;
+                const appendedText = this.formatPendingMessage(msg);
+                if (!appendedText) {
+                    logger.warn(`[ToolCall] Background middleware: unsupported message type "${msg.type}"`);
+                    return;
                 }
 
-                const messages = this.llmService.chatManager.messages;
-                const lastMsg = messages[messages.length - 1];
-                if (lastMsg) {
-                    lastMsg.content = (lastMsg.content || '') + appendedText;
-                }
+                const injectedContent = this.injectPendingMessage(msg, appendedText);
 
                 this.events.emitEvent('streamData', {
                     ...this.llmService.chatManager.chat,
-                    content: appendedText,
+                    content: injectedContent,
                     uuid: this.llmService.chatManager.uuid,
                 });
             },
@@ -398,6 +395,63 @@ export class ToolCall extends LLMBase {
 
     public destroy() {
         this.uiController?.destroy();
+    }
+
+    private formatPendingMessage(msg: PendingMessage): string {
+        if (msg.type === 'task_result') {
+            return this.prompts.getTaskResultPrompt(msg.taskId || 'unknown_task', msg.content);
+        }
+        if (msg.type === 'agent_message') {
+            return `\n${msg.content}`;
+        }
+        if (msg.type === 'external_task') {
+            const taskId = msg.taskId || 'unknown_task';
+            const sourcePath = msg.sourcePath || 'unknown_source';
+            return `\n\n[SYSTEM: External task "${taskId}" was injected from ${sourcePath}. Treat the markdown content below as a new task request to execute.]\n\n${msg.content}\n`;
+        }
+        return '';
+    }
+
+    private injectPendingMessage(msg: PendingMessage, appendedText: string): string {
+        const messages = this.llmService.chatManager.messages;
+        const lastMsg = messages[messages.length - 1];
+        if (!lastMsg && msg.type === 'external_task') {
+            const chat = this.llmService.chatManager.chat;
+            const userMsg: UserMessage = {
+                role: 'user',
+                content: msg.content,
+                group_id: chat.group_id,
+                context_id: chat.context_id,
+                show: true,
+                react: false,
+            };
+            messages.push(userMsg);
+            return msg.content;
+        }
+        if (lastMsg) {
+            lastMsg.content = (lastMsg.content || '') + appendedText;
+        }
+        return appendedText;
+    }
+
+    private getPendingMessageWakeReason(msg: PendingMessage): string {
+        if (msg.type === 'task_result') {
+            return `task "${msg.taskId}"`;
+        }
+        if (msg.type === 'agent_message') {
+            return 'incoming agent message';
+        }
+        if (msg.type === 'external_task') {
+            return `external task "${msg.taskId}"`;
+        }
+        return msg.type;
+    }
+
+    private getPendingMessageWakePrompt(msg: PendingMessage): string {
+        if (msg.type === 'external_task') {
+            return '[SYSTEM: An external markdown task has been injected above. Treat it as the latest task request, execute it according to the current mode, and then respond with progress or results.]';
+        }
+        return '[SYSTEM: A background task or agent message has been delivered above. Please review the injected information and respond to the user with a summary or acknowledgment.]';
     }
 
     private getHookConfig(): Record<string, ExternalHookDefinition> {
@@ -592,6 +646,7 @@ export class ToolCall extends LLMBase {
         this.llmService.environment_details.time = formatDate();
         this.llmService.environment_details.language = data?.language || this.utils.getLanguage();
         const chatState = this.llmService.chatManager.chat;
+        this.llmService.environment_details.session_id = chatState.id || '';
         const mainChatState = this.mainLLMService ? this.mainLLMService.chatManager.chat : chatState;
 
         const envs = Object.keys(mainChatState.envs || {}).map(key => {

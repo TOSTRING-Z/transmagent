@@ -9,6 +9,9 @@
  *   3. 前端实时展示 running/completed/failed 状态列表。
  */
 
+import * as fs from 'fs';
+import * as os from 'os';
+import * as path from 'path';
 import { logger } from '../utils/logger';
 
 export type BgTaskStatus = 'running' | 'completed' | 'failed' | 'idle';
@@ -30,10 +33,12 @@ export interface BgTaskInfo {
 
 /** 投递给主会话（前端）的消息结构 */
 export interface PendingMessage {
-    /** 区分消息来源：后台任务结果 vs 代理间通信推送到前端 */
-    type: 'task_result' | 'agent_message';
-    /** 任务ID（仅当 type 为 task_result 时存在） */
+    /** 区分消息来源：后台任务结果 / 代理间通信 / 外部任务注入 */
+    type: 'task_result' | 'agent_message' | 'external_task';
+    /** 任务ID（task_result / external_task 时存在） */
     taskId?: string;
+    /** 外部任务文件路径（仅当 type 为 external_task 时存在） */
+    sourcePath?: string;
     content: string;
     timestamp: number;
 }
@@ -81,6 +86,14 @@ export class BackgroundTaskRegistry {
 
     /** "${sessionId}::${agentName}" → 待投递的代理消息队列（监听器注册前暂存） */
     private static agentMsgQueues: Map<string, AgentMessage[]> = new Map();
+
+    /** 外部任务目录轮询器状态（全局扫描后按会话路由） */
+    private static externalTaskScheduler:
+        | { timer: NodeJS.Timeout; running: boolean }
+        | null = null;
+
+    private static readonly externalTaskDir = path.join(os.homedir(), '.transmagent', 'tasks');
+    private static readonly externalTaskPollMs = 1000;
 
     // ─── 生命周期追踪 ──────────────────────────────────────────────────────
 
@@ -325,6 +338,7 @@ export class BackgroundTaskRegistry {
 
     static registerHandler(sessionId: string, handler: SessionMessageHandler): void {
         this.handlers.set(sessionId, handler);
+        this.startExternalTaskScheduler();
         logger.log(`[BackgroundTaskRegistry] Handler registered for session "${sessionId}"`);
 
         const queued = this.pending.get(sessionId);
@@ -341,6 +355,9 @@ export class BackgroundTaskRegistry {
 
     static unregisterHandler(sessionId: string): void {
         this.handlers.delete(sessionId);
+        if (this.handlers.size === 0) {
+            this.stopExternalTaskScheduler();
+        }
         const queued = this.pending.get(sessionId);
         if (queued && queued.length > 0) {
             logger.warn(
@@ -500,7 +517,117 @@ export class BackgroundTaskRegistry {
         return msgs;
     }
 
+    private static startExternalTaskScheduler(): void {
+        if (this.externalTaskScheduler) {
+            return;
+        }
+
+        fs.mkdirSync(this.externalTaskDir, { recursive: true });
+
+        const timer = setInterval(() => {
+            void this.pollExternalTaskDirectory();
+        }, this.externalTaskPollMs);
+
+        this.externalTaskScheduler = { timer, running: false };
+        logger.log('[BackgroundTaskRegistry] External task scheduler started');
+
+        void this.pollExternalTaskDirectory();
+    }
+
+    private static stopExternalTaskScheduler(): void {
+        if (!this.externalTaskScheduler) {
+            return;
+        }
+
+        clearInterval(this.externalTaskScheduler.timer);
+        logger.log('[BackgroundTaskRegistry] External task scheduler stopped');
+        this.externalTaskScheduler = null;
+    }
+
+    private static async pollExternalTaskDirectory(): Promise<void> {
+        const scheduler = this.externalTaskScheduler;
+        if (!scheduler || scheduler.running) {
+            return;
+        }
+
+        scheduler.running = true;
+        try {
+            fs.mkdirSync(this.externalTaskDir, { recursive: true });
+            const files = fs.readdirSync(this.externalTaskDir)
+                .filter((name) => name.endsWith('.md'))
+                .sort();
+
+            for (const fileName of files) {
+                if (!this.externalTaskScheduler) {
+                    break;
+                }
+                this.consumeExternalTaskFile(path.join(this.externalTaskDir, fileName));
+            }
+        } catch (error: any) {
+            logger.error('[BackgroundTaskRegistry] Failed to poll external task directory:', error);
+        } finally {
+            if (this.externalTaskScheduler) {
+                this.externalTaskScheduler.running = false;
+            }
+        }
+    }
+
+    private static parseExternalTaskFileName(sourcePath: string): { sessionId: string; taskId: string } | null {
+        const baseName = path.basename(sourcePath, '.md');
+        const separatorIndex = baseName.indexOf('__');
+        if (separatorIndex <= 0 || separatorIndex >= baseName.length - 2) {
+            return null;
+        }
+
+        return {
+            sessionId: baseName.slice(0, separatorIndex),
+            taskId: baseName.slice(separatorIndex + 2),
+        };
+    }
+
+    private static consumeExternalTaskFile(sourcePath: string): void {
+        const routing = this.parseExternalTaskFileName(sourcePath);
+
+        try {
+            if (!routing) {
+                logger.warn(
+                    `[BackgroundTaskRegistry] External task file "${sourcePath}" has no session prefix, discarding`
+                );
+                fs.unlinkSync(sourcePath);
+                return;
+            }
+
+            const content = fs.readFileSync(sourcePath, 'utf-8').trim();
+            if (!content) {
+                logger.warn(
+                    `[BackgroundTaskRegistry] External task file "${sourcePath}" is empty, skipping`
+                );
+                fs.unlinkSync(sourcePath);
+                return;
+            }
+
+            const msg: PendingMessage = {
+                type: 'external_task',
+                taskId: routing.taskId,
+                sourcePath,
+                content,
+                timestamp: Date.now(),
+            };
+            this.deliverToMainSession(routing.sessionId, msg);
+            fs.unlinkSync(sourcePath);
+            logger.log(
+                `[BackgroundTaskRegistry] External task "${routing.taskId}" routed to session "${routing.sessionId}" from "${sourcePath}"`
+            );
+        } catch (error: any) {
+            logger.error(
+                `[BackgroundTaskRegistry] Failed to consume external task file "${sourcePath}":`,
+                error,
+            );
+        }
+    }
+
     static clear(): void {
+        this.stopExternalTaskScheduler();
         this.pending.clear();
         this.handlers.clear();
         this.tasks.clear();

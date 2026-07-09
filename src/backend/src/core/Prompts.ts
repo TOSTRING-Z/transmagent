@@ -319,6 +319,7 @@ ${(!isSubagent && hasMemory) ? `
 - **Time**: {time}
 - **Env**: {system_platform}/{system_arch} 
 - **CWD**: \`{tmpdir}\`
+- **Session ID**: \`{session_id}\`
 
 ### 🚨 CRITICAL EXECUTION CONSTRAINTS (MUST INFLUENCE ALL THOUGHTS)
 - **Target Response Language**: **{language}** > ⚠️ [MANDATORY] All thoughts, reasoning tokens, and final user replies MUST be strictly generated in or translated to this language.
