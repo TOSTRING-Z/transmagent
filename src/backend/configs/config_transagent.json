@@ -12,10 +12,6 @@
     "dimension": 1024,
     "enabled": false
   },
-  "heartbeat": {
-    "enabled": false,
-    "interval": 300
-  },
   "webserver": {
     "port": 3005
   },
@@ -202,6 +198,41 @@
     },
     "llm_params": {
       "stream": true
+    },
+    "external_hooks": {
+      "react_loop_before": {
+        "enabled": false,
+        "command": "python /path/to/hook.py",
+        "cwd": "/path/to/project"
+      },
+      "react_loop_after": {
+        "enabled": false,
+        "command": "python /path/to/hook.py"
+      },
+      "react_step_before": {
+        "enabled": false,
+        "command": "bash /path/to/hook.sh"
+      },
+      "react_step_after": {
+        "enabled": false,
+        "command": "bash /path/to/hook.sh"
+      },
+      "tool_call_before": {
+        "enabled": false,
+        "command": "bash /path/to/hook.sh"
+      },
+      "tool_call_after": {
+        "enabled": false,
+        "command": "bash /path/to/hook.sh"
+      },
+      "background_task_before": {
+        "enabled": false,
+        "command": "python /path/to/hook.py"
+      },
+      "background_task_after": {
+        "enabled": false,
+        "command": "python /path/to/hook.py"
+      }
     }
   },
   "code": {

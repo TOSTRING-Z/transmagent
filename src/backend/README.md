@@ -17,7 +17,7 @@ This project has been completely refactored using **TypeScript**, adopting **Ada
 
 ## 📁 Project Structure
 
-\`\`\`text
+```text
 ├── src/
 │   ├── main.ts                   # Electron App entry point
 │   ├── types.ts                  # Global TypeScript interfaces
@@ -54,33 +54,33 @@ This project has been completely refactored using **TypeScript**, adopting **Ada
 ├── build.js                      # Custom build script
 ├── package.json                  # Dependencies & Scripts
 └── tsconfig.json                 # TypeScript compiler options
-\`\`\`
+```
 
 ## 🚀 Getting Started
 
 ### 1. Install Dependencies
 Make sure you have Node.js 18+ installed (native `fetch` is used).
-\`\`\`bash
+```bash
 pnpm install
-\`\`\`
+```
 
 ### 2. Build the Project
 Compile the TypeScript code into the `./dist` directory. The custom build script will automatically clean up old artifacts.
-\`\`\`bash
+```bash
 pnpm run build
-\`\`\`
+```
 
 ### 3. Run the Application
 Launch the Electron application (reads from `dist/main.js`).
-\`\`\`bash
+```bash
 pnpm start
-\`\`\`
+```
 
 ### 4. Development Mode
 To auto-recompile when saving files, run the TypeScript watcher in one terminal:
-\`\`\`bash
+```bash
 pnpm run dev
-\`\`\`
+```
 Then restart the Electron app via `pnpm start` in another terminal to see changes.
 
 ## 🛠 Key Features
@@ -90,6 +90,21 @@ Then restart the Electron app via `pnpm start` in another terminal to see change
 - **Context Optimization**: Supports background tasks that automatically compress redundant memory context to save tokens.
 - **Native Code Assistance**: Provides specialized IPC handlers for code completion, code refactoring, and AST language detection via `CodeWindow`.
 - **SSH / File Transfer**: Securely transfer files to remote environments directly via the native UI.
+
+## 🔌 Hook Integration
+
+External hook examples and integration docs are available here:
+
+- `examples/hooks/README.md`
+- `docs/hook_development.md`
+- `docs/hook_system_prompt.md`
+- `src/core/prompts/hook_aware_agent.ts`
+
+Current runtime notes:
+
+- Hook runtime config should be changed in the installed user config copy under `~/.transmagent/configs/`, not by editing repository example configs.
+- Hook definitions belong under `tool_call.external_hooks`.
+- Scheduler-side external task injection is handled through `heartbeat_before` / `heartbeat_after` hook outputs.
 
 ## 📝 License
 ISC

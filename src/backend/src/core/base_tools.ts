@@ -206,7 +206,7 @@ This tool accesses the in-memory array of the CURRENT session. When context leng
         },
 
         "add_subtasks": {
-            func: async ({ task_id, task, subtasks, task_type = "standard", trigger_condition = null, update_mode = "append", toolCall }: { task_id?: string, task?: string, subtasks: string | string[], task_type?: string, trigger_condition?: string | null, update_mode?: string, toolCall: any }) => {
+            func: async ({ task_id, task, subtasks, update_mode = "append", toolCall }: { task_id?: string, task?: string, subtasks: string | string[], update_mode?: string, toolCall: any }) => {
                 const chatVars = toolCall.llmService.chatManager.chat.vars;
                 // 确保 tasks 始终是对象格式（防止被其他代码设置为数组）
                 if (!chatVars.tasks || Array.isArray(chatVars.tasks)) {
@@ -216,7 +216,6 @@ This tool accesses the in-memory array of the CURRENT session. When context leng
                 chatVars.task_id_counter = chatVars.task_id_counter ?? 1;
 
                 if (!subtasks || subtasks.length === 0) return { status: "error", message: "Missing 'subtasks'." };
-                if (task_type === "recurring" && !trigger_condition) return { status: "error", message: "Recurring tasks MUST have a 'trigger_condition'." };
 
                 let targetTaskId: string | undefined = task_id;
                 const isUpdate = targetTaskId ? !!chatVars.tasks[targetTaskId] : false;
@@ -227,19 +226,16 @@ This tool accesses the in-memory array of the CURRENT session. When context leng
                     chatVars.tasks[targetTaskId] = {
                         id: targetTaskId,
                         task_title: task,
-                        type: task_type,
-                        trigger_condition: trigger_condition || null,
+                        type: "standard",
                         subtasks: [],
                         created_at: new Date().toISOString(),
                         last_completed_at: null,
                         execution_count: 0,
-                        cycle_status: "active"
                     };
                 }
 
                 const targetTask = chatVars.tasks[targetTaskId!];
 
-                // 替换旧的 pending 任务，用于开启新一轮循环或重新规划
                 if (update_mode === "replace_pending") {
                     targetTask.subtasks = targetTask.subtasks.filter((s: any) => s.status !== "pending");
                 }
@@ -254,26 +250,16 @@ This tool accesses the in-memory array of the CURRENT session. When context leng
 
                 targetTask.subtasks.push(...subtaskList);
 
-                // 如果在更新循环任务，自动唤醒该任务进入 active 状态
-                if (isUpdate && targetTask.type === "recurring") {
-                    targetTask.cycle_status = "active";
-                    // 如果更改了触发条件，顺便更新
-                    if (trigger_condition) targetTask.trigger_condition = trigger_condition;
-                }
-                if (task_type === "recurring" && typeof toolCall.agent?.setupHeartbeat === 'function') {
-                    toolCall.agent.setupHeartbeat();
-                }
-
                 return {
                     status: "success",
-                    message: isUpdate ? `Task [${targetTaskId}] updated and awakened for new cycle.` : `New recurring task created with ID [${targetTaskId}].`,
+                    message: isUpdate ? `Task [${targetTaskId}] updated.` : `New task created with ID [${targetTaskId}].`,
                     task_id: targetTaskId,
                     subtasks_added: subtaskList.map(s => ({ id: s.id, description: s.description }))
                 };
             },
             getPrompt: () => ({
                 name: "add_subtasks",
-                description: "[IN-SESSION WORKFLOW & CRON REGISTRY] Break down complex goals, REPLAN, or register PERIODIC/SCHEDULED tasks.\n\nCRITICAL: To monitor something or run periodically (e.g., 'every 5 mins'), use task_type='recurring' and set trigger_condition. DO NOT write Bash loops.\nWhen an explicit 'heartbeat prompt' triggers you, use update_mode='replace_pending' and pass this task_id to inject the subtasks for the NEXT cycle.",
+                description: "[IN-SESSION WORKFLOW] Break down complex goals or REPLAN the current task into actionable milestones.",
                 parameters: {
                     type: "object",
                     properties: {
@@ -282,15 +268,13 @@ This tool accesses the in-memory array of the CURRENT session. When context leng
                         subtasks: {
                             type: "array",
                             items: { type: "string" },
-                            description: "List of actionable milestones for the current cycle."
+                            description: "List of actionable milestones for the current task."
                         },
                         update_mode: {
                             type: "string",
                             enum: ["append", "replace_pending"],
-                            description: "Default 'append'. Use 'replace_pending' to clear old pending steps and inject steps for a NEW recurring cycle."
-                        },
-                        task_type: { type: "string", enum: ["standard", "recurring"], description: "Type of task." },
-                        trigger_condition: { type: "string", description: "Required if recurring (e.g., 'Every 5 minutes')." }
+                            description: "Default 'append'. Use 'replace_pending' to clear old pending subtasks before injecting the new plan."
+                        }
                     },
                     required: ["subtasks"]
                 }
@@ -305,11 +289,9 @@ This tool accesses the in-memory array of the CURRENT session. When context leng
                 let skippedCount = 0;
                 const now = new Date().toISOString();
 
-                let recurringTasksToCheck = new Set<any>();
                 let remainingPendingCount = 0;
 
                 Object.values(chatVars.tasks || {}).forEach((task: any) => {
-                    let taskModified = false;
                     task.subtasks.forEach((sub: any) => {
                         if (ids.has(Number(sub.id))) {
                             if (sub.status === "completed" && status !== "completed") {
@@ -320,11 +302,9 @@ This tool accesses the in-memory array of the CURRENT session. When context leng
                             if (reflection) sub.reflection = reflection;
                             sub.updated_at = now;
                             updatedCount++;
-                            taskModified = true;
                         }
                         if (sub.status === "pending") remainingPendingCount++;
                     });
-                    if (taskModified && task.type === "recurring") recurringTasksToCheck.add(task);
                 });
 
                 if (updatedCount === 0) {
@@ -336,12 +316,11 @@ This tool accesses the in-memory array of the CURRENT session. When context leng
                     };
                 }
 
-                recurringTasksToCheck.forEach((task: any) => {
+                Object.values(chatVars.tasks || {}).forEach((task: any) => {
                     const allDone = task.subtasks.every((s: any) => ["completed", "failed"].includes(s.status));
                     if (allDone) {
                         task.last_completed_at = now;
                         task.execution_count = (task.execution_count || 0) + 1;
-                        task.cycle_status = "cycle_wait";
                     }
                 });
 

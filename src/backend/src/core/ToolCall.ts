@@ -1,4 +1,7 @@
+import * as fs from 'fs';
 import * as os from 'os';
+import { spawn, type ChildProcessByStdio } from 'child_process';
+import type { Readable } from 'stream';
 import { LLMBase, State, MODE_LABELS, MODE_KEYS } from './LLMBase';
 import { CHAT_CONST } from '../utils/globals';
 import { formatString } from '../utils/format';
@@ -20,7 +23,6 @@ import { BrowserWindow } from 'electron/main';
 import { formatDate, getHistoryChat, getSessionId, parseJsonContent } from '../utils/public';
 import { SkillManager } from './SkillManager';
 import { AgentEventEmitter, ElectronUIController } from './AgentEventEmitter';
-import { TaskScheduler, ISchedulableAgent } from './TaskScheduler';
 import {
     ExecutionContext,
     ExecutionPipeline,
@@ -67,6 +69,24 @@ export interface EnvironmentDetails {
     skills?: string;
 }
 
+interface ExternalHookDefinition {
+    command?: string;
+    cwd?: string;
+    shell?: boolean | string;
+    env?: Record<string, string>;
+    enabled?: boolean;
+}
+
+type ExternalHookEventName =
+    | 'react_loop_before'
+    | 'react_loop_after'
+    | 'react_step_before'
+    | 'react_step_after'
+    | 'tool_call_before'
+    | 'tool_call_after'
+    | 'background_task_before'
+    | 'background_task_after';
+
 type ToolPolicyFn = (ctx: {
     args: Record<string, any>;
     env: Record<string, any>;
@@ -90,7 +110,7 @@ const TOOL_POLICY: Record<string, ToolPolicyFn> = {
     'deep_researcher': isMode('PLAN'),
 };
 
-export class ToolCall extends LLMBase implements ISchedulableAgent {
+export class ToolCall extends LLMBase {
     public plugins: Plugins;
     public mcp_client: MCPClient;
     public agentConfigs: AgentConfigs;
@@ -118,10 +138,19 @@ export class ToolCall extends LLMBase implements ISchedulableAgent {
 
     public readonly events: AgentEventEmitter;
     private uiController: ElectronUIController | null = null;
-    private scheduler: TaskScheduler | null = null;
     private pipeline!: ExecutionPipeline;
     private rememberedChoices: Record<string, boolean> = {};
     private registeredBgSessionId: string | null = null;
+    private readonly externalHookEvents = new Set<ExternalHookEventName>([
+        'react_loop_before',
+        'react_loop_after',
+        'react_step_before',
+        'react_step_after',
+        'tool_call_before',
+        'tool_call_after',
+        'background_task_before',
+        'background_task_after',
+    ]);
 
     constructor(
         plugins: Plugins,
@@ -167,11 +196,6 @@ export class ToolCall extends LLMBase implements ISchedulableAgent {
 
         this.events = new AgentEventEmitter();
         this.uiController = new ElectronUIController(this.events, window);
-
-        if (!agentConfigs.subagent) {
-            this.scheduler = new TaskScheduler(this);
-            this.scheduler.start();
-        }
 
         this.buildPipeline();
     }
@@ -276,6 +300,12 @@ export class ToolCall extends LLMBase implements ISchedulableAgent {
             this.registeredBgSessionId = sessionId;
 
             BackgroundTaskRegistry.registerHandler(sessionId, (msg) => {
+                this.triggerExternalHook('background_task_before', {
+                    message_type: msg.type,
+                    task_id: msg.taskId || null,
+                    content: msg.content,
+                });
+
                 if (this.state !== State.IDLE && this.state !== State.FINAL) {
                     logger.log(
                         `[ToolCall] Background handler: agent is active (${this.state}), ` +
@@ -315,9 +345,17 @@ export class ToolCall extends LLMBase implements ISchedulableAgent {
                 });
                 wakeData.uuid = currentUUID;
 
-                this.callReAct(wakeData, false, true).catch((err) => {
-                    logger.error('[ToolCall] Background wake-up callReAct error:', err);
-                });
+                this.callReAct(wakeData, false, true)
+                    .catch((err) => {
+                        logger.error('[ToolCall] Background wake-up callReAct error:', err);
+                    })
+                    .finally(() => {
+                        this.triggerExternalHook('background_task_after', {
+                            message_type: msg.type,
+                            task_id: msg.taskId || null,
+                            wake_reason: wakeReason,
+                        });
+                    });
             });
         }
 
@@ -359,8 +397,108 @@ export class ToolCall extends LLMBase implements ISchedulableAgent {
     }
 
     public destroy() {
-        this.scheduler?.stop();
         this.uiController?.destroy();
+    }
+
+    private getHookConfig(): Record<string, ExternalHookDefinition> {
+        return this.utils.getConfig("tool_call")?.external_hooks || {};
+    }
+
+    private getHookDefinition(eventName: ExternalHookEventName): ExternalHookDefinition | null {
+        if (!this.externalHookEvents.has(eventName)) return null;
+        const definition = this.getHookConfig()?.[eventName];
+        if (!definition?.command || definition.enabled === false) return null;
+        return definition;
+    }
+
+    private async triggerExternalHook(
+        eventName: ExternalHookEventName,
+        payload: Record<string, any> = {},
+        options: { waitForCompletion?: boolean } = {},
+    ): Promise<any> {
+        const definition = this.getHookDefinition(eventName);
+        if (!definition) return null;
+
+        const chat = this.llmService.chatManager.chat;
+        const hookPayload = {
+            event: eventName,
+            timestamp: new Date().toISOString(),
+            agent_name: this.agentConfigs.agentName || 'main',
+            session_id: chat.id,
+            group_id: chat.group_id,
+            context_id: chat.context_id,
+            step: chat.step,
+            state: this.state,
+            mode: chat.mode,
+            payload,
+        };
+
+        try {
+            const command = definition.command;
+            if (!command) return;
+
+            const child: ChildProcessByStdio<null, Readable, Readable> = spawn(command, {
+                cwd: definition.cwd,
+                env: {
+                    ...process.env,
+                    ...(definition.env || {}),
+                    TRANSMAGENT_HOOK_EVENT: eventName,
+                    TRANSMAGENT_HOOK_PAYLOAD: JSON.stringify(hookPayload),
+                },
+                shell: definition.shell ?? true,
+                stdio: ['ignore', 'pipe', 'pipe'],
+                detached: false,
+            });
+
+            let stdout = '';
+            child.stdout?.on('data', (chunk) => {
+                const text = chunk.toString();
+                stdout += text;
+                const trimmed = text.trim();
+                if (trimmed) logger.log(`[Hook:${eventName}] ${trimmed}`);
+            });
+
+            child.stderr?.on('data', (chunk) => {
+                const text = chunk.toString().trim();
+                if (text) logger.warn(`[Hook:${eventName}:stderr] ${text}`);
+            });
+
+            child.on('error', (error) => {
+                logger.error(`[Hook:${eventName}] spawn failed:`, error);
+            });
+
+            if (!options.waitForCompletion) {
+                child.on('close', (code, signal) => {
+                    if (code && code !== 0) {
+                        logger.warn(`[Hook:${eventName}] exited with code=${code}, signal=${signal || 'none'}`);
+                    }
+                });
+                return null;
+            }
+
+            return await new Promise((resolve, reject) => {
+                child.on('close', (code, signal) => {
+                    if (code && code !== 0) {
+                        logger.warn(`[Hook:${eventName}] exited with code=${code}, signal=${signal || 'none'}`);
+                    }
+                    const trimmed = stdout.trim();
+                    if (!trimmed) {
+                        resolve(null);
+                        return;
+                    }
+                    try {
+                        resolve(JSON.parse(trimmed));
+                    } catch {
+                        logger.warn(`[Hook:${eventName}] returned non-JSON payload, ignored.`);
+                        resolve(null);
+                    }
+                });
+                child.on('error', reject);
+            });
+        } catch (error) {
+            logger.error(`[Hook:${eventName}] trigger failed:`, error);
+            return null;
+        }
     }
 
     public getToolConfig(toolName: string): any {
@@ -524,7 +662,10 @@ export class ToolCall extends LLMBase implements ISchedulableAgent {
     public async step(data: Record<string, any>): Promise<boolean> {
         if (this.state === State.IDLE) this.state = State.RUNNING;
 
-        const isHeartbeat = this.llmAssistant.detectHeartbeat(data.query);
+        this.triggerExternalHook('react_step_before', {
+            query: data.query,
+            uuid: data.uuid,
+        });
 
         if (!this.mcp_prompt) {
             await this.mcp_client.initMcp();
@@ -547,6 +688,11 @@ export class ToolCall extends LLMBase implements ISchedulableAgent {
                 ...this.llmService.chatManager.chat,
                 content: `Tool Info Error\n`,
                 uuid: data.uuid,
+            });
+            this.triggerExternalHook('react_step_after', {
+                query: data.query,
+                uuid: data.uuid,
+                status: 'no_message_output',
             });
             return false;
         }
@@ -580,19 +726,17 @@ export class ToolCall extends LLMBase implements ISchedulableAgent {
                 ...this.llmService.chatManager.chat, content: error_message, uuid: data.uuid, end: true,
             });
             this.state = State.ERROR;
+            this.triggerExternalHook('react_step_after', {
+                query: data.query,
+                uuid: data.uuid,
+                status: 'error',
+                error_message,
+            });
             return false;
         }
 
         const hasTool = this.toolInfos.some(t => t.tool_call_name);
         const hasError = this.toolInfos.some(t => t.error);
-
-        if (isHeartbeat && this.llmAssistant.resolveHeartbeatReview(
-            this.toolInfos,
-            this.llmService.chatManager.messages,
-        )) {
-            this.state = State.FINAL;
-            return false;
-        }
 
         if (hasTool || hasError) {
             this.llmService.chatManager.pushAssistantMessageWithToolCalls({
@@ -606,6 +750,12 @@ export class ToolCall extends LLMBase implements ISchedulableAgent {
                 ...this.llmService.chatManager.chat, ...messageOutput, uuid: data.uuid, end: true,
             });
             this.state = State.FINAL;
+            this.triggerExternalHook('react_step_after', {
+                query: data.query,
+                uuid: data.uuid,
+                status: 'final_answer',
+                has_tool: false,
+            });
             return false;
         }
 
@@ -659,6 +809,12 @@ export class ToolCall extends LLMBase implements ISchedulableAgent {
             // 🌟 核心拦截机制：若当前管道上下文返回挂起信号，或者 state 已经转换为 PAUSE，立刻强行拦截并返回中断标识
             if (ctx.suspendLoop || this.state === State.PAUSE) {
                 this.state = State.PAUSE; // 强制校准状态机
+                this.triggerExternalHook('react_step_after', {
+                    query: data.query,
+                    uuid: data.uuid,
+                    status: 'paused',
+                    tool_name: toolInfo.tool_call_name,
+                });
                 return true;
             }
         }
@@ -667,6 +823,13 @@ export class ToolCall extends LLMBase implements ISchedulableAgent {
         if (chat.tokens >= chat.max_tokens) {
             this.llmAssistant.kvCacheSummary(data);
         }
+
+        this.triggerExternalHook('react_step_after', {
+            query: data.query,
+            uuid: data.uuid,
+            status: 'completed',
+            tool_count: this.toolInfos.length,
+        });
 
         return false;
     }
@@ -698,8 +861,14 @@ export class ToolCall extends LLMBase implements ISchedulableAgent {
     }
 
     public async act(toolInfo: ToolInfo): Promise<Observation> {
-        let observation: Observation;
+        let observation: Observation = { result: "" };
         let checkInterval: NodeJS.Timeout | null = null;
+
+        this.triggerExternalHook('tool_call_before', {
+            tool_name: toolInfo.tool_call_name,
+            tool_call_id: toolInfo.tool_call_id,
+            params: toolInfo.params,
+        });
 
         try {
             if (
@@ -754,6 +923,12 @@ export class ToolCall extends LLMBase implements ISchedulableAgent {
             }
         } finally {
             if (checkInterval) clearInterval(checkInterval);
+            this.triggerExternalHook('tool_call_after', {
+                tool_name: toolInfo.tool_call_name,
+                tool_call_id: toolInfo.tool_call_id,
+                params: toolInfo.params,
+                observation,
+            });
         }
         return observation!;
     }
@@ -824,6 +999,12 @@ export class ToolCall extends LLMBase implements ISchedulableAgent {
 
     public async callReAct(data: Record<string, any>, setUUID: boolean = true, skipInitialPush: boolean = false): Promise<any> {
         if (setUUID) this.setUUID(data);
+
+        this.triggerExternalHook('react_loop_before', {
+            query: data.query,
+            skip_initial_push: skipInitialPush,
+            set_uuid: setUUID,
+        });
 
         const chat = this.llmService.chatManager.chat;
 
@@ -917,6 +1098,13 @@ export class ToolCall extends LLMBase implements ISchedulableAgent {
             this.events.emitEvent('agentIdle', { ...chat, uuid: data.uuid });
             this.sendData(data);
         }
+
+        this.triggerExternalHook('react_loop_after', {
+            query: data.query,
+            final_state: this.state,
+            seconds: chat.seconds,
+            step: chat.step,
+        });
 
         return data;
     }

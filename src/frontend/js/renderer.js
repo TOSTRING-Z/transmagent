@@ -760,12 +760,7 @@ ${DOM.input.value}`;
         ai_model.appendChild(option);
       }
     }
-    const session_ai_model = document.getElementById("session-ai-model");
-    if (session_ai_model)
-      session_ai_model.innerHTML = ai_model.innerHTML;
     if (State.chat && State.chat.model) {
-      if (session_ai_model)
-        session_ai_model.value = State.chat.model;
       ai_model.value = State.chat.model;
       api_url.value = config.models[State.chat.model]?.api_url || "";
       api_key.value = config.models[State.chat.model]?.api_key || "";
@@ -817,18 +812,6 @@ ${DOM.input.value}`;
     const app_language = document.getElementById("app-language");
     if (app_language)
       app_language.value = config.tool_call?.language || "english";
-    const vision_api_url = document.getElementById("vision-api-url");
-    if (vision_api_url)
-      vision_api_url.value = config.plugins?.image_vision?.params?.api_url || "";
-    const vision_api_key = document.getElementById("vision-api-key");
-    if (vision_api_key)
-      vision_api_key.value = config.plugins?.image_vision?.params?.api_key || "";
-    const vision_model = document.getElementById("vision-model");
-    if (vision_model)
-      vision_model.value = config.plugins?.image_vision?.params?.model || "";
-    const python_execute_bin = document.getElementById("python-execute-bin");
-    if (python_execute_bin)
-      python_execute_bin.value = config.python_execute?.params?.python_bin || "";
   }
   function hideConfig() {
     if (window._bgAutoRefresh) {
@@ -840,7 +823,6 @@ ${DOM.input.value}`;
   async function saveConfig() {
     const config = await window.electronAPI.getConfig();
     const ai_model = document.getElementById("ai-model").value;
-    const session_ai_model = document.getElementById("session-ai-model");
     const api_url = document.getElementById("api-url").value;
     const api_key = document.getElementById("api-key").value;
     if (!config.models)
@@ -849,8 +831,6 @@ ${DOM.input.value}`;
       config.models[ai_model] = { api_url: "", api_key: "" };
     config.models[ai_model].api_url = api_url;
     config.models[ai_model].api_key = api_key;
-    if (session_ai_model)
-      State.chat.model = session_ai_model.value || State.chat.model;
     State.chat.compress_context = DOM.compress_box.checked;
     const memoryLength = document.getElementById("memory-length");
     if (memoryLength)
@@ -886,20 +866,6 @@ ${DOM.input.value}`;
     if (!config.tool_call)
       config.tool_call = {};
     config.tool_call.language = app_language?.value || "english";
-    if (!config.plugins)
-      config.plugins = {};
-    if (!config.plugins.image_vision)
-      config.plugins.image_vision = {};
-    if (!config.plugins.image_vision.params)
-      config.plugins.image_vision.params = {};
-    config.plugins.image_vision.params.api_url = document.getElementById("vision-api-url")?.value || "";
-    config.plugins.image_vision.params.api_key = document.getElementById("vision-api-key")?.value || "";
-    config.plugins.image_vision.params.model = document.getElementById("vision-model")?.value || "";
-    if (!config.python_execute)
-      config.python_execute = {};
-    if (!config.python_execute.params)
-      config.python_execute.params = {};
-    config.python_execute.params.python_bin = document.getElementById("python-execute-bin")?.value || "";
     await window.electronAPI.setConfig(config);
     if (typeof showLog === "function")
       showLog("success", "Configuration saved successfully!");
@@ -924,18 +890,8 @@ ${DOM.input.value}`;
     target.appendChild(loading);
     try {
       if (kind === "all") {
-        const visionConfig = {
-          plugins: {
-            image_vision: {
-              params: {
-                api_url: document.getElementById("vision-api-url")?.value?.trim() || "",
-                api_key: document.getElementById("vision-api-key")?.value?.trim() || "",
-                model: document.getElementById("vision-model")?.value?.trim() || ""
-              }
-            }
-          }
-        };
-        const results = await window.electronAPI.verifyAll({ visionConfig });
+        const pythonBin = document.getElementById("verify-python-bin")?.value?.trim();
+        const results = await window.electronAPI.verifyAll({ pythonBin });
         target.innerHTML = "";
         if (results.file)
           renderVerifyResult(target, "File", results.file);
@@ -963,21 +919,12 @@ ${DOM.input.value}`;
         target.innerHTML = "";
         renderVerifyResult(target, "MCP", result);
       } else if (kind === "python") {
-        const result = await window.electronAPI.verifyPython();
+        const pythonBin = document.getElementById("verify-python-bin")?.value?.trim() || "";
+        const result = await window.electronAPI.verifyPython(pythonBin);
         target.innerHTML = "";
         renderVerifyResult(target, "Python (python_execute)", result);
       } else if (kind === "vision") {
-        const result = await window.electronAPI.verifyVision({
-          plugins: {
-            image_vision: {
-              params: {
-                api_url: document.getElementById("vision-api-url")?.value?.trim() || "",
-                api_key: document.getElementById("vision-api-key")?.value?.trim() || "",
-                model: document.getElementById("vision-model")?.value?.trim() || ""
-              }
-            }
-          }
-        });
+        const result = await window.electronAPI.verifyVision({});
         target.innerHTML = "";
         renderVerifyResult(target, "Vision (image_vision)", result);
       }
